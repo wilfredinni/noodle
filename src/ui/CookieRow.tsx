@@ -104,6 +104,8 @@ export function CookieRow({
       id={id}
       style={{
         flexDirection: "column",
+        flexGrow: 1,
+        minWidth: 0,
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor:
@@ -119,7 +121,7 @@ export function CookieRow({
       onMouseOver={() => onHover(true)}
       onMouseOut={() => onHover(false)}
     >
-      <box style={{ flexDirection: "row", minWidth: 0 }}>
+      <box style={{ flexDirection: "row", flexGrow: 1, minWidth: 0 }}>
         <box style={{ width: COOKIE_CHEVRON_WIDTH, flexShrink: 0 }}>
           <text fg={selected ? theme.text : theme.textMuted}>{chevron}</text>
         </box>

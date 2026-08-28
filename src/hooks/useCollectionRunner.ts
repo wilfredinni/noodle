@@ -49,6 +49,7 @@ export interface UseCollectionRunnerResult {
   requestIndex: number
   requestRowIndex: number
   resultIndex: number
+  resultExpandedId: string | null
   editingOption: RunnerEditingOption
   editValue: string
   selectOpen: boolean
@@ -64,6 +65,7 @@ export interface UseCollectionRunnerResult {
   setRequestIndex: (index: number) => void
   setRequestRowIndex: (index: number) => void
   setResultIndex: (index: number) => void
+  toggleResultExpanded: (index?: number) => void
   optionUp: () => void
   optionDown: () => void
   requestUp: () => void
@@ -153,6 +155,7 @@ export function useCollectionRunner({
   const [requestIndex, setRequestIndexState] = useState(0)
   const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
+  const [resultExpandedId, setResultExpandedId] = useState<string | null>(null)
   const [editingOption, setEditingOption] = useState<RunnerEditingOption>(null)
   const [editValue, setEditValue] = useState("")
   const [selectOpen, setSelectOpen] = useState(false)
@@ -173,6 +176,7 @@ export function useCollectionRunner({
     setRequestIndexState(0)
     setRequestRowIndex(0)
     setResultIndex(0)
+    setResultExpandedId(null)
     setEditingOption(null)
     setEditValue("")
     setSelectOpen(false)
@@ -266,6 +270,14 @@ export function useCollectionRunner({
   const resultLast = useCallback(
     () => setResultIndex(Math.max(0, resultRows.length - 1)),
     [resultRows.length],
+  )
+  const toggleResultExpanded = useCallback(
+    (index = resultIndex) => {
+      const row = resultRows[index]
+      if (!row) return
+      setResultExpandedId((current) => (current === row.id ? null : row.id))
+    },
+    [resultIndex, resultRows],
   )
 
   const toggleFolder = useCallback(
@@ -366,6 +378,7 @@ export function useCollectionRunner({
     setRunError(null)
     setResult(null)
     setResultIndex(0)
+    setResultExpandedId(null)
     setProgress({ completed: 0, total: ids.length })
     setPhase("running")
     try {
@@ -430,6 +443,7 @@ export function useCollectionRunner({
     requestIndex,
     requestRowIndex,
     resultIndex,
+    resultExpandedId,
     editingOption,
     editValue,
     selectOpen,
@@ -445,6 +459,7 @@ export function useCollectionRunner({
     setRequestIndex,
     setRequestRowIndex,
     setResultIndex,
+    toggleResultExpanded,
     optionUp,
     optionDown,
     requestUp,

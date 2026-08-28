@@ -1,7 +1,6 @@
 import {
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -25,9 +24,10 @@ import type { CollectionItem, Request } from "../schema"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
 import { FullBorder, LeftBar } from "./borders"
-import { Tabs, type TabDef } from "./Tabs"
+import { Tabs } from "./Tabs"
 import { Checkbox } from "./Checkbox"
 import { Select } from "./Select"
+import { COOKIE_CHEVRON_WIDTH, CookieRow } from "./CookieRow"
 import { ResponseResults } from "./ResponseResults"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
@@ -51,12 +51,52 @@ const OPTION_DESCRIPTIONS = [
   "Run the selected requests with the options above.",
 ] as const
 
-function resultLabel(row: RunnerResultRow): string {
-  if (row.kind === "skipped") return `- ${row.id}  skipped`
-  const status = row.result.response
-    ? `${row.result.response.status} ${row.result.response.statusText}`
-    : "error"
-  return `${row.result.ok ? "✓" : "✗"} ${row.id}  ${status}`
+function resultStatusLabel(row: RunnerResultRow): string {
+  if (row.kind === "skipped") return "Skipped"
+  if (!row.result.response) return "error"
+  return `${row.result.response.status} ${row.result.response.statusText}`
+}
+
+function resultRowValue(row: RunnerResultRow): string {
+  if (row.kind === "skipped") return resultStatusLabel(row)
+  const status = resultStatusLabel(row)
+  const timing = row.result.response
+    ? ` · ${Math.round(row.result.response.timeMs)}ms`
+    : ""
+  return `${row.result.method} ${status}${timing}`
+}
+
+function resultDetails(row: RunnerResultRow) {
+  if (row.kind === "skipped") {
+    return [{ label: "Status", value: "Skipped by fail-fast." }]
+  }
+
+  const details = [
+    { label: "Method", value: row.result.method },
+    { label: "URL", value: row.result.url },
+  ]
+  if (row.result.response) {
+    details.push(
+      {
+        label: "Status",
+        value: `${row.result.response.status} ${row.result.response.statusText} · ${Math.round(row.result.response.timeMs)}ms`,
+      },
+      {
+        label: "Headers",
+        value:
+          Object.entries(row.result.response.headers)
+            .map(([name, value]) => `${name}: ${value}`)
+            .join("\n") || "(none)",
+      },
+      { label: "Body", value: row.result.response.body || "(no body)" },
+    )
+  }
+  if (row.result.error)
+    details.push({ label: "Error", value: row.result.error })
+  for (const [index, warning] of (row.result.warnings ?? []).entries()) {
+    details.push({ label: `Warning ${index + 1}`, value: warning })
+  }
+  return details
 }
 
 function requestTagLabel(tags: string[]): string {
@@ -144,7 +184,6 @@ export function CollectionRunnerView({
   const inputRef = useRef<InputRenderable | null>(null)
   const optionScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const requestScrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const resultScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const splitContainerRef = useRef<BoxRenderable | null>(null)
   const resizingSplitRef = useRef(false)
   const splitDraggedRef = useRef(false)
@@ -152,17 +191,6 @@ export function CollectionRunnerView({
     null,
   )
   const [splitRatio, setSplitRatio] = useState(0.5)
-  const activeResult = runner.resultRows[runner.resultIndex]
-  const activeRequest = activeResult
-    ? runner.requests.find((request) => request.id === activeResult.id)
-    : undefined
-  const tabs = useMemo<TabDef[]>(
-    () => [
-      { id: "configure", label: "Configure" },
-      ...(runner.result ? [{ id: "results", label: "Results" }] : []),
-    ],
-    [runner.result],
-  )
 
   useEffect(() => {
     optionScrollRef.current?.scrollChildIntoView(
@@ -178,10 +206,9 @@ export function CollectionRunnerView({
     )
   }, [runner.requestRowIndex])
   useEffect(() => {
-    resultScrollRef.current?.scrollChildIntoView(
+    detailScrollRef.current?.scrollChildIntoView(
       `runner-result-${runner.resultIndex}`,
     )
-    detailScrollRef.current?.scrollTo(0)
   }, [runner.resultIndex])
 
   const paneDirection = stacked ? "column" : "row"
@@ -214,6 +241,15 @@ export function CollectionRunnerView({
       filteredColumnWidth -
       (requestTagColumnWidth > 0 ? requestTagColumnWidth + 1 : 0),
   )
+  const resultNameAvailable = Math.max(0, requestContentWidth - 14)
+  const resultValueWidth = Math.min(
+    resultNameAvailable,
+    Math.max(
+      8,
+      ...runner.resultRows.map((row) => stringWidth(` ${resultRowValue(row)}`)),
+    ),
+  )
+  const resultNameWidth = Math.max(0, resultNameAvailable - resultValueWidth)
   const paneStyle = {
     flexDirection: "column" as const,
     flexGrow: 1,
@@ -224,7 +260,7 @@ export function CollectionRunnerView({
     paddingRight: 1,
     backgroundColor: theme.backgroundPanel,
   }
-  const activePage = runner.phase === "results" ? "results" : "configure"
+  const activeTab = runner.phase === "results" ? "results" : "select"
   const configurationLocked =
     runner.phase === "running" ||
     runner.editingOption !== null ||
@@ -267,20 +303,16 @@ export function CollectionRunnerView({
   )
 
   useLayoutEffect(() => {
-    if (
-      activePage === "results" &&
-      focus !== "runner-results" &&
-      focus !== "runner-detail"
-    ) {
-      onPaneFocus("runner-results")
+    if (runner.phase === "results" && focus !== "runner-requests") {
+      onPaneFocus("runner-requests")
     } else if (
-      activePage === "configure" &&
+      runner.phase !== "results" &&
       focus !== "runner-options" &&
       focus !== "runner-requests"
     ) {
       onPaneFocus("runner-options")
     }
-  }, [activePage, focus, onPaneFocus])
+  }, [focus, onPaneFocus, runner.phase])
 
   return (
     <box
@@ -325,195 +357,189 @@ export function CollectionRunnerView({
       }}
       style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}
     >
-      <Tabs
-        tabs={tabs}
-        activeId={activePage}
-        onChange={(id) => {
-          if (configurationLocked) return
-          if (id === "results") runner.showResults()
-          else runner.showConfigure()
+      <box
+        id="runner-split"
+        ref={splitContainerRef}
+        style={{
+          flexDirection: paneDirection,
+          flexGrow: 1,
+          minHeight: 0,
+          gap: 0,
         }}
       >
-        {activePage === "configure" ? (
-          <box
-            id="runner-split"
-            ref={splitContainerRef}
+        <Frame
+          title="Options"
+          titleAlignment="right"
+          border={[...FullBorder.border]}
+          customBorderChars={FullBorder.customBorderChars}
+          borderColor={
+            focus === "runner-options" ? theme.primary : theme.borderSubtle
+          }
+          style={splitPaneStyle(true)}
+          onPaneFocus={() => onPaneFocus("runner-options")}
+        >
+          <scrollbox
+            ref={optionScrollRef}
+            scrollY
             style={{
-              flexDirection: paneDirection,
               flexGrow: 1,
+              flexShrink: 1,
+              flexBasis: 0,
               minHeight: 0,
-              gap: 0,
             }}
           >
-            <Frame
-              title="Options"
-              titleAlignment="right"
-              border={[...FullBorder.border]}
-              customBorderChars={FullBorder.customBorderChars}
-              borderColor={
-                focus === "runner-options" ? theme.primary : theme.borderSubtle
-              }
-              style={splitPaneStyle(true)}
-              onPaneFocus={() => onPaneFocus("runner-options")}
-            >
-              <scrollbox
-                ref={optionScrollRef}
-                scrollY
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                  minHeight: 0,
-                }}
-              >
-                <box style={{ flexDirection: "column", gap: 1 }}>
-                  {OPTION_LABELS.map((label, index) => {
-                    const active =
-                      focus === "runner-options" && runner.optionIndex === index
-                    const backgroundColor = active
-                      ? theme.backgroundElement
-                      : undefined
-                    return (
-                      <box key={label} style={{ flexDirection: "column" }}>
-                        <box
-                          id={`runner-option-${index}`}
-                          border={[...LeftBar.border]}
-                          customBorderChars={LeftBar.customBorderChars}
-                          borderColor={
-                            active ? theme.primary : theme.borderSubtle
-                          }
-                          style={{ flexDirection: "column", backgroundColor }}
-                          onMouseDown={(event) => {
-                            if (event.button !== MouseButton.LEFT) return
-                            if (configurationLocked) {
-                              event.stopPropagation()
-                              return
+            <box style={{ flexDirection: "column", gap: 1 }}>
+              {OPTION_LABELS.map((label, index) => {
+                const active =
+                  focus === "runner-options" && runner.optionIndex === index
+                const backgroundColor = active
+                  ? theme.backgroundElement
+                  : undefined
+                return (
+                  <box key={label} style={{ flexDirection: "column" }}>
+                    <box
+                      id={`runner-option-${index}`}
+                      border={[...LeftBar.border]}
+                      customBorderChars={LeftBar.customBorderChars}
+                      borderColor={active ? theme.primary : theme.borderSubtle}
+                      style={{ flexDirection: "column", backgroundColor }}
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        if (configurationLocked) {
+                          event.stopPropagation()
+                          return
+                        }
+                        onPaneFocus("runner-options")
+                        runner.setOptionIndex(index)
+                        if (index === 2) runner.beginOptionEdit("include")
+                        else if (index === 3) runner.beginOptionEdit("exclude")
+                        else if (index === 4) runner.toggleFailFast()
+                        else if (index === 5) void runner.run()
+                        event.stopPropagation()
+                      }}
+                    >
+                      {index === 0 ? (
+                        <text fg={theme.text}>
+                          {`${label}: ${runner.scopeLabel}`}
+                        </text>
+                      ) : index === 1 ? (
+                        <box style={{ flexDirection: "row", gap: 1 }}>
+                          <text fg={theme.text}>{`${label}:`}</text>
+                          <Select
+                            items={[
+                              { id: "", label: "Collection default" },
+                              ...runner.environmentNames.map((name) => ({
+                                id: name,
+                                label: name,
+                              })),
+                            ]}
+                            value={runner.environmentName ?? ""}
+                            focused={active}
+                            visualFocused={active}
+                            interactive={!configurationLocked}
+                            onActivate={() => runner.setOptionIndex(1)}
+                            onOpenChange={runner.setSelectOpen}
+                            onChange={(name) =>
+                              runner.setEnvironmentName(name || null)
                             }
-                            onPaneFocus("runner-options")
-                            runner.setOptionIndex(index)
-                            if (index === 2) runner.beginOptionEdit("include")
-                            else if (index === 3)
-                              runner.beginOptionEdit("exclude")
-                            else if (index === 4) runner.toggleFailFast()
-                            else if (index === 5) void runner.run()
-                            event.stopPropagation()
-                          }}
-                        >
-                          {index === 0 ? (
-                            <text fg={theme.text}>
-                              {`${label}: ${runner.scopeLabel}`}
-                            </text>
-                          ) : index === 1 ? (
-                            <box style={{ flexDirection: "row", gap: 1 }}>
-                              <text fg={theme.text}>{`${label}:`}</text>
-                              <Select
-                                items={[
-                                  { id: "", label: "Collection default" },
-                                  ...runner.environmentNames.map((name) => ({
-                                    id: name,
-                                    label: name,
-                                  })),
-                                ]}
-                                value={runner.environmentName ?? ""}
-                                focused={active}
-                                visualFocused={active}
-                                interactive={!configurationLocked}
-                                onActivate={() => runner.setOptionIndex(1)}
-                                onOpenChange={runner.setSelectOpen}
-                                onChange={(name) =>
-                                  runner.setEnvironmentName(name || null)
-                                }
-                                fitContent
-                              />
-                            </box>
-                          ) : index === 2 || index === 3 ? (
-                            <box style={{ flexDirection: "row", gap: 1 }}>
-                              <text fg={theme.text}>{`${label}:`}</text>
-                              {runner.editingOption ===
-                              (index === 2 ? "include" : "exclude") ? (
-                                <input
-                                  ref={inputRef}
-                                  value={runner.editValue}
-                                  onInput={runner.setEditValue}
-                                  placeholder="tag"
-                                  backgroundColor={theme.backgroundElement}
-                                  focusedBackgroundColor={
-                                    theme.backgroundElement
-                                  }
-                                  textColor={theme.text}
-                                  cursorColor={theme.primary}
-                                  style={{ flexGrow: 1 }}
-                                />
-                              ) : (
-                                <text fg={theme.text}>
-                                  {(index === 2
-                                    ? runner.includeTag
-                                    : runner.excludeTag) || "Any"}
-                                </text>
-                              )}
-                            </box>
-                          ) : index === 4 ? (
-                            <box style={{ flexDirection: "row", gap: 1 }}>
-                              <text fg={theme.text}>{`${label}:`}</text>
-                              <Checkbox
-                                checked={runner.failFast}
-                                theme={theme}
-                              />
-                            </box>
+                            fitContent
+                          />
+                        </box>
+                      ) : index === 2 || index === 3 ? (
+                        <box style={{ flexDirection: "row", gap: 1 }}>
+                          <text fg={theme.text}>{`${label}:`}</text>
+                          {runner.editingOption ===
+                          (index === 2 ? "include" : "exclude") ? (
+                            <input
+                              ref={inputRef}
+                              value={runner.editValue}
+                              onInput={runner.setEditValue}
+                              placeholder="tag"
+                              backgroundColor={theme.backgroundElement}
+                              focusedBackgroundColor={theme.backgroundElement}
+                              textColor={theme.text}
+                              cursorColor={theme.primary}
+                              style={{ flexGrow: 1 }}
+                            />
                           ) : (
-                            <text
-                              fg={
-                                runner.canRun ? theme.primary : theme.textMuted
-                              }
-                              attributes={TextAttributes.BOLD}
-                            >
-                              Run {runner.matchedIds.size} request
-                              {runner.matchedIds.size === 1 ? "" : "s"}
+                            <text fg={theme.text}>
+                              {(index === 2
+                                ? runner.includeTag
+                                : runner.excludeTag) || "Any"}
                             </text>
                           )}
                         </box>
-                        <text fg={theme.textMuted}>
-                          {OPTION_DESCRIPTIONS[index]}
+                      ) : index === 4 ? (
+                        <box style={{ flexDirection: "row", gap: 1 }}>
+                          <text fg={theme.text}>{`${label}:`}</text>
+                          <Checkbox checked={runner.failFast} theme={theme} />
+                        </box>
+                      ) : (
+                        <text
+                          fg={runner.canRun ? theme.primary : theme.textMuted}
+                          attributes={TextAttributes.BOLD}
+                        >
+                          Run {runner.matchedIds.size} request
+                          {runner.matchedIds.size === 1 ? "" : "s"}
                         </text>
-                      </box>
-                    )
-                  })}
-                </box>
-              </scrollbox>
-              {hasUnsavedChanges ? (
-                <text fg={theme.warning}>
-                  Save pending changes in the request workspace before running.
-                </text>
-              ) : null}
-              {runner.previewError ? (
-                <text fg={theme.error}>{runner.previewError}</text>
-              ) : null}
-              {runner.runError ? (
-                <text fg={theme.error}>{runner.runError}</text>
-              ) : null}
-              {runner.phase === "running" ? (
-                <>
-                  <text fg={theme.primary}>
-                    {`Running ${runner.progress.completed}/${runner.progress.total}`}
-                  </text>
-                  <text fg={theme.textMuted}>
-                    Run in progress. Escape is unavailable.
-                  </text>
-                </>
-              ) : null}
-            </Frame>
-            {splitHandle}
-            <Frame
-              title="Requests"
-              titleAlignment="right"
-              border={[...FullBorder.border]}
-              customBorderChars={FullBorder.customBorderChars}
-              borderColor={
-                focus === "runner-requests" ? theme.primary : theme.borderSubtle
-              }
-              style={splitPaneStyle(false)}
-              onPaneFocus={() => onPaneFocus("runner-requests")}
-            >
+                      )}
+                    </box>
+                    <text fg={theme.textMuted}>
+                      {OPTION_DESCRIPTIONS[index]}
+                    </text>
+                  </box>
+                )
+              })}
+            </box>
+          </scrollbox>
+          {hasUnsavedChanges ? (
+            <text fg={theme.warning}>
+              Save pending changes in the request workspace before running.
+            </text>
+          ) : null}
+          {runner.previewError ? (
+            <text fg={theme.error}>{runner.previewError}</text>
+          ) : null}
+          {runner.runError ? (
+            <text fg={theme.error}>{runner.runError}</text>
+          ) : null}
+          {runner.phase === "running" ? (
+            <>
+              <text fg={theme.primary}>
+                {`Running ${runner.progress.completed}/${runner.progress.total}`}
+              </text>
+              <text fg={theme.textMuted}>
+                Run in progress. Escape is unavailable.
+              </text>
+            </>
+          ) : null}
+        </Frame>
+        {splitHandle}
+        <Frame
+          title="Requests"
+          titleAlignment="right"
+          border={[...FullBorder.border]}
+          customBorderChars={FullBorder.customBorderChars}
+          borderColor={
+            focus === "runner-requests" ? theme.primary : theme.borderSubtle
+          }
+          style={splitPaneStyle(false)}
+          onPaneFocus={() => onPaneFocus("runner-requests")}
+        >
+          <Tabs
+            tabs={[
+              { id: "select", label: "Select" },
+              ...(runner.result ? [{ id: "results", label: "Results" }] : []),
+            ]}
+            activeId={activeTab}
+            onChange={(id) => {
+              if (configurationLocked) return
+              onPaneFocus("runner-requests")
+              if (id === "results") runner.showResults()
+              else runner.showConfigure()
+            }}
+          >
+            {activeTab === "select" ? (
               <scrollbox
                 ref={requestScrollRef}
                 scrollY
@@ -675,32 +701,9 @@ export function CollectionRunnerView({
                   })}
                 </box>
               </scrollbox>
-            </Frame>
-          </box>
-        ) : (
-          <box
-            id="runner-split"
-            ref={splitContainerRef}
-            style={{
-              flexDirection: paneDirection,
-              flexGrow: 1,
-              minHeight: 0,
-              gap: 0,
-            }}
-          >
-            <Frame
-              title="Run Results"
-              titleAlignment="right"
-              border={[...FullBorder.border]}
-              customBorderChars={FullBorder.customBorderChars}
-              borderColor={
-                focus === "runner-results" ? theme.primary : theme.borderSubtle
-              }
-              style={splitPaneStyle(true)}
-              onPaneFocus={() => onPaneFocus("runner-results")}
-            >
+            ) : (
               <scrollbox
-                ref={resultScrollRef}
+                ref={detailScrollRef}
                 scrollY
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
@@ -733,148 +736,102 @@ export function CollectionRunnerView({
                     </>
                   ) : null}
                   {runner.resultRows.map((row, index) => {
-                    const active =
-                      focus === "runner-results" && runner.resultIndex === index
+                    const active = runner.resultIndex === index
+                    const expanded = runner.resultExpandedId === row.id
+                    const resultRequest =
+                      row.kind === "result"
+                        ? runner.requests.find(
+                            (request) => request.id === row.id,
+                          )
+                        : undefined
+                    const resultColor =
+                      row.kind === "skipped"
+                        ? theme.textMuted
+                        : row.result.ok
+                          ? theme.success
+                          : theme.error
                     return (
-                      <box
-                        key={row.id}
-                        id={`runner-result-${index}`}
-                        style={{
-                          backgroundColor: active
-                            ? theme.backgroundElement
-                            : undefined,
-                        }}
-                        onMouseDown={(event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          onPaneFocus("runner-results")
-                          runner.setResultIndex(index)
-                          event.stopPropagation()
-                        }}
-                      >
-                        <text
-                          fg={
+                      <box key={row.id} style={{ flexDirection: "column" }}>
+                        <CookieRow
+                          id={`runner-result-${index}`}
+                          kindLabel={
+                            row.kind === "skipped"
+                              ? "SKIPPED"
+                              : row.result.ok
+                                ? "PASS"
+                                : "FAIL"
+                          }
+                          kindColor={resultColor}
+                          name={row.id}
+                          value={` ${resultRowValue(row)}`}
+                          nameWidth={resultNameWidth}
+                          selected={active}
+                          expanded={expanded}
+                          hovered={false}
+                          valueColor={
                             row.kind === "skipped"
                               ? theme.textMuted
-                              : row.result.ok
-                                ? theme.success
+                              : row.result.response
+                                ? statusColor(row.result.response.status, theme)
                                 : theme.error
                           }
-                        >
-                          {resultLabel(row)}
-                        </text>
+                          details={resultDetails(row)}
+                          onSelect={() => runner.setResultIndex(index)}
+                          onToggleExpanded={() =>
+                            runner.toggleResultExpanded(index)
+                          }
+                          onHover={() => {}}
+                          onPaneFocus={() => onPaneFocus("runner-requests")}
+                        />
+                        {expanded && row.kind === "result" ? (
+                          <box
+                            style={{
+                              flexDirection: "column",
+                              gap: 1,
+                              paddingLeft: COOKIE_CHEVRON_WIDTH + 1,
+                            }}
+                          >
+                            <ResponseResults
+                              execution={row.result}
+                              request={resultRequest}
+                              captureLifetimeNote="Available to later requests in this collection run."
+                              scrollRef={detailScrollRef}
+                              focused={active}
+                              onPaneFocus={() => onPaneFocus("runner-requests")}
+                            />
+                            <box style={{ flexDirection: "row", gap: 2 }}>
+                              <text
+                                fg={theme.primary}
+                                onMouseDown={(event) => {
+                                  if (event.button !== MouseButton.LEFT) return
+                                  onEditRequestTab(row.id, "assertions")
+                                  event.stopPropagation()
+                                }}
+                              >
+                                [a] Edit Assert
+                              </text>
+                              <text
+                                fg={theme.primary}
+                                onMouseDown={(event) => {
+                                  if (event.button !== MouseButton.LEFT) return
+                                  onEditRequestTab(row.id, "captures")
+                                  event.stopPropagation()
+                                }}
+                              >
+                                [c] Edit Capture
+                              </text>
+                            </box>
+                          </box>
+                        ) : null}
                       </box>
                     )
                   })}
                 </box>
               </scrollbox>
-            </Frame>
-            {splitHandle}
-            <Frame
-              title="Request Detail"
-              titleAlignment="right"
-              border={[...FullBorder.border]}
-              customBorderChars={FullBorder.customBorderChars}
-              borderColor={
-                focus === "runner-detail" ? theme.primary : theme.borderSubtle
-              }
-              style={splitPaneStyle(false)}
-              onPaneFocus={() => onPaneFocus("runner-detail")}
-            >
-              <scrollbox
-                ref={detailScrollRef}
-                scrollY
-                style={{ flexGrow: 1, minHeight: 0 }}
-              >
-                {!activeResult ? (
-                  <text fg={theme.textMuted}>No request result.</text>
-                ) : activeResult.kind === "skipped" ? (
-                  <box style={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={theme.text}>{activeResult.id}</text>
-                    <text fg={theme.textMuted}>Skipped by fail-fast.</text>
-                  </box>
-                ) : (
-                  <box style={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={theme.text} attributes={TextAttributes.BOLD}>
-                      {`${activeResult.result.method} ${activeResult.id}`}
-                    </text>
-                    <text fg={theme.textMuted}>{activeResult.result.url}</text>
-                    {activeResult.result.response ? (
-                      <>
-                        <text
-                          fg={statusColor(
-                            activeResult.result.response.status,
-                            theme,
-                          )}
-                        >
-                          {`${activeResult.result.response.status} ${activeResult.result.response.statusText} · ${Math.round(activeResult.result.response.timeMs)}ms`}
-                        </text>
-                        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-                          Headers
-                        </text>
-                        {Object.entries(
-                          activeResult.result.response.headers,
-                        ).map(([name, value]) => (
-                          <text key={name} fg={theme.textMuted}>
-                            {`${name}: ${value}`}
-                          </text>
-                        ))}
-                        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-                          Body
-                        </text>
-                        <text fg={theme.textMuted}>
-                          {activeResult.result.response.body || "(no body)"}
-                        </text>
-                      </>
-                    ) : null}
-                    {activeResult.result.error ? (
-                      <text fg={theme.error}>{activeResult.result.error}</text>
-                    ) : null}
-                    {(activeResult.result.warnings ?? []).map(
-                      (warning, index) => (
-                        <text key={index} fg={theme.warning}>
-                          {`Warning: ${warning}`}
-                        </text>
-                      ),
-                    )}
-                    <ResponseResults
-                      execution={activeResult.result}
-                      request={activeRequest}
-                      captureLifetimeNote="Available to later requests in this collection run."
-                      scrollRef={detailScrollRef}
-                      focused={focus === "runner-detail"}
-                      onPaneFocus={() => onPaneFocus("runner-detail")}
-                    />
-                  </box>
-                )}
-              </scrollbox>
-              {activeResult ? (
-                <box style={{ flexDirection: "row", gap: 2 }}>
-                  <text
-                    fg={theme.primary}
-                    onMouseDown={(event) => {
-                      if (event.button !== MouseButton.LEFT) return
-                      onEditRequestTab(activeResult.id, "assertions")
-                      event.stopPropagation()
-                    }}
-                  >
-                    [a] Edit Assert
-                  </text>
-                  <text
-                    fg={theme.primary}
-                    onMouseDown={(event) => {
-                      if (event.button !== MouseButton.LEFT) return
-                      onEditRequestTab(activeResult.id, "captures")
-                      event.stopPropagation()
-                    }}
-                  >
-                    [c] Edit Capture
-                  </text>
-                </box>
-              ) : null}
-            </Frame>
-          </box>
-        )}
-      </Tabs>
+            )}
+          </Tabs>
+        </Frame>
+      </box>
     </box>
   )
 }

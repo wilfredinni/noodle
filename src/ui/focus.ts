@@ -13,8 +13,6 @@ export type Focus =
   | "settings-content"
   | "runner-options"
   | "runner-requests"
-  | "runner-results"
-  | "runner-detail"
 
 export type ExpandTarget = "request" | "response" | null
 export type UrlBarSubFocus = "select" | "text"
@@ -32,8 +30,7 @@ const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
 const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-header", "env-vars"]
 const COOKIE_FOCUS_ORDER: Focus[] = ["cookie-sidebar", "cookie-list"]
 const SETTINGS_FOCUS_ORDER: Focus[] = ["settings-sidebar", "settings-content"]
-const RUNNER_CONFIG_FOCUS_ORDER: Focus[] = ["runner-options", "runner-requests"]
-const RUNNER_RESULTS_FOCUS_ORDER: Focus[] = ["runner-results", "runner-detail"]
+const RUNNER_FOCUS_ORDER: Focus[] = ["runner-options", "runner-requests"]
 
 export function settingsReturnFocus(view: string, focus: Focus): Focus {
   return view === "main" ? focus : "sidebar"
@@ -60,9 +57,7 @@ export function cycleFocus(
         : view === "settings"
           ? SETTINGS_FOCUS_ORDER
           : view === "runner"
-            ? current === "runner-results" || current === "runner-detail"
-              ? RUNNER_RESULTS_FOCUS_ORDER
-              : RUNNER_CONFIG_FOCUS_ORDER
+            ? RUNNER_FOCUS_ORDER
             : MAIN_FOCUS_ORDER
   const idx = order.indexOf(current)
   let next = (idx + delta + order.length) % order.length

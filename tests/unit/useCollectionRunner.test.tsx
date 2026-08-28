@@ -195,6 +195,11 @@ describe("useCollectionRunner", () => {
       "admin/second",
     ])
     expect(harness.get().phase).toBe("results")
+    expect(harness.get().resultExpandedId).toBeNull()
+    await act(async () => harness.get().toggleResultExpanded())
+    expect(harness.get().resultExpandedId).toBe("root")
+    await act(async () => harness.get().toggleResultExpanded())
+    expect(harness.get().resultExpandedId).toBeNull()
   })
 
   it("blocks Run while workspace drafts are dirty", async () => {

@@ -233,6 +233,15 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       ]
     }
     if (ctx.focus === "runner-requests") {
+      if (ctx.runnerPhase === "results") {
+        return [
+          { key: "↑/↓", word: "select" },
+          { key: "Enter", word: "expand", command: "runner.activate" },
+          { key: "←", word: "select", command: "runner.configure" },
+          { key: "Tab", word: "options", command: "runner.focus-next" },
+          { key: "Esc", word: "close", command: "runner.escape" },
+        ]
+      }
       return [
         { key: "↑/↓", word: "select" },
         { key: "Space", word: "toggle", command: "runner.toggle" },
@@ -240,20 +249,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         { key: "Esc", word: "close", command: "runner.escape" },
       ]
     }
-    if (ctx.focus === "runner-results") {
-      return [
-        { key: "↑/↓", word: "select" },
-        { key: "Enter", word: "details", command: "runner.activate" },
-        { key: "←", word: "configure", command: "runner.configure" },
-        { key: "Esc", word: "close", command: "runner.escape" },
-      ]
-    }
-    return [
-      { key: "PgUp/PgDn", word: "scroll" },
-      { key: "a/c", word: "edit assert/capture" },
-      { key: "Tab", word: "results", command: "runner.focus-next" },
-      { key: "Esc", word: "close", command: "runner.escape" },
-    ]
+    return []
   }
 
   if (ctx.focus === "sidebar") {

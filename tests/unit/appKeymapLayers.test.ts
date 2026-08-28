@@ -66,6 +66,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     runnerClose: 0,
     runnerCancel: 0,
     runnerOptionDown: 0,
+    runnerResultToggle: 0,
     cookieDelete: [] as Array<{
       kind: string
       domain?: string
@@ -166,7 +167,14 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         result: null,
         resultRows: [],
         optionDown: () => calls.runnerOptionDown++,
+        resultUp: () => {},
+        resultDown: () => {},
+        resultFirst: () => {},
+        resultLast: () => {},
+        toggleResultExpanded: () => calls.runnerResultToggle++,
         cancelOptionEdit: () => calls.runnerCancel++,
+        showConfigure: () => {},
+        showResults: () => {},
       },
     },
     detailScrollRef: { current: null },
@@ -357,6 +365,27 @@ describe("app keymap layers", () => {
     context.runner.runnerRef.current.editingOption = "include"
     host.press("escape")
     expect(calls.runnerCancel).toBe(1)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("uses the Requests pane to expand result rows", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    keymap.setData("app.focus", "runner-requests")
+    context.global.viewRef.current = "runner"
+    context.global.focusRef.current = "runner-requests"
+    context.runner.runnerRef.current.phase = "results"
+    context.runner.runnerRef.current.resultRows = [
+      { kind: "skipped", id: "health", reason: "fail-fast" },
+    ]
+    const disposers = register(context)
+
+    host.press("return")
+    host.press("space")
+    expect(calls.runnerResultToggle).toBe(1)
 
     disposers.forEach((dispose) => dispose())
     cleanup()

@@ -163,7 +163,7 @@ describe("CollectionRunnerView", () => {
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CollectionRunnerView
               runner={runner}
-              focus="runner-results"
+              focus="runner-requests"
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
@@ -195,6 +195,8 @@ describe("CollectionRunnerView", () => {
     expect(requestRows.join("\n")).not.toContain("…")
     await act(async () => current!.run())
     await render.renderOnce()
+    const resultFrame = render.captureCharFrame()
+    expect(resultFrame).toMatch(/one\s+GET 200 OK/)
     const first = render.renderer.root.findDescendantById("runner-result-0")!
     const second = render.renderer.root.findDescendantById("runner-result-1")!
     expect(first.height).toBe(1)
@@ -553,7 +555,7 @@ describe("CollectionRunnerView", () => {
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CollectionRunnerView
               runner={runner}
-              focus="runner-detail"
+              focus="runner-requests"
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
@@ -568,10 +570,49 @@ describe("CollectionRunnerView", () => {
     await act(async () => current!.run())
     await render.renderOnce()
     const frame = render.captureCharFrame()
+    expect(frame).toContain("Select")
+    expect(frame).toContain("Results")
     expect(frame).toContain("1 passed · 0 failed · 1/1 executed")
-    expect(frame).toContain("200 OK · 7ms")
-    expect(frame).toContain('{"ready":true}')
-    expect(frame).toContain(
+    expect(frame).toMatch(/PASS\s+health\s+GET 200 OK · 7ms/)
+    expect(frame).not.toContain('{"ready":true}')
+
+    const resultRow =
+      render.renderer.root.findDescendantById("runner-result-0")!
+    const resultLine = resultRow.getChildren()[0] as BoxRenderable
+    const resultName = resultLine.getChildren()[2] as BoxRenderable
+    const initialResultNameWidth = resultName.width
+    const split = render.renderer.root.findDescendantById(
+      "runner-split",
+    ) as BoxRenderable
+    const handle = render.renderer.root.findDescendantById(
+      "runner-resize-handle",
+    ) as BoxRenderable
+    await act(async () => {
+      await render.mockMouse.pressDown(
+        handle.screenX,
+        handle.screenY,
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.moveTo(split.screenX + 20, handle.screenY)
+      await render.mockMouse.release(
+        split.screenX + 20,
+        handle.screenY,
+        MouseButtons.LEFT,
+      )
+    })
+    await render.renderOnce()
+    expect(resultName.width).toBeGreaterThan(initialResultNameWidth)
+    await act(async () =>
+      render.mockMouse.click(
+        resultRow.screenX + 1,
+        resultRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await render.renderOnce()
+    const resultDetailFrame = render.captureCharFrame()
+    expect(resultDetailFrame).toContain('{"ready":true}')
+    expect(resultDetailFrame).toContain(
       "Available to later requests in this collection run.",
     )
 
@@ -669,11 +710,11 @@ describe("CollectionRunnerView", () => {
     await render.renderOnce()
     await act(async () => current!.run())
     await render.renderOnce()
-    expect(currentFocus as Focus).toBe("runner-results")
+    expect(currentFocus as Focus).toBe("runner-requests")
 
     await act(async () => current!.showConfigure())
     await render.renderOnce()
-    expect(currentFocus as Focus).toBe("runner-options")
+    expect(currentFocus as Focus).toBe("runner-requests")
     cleanup()
   })
 })
