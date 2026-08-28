@@ -4,9 +4,11 @@ import { createEnvironmentLayers } from "./environmentLayers"
 import { createFolderLayers } from "./folderLayers"
 import { createGlobalLayers } from "./globalLayers"
 import { createRequestLayers } from "./requestLayers"
+import { createRunnerLayer } from "./runnerLayers"
 import type { AppKeymapContext } from "./types"
 
 export type AppKeymapLayers = readonly [
+  UseBindingsLayer,
   UseBindingsLayer,
   UseBindingsLayer,
   UseBindingsLayer,
@@ -37,6 +39,7 @@ export function createAppKeymapLayers(
   const [envBase, envBrowse, envEdit] = createEnvironmentLayers(context)
   const [cookieBase, cookieFilter, cookieNavigate] =
     createCookieJarLayers(context)
+  const runner = createRunnerLayer(context)
 
   return [
     alwaysOn,
@@ -55,5 +58,6 @@ export function createAppKeymapLayers(
     cookieBase,
     cookieFilter,
     cookieNavigate,
+    runner,
   ]
 }

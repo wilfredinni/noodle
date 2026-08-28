@@ -1,13 +1,13 @@
 import type { KvEntry, Environment } from "../schema"
 import { MouseButton } from "@opentui/core"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
 import { VarInput } from "./VarInput"
 
 export interface KeyValueSectionProps {
-  kind: "headers" | "params" | "pathParams"
+  kind: "headers" | "params" | "pathParams" | "captures"
   entries: Array<{ key: string; value: KvEntry }>
   editState: EditState
   editKey: string
@@ -16,6 +16,8 @@ export interface KeyValueSectionProps {
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
+  completionValues?: readonly string[]
+  editError?: string | null
   onActivateRow?: (
     row: number,
     addingRow: boolean,
@@ -34,6 +36,8 @@ export function KeyValueSection({
   setEditValue,
   theme,
   activeEnv,
+  completionValues,
+  editError,
   onActivateRow,
   onToggleRow,
 }: KeyValueSectionProps) {
@@ -41,7 +45,19 @@ export function KeyValueSection({
   const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
 
   const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
-  const prefix = kind === "headers" ? "hdr" : kind === "params" ? "prm" : "ppr"
+  const prefix =
+    kind === "headers"
+      ? "hdr"
+      : kind === "params"
+        ? "prm"
+        : kind === "captures"
+          ? "captures"
+          : "ppr"
+  const showsToggle =
+    kind === "headers" || kind === "params" || kind === "captures"
+  const keyPlaceholder = kind === "captures" ? "Variable..." : "Key..."
+  const valuePlaceholder =
+    kind === "captures" ? "Response expression..." : "Value..."
   const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
   const stripeR = Math.round(
     (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
@@ -94,10 +110,10 @@ export function KeyValueSection({
           onMouseOver={onActivateRow ? () => setHoveredRow("add") : undefined}
           onMouseOut={onActivateRow ? () => setHoveredRow(null) : undefined}
         >
-          <Checkbox checked={false} theme={theme} />
+          {showsToggle ? <Checkbox checked={false} theme={theme} /> : null}
           <VarInput
             value=""
-            placeholder="Key..."
+            placeholder={keyPlaceholder}
             env={activeEnv ?? null}
             isEditing={false}
             baseColor={theme.textMuted}
@@ -106,9 +122,10 @@ export function KeyValueSection({
           />
           <VarInput
             value=""
-            placeholder="Value..."
+            placeholder={valuePlaceholder}
             env={activeEnv ?? null}
             isEditing={false}
+            completionValues={completionValues}
             baseColor={theme.textMuted}
             paddingX={1}
             style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
@@ -128,7 +145,7 @@ export function KeyValueSection({
             const canHoverRow =
               !isEditingThisRow &&
               (onActivateRow !== undefined ||
-                (kind !== "pathParams" && onToggleRow !== undefined))
+                (showsToggle && onToggleRow !== undefined))
 
             const keyBaseColor = dimmed ? theme.textMuted : theme.primary
             const valueBaseColor = dimmed ? theme.textMuted : theme.text
@@ -142,105 +159,112 @@ export function KeyValueSection({
                   : undefined
 
             return (
-              <box
-                key={i}
-                id={`${prefix}-${i}`}
-                style={{
-                  flexDirection: "row",
-                  height: 1,
-                  gap: 0,
-                  backgroundColor: rowBg,
-                }}
-                onMouseDown={
-                  !isEditingThisRow && onActivateRow
-                    ? (event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        onActivateRow(i, false)
-                        event.stopPropagation()
+              <Fragment key={i}>
+                <box
+                  id={`${prefix}-${i}`}
+                  style={{
+                    flexDirection: "row",
+                    height: 1,
+                    gap: 0,
+                    backgroundColor: rowBg,
+                  }}
+                  onMouseDown={
+                    !isEditingThisRow && onActivateRow
+                      ? (event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onActivateRow(i, false)
+                          event.stopPropagation()
+                        }
+                      : undefined
+                  }
+                  onMouseOver={canHoverRow ? () => setHoveredRow(i) : undefined}
+                  onMouseOut={
+                    canHoverRow ? () => setHoveredRow(null) : undefined
+                  }
+                >
+                  {showsToggle ? (
+                    <box
+                      onMouseDown={
+                        onToggleRow
+                          ? (event) => {
+                              if (event.button !== MouseButton.LEFT) return
+                              onToggleRow(i)
+                              event.stopPropagation()
+                            }
+                          : undefined
                       }
-                    : undefined
-                }
-                onMouseOver={canHoverRow ? () => setHoveredRow(i) : undefined}
-                onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
-              >
-                {kind !== "pathParams" ? (
+                    >
+                      <Checkbox checked={kv.enabled} theme={theme} />
+                    </box>
+                  ) : null}
                   <box
                     onMouseDown={
-                      onToggleRow
+                      !isEditingThisRow && onActivateRow
                         ? (event) => {
                             if (event.button !== MouseButton.LEFT) return
-                            onToggleRow(i)
+                            onActivateRow(
+                              i,
+                              false,
+                              kind === "pathParams" ? "value" : "key",
+                            )
                             event.stopPropagation()
                           }
                         : undefined
                     }
+                    style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
                   >
-                    <Checkbox checked={kv.enabled} theme={theme} />
+                    <VarInput
+                      value={isEditingThisRow ? editKey : entry.key}
+                      placeholder={keyPlaceholder}
+                      env={activeEnv ?? null}
+                      isEditing={kind !== "pathParams" && isEditingThisRow}
+                      onChange={setEditKey}
+                      isFocused={editState.cursor.subfield === "key"}
+                      baseColor={keyBaseColor}
+                      backgroundColor={
+                        isEditingThisRow ? theme.backgroundElement : undefined
+                      }
+                      focusedBackgroundColor={theme.borderSubtle}
+                      paddingX={1}
+                      stopMousePropagation={isEditingThisRow}
+                      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                    />
                   </box>
+                  <box
+                    onMouseDown={
+                      !isEditingThisRow && onActivateRow
+                        ? (event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onActivateRow(i, false, "value")
+                            event.stopPropagation()
+                          }
+                        : undefined
+                    }
+                    style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
+                  >
+                    <VarInput
+                      value={isEditingThisRow ? editValue : kv.value}
+                      placeholder={valuePlaceholder}
+                      env={activeEnv ?? null}
+                      isEditing={isEditingThisRow}
+                      onChange={setEditValue}
+                      completionValues={completionValues}
+                      isFocused={editState.cursor.subfield === "value"}
+                      baseColor={valueBaseColor}
+                      backgroundColor={
+                        isEditingThisRow ? theme.backgroundElement : undefined
+                      }
+                      focusedBackgroundColor={theme.borderSubtle}
+                      paddingX={1}
+                      stopMousePropagation={isEditingThisRow}
+                      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                    />
+                  </box>
+                </box>
+                {isEditingThisRow && editError ? (
+                  <text fg={theme.error}> {editError}</text>
                 ) : null}
-                <box
-                  onMouseDown={
-                    !isEditingThisRow && onActivateRow
-                      ? (event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          onActivateRow(
-                            i,
-                            false,
-                            kind === "pathParams" ? "value" : "key",
-                          )
-                          event.stopPropagation()
-                        }
-                      : undefined
-                  }
-                  style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                >
-                  <VarInput
-                    value={isEditingThisRow ? editKey : entry.key}
-                    placeholder="Key..."
-                    env={activeEnv ?? null}
-                    isEditing={kind !== "pathParams" && isEditingThisRow}
-                    onChange={setEditKey}
-                    isFocused={editState.cursor.subfield === "key"}
-                    baseColor={keyBaseColor}
-                    backgroundColor={
-                      isEditingThisRow ? theme.backgroundElement : undefined
-                    }
-                    focusedBackgroundColor={theme.borderSubtle}
-                    paddingX={1}
-                    stopMousePropagation={isEditingThisRow}
-                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-                  />
-                </box>
-                <box
-                  onMouseDown={
-                    !isEditingThisRow && onActivateRow
-                      ? (event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          onActivateRow(i, false, "value")
-                          event.stopPropagation()
-                        }
-                      : undefined
-                  }
-                  style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                >
-                  <VarInput
-                    value={isEditingThisRow ? editValue : kv.value}
-                    placeholder="Value..."
-                    env={activeEnv ?? null}
-                    isEditing={isEditingThisRow}
-                    onChange={setEditValue}
-                    isFocused={editState.cursor.subfield === "value"}
-                    baseColor={valueBaseColor}
-                    backgroundColor={
-                      isEditingThisRow ? theme.backgroundElement : undefined
-                    }
-                    focusedBackgroundColor={theme.borderSubtle}
-                    paddingX={1}
-                    stopMousePropagation={isEditingThisRow}
-                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-                  />
-                </box>
-              </box>
+              </Fragment>
             )
           })}
           {kind !== "pathParams"
@@ -255,103 +279,111 @@ export function KeyValueSection({
                         : undefined
 
                 return (
-                  <box
-                    id={`${prefix}-add`}
-                    style={{
-                      flexDirection: "row",
-                      gap: 0,
-                      backgroundColor: addRowBg,
-                    }}
-                    onMouseDown={
-                      onActivateRow && !editingAdd
-                        ? (event) => {
-                            if (event.button !== MouseButton.LEFT) return
-                            onActivateRow(-1, true)
-                            event.stopPropagation()
+                  <Fragment>
+                    <box
+                      id={`${prefix}-add`}
+                      style={{
+                        flexDirection: "row",
+                        gap: 0,
+                        backgroundColor: addRowBg,
+                      }}
+                      onMouseDown={
+                        onActivateRow && !editingAdd
+                          ? (event) => {
+                              if (event.button !== MouseButton.LEFT) return
+                              onActivateRow(-1, true)
+                              event.stopPropagation()
+                            }
+                          : undefined
+                      }
+                      onMouseOver={
+                        onActivateRow && !editingAdd
+                          ? () => setHoveredRow("add")
+                          : undefined
+                      }
+                      onMouseOut={
+                        onActivateRow && !editingAdd
+                          ? () => setHoveredRow(null)
+                          : undefined
+                      }
+                    >
+                      {showsToggle ? (
+                        <Checkbox checked={false} theme={theme} />
+                      ) : null}
+                      <box
+                        onMouseDown={
+                          onActivateRow && !editingAdd
+                            ? (event) => {
+                                if (event.button !== MouseButton.LEFT) return
+                                onActivateRow(-1, true, "key")
+                                event.stopPropagation()
+                              }
+                            : undefined
+                        }
+                        style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
+                      >
+                        <VarInput
+                          value={editingAdd ? editKey : ""}
+                          placeholder={keyPlaceholder}
+                          env={activeEnv ?? null}
+                          isEditing={editingAdd}
+                          onChange={setEditKey}
+                          isFocused={editState.cursor.subfield === "key"}
+                          baseColor={
+                            editingAdd ||
+                            (cursorHere && editState.cursor.addingRow)
+                              ? theme.primary
+                              : theme.textMuted
                           }
-                        : undefined
-                    }
-                    onMouseOver={
-                      onActivateRow && !editingAdd
-                        ? () => setHoveredRow("add")
-                        : undefined
-                    }
-                    onMouseOut={
-                      onActivateRow && !editingAdd
-                        ? () => setHoveredRow(null)
-                        : undefined
-                    }
-                  >
-                    <Checkbox checked={false} theme={theme} />
-                    <box
-                      onMouseDown={
-                        onActivateRow && !editingAdd
-                          ? (event) => {
-                              if (event.button !== MouseButton.LEFT) return
-                              onActivateRow(-1, true, "key")
-                              event.stopPropagation()
-                            }
-                          : undefined
-                      }
-                      style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                    >
-                      <VarInput
-                        value={editingAdd ? editKey : ""}
-                        placeholder="Key..."
-                        env={activeEnv ?? null}
-                        isEditing={editingAdd}
-                        onChange={setEditKey}
-                        isFocused={editState.cursor.subfield === "key"}
-                        baseColor={
-                          editingAdd ||
-                          (cursorHere && editState.cursor.addingRow)
-                            ? theme.primary
-                            : theme.textMuted
+                          backgroundColor={
+                            editingAdd ? theme.backgroundElement : undefined
+                          }
+                          focusedBackgroundColor={theme.borderSubtle}
+                          paddingX={1}
+                          stopMousePropagation={editingAdd}
+                          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                        />
+                      </box>
+                      <box
+                        onMouseDown={
+                          onActivateRow && !editingAdd
+                            ? (event) => {
+                                if (event.button !== MouseButton.LEFT) return
+                                onActivateRow(-1, true, "value")
+                                event.stopPropagation()
+                              }
+                            : undefined
                         }
-                        backgroundColor={
-                          editingAdd ? theme.backgroundElement : undefined
-                        }
-                        focusedBackgroundColor={theme.borderSubtle}
-                        paddingX={1}
-                        stopMousePropagation={editingAdd}
-                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-                      />
+                        style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
+                      >
+                        <VarInput
+                          value={editingAdd ? editValue : ""}
+                          placeholder={valuePlaceholder}
+                          env={activeEnv ?? null}
+                          isEditing={editingAdd}
+                          onChange={setEditValue}
+                          completionValues={completionValues}
+                          isFocused={editState.cursor.subfield === "value"}
+                          baseColor={
+                            editingAdd ||
+                            (cursorHere && editState.cursor.addingRow)
+                              ? theme.text
+                              : theme.textMuted
+                          }
+                          backgroundColor={
+                            editingAdd ? theme.backgroundElement : undefined
+                          }
+                          focusedBackgroundColor={theme.borderSubtle}
+                          paddingX={1}
+                          stopMousePropagation={editingAdd}
+                          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                        />
+                      </box>
                     </box>
-                    <box
-                      onMouseDown={
-                        onActivateRow && !editingAdd
-                          ? (event) => {
-                              if (event.button !== MouseButton.LEFT) return
-                              onActivateRow(-1, true, "value")
-                              event.stopPropagation()
-                            }
-                          : undefined
-                      }
-                      style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                    >
-                      <VarInput
-                        value={editingAdd ? editValue : ""}
-                        placeholder="Value..."
-                        env={activeEnv ?? null}
-                        isEditing={editingAdd}
-                        onChange={setEditValue}
-                        isFocused={editState.cursor.subfield === "value"}
-                        baseColor={
-                          editingAdd ||
-                          (cursorHere && editState.cursor.addingRow)
-                            ? theme.text
-                            : theme.textMuted
-                        }
-                        backgroundColor={
-                          editingAdd ? theme.backgroundElement : undefined
-                        }
-                        focusedBackgroundColor={theme.borderSubtle}
-                        paddingX={1}
-                        stopMousePropagation={editingAdd}
-                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-                      />
-                    </box>
-                  </box>
+                    {editingAdd && editError ? (
+                      <text fg={theme.error}> {editError}</text>
+                    ) : null}
+                  </Fragment>
                 )
               })()
             : null}

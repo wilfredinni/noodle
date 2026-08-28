@@ -40,9 +40,10 @@ Use a top-level `capture` mapping to pass response values to later requests in o
 capture:
   user_id: body.id
   request_id: headers.x-request-id
+  optional_trace: { value: headers.x-trace, enabled: false }
 ```
 
-Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. TUI sends preserve captures but do not evaluate them.
+Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. The string form is enabled; use `{ value: ..., enabled: false }` to retain a validated capture without evaluating it. Assertions also accept per-row `enabled: false`. Disabled declarations produce no results, failures, summary counts, timeline outcomes, or RunScope mutations. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. Human users edit assertions and captures in separate TUI tabs, with request tags in Settings. Each manual TUI send evaluates declarations with a fresh RunScope, keeps Results available, marks the tab when assertion or capture outcomes exist, and never carries captured values into a later manual send. Run Collection in the command palette opens a transient selector and result inspector backed by the same collection-run semantics.
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

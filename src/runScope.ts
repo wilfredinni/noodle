@@ -1,4 +1,4 @@
-import type { Environment, JsonValue } from "./schema"
+import type { Environment, JsonValue, KvEntry } from "./schema"
 import type { ResponseResolver } from "./response"
 
 export type CaptureValueType =
@@ -51,10 +51,14 @@ export class RunScope {
 }
 
 export function evaluateCaptures(
-  captures: Record<string, string>,
+  captures: Record<string, KvEntry>,
   resolve: ResponseResolver,
 ): CaptureResult[] {
-  return Object.entries(captures).map(([variable, expression]) => {
+  const activeCaptures = Object.entries(captures).filter(
+    ([, capture]) => capture.enabled,
+  )
+  return activeCaptures.map(([variable, capture]) => {
+    const expression = capture.value
     const resolution = resolve(expression)
     if (resolution.kind === "missing") {
       return {

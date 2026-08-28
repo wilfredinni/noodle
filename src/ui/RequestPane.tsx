@@ -2,8 +2,14 @@ import { type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useEffect, useMemo, useRef } from "react"
-import type { Auth, Request, Environment } from "../schema"
-import type { EditState, FieldKind } from "./editMode"
+import type {
+  AssertionOperator,
+  Auth,
+  Request,
+  Environment,
+  Response,
+} from "../schema"
+import type { EditState, FieldKind, FieldSubfield } from "./editMode"
 import type { BodyType } from "../schema"
 
 import { CenterText } from "./CenterText"
@@ -12,16 +18,19 @@ import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
-import { computeRequestTabLabels, REQUEST_TAB_HINT_ORDER } from "./useJumpMode"
+import { computeRequestTabLabels, REQUEST_TAB_HINTS } from "./useJumpMode"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 import { BodyTypeSelector, BodySection } from "./request-pane/RequestBodyTab"
 import { SettingsSection } from "./request-pane/RequestSettingsTab"
 import { syncPathParamsWithUrl } from "./urlParams"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
+import { AssertTab } from "./request-pane/AssertTab"
+import { responseExpressionSuggestions } from "../response"
 
 interface Props {
   request: Request | null
+  response?: Response
   visible?: boolean
   error?: Error | null
   editState: EditState
@@ -29,6 +38,9 @@ interface Props {
   editValue: string
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
+  editOperator?: AssertionOperator
+  setEditOperator?: (operator: AssertionOperator) => void
+  editError?: string | null
   focused?: boolean
   activeTab: FieldKind
   activeEnv?: Environment | null
@@ -53,11 +65,11 @@ interface Props {
     field: FieldKind,
     row: number,
     addingRow?: boolean,
-    subfield?: "key" | "value",
+    subfield?: FieldSubfield,
   ) => void
-  onFieldSubfieldFocus?: (subfield: "key" | "value") => void
+  onFieldSubfieldFocus?: (subfield: FieldSubfield) => void
   onFieldToggle?: (field: FieldKind, row: number) => void
-  onInteraction?: () => void
+  onInteraction?: () => boolean | void
   interactive?: boolean
   collectionTlsVerify?: boolean
   insecure?: boolean
@@ -69,11 +81,14 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "pathParams", label: "Path" },
   { id: "body", label: "Body" },
   { id: "auth", label: "Auth" },
+  { id: "assertions", label: "Assert" },
+  { id: "captures", label: "Capture" },
   { id: "settings", label: "Settings" },
 ]
 
 export function RequestPane({
   request,
+  response,
   visible = true,
   error,
   editState,
@@ -81,6 +96,9 @@ export function RequestPane({
   editValue,
   setEditKey,
   setEditValue,
+  editOperator = "equals",
+  setEditOperator = () => {},
+  editError = null,
   focused = false,
   activeTab,
   activeEnv,
@@ -151,6 +169,14 @@ export function RequestPane({
       (request?.bodyType === "multipart" || request?.bodyType === "urlencoded")
     ) {
       scrollRef.current?.scrollChildIntoView(`body-${row - 1}`)
+    } else if (field === "captures") {
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? "captures-add" : `captures-${row}`,
+      )
+    } else if (field === "assertions") {
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? "assertions-add" : `assertions-${row}`,
+      )
     } else if ((field === "auth" || field === "settings") && row > 0) {
       scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else {
@@ -160,10 +186,10 @@ export function RequestPane({
 
   const tabs = useMemo(() => {
     const labels = computeRequestTabLabels(request)
-    return BASE_TAB_DEFS.map((tab, i) => ({
+    return BASE_TAB_DEFS.map((tab) => ({
       ...tab,
-      label: labels[i],
-      jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
+      label: labels[tab.id] ?? tab.label,
+      jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
     }))
   }, [request, jumpMode])
   return (
@@ -211,7 +237,7 @@ export function RequestPane({
             tabs={tabs}
             activeId={activeTab}
             onChange={(tab) => {
-              onInteraction?.()
+              if (onInteraction?.() === false) return
               onPaneFocus?.()
               onTabChange?.(tab as FieldKind)
             }}
@@ -485,10 +511,92 @@ export function RequestPane({
                       showInherit={true}
                     />
                   )}
+                  {activeTab === "assertions" && (
+                    <AssertTab
+                      request={request}
+                      response={response}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      editOperator={editOperator}
+                      editError={editError}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      setEditOperator={setEditOperator}
+                      activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow, subfield) => {
+                              if (onInteraction?.() === false) return
+                              onPaneFocus?.()
+                              onFieldActivate(
+                                "assertions",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
+                            }
+                          : undefined
+                      }
+                      onSubfieldFocus={onFieldSubfieldFocus}
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              if (onInteraction?.() === false) return
+                              onPaneFocus?.()
+                              onFieldToggle("assertions", row)
+                            }
+                          : undefined
+                      }
+                      onSelectOpenChange={onSelectOpenChange}
+                      interactive={interactive}
+                    />
+                  )}
+                  {activeTab === "captures" && (
+                    <KeyValueSection
+                      kind="captures"
+                      entries={Object.entries(request.captures ?? {}).map(
+                        ([key, value]) => ({ key, value }),
+                      )}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                      completionValues={responseExpressionSuggestions(response)}
+                      editError={editError}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow, subfield) => {
+                              if (onInteraction?.() === false) return
+                              onPaneFocus?.()
+                              onFieldActivate(
+                                "captures",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              if (onInteraction?.() === false) return
+                              onPaneFocus?.()
+                              onFieldToggle("captures", row)
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
                   {activeTab === "settings" && (
                     <SettingsSection
                       request={request}
                       editState={editState}
+                      editValue={editValue}
                       setEditValue={setEditValue}
                       inEdit={inEdit}
                       browseActive={browseActive}

@@ -56,12 +56,23 @@ export type ResponseAssertion =
       expression: string
       operator: AssertionWithoutValueOperator
       value?: never
+      enabled?: boolean
     }
   | {
       expression: string
       operator: AssertionWithValueOperator
       value: AssertionValue
+      enabled?: boolean
     }
+
+export interface AssertionResult {
+  expression: string
+  operator: AssertionOperator
+  expected?: AssertionValue
+  actual?: AssertionValue
+  passed: boolean
+  message: string
+}
 
 export interface FormEntry {
   name: string
@@ -251,7 +262,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
-  captures?: Record<string, string>
+  captures?: Record<string, KvEntry>
   assertions?: ResponseAssertion[]
 }
 
@@ -324,6 +335,10 @@ export interface TimelineEntry {
   timestamp: number
   envName?: string
   network?: NetworkEvent[]
+  assertions?: {
+    evaluated: boolean
+    results: AssertionResult[]
+  }
   request: {
     id: string
     name: string

@@ -16,14 +16,34 @@ function response(overrides: Partial<Response> = {}): Response {
 }
 
 describe("response captures", () => {
+  it("skips disabled captures before resolution", () => {
+    expect(
+      evaluateCaptures(
+        {
+          ignored: { value: "body..invalid", enabled: false },
+          user_id: { value: "body.user.id", enabled: true },
+        },
+        createResponseResolver(response()),
+      ),
+    ).toEqual([
+      {
+        variable: "user_id",
+        expression: "body.user.id",
+        success: true,
+        type: "number",
+        value: 7,
+      },
+    ])
+  })
+
   it("captures scalar, nested, array, object, and case-insensitive header values", () => {
     const results = evaluateCaptures(
       {
-        user_id: "body.user.id",
-        request_id: "headers.x-request-id",
-        roles: "body.roles",
-        meta: "body.meta",
-        active: "body.meta.active",
+        user_id: { value: "body.user.id", enabled: true },
+        request_id: { value: "headers.x-request-id", enabled: true },
+        roles: { value: "body.roles", enabled: true },
+        meta: { value: "body.meta", enabled: true },
+        active: { value: "body.meta.active", enabled: true },
       },
       createResponseResolver(response()),
     )
@@ -70,7 +90,10 @@ describe("response captures", () => {
   it("keeps explicit null distinct from a missing value", () => {
     expect(
       evaluateCaptures(
-        { explicit: "body.nothing", missing: "body.unknown" },
+        {
+          explicit: { value: "body.nothing", enabled: true },
+          missing: { value: "body.unknown", enabled: true },
+        },
         createResponseResolver(response()),
       ),
     ).toEqual([
@@ -94,19 +117,19 @@ describe("response captures", () => {
   it("reports invalid JSON, invalid traversal, and invalid expressions", () => {
     expect(
       evaluateCaptures(
-        { body: "body.id" },
+        { body: { value: "body.id", enabled: true } },
         createResponseResolver(response({ body: "nope" })),
       )[0],
     ).toMatchObject({ success: false, failureReason: "resolution_error" })
     expect(
       evaluateCaptures(
-        { nested: "body.user[0]" },
+        { nested: { value: "body.user[0]", enabled: true } },
         createResponseResolver(response()),
       )[0],
     ).toMatchObject({ success: false, failureReason: "resolution_error" })
     expect(
       evaluateCaptures(
-        { invalid: "body..id" },
+        { invalid: { value: "body..id", enabled: true } },
         createResponseResolver(response()),
       )[0],
     ).toMatchObject({ success: false, failureReason: "resolution_error" })
@@ -143,7 +166,7 @@ describe("RunScope", () => {
     scope.set("id", 1)
     scope.set("id", 2)
     const [failed] = evaluateCaptures(
-      { id: "body.missing" },
+      { id: { value: "body.missing", enabled: true } },
       createResponseResolver(response()),
     )
     if (failed?.success) scope.set(failed.variable, failed.value)

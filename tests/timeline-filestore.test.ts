@@ -30,6 +30,19 @@ describe("redactTimelineSecrets", () => {
           ...makeEntry().request,
           url: `https://example.com?token=${secret}`,
         },
+        assertions: {
+          evaluated: true,
+          results: [
+            {
+              expression: "body.token",
+              operator: "equals",
+              expected: secret,
+              actual: secret,
+              passed: false,
+              message: `Expected ${secret}`,
+            },
+          ],
+        },
         response: {
           status: 200,
           statusText: "OK",
@@ -44,6 +57,9 @@ describe("redactTimelineSecrets", () => {
     await redactTimelineSecrets(dir, [secret])
     const [entry] = await loadTimeline(dir, "redact")
     expect(entry!.request.url).toContain("[REDACTED]")
+    expect(entry!.assertions?.results[0]?.expected).toBe("[REDACTED]")
+    expect(entry!.assertions?.results[0]?.actual).toBe("[REDACTED]")
+    expect(entry!.assertions?.results[0]?.message).toBe("Expected [REDACTED]")
     expect(entry!.response!.headers["x-result"]).toBe(secret)
     const body = await loadTimelineBody(
       dir,
@@ -181,6 +197,34 @@ describe("saveTimelineEntry", () => {
     expect(
       await loadTimelineBody(dir, "large", loaded[0]!.response!.bodyRef!),
     ).toBe(responseBody)
+  })
+
+  it("truncates assertion values larger than 10KB", async () => {
+    const value = { payload: "x".repeat(10_001) }
+    const entry = makeEntry({
+      assertions: {
+        evaluated: true,
+        results: [
+          {
+            expression: "body",
+            operator: "equals",
+            expected: value,
+            actual: value,
+            passed: true,
+            message: "Assertion passed",
+          },
+        ],
+      },
+    })
+
+    const persisted = await saveTimelineEntry(dir, "large-assertion", entry)
+
+    expect(persisted.assertions?.results[0]?.expected).toBe("[TRUNCATED]")
+    expect(persisted.assertions?.results[0]?.actual).toBe("[TRUNCATED]")
+    expect(entry.assertions?.results[0]?.actual).toEqual(value)
+    expect(
+      await readFile(join(dir, ".timeline", "large-assertion.yml"), "utf8"),
+    ).not.toContain(value.payload)
   })
 
   it("creates .timeline dir and writes YAML file", async () => {

@@ -83,6 +83,7 @@ export function useOverlayIntercepts(opts: {
   onRequestDeleteConfirm: () => void
   onRequestDeleteCancel: () => void
   onNewFolderConfirm: (name: string) => void
+  onTagConfirm: (tag: string) => void
   onFolderDeleteConfirm: () => void
   collectionSwitchPending: string | null
   setCollectionSwitchPending: (s: string | null) => void
@@ -173,6 +174,13 @@ export function useOverlayIntercepts(opts: {
     onCancel: () => overlays.setNewFolderVisible(false),
   })
 
+  const tagEditorActions = useSingleFieldFormOverlayIntercept({
+    visible: overlays.tagEditPending !== null,
+    handleRef: overlays.tagEditorRef,
+    onConfirm: opts.onTagConfirm,
+    onCancel: () => overlays.setTagEditPending(null),
+  })
+
   useEnvEditorIntercept(opts)
 
   return {
@@ -186,5 +194,6 @@ export function useOverlayIntercepts(opts: {
     editRequest: editRequestActions,
     cloneRequest: cloneRequestActions,
     newFolder: newFolderActions,
+    tagEditor: tagEditorActions,
   }
 }

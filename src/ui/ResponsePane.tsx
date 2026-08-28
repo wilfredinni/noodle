@@ -19,7 +19,7 @@ import {
 } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
-import { RESPONSE_TAB_HINT_ORDER } from "./useJumpMode"
+import { RESPONSE_TAB_HINTS } from "./useJumpMode"
 import { FullBorder, LeftBar } from "./borders"
 import { CodeEditorRenderable } from "./editor/CodeEditor"
 import {
@@ -40,6 +40,7 @@ import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { CookieRow, cookieDetails, cookieNameWidth } from "./CookieRow"
+import { ResponseResults } from "./ResponseResults"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -49,7 +50,15 @@ const TAB_DEFS: TabDef[] = [
   { id: "network", label: "Network" },
   { id: "timeline", label: "Timeline" },
   { id: "cookies", label: "Cookies" },
+  { id: "results", label: "Results" },
 ]
+
+export function hasResponseResults(state: SendState): boolean {
+  return (
+    (state.status === "done" || state.status === "error") &&
+    Boolean(state.execution?.assertions || state.execution?.captures)
+  )
+}
 
 function isDeletedCookie(cookie: ResponseCookie): boolean {
   if (cookie.expires === null) return false
@@ -112,16 +121,14 @@ export function ResponsePane({
   const [activeTab, setActiveTab] = useState<ResponseTabKind>(
     initialTab ?? "body",
   )
-  const tabs = useMemo(
-    () =>
-      jumpMode
-        ? TAB_DEFS.map((tab, i) => ({
-            ...tab,
-            jumpHint: RESPONSE_TAB_HINT_ORDER[i],
-          }))
-        : TAB_DEFS,
-    [jumpMode],
-  )
+  const hasResults = hasResponseResults(state)
+  const tabs = useMemo(() => {
+    return TAB_DEFS.map((tab) => ({
+      ...tab,
+      label: tab.id === "results" && hasResults ? "Results •" : tab.label,
+      jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
+    }))
+  }, [hasResults, jumpMode])
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
@@ -219,32 +226,20 @@ export function ResponsePane({
     if (!key.shift && key.name === "left") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = [
-          "body",
-          "headers",
-          "network",
-          "timeline",
-          "cookies",
-        ] as const
+        const ids = tabs.map((tab) => tab.id as ResponseTabKind)
         const idx = ids.indexOf(prev)
-        return ids[(idx - 1 + ids.length) % ids.length]
+        return ids[(Math.max(0, idx) - 1 + ids.length) % ids.length]!
       })
     } else if (!key.shift && key.name === "right") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = [
-          "body",
-          "headers",
-          "network",
-          "timeline",
-          "cookies",
-        ] as const
+        const ids = tabs.map((tab) => tab.id as ResponseTabKind)
         const idx = ids.indexOf(prev)
-        return ids[(idx + 1) % ids.length]
+        return ids[(Math.max(0, idx) + 1) % ids.length]!
       })
     } else if (key.name === "v" && activeTab === "body") {
       setShowLargeBody(true)
-    } else if (activeTab === "timeline") {
+    } else if (activeTab === "timeline" || activeTab === "results") {
       return
     } else if (activeTab === "cookies") {
       if (cookieRows.length === 0) return
@@ -345,6 +340,7 @@ export function ResponsePane({
   const activeTabRef = useRef(activeTab)
   activeTabRef.current = activeTab
   const syncVersionRef = useRef(0)
+
   useEffect(() => {
     const next = initialTab ?? "body"
     if (next !== activeTabRef.current) {
@@ -596,6 +592,35 @@ export function ResponsePane({
               layout={layout}
               expanded={expanded}
             />
+          ) : activeTab === "results" ? (
+            state.status === "idle" ? (
+              <Tips />
+            ) : (
+              <scrollbox
+                id="response-results-scrollbox"
+                ref={scrollRef}
+                scrollY
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                <ResponseResults
+                  execution={
+                    state.status === "done" || state.status === "error"
+                      ? state.execution
+                      : undefined
+                  }
+                  request={state.status === "error" ? state.request : undefined}
+                  scrollRef={scrollRef}
+                  focused={focused && activeTab === "results"}
+                  onPaneFocus={onPaneFocus}
+                />
+              </scrollbox>
+            )
           ) : activeTab === "body" ? (
             state.status === "idle" ? (
               <Tips />

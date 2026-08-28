@@ -820,7 +820,23 @@ describe("getAvailableTargets", () => {
     expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
     expect(targets.has("k")).toBe(true)
-    expect(targets.size).toBe(14)
+    expect(targets.has("v")).toBe(true)
+    expect(targets.get("v")).toEqual({
+      kind: "request-tab",
+      field: "assertions",
+    })
+    expect(targets.get("c")).toEqual({
+      kind: "request-tab",
+      field: "captures",
+    })
+    expect(targets.has("i")).toBe(true)
+    expect(targets.size).toBe(17)
+  })
+
+  it("keeps the Results jump target when no execution groups are available", () => {
+    const targets = getAvailableTargets(true, null, false, false, false, false)
+    expect(targets.has("i")).toBe(true)
+    expect(targets.has("r")).toBe(true)
   })
 
   it("excludes response targets when expanded=request", () => {
@@ -854,14 +870,16 @@ describe("getAvailableTargets", () => {
 describe("computeRequestTabLabels", () => {
   it("returns base labels when request is null", () => {
     const labels = computeRequestTabLabels(null)
-    expect(labels).toEqual([
-      "Headers",
-      "Params",
-      "Path",
-      "Body",
-      "Auth",
-      "Settings",
-    ])
+    expect(labels).toEqual({
+      headers: "Headers",
+      params: "Params",
+      pathParams: "Path",
+      body: "Body",
+      auth: "Auth",
+      assertions: "Assert",
+      captures: "Capture",
+      settings: "Settings",
+    })
   })
 
   it("appends bullet when headers have enabled entries", () => {
@@ -873,8 +891,8 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 0,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[0]).toBe("Headers \u2022")
-    expect(labels[1]).toBe("Params")
+    expect(labels.headers).toBe("Headers \u2022")
+    expect(labels.params).toBe("Params")
   })
 
   it("appends bullet when auth is set", () => {
@@ -886,7 +904,7 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "bearer" },
       timeout: 0,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[4]).toBe("Auth \u2022")
+    expect(labels.auth).toBe("Auth \u2022")
   })
 
   it("appends bullet when body is set", () => {
@@ -899,7 +917,7 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 0,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[3]).toBe("Body \u2022")
+    expect(labels.body).toBe("Body \u2022")
   })
 
   it("appends bullet when timeout > 0", () => {
@@ -911,6 +929,24 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 5000,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[5]).toBe("Settings \u2022")
+    expect(labels.settings).toBe("Settings \u2022")
+  })
+
+  it("marks assertion and capture tabs even when declarations are disabled", () => {
+    const labels = computeRequestTabLabels({
+      headers: {},
+      params: [],
+      url: "",
+      method: "GET",
+      timeout: 0,
+      tags: ["smoke"],
+      captures: { token: { value: "body.token", enabled: false } },
+      assertions: [
+        { expression: "status", operator: "exists", enabled: false },
+      ],
+    } as unknown as import("../../src/schema").Request)
+    expect(labels.assertions).toBe("Assert \u2022")
+    expect(labels.captures).toBe("Capture \u2022")
+    expect(labels.settings).toBe("Settings \u2022")
   })
 })

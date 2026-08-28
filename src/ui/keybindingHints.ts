@@ -6,6 +6,7 @@ import type { PaneMode } from "./useEditModeSync"
 import type { CollectionMode } from "../collectionPath"
 import type { AppView } from "./appState"
 import type { SettingsCategory } from "./settings/SettingsView"
+import type { RunnerPhase } from "../hooks/useCollectionRunner"
 
 export interface KeybindingHintsContext {
   view: AppView
@@ -21,6 +22,7 @@ export interface KeybindingHintsContext {
   queryVisible?: boolean
   responseBodyEditorAvailable?: boolean
   settingsCategory?: SettingsCategory
+  runnerPhase?: RunnerPhase
   keybinds: Keybinds
 }
 
@@ -220,6 +222,42 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     return [{ key: "Tab", word: "next" }, close]
   }
 
+  if (ctx.view === "runner") {
+    if (ctx.runnerPhase === "running") {
+      return [{ key: "", word: "run in progress" }]
+    }
+    if (ctx.focus === "runner-options") {
+      return [
+        { key: "↑/↓", word: "select" },
+        { key: "Enter", word: "edit/run", command: "runner.activate" },
+        { key: "Tab", word: "requests", command: "runner.focus-next" },
+        { key: "Esc", word: "close", command: "runner.escape" },
+      ]
+    }
+    if (ctx.focus === "runner-requests") {
+      return [
+        { key: "↑/↓", word: "select" },
+        { key: "Space", word: "toggle", command: "runner.toggle" },
+        { key: "Tab", word: "options", command: "runner.focus-next" },
+        { key: "Esc", word: "close", command: "runner.escape" },
+      ]
+    }
+    if (ctx.focus === "runner-results") {
+      return [
+        { key: "↑/↓", word: "select" },
+        { key: "Enter", word: "details", command: "runner.activate" },
+        { key: "←", word: "configure", command: "runner.configure" },
+        { key: "Esc", word: "close", command: "runner.escape" },
+      ]
+    }
+    return [
+      { key: "PgUp/PgDn", word: "scroll" },
+      { key: "a/c", word: "edit assert/capture" },
+      { key: "Tab", word: "results", command: "runner.focus-next" },
+      { key: "Esc", word: "close", command: "runner.escape" },
+    ]
+  }
+
   if (ctx.focus === "sidebar") {
     if (!col) return []
     return [
@@ -288,13 +326,18 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       const toggleSegments =
         ctx.tab === "headers" ||
         ctx.tab === "params" ||
+        ctx.tab === "assertions" ||
+        ctx.tab === "captures" ||
         (ctx.tab === "body" &&
           (ctx.bodyType === "urlencoded" || ctx.bodyType === "multipart"))
           ? [{ key: "Space", word: "toggle", command: "browse.toggle" }]
           : []
       const revert = {
         key: displayKey(kb.browse_delete),
-        word: "revert",
+        word:
+          ctx.tab === "assertions" || ctx.tab === "captures"
+            ? "delete"
+            : "revert",
         command: "browse.delete",
       }
       const revertAll = {

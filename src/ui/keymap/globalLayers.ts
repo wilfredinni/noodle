@@ -16,8 +16,16 @@ import type { AppKeymapContext } from "./types"
 export function createGlobalLayers(
   context: AppKeymapContext,
 ): [UseBindingsLayer, UseBindingsLayer] {
-  const { keymap, keybinds, global, request, folder, environment, actions } =
-    context
+  const {
+    keymap,
+    keybinds,
+    global,
+    request,
+    folder,
+    environment,
+    runner,
+    actions,
+  } = context
   const isTextInputActive = () => {
     const focus = keymap.getData("app.focus")
     return (
@@ -28,7 +36,11 @@ export function createGlobalLayers(
       global.responseQueryRef.current?.isOpen() === true
     )
   }
+  const isRunnerRunning = () =>
+    global.viewRef.current === "runner" &&
+    runner.runnerRef.current.phase === "running"
   const shortcutEnabled = (binding: string, enabled = true) => {
+    if (isRunnerRunning()) return false
     if (!enabled || !isTextInputActive()) return enabled
     const key = binding.startsWith("shift+") ? binding.slice(6) : binding
     return !(
@@ -44,6 +56,7 @@ export function createGlobalLayers(
         name: "focus.next",
         enabled: () => {
           const editState = request.ebRef.current.editState
+          if (isRunnerRunning()) return false
           if (
             global.viewRef.current === "main" &&
             editState.mode === "editing" &&
@@ -91,6 +104,7 @@ export function createGlobalLayers(
         name: "focus.prev",
         enabled: () => {
           const editState = request.ebRef.current.editState
+          if (isRunnerRunning()) return false
           if (
             global.viewRef.current === "main" &&
             editState.mode === "editing" &&
@@ -256,7 +270,8 @@ export function createGlobalLayers(
         enabled: () =>
           shortcutEnabled(
             keybinds.settings_open,
-            keymap.getData("app.overlay") === "none",
+            global.viewRef.current !== "runner" &&
+              keymap.getData("app.overlay") === "none",
           ),
         run: () => {
           if (!openSettings(actions, global.viewRef.current)) return
@@ -280,7 +295,8 @@ export function createGlobalLayers(
           shortcutEnabled(
             keybinds.collection_switcher,
             keymap.getData("app.overlay") === "none" &&
-              keymap.getData("app.view") !== "env-editor",
+              keymap.getData("app.view") !== "env-editor" &&
+              keymap.getData("app.view") !== "runner",
           ),
         run: () => global.setCollectionSwitcherVisible(true),
       },
@@ -320,6 +336,7 @@ export function createGlobalLayers(
           shortcutEnabled(
             keybinds.jump_mode,
             keymap.getData("app.overlay") === "none" &&
+              global.viewRef.current !== "runner" &&
               keymap.getData("app.jump") !== "active",
           ),
         run: () => global.setJumpMode(true),

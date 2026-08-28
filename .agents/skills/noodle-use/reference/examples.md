@@ -37,11 +37,13 @@ assert:
   - expression: response.time
     operator: lt
     value: 500
+    enabled: false
 ```
 
-Assertions are top-level request fields and run only through the non-interactive
-CLI. Validate the YAML, then run the affected request when execution is
-authorized:
+Assertions are top-level request fields. Manual TUI sends and non-interactive
+runs evaluate enabled rows; `enabled: false` keeps a validated row without
+producing a result. Validate the YAML, then run the affected request when
+execution is authorized:
 
 ```bash
 noodle collection audit ./my-api --json
@@ -65,6 +67,7 @@ body: '{"name":"Ada"}'
 capture:
   user_id: body.id
   request_id: headers.x-request-id
+  optional_trace: { value: headers.x-trace, enabled: false }
 ```
 
 Later request (`users/get-created-user.yml`):
@@ -77,12 +80,16 @@ headers:
   X-Request-ID: $request_id
 ```
 
-Run both in collection order. `user_id` and `request_id` exist only for this
-command and never modify environment files:
+Run both in collection order:
 
 ```bash
 noodle collection run ./my-api users/create-user users/get-created-user --json
 ```
+
+`user_id` and `request_id` exist only for this command and never modify
+environment files. The simple capture form is enabled. Use
+`{ value: ..., enabled: false }` to keep a validated declaration without
+resolving it or changing RunScope.
 
 Read capture results from `data.results[].captures`. Human output never prints
 captured values. JSON output includes typed server values unless they match a

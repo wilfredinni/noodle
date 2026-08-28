@@ -17,6 +17,7 @@ import { NewEnvironmentOverlay } from "./overlays/NewEnvironmentOverlay"
 import { CookieFormOverlay } from "./overlays/CookieFormOverlay"
 import { CloneRequestOverlay } from "./overlays/CloneRequestOverlay"
 import { NewFolderOverlay } from "./overlays/NewFolderOverlay"
+import { TagEditorOverlay } from "./overlays/TagEditorOverlay"
 import { ImportCurlOverlay } from "./overlays/ImportCurlOverlay"
 import { ExportCollectionOverlay } from "./overlays/ExportCollectionOverlay"
 import { ImportCollectionOverlay } from "./overlays/ImportCollectionOverlay"
@@ -102,6 +103,7 @@ interface AppOverlaysProps {
   editRequestActions: { confirm: () => void; cancel: () => void }
   cloneRequestActions: { confirm: () => void; cancel: () => void }
   newFolderActions: { confirm: () => void; cancel: () => void }
+  tagEditorActions: { confirm: () => void; cancel: () => void }
   updateFlow: UpdateFlowState
   envColors: Record<string, string | undefined>
   onLoadTimelineBody: (
@@ -168,6 +170,7 @@ export function AppOverlays({
   editRequestActions,
   cloneRequestActions,
   newFolderActions,
+  tagEditorActions,
   updateFlow,
   envColors,
   onLoadTimelineBody,
@@ -217,6 +220,8 @@ export function AppOverlays({
     cloneRequestRef,
     newFolderVisible,
     newFolderRef,
+    tagEditPending,
+    tagEditorRef,
     folderDeletePending,
     requestDeletePending,
     timelineDetailEntry,
@@ -500,6 +505,15 @@ export function AppOverlays({
           ref={newFolderRef}
           onConfirm={newFolderActions.confirm}
           onClose={newFolderActions.cancel}
+        />
+      )}
+      {tagEditPending !== null && (
+        <TagEditorOverlay
+          visible
+          ref={tagEditorRef}
+          initialValue={tagEditPending.value}
+          onConfirm={tagEditorActions.confirm}
+          onClose={tagEditorActions.cancel}
         />
       )}
       {activeOverlay === "delete-folder" && folderDeletePending !== null && (

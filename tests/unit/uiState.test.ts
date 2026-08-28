@@ -86,6 +86,18 @@ describe("uiState I/O", () => {
     expect(map.size).toBe(0)
   })
 
+  it("normalizes legacy and unknown request tab ids", async () => {
+    mkdirSync(join(tmpDir, ".noodle"))
+    writeFileSync(
+      join(tmpDir, ".noodle", "ui-state.yml"),
+      "legacy:\n  request: automation\n  response: results\nunknown:\n  request: future-tab\n  response: body\n",
+      "utf8",
+    )
+    const map = await loadUIState(tmpDir)
+    expect(map.get("legacy")?.requestTab).toBe("assertions")
+    expect(map.get("unknown")?.requestTab).toBe("headers")
+  })
+
   itOnCI("skips entries with both defaults on save", async () => {
     const map = new Map<string, TabPrefs>([
       ["req_a", { requestTab: "headers", responseTab: "body" }], // defaults

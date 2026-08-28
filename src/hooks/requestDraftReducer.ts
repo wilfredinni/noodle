@@ -1,4 +1,11 @@
-import type { BodyType, FormEntry, Request, Auth } from "../schema"
+import type {
+  BodyType,
+  FormEntry,
+  Request,
+  Auth,
+  KvEntry,
+  ResponseAssertion,
+} from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { syncParamsWithUrl, syncPathParamsWithUrl } from "../ui/urlParams"
 import {
@@ -67,6 +74,11 @@ export type DraftOp =
   | { kind: "removeFormRow"; index: number }
   | { kind: "toggleFormRow"; index: number }
   | { kind: "setFilePath"; filePath: string }
+  | { kind: "setTags"; tags: string[] }
+  | { kind: "setCaptures"; captures: Record<string, KvEntry> }
+  | { kind: "toggleCaptureRow"; index: number }
+  | { kind: "setAssertions"; assertions: ResponseAssertion[] }
+  | { kind: "toggleAssertionRow"; index: number }
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
@@ -172,6 +184,28 @@ export function applyDraft(
       break
     case "setFilePath":
       draft.filePath = op.filePath
+      break
+    case "setTags":
+      draft.tags = op.tags.length > 0 ? op.tags : undefined
+      break
+    case "setCaptures":
+      draft.captures =
+        Object.keys(op.captures).length > 0 ? op.captures : undefined
+      break
+    case "toggleCaptureRow":
+      draft.captures = toggleRow(current.captures ?? {}, op.index)
+      break
+    case "setAssertions":
+      draft.assertions = op.assertions.length > 0 ? op.assertions : undefined
+      break
+    case "toggleAssertionRow":
+      draft.assertions = (current.assertions ?? []).map((assertion, index) => {
+        if (index !== op.index) return assertion
+        if (assertion.enabled !== false) return { ...assertion, enabled: false }
+        const enabledAssertion = { ...assertion }
+        delete enabledAssertion.enabled
+        return enabledAssertion
+      })
       break
     case "setHeaderRow": {
       const { key, value } = op
@@ -306,6 +340,10 @@ export function applyDraft(
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth
         }
+      } else if (op.field === "assertions") {
+        draft.assertions = original.assertions
+      } else if (op.field === "captures") {
+        draft.captures = original.captures
       }
       break
     }

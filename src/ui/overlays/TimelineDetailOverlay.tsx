@@ -14,6 +14,7 @@ import { methodColor } from "../formatRequest"
 import { CodeEditorRenderable } from "../editor/CodeEditor"
 import { HeaderTable } from "../HeaderTable"
 import { NetworkTab } from "../NetworkTab"
+import { ResponseResults } from "../ResponseResults"
 import {
   entryMethod,
   entryStatus,
@@ -32,8 +33,8 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "response", label: "Response" },
 ]
 
-type DetailTab = "request" | "response" | "network"
-type BodyTab = Exclude<DetailTab, "network">
+type DetailTab = "request" | "response" | "results" | "network"
+type BodyTab = Extract<DetailTab, "request" | "response">
 
 function bodyInfo(
   entry: TimelineEntry,
@@ -112,11 +113,16 @@ export function TimelineDetailOverlay({
   )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
-  const tabs = hasNetwork
-    ? [...BASE_TAB_DEFS, { id: "network", label: "Network" }]
-    : BASE_TAB_DEFS
+  const hasResults = entry?.assertions !== undefined
+  const tabs = [
+    ...BASE_TAB_DEFS,
+    ...(hasResults ? [{ id: "results", label: "Results" }] : []),
+    ...(hasNetwork ? [{ id: "network", label: "Network" }] : []),
+  ]
   const info =
-    entry && activeTab !== "network" ? bodyInfo(entry, activeTab) : null
+    entry && (activeTab === "request" || activeTab === "response")
+      ? bodyInfo(entry, activeTab)
+      : null
   const isLarge = (info?.size ?? 0) > AUTO_RENDER_LIMIT
 
   const selectTab = useCallback((tab: DetailTab) => {
@@ -127,7 +133,7 @@ export function TimelineDetailOverlay({
   }, [])
 
   const copyHeaders = useCallback(() => {
-    if (!entry || activeTab === "network") return
+    if (!entry || activeTab === "network" || activeTab === "results") return
     const headers =
       activeTab === "request"
         ? buildDetailRequestHeaders(entry.request.auth, entry.request.headers)
@@ -140,7 +146,7 @@ export function TimelineDetailOverlay({
   }, [entry, activeTab, onCopyHeaders])
 
   const copyBody = useCallback(() => {
-    if (activeTab === "network") return
+    if (activeTab === "network" || activeTab === "results") return
     const body = loadedBody ?? info?.body
     if (body !== undefined) onCopyBody(body)
     else if (info?.ref) {
@@ -151,7 +157,7 @@ export function TimelineDetailOverlay({
   }, [activeTab, loadedBody, info, onCopyBody, onLoadBody])
 
   const exportBody = useCallback(() => {
-    if (!entry || activeTab === "network") return
+    if (!entry || activeTab === "network" || activeTab === "results") return
     const runExport = (body?: string) =>
       onExportBody(entry, activeTab, body).catch(() =>
         setBodyError("Failed to export timeline entry"),
@@ -219,9 +225,7 @@ export function TimelineDetailOverlay({
         key.stopPropagation()
         if (key.name === "escape") onClose()
         else if (key.name === "left" || key.name === "right") {
-          const ids: DetailTab[] = hasNetwork
-            ? ["request", "response", "network"]
-            : ["request", "response"]
+          const ids = tabs.map((tab) => tab.id as DetailTab)
           const index = ids.indexOf(activeTab)
           const direction = key.name === "left" ? -1 : 1
           selectTab(ids[(index + direction + ids.length) % ids.length]!)
@@ -230,24 +234,27 @@ export function TimelineDetailOverlay({
         else if (key.name === "b") copyBody()
         else if (key.name === "e") exportBody()
         else if (key.name === "up") {
-          if (activeTab === "network") bodyScrollRef.current?.scrollBy(-1)
+          if (activeTab === "network" || activeTab === "results")
+            bodyScrollRef.current?.scrollBy(-1)
           else bodyEditorRef.current?.scrollBy(-1)
         } else if (key.name === "down") {
-          if (activeTab === "network") bodyScrollRef.current?.scrollBy(1)
+          if (activeTab === "network" || activeTab === "results")
+            bodyScrollRef.current?.scrollBy(1)
           else bodyEditorRef.current?.scrollBy(1)
         } else if (key.name === "pageup") {
-          if (activeTab === "network")
+          if (activeTab === "network" || activeTab === "results")
             bodyScrollRef.current?.scrollBy(-1, "viewport")
           else bodyEditorRef.current?.scrollByViewport(-1)
         } else if (key.name === "pagedown") {
-          if (activeTab === "network")
+          if (activeTab === "network" || activeTab === "results")
             bodyScrollRef.current?.scrollBy(1, "viewport")
           else bodyEditorRef.current?.scrollByViewport(1)
         } else if (key.name === "home") {
-          if (activeTab === "network") bodyScrollRef.current?.scrollTo(0)
+          if (activeTab === "network" || activeTab === "results")
+            bodyScrollRef.current?.scrollTo(0)
           else bodyEditorRef.current?.scrollTo(0)
         } else if (key.name === "end") {
-          if (activeTab === "network") {
+          if (activeTab === "network" || activeTab === "results") {
             const bodyScroll = bodyScrollRef.current
             if (bodyScroll)
               bodyScroll.scrollTo(
@@ -268,6 +275,7 @@ export function TimelineDetailOverlay({
     info,
     activeTab,
     hasNetwork,
+    tabs,
     selectTab,
     copyHeaders,
     copyBody,
@@ -317,6 +325,19 @@ export function TimelineDetailOverlay({
               events={entry.network}
               scrollRef={bodyScrollRef}
             />
+          ) : activeTab === "results" ? (
+            <scrollbox
+              ref={bodyScrollRef}
+              scrollY
+              style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
+            >
+              <ResponseResults
+                execution={{ assertions: entry.assertions! }}
+                showCaptures={false}
+                scrollRef={bodyScrollRef}
+                allowOverlayNavigation
+              />
+            </scrollbox>
           ) : (
             <box
               key="details"
@@ -503,7 +524,7 @@ export function TimelineDetailOverlay({
             </box>
           )}
         </Tabs>
-        {activeTab !== "network" && (
+        {(activeTab === "request" || activeTab === "response") && (
           <box
             style={{
               flexDirection: "row",

@@ -17,14 +17,40 @@ import {
   failSend,
   type SendState,
 } from "../ui/sendState"
+import type { ResponseExecutionResults } from "../executionResults"
+import {
+  evaluateResponseExecution,
+  executionSecretValues,
+  unevaluatedExecutionResults,
+} from "../executionResults"
+import { RunScope } from "../runScope"
+import { substitute } from "../requests/substitute"
 
 type CachedResult =
-  | { status: "done"; response: Response }
-  | { status: "error"; request: Request; error: Error }
+  | {
+      status: "done"
+      response: Response
+      execution?: ResponseExecutionResults
+    }
+  | {
+      status: "error"
+      request: Request
+      error: Error
+      execution?: ResponseExecutionResults
+    }
 
 export type SendCompleteResult =
-  | { status: "done"; response: Response }
-  | { status: "error"; request: Request; error: Error }
+  | {
+      status: "done"
+      response: Response
+      execution?: ResponseExecutionResults
+    }
+  | {
+      status: "error"
+      request: Request
+      error: Error
+      execution?: ResponseExecutionResults
+    }
 
 export interface UseResponseResult {
   state: SendState
@@ -55,7 +81,7 @@ export function useResponse(
     const cached = cacheRef.current.get(selectedRequest.id)
     if (cached) {
       if (cached.status === "done") {
-        setState({ status: "done", response: cached.response })
+        setState(cached)
       } else {
         setState(cached)
       }
@@ -126,6 +152,7 @@ async function runSend(
   cookies?: CollectionCookieJar | null,
   collectionDir?: string,
 ): Promise<void> {
+  const runScope = new RunScope()
   try {
     const res = await executor.send(req, {
       environment: env,
@@ -145,18 +172,34 @@ async function runSend(
       oauthMode: "interactive",
       ...(cookies ? { cookies } : {}),
     })
-    cacheRef.current.set(req.id, { status: "done", response: res })
-    setState((prev) => finishSend(prev, req, res))
-    onCompleteRef.current?.(req, { status: "done", response: res })
+    const runEnvironment = runScope.environment(env)
+    const effectiveRequest = substitute(req, runEnvironment)
+    const execution = evaluateResponseExecution(
+      effectiveRequest,
+      res,
+      runScope,
+      executionSecretValues([env, runEnvironment], proxyPolicy, tlsPolicy),
+    )
+    const result = { status: "done" as const, response: res, execution }
+    cacheRef.current.set(req.id, result)
+    setState((prev) => finishSend(prev, req, res, execution))
+    onCompleteRef.current?.(req, result)
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       setState({ status: "idle" })
       return
     }
     const err = e instanceof Error ? e : new Error(String(e))
-    cacheRef.current.set(req.id, { status: "error", request: req, error: err })
-    setState((prev) => failSend(prev, req, err))
-    onCompleteRef.current?.(req, { status: "error", request: req, error: err })
+    const execution = unevaluatedExecutionResults(req)
+    const result = {
+      status: "error" as const,
+      request: req,
+      error: err,
+      execution,
+    }
+    cacheRef.current.set(req.id, result)
+    setState((prev) => failSend(prev, req, err, execution))
+    onCompleteRef.current?.(req, result)
   } finally {
     abortRef.current = null
   }

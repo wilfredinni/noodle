@@ -15,9 +15,11 @@ import {
   environmentSet,
   requestCreate,
   requestRun,
+  selectCollectionRunRequests,
   validateId,
   workspaceAudit,
 } from "../../src/app/services"
+import { filestore } from "../../src/filestore"
 import { collection as collectionCommand } from "../../src/app/commands/automation"
 import { env } from "../../src/env"
 import { executor } from "../../src/requests"
@@ -459,6 +461,15 @@ describe("automation services", () => {
       expect(targeted.results.map((result) => result.id)).toEqual([
         "users/list",
       ])
+      const loaded = await filestore.loadCollection(dir)
+      expect(
+        selectCollectionRunRequests(
+          loaded.items,
+          ["users/"],
+          "smoke",
+          "destructive",
+        ).map((request) => request.id),
+      ).toEqual(targeted.results.map((result) => result.id))
     } finally {
       executor.send = send
     }
@@ -1226,6 +1237,37 @@ describe("automation services", () => {
           { expression: "headers.X-Trace", passed: true, actual: "abc" },
           { expression: "response.time", passed: true, actual: 12 },
         ],
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("omits disabled-only declarations from run results and summaries", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  id: { value: body.id, enabled: false }\nassert:\n  - expression: body.missing\n    operator: exists\n    enabled: false\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"id":42}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(false)
+      expect(result.results[0]).not.toHaveProperty("captures")
+      expect(result.results[0]).not.toHaveProperty("assertions")
+      expect(result.results[0]?.failureCategories).toEqual([])
+      expect(result.summary).toMatchObject({
+        assertionPasses: 0,
+        assertionFailures: 0,
+        captureFailures: 0,
+        failureCategories: [],
       })
     } finally {
       executor.send = send

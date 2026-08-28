@@ -20,7 +20,16 @@ import type { Request } from "../src/schema"
 const inactive: EditState = initialEditState()
 
 function c(headers: number, params: number) {
-  return { headers, params, pathParams: 0, body: 0, auth: 0, settings: 3 }
+  return {
+    headers,
+    params,
+    pathParams: 0,
+    body: 0,
+    auth: 0,
+    assertions: 0,
+    captures: 0,
+    settings: 3,
+  }
 }
 
 describe("initialEditState", () => {
@@ -54,6 +63,22 @@ describe("enterEditBrowse", () => {
     const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     expect(enterEditBrowse(editing)).toBe(editing)
   })
+  it("starts an empty capture section on its add row", () => {
+    const s = enterEditBrowse(inactive, c(0, 0), "captures")
+    expect(s.cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+  })
+  it("starts an empty assertion section on its add row", () => {
+    const s = enterEditBrowse(inactive, c(0, 0), "assertions")
+    expect(s.cursor).toEqual({
+      field: "assertions",
+      row: -1,
+      addingRow: true,
+    })
+  })
 })
 
 describe("exitEditBrowse", () => {
@@ -72,7 +97,7 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFieldCursor", () => {
-  it("+1 walks headers → params → pathParams → body → auth → settings → headers", () => {
+  it("+1 walks headers → params → pathParams → body → auth → assertions → captures → settings → headers", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("params")
@@ -88,16 +113,29 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
+    expect(s.cursor.field).toBe("assertions")
+    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.addingRow).toBe(true)
+    s = moveFieldCursor(s, +1, c(2, 1))
+    expect(s.cursor.field).toBe("captures")
+    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.addingRow).toBe(true)
+    s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("headers")
     expect(s.cursor.row).toBe(0)
   })
-  it("-1 walks headers → settings → auth → body → pathParams → params → headers", () => {
+  it("-1 walks headers → settings → captures → assertions → auth → body → pathParams → params → headers", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
+    s = moveFieldCursor(s, -1, c(2, 1))
+    expect(s.cursor.field).toBe("captures")
+    s = moveFieldCursor(s, -1, c(2, 1))
+    expect(s.cursor.field).toBe("assertions")
+    expect(s.cursor.addingRow).toBe(true)
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
     s = moveFieldCursor(s, -1, c(2, 1))
@@ -158,6 +196,38 @@ describe("moveRowCursor", () => {
     s = moveRowCursor(s, +1, c(1, 0))
     expect(s.cursor.row).toBe(0)
     expect(s.cursor.addingRow).toBe(false)
+  })
+  it("walks capture rows through the shared add row", () => {
+    const counts = { ...c(0, 0), captures: 2 }
+    let s = enterEditBrowse(inactive, counts, "captures")
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, -1, counts)
+    expect(s.cursor.addingRow).toBe(true)
+  })
+  it("walks assertion rows through the shared add row", () => {
+    const counts = { ...c(0, 0), assertions: 2 }
+    let s = enterEditBrowse(inactive, counts, "assertions")
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor).toEqual({
+      field: "assertions",
+      row: -1,
+      addingRow: true,
+    })
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, -1, counts)
+    expect(s.cursor.addingRow).toBe(true)
   })
   it("empty section is no-op (no rows to navigate)", () => {
     const s = enterEditBrowse(inactive, c(0, 0))
@@ -222,6 +292,28 @@ describe("moveRowFirst", () => {
     const first = moveRowFirst(s, c(0, 0))
     expect(first.cursor.addingRow).toBe(true)
     expect(first.cursor.row).toBe(-1)
+  })
+
+  it("uses the add row for capture Home and End navigation", () => {
+    const counts = { ...c(0, 0), captures: 2 }
+    const s = enterEditBrowse(inactive, counts, "captures")
+    expect(moveRowFirst(moveRowLast(s, counts), counts).cursor.row).toBe(0)
+    expect(moveRowLast(s, counts).cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+  })
+
+  it("uses the add row for assertion Home and End navigation", () => {
+    const counts = { ...c(0, 0), assertions: 2 }
+    const s = enterEditBrowse(inactive, counts, "assertions")
+    expect(moveRowFirst(moveRowLast(s, counts), counts).cursor.row).toBe(0)
+    expect(moveRowLast(s, counts).cursor).toEqual({
+      field: "assertions",
+      row: -1,
+      addingRow: true,
+    })
   })
 
   it("empty settings/auth/body section is no-op", () => {
@@ -292,6 +384,8 @@ describe("moveRowLast", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
     const last = moveRowLast(s, counts)
     expect(last.cursor.row).toBe(3)
@@ -360,6 +454,8 @@ describe("beginEditing", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
     const e = beginEditing(s)
@@ -376,6 +472,8 @@ describe("beginEditing", () => {
       settings: 3,
     }
     let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
@@ -399,6 +497,8 @@ describe("beginEditing", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, +1, counts)
     expect(s.cursor.row).toBe(1)
@@ -418,6 +518,8 @@ describe("beginEditing", () => {
       settings: 3,
     }
     let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.row).toBe(0)
@@ -569,6 +671,8 @@ describe("toggleSubfield", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
     const e = beginEditing(s)
@@ -613,6 +717,20 @@ describe("moveRowCursor — settings", () => {
     expect(s.cursor.addingRow).toBe(false)
     s = moveRowCursor(s, +1, c(0, 0))
     expect(s.cursor.addingRow).toBe(false)
+  })
+
+  it("follows the visual tags-first order", () => {
+    const counts = { ...c(0, 0), settings: 8 }
+    let s = enterEditBrowse(inactive, counts, "settings")
+    expect(s.cursor.row).toBe(5)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(6)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(7)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(0)
+    expect(moveRowFirst(s, counts).cursor.row).toBe(5)
+    expect(moveRowLast(s, counts).cursor.row).toBe(4)
   })
 })
 

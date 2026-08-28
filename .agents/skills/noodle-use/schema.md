@@ -26,7 +26,7 @@ One request per file. Fields:
 | `auth` | no | map | n/a | Auth config. Omit for no auth |
 | `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
 | `capture` | no | map | None | Response expressions captured as run-scoped variables |
-| `assert` | no | list | None | Response assertions evaluated by non-interactive run commands |
+| `assert` | no | list | None | Response assertions evaluated by manual TUI sends and non-interactive run commands |
 
 ### Params
 
@@ -70,12 +70,18 @@ variables for later requests in the same ordered `collection run`:
 capture:
   user_id: body.user.id
   request_id: headers.x-request-id
+  optional_trace: { value: headers.x-trace, enabled: false }
 ```
 
 Variable names must match `^\w+$`. Expressions use the same grammar as
 assertions and are validated while loading the request, before it can be sent.
 Duplicate mapping keys are invalid YAML. Capture expressions themselves are
 never variable-substituted.
+
+The string form is shorthand for `{ value: "...", enabled: true }`. Use the
+expanded form with `enabled: false` to keep a capture declaration without
+evaluating it. Disabled declarations are still validated while loading, but
+they produce no result, failure, summary count, or RunScope mutation.
 
 Environment values and resolved declared secrets load first. RunScope values
 then override same-named values, and the latest successful capture wins. String
@@ -90,17 +96,19 @@ unchanged. Captures only affect later requests, never the request that produced
 them. A capture failure fails the request and command, but a collection run
 continues in collection order.
 
-One scope exists for each top-level `request run` or `collection run`. It is
-discarded when that call returns and never modifies request YAML, environment
-files, collection settings, or timeline history. TUI sends preserve capture
-declarations but do not evaluate them.
+One scope exists for each top-level `request run`, `collection run`, or manual
+TUI send. It is discarded when that call returns and never modifies request
+YAML, environment files, collection settings, or timeline history. Manual TUI
+sends show redacted capture outcomes in the response Results tab but never make
+captured values available to a later send.
 
 ### Response assertions
 
-An optional `assert` list validates responses from non-interactive `request run`
-and `collection run` commands. A failed assertion makes the request and command
-fail. An HTTP status of 400 or higher also fails the run even if a status
-assertion passes. TUI sends preserve the declarations but do not evaluate them.
+An optional `assert` list validates responses from manual TUI sends and
+non-interactive `request run` and `collection run` commands. A failed assertion
+makes the request and command fail. An HTTP status of 400 or higher also fails
+the run even if a status assertion passes. TUI results appear beside the
+response and in redacted timeline assertion history.
 
 ```yaml
 assert:
@@ -115,7 +123,13 @@ assert:
   - expression: response.time
     operator: lt
     value: 500
+    enabled: false
 ```
+
+Each assertion accepts optional boolean `enabled`; omitted means `true` and is
+omitted from canonical YAML. Disabled assertions remain validated and visible
+for authoring, but are not substituted, evaluated, or included in results,
+failures, summaries, or timeline assertion outcomes.
 
 Expressions are `status`, `response.time`, `headers.<name>` with
 case-insensitive header lookup, or `body` followed by dot properties and array
@@ -511,8 +525,9 @@ Each entry has:
 | `id` | string | Unique entry ID, used to name large-body sidecars |
 | `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
+| `assertions` | object | Optional redacted manual-send assertion group: `{ evaluated: boolean, results: AssertionResult[] }` |
 
-The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, and literal auth credentials are redacted from persisted request fields, but ordinary variables and server response fields remain intact. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
+The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, literal auth credentials, and assertion result metadata are redacted before persistence, but ordinary variables and server response fields remain intact. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
 - Average response time for a request: sum all `response.timeMs` / count

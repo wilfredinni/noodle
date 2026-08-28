@@ -73,6 +73,8 @@ export function RequestFinderOverlay({
       const mutedFg = highlighted ? "#333333" : theme.textMuted
 
       if (item.type === "request") {
+        const tags = item.tags.map((tag) => `#${tag}`).join(" ")
+        const rightText = tags ? `${tags} ${item.folderPath}` : item.folderPath
         return (
           <box flexDirection="row" flexGrow={1}>
             <text
@@ -89,7 +91,7 @@ export function RequestFinderOverlay({
             </text>
             <box flexGrow={1} />
             <text fg={mutedFg} wrapMode="none">
-              {truncate(item.folderPath, 20)}
+              {truncate(rightText, tags ? 24 : 20)}
             </text>
           </box>
         )

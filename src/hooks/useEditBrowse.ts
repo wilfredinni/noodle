@@ -1,5 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { BodyType, Request } from "../schema"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type {
+  AssertionOperator,
+  BodyType,
+  Request,
+  ResponseAssertion,
+} from "../schema"
+import {
+  assertionOperatorRequiresValue,
+  assertionValueValidationError,
+} from "../assertions"
+import { parseResponseExpression } from "../response"
+import { isValidVariableName } from "../requests/substitute"
 import {
   initialEditState,
   enterEditBrowse,
@@ -17,11 +35,13 @@ import {
   type EditState,
   type SectionRowCount,
   type FieldKind,
+  type FieldSubfield,
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
 import { syncPathParamsWithUrl } from "../ui/urlParams"
 import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
+import { formatAssertionValue, parseAssertionValue } from "../ui/assertionValue"
 
 function isTextBodyType(bodyType: BodyType | undefined): boolean {
   return bodyType === undefined || bodyType === "json" || bodyType === "xml"
@@ -35,7 +55,9 @@ function rowCount(req: Request | null): SectionRowCount {
       pathParams: 0,
       body: 0,
       auth: 1,
-      settings: 5,
+      assertions: 0,
+      captures: 0,
+      settings: 6,
     }
   const authRows = authRowCount(req.auth)
   const body =
@@ -50,8 +72,36 @@ function rowCount(req: Request | null): SectionRowCount {
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
-    settings: 5,
+    assertions: req.assertions?.length ?? 0,
+    captures: Object.keys(req.captures ?? {}).length,
+    settings: 6 + (req.tags?.length ?? 0),
   }
+}
+
+function assertionEditValues(
+  request: Request | null,
+  row: number,
+): { key: string; operator: AssertionOperator; value: string } {
+  const assertion = request?.assertions?.[row]
+  return assertion
+    ? {
+        key: assertion.expression,
+        operator: assertion.operator,
+        value: Object.hasOwn(assertion, "value")
+          ? formatAssertionValue(assertion.value!)
+          : "",
+      }
+    : { key: "", operator: "equals", value: "" }
+}
+
+function captureEditValues(
+  request: Request | null,
+  row: number,
+): { key: string; value: string } {
+  const capture = Object.entries(request?.captures ?? {})[row]
+  return capture
+    ? { key: capture[0], value: capture[1].value }
+    : { key: "", value: "" }
 }
 
 function currentValueFor(
@@ -93,6 +143,7 @@ function currentValueFor(
         ? "inherit"
         : String(draft.tls.verify)
     }
+    if (row >= 5) return draft.tags?.[row - 5] ?? ""
     return ""
   }
   if (field === "headers") {
@@ -151,6 +202,8 @@ function currentKeyValueFor(
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
     if (row === 3)
       return { key: "", value: currentValueFor(draft, field, row, false) }
+    if (row >= 5)
+      return { key: "", value: currentValueFor(draft, field, row, false) }
     return { key: "", value: "" }
   }
   if (field === "body") {
@@ -196,6 +249,9 @@ export interface UseEditBrowseResult {
   setEditValue: (v: string) => void
   editKey: string
   setEditKey: (v: string) => void
+  editOperator: AssertionOperator
+  setEditOperator: (operator: AssertionOperator) => void
+  editError: string | null
   isActive: boolean
   activeTab: FieldKind
   enterBrowse: () => void
@@ -208,7 +264,7 @@ export interface UseEditBrowseResult {
   browseRight: () => void
   enterAndEdit: () => void
   enterEdit: () => void
-  commitEdit: () => void
+  commitEdit: () => boolean
   cancelEdit: () => void
   browseTab: () => void
   revertField: () => void
@@ -221,9 +277,9 @@ export interface UseEditBrowseResult {
     field: FieldKind,
     row: number,
     addingRow?: boolean,
-    subfield?: "key" | "value",
+    subfield?: FieldSubfield,
   ) => void
-  focusSubfield: (subfield: "key" | "value") => void
+  focusSubfield: (subfield: FieldSubfield) => void
   toggleAt: (field: FieldKind, row: number) => void
   canEnterTextBodyEditor: boolean
   isEditingTextBody: boolean
@@ -235,6 +291,7 @@ export interface UseEditBrowseResult {
 export interface UseEditBrowseOptions {
   initialTab?: FieldKind
   onTabChange?: (tab: FieldKind) => void
+  onTagEdit?: (index: number, value: string) => void
 }
 
 export function useEditBrowse(
@@ -245,6 +302,8 @@ export function useEditBrowse(
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
+  const [editOperator, setEditOperator] = useState<AssertionOperator>("equals")
+  const [editError, setEditError] = useState<string | null>(null)
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(
     options?.initialTab ?? "headers",
   )
@@ -261,8 +320,15 @@ export function useEditBrowse(
   const editKeyRef = useRef(editKey)
   editKeyRef.current = editKey
 
+  const editOperatorRef = useRef(editOperator)
+  useLayoutEffect(() => {
+    editOperatorRef.current = editOperator
+  }, [editOperator])
+
   const onTabChangeRef = useRef(options?.onTabChange)
   onTabChangeRef.current = options?.onTabChange
+  const onTagEditRef = useRef(options?.onTagEdit)
+  onTagEditRef.current = options?.onTagEdit
 
   // Sync inactiveTab when initialTab prop changes (request switch)
   useEffect(() => {
@@ -317,12 +383,39 @@ export function useEditBrowse(
       field: FieldKind,
       row: number,
       addingRow = false,
-      subfield?: "key" | "value",
+      subfield?: FieldSubfield,
     ) => {
       setInactiveTab(field)
       const currentDraft = draftRef.current
+      setEditError(null)
 
-      if (
+      if (field === "settings" && row >= 5) {
+        setEditState((prev) => {
+          const browsed =
+            prev.mode === "inactive"
+              ? enterEditBrowse(prev, rowCount(currentDraft), field)
+              : cancelEditing(prev)
+          return {
+            ...browsed,
+            mode: "browsing",
+            editingRow: -1,
+            cursor: { field, row, addingRow: false },
+          }
+        })
+        onTagEditRef.current?.(row - 5, currentDraft?.tags?.[row - 5] ?? "")
+        return
+      }
+
+      if (field === "assertions") {
+        const values = assertionEditValues(currentDraft, row)
+        setEditKey(values.key)
+        setEditOperator(values.operator)
+        setEditValue(values.value)
+      } else if (field === "captures") {
+        const values = captureEditValues(currentDraft, row)
+        setEditKey(values.key)
+        setEditValue(values.value)
+      } else if (
         field === "body" &&
         (currentDraft?.bodyType === "multipart" ||
           currentDraft?.bodyType === "urlencoded")
@@ -379,6 +472,8 @@ export function useEditBrowse(
 
       if (field === "headers") draftMutators.toggleHeaderRow(row)
       else if (field === "params") draftMutators.toggleParamRow(row)
+      else if (field === "captures") draftMutators.toggleCaptureRow(row)
+      else if (field === "assertions") draftMutators.toggleAssertionRow(row)
       else if (field === "body") draftMutators.toggleFormRow(row - 1)
       else if (field === "settings" && row === 1) {
         const current = draftRef.current?.followRedirects ?? true
@@ -391,7 +486,7 @@ export function useEditBrowse(
     [draftMutators],
   )
 
-  const focusSubfield = useCallback((subfield: "key" | "value") => {
+  const focusSubfield = useCallback((subfield: FieldSubfield) => {
     setEditState((prev) =>
       prev.mode === "editing"
         ? { ...prev, cursor: { ...prev.cursor, subfield } }
@@ -408,6 +503,22 @@ export function useEditBrowse(
     if (state.mode !== "inactive") return
 
     const browsed = enterEditBrowse(state, c, tab)
+    setEditError(null)
+    if (browsed.cursor.field === "assertions") {
+      const values = assertionEditValues(currentDraft, browsed.cursor.row)
+      setEditKey(values.key)
+      setEditOperator(values.operator)
+      setEditValue(values.value)
+      setEditState(beginEditing(browsed))
+      return
+    }
+    if (browsed.cursor.field === "captures") {
+      const values = captureEditValues(currentDraft, browsed.cursor.row)
+      setEditKey(values.key)
+      setEditValue(values.value)
+      setEditState(beginEditing(browsed))
+      return
+    }
     if (browsed.cursor.field === "auth" && browsed.cursor.row === 0) {
       setEditState(browsed)
       return
@@ -619,6 +730,7 @@ export function useEditBrowse(
     const state = editStateRef.current
     if (state.mode !== "browsing") return
     const { field, row } = state.cursor
+    setEditError(null)
     if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
@@ -631,6 +743,25 @@ export function useEditBrowse(
     }
     if (field === "settings" && row === 3) return
     const currentDraft = draftRef.current
+    if (field === "settings" && row >= 5) {
+      onTagEditRef.current?.(row - 5, currentDraft?.tags?.[row - 5] ?? "")
+      return
+    }
+    if (field === "assertions") {
+      const values = assertionEditValues(currentDraft, row)
+      setEditKey(values.key)
+      setEditOperator(values.operator)
+      setEditValue(values.value)
+      setEditState((prev) => beginEditing(prev))
+      return
+    }
+    if (field === "captures") {
+      const values = captureEditValues(currentDraft, row)
+      setEditKey(values.key)
+      setEditValue(values.value)
+      setEditState((prev) => beginEditing(prev))
+      return
+    }
     if (field === "auth") {
       if (row === 0) {
         return
@@ -689,11 +820,112 @@ export function useEditBrowse(
 
   const commitEdit = useCallback(() => {
     const state = editStateRef.current
-    if (state.mode !== "editing") return
+    if (state.mode !== "editing") return true
     const { field } = state.cursor
     const addingRow = state.cursor.addingRow
     const val = editValueRef.current
-    if (field === "body") {
+    if (field === "captures") {
+      const current = draftRef.current
+      if (!current) return false
+      const key = editKeyRef.current
+      const value = editValueRef.current
+      const fail = (message: string) => {
+        setEditError(message)
+        return false
+      }
+      const entries = Object.entries(current.captures ?? {})
+      if (key === "") {
+        if (!addingRow && state.cursor.row >= 0) {
+          entries.splice(state.cursor.row, 1)
+          const captures = Object.fromEntries(entries)
+          draftMutators.setCaptures(captures)
+          draftRef.current = {
+            ...current,
+            captures: entries.length > 0 ? captures : undefined,
+          }
+        }
+      } else {
+        if (!isValidVariableName(key)) return fail("Invalid variable name")
+        try {
+          parseResponseExpression(value)
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : String(error))
+        }
+        const replacedIndex =
+          !addingRow &&
+          state.cursor.row >= 0 &&
+          state.cursor.row < entries.length
+            ? state.cursor.row
+            : -1
+        if (
+          entries.some(
+            ([name], index) => name === key && index !== replacedIndex,
+          )
+        ) {
+          return fail(`Capture variable "${key}" already exists`)
+        }
+        const capture = {
+          value,
+          enabled:
+            replacedIndex >= 0 ? entries[replacedIndex]![1].enabled : true,
+        }
+        if (replacedIndex >= 0) entries[replacedIndex] = [key, capture]
+        else entries.push([key, capture])
+        const captures = Object.fromEntries(entries)
+        draftMutators.setCaptures(captures)
+        draftRef.current = { ...current, captures }
+      }
+      setEditError(null)
+    } else if (field === "assertions") {
+      const current = draftRef.current
+      if (!current) return false
+      const key = editKeyRef.current
+      const fail = (message: string) => {
+        setEditError(message)
+        return false
+      }
+      const assertions = [...(current.assertions ?? [])]
+      if (key === "") {
+        if (!addingRow && state.cursor.row >= 0) {
+          assertions.splice(state.cursor.row, 1)
+          draftMutators.setAssertions(assertions)
+          draftRef.current = {
+            ...current,
+            assertions: assertions.length > 0 ? assertions : undefined,
+          }
+        }
+      } else {
+        try {
+          parseResponseExpression(key)
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : String(error))
+        }
+        const operator = editOperatorRef.current
+        const enabled =
+          !addingRow && assertions[state.cursor.row]?.enabled === false
+            ? { enabled: false as const }
+            : {}
+        let assertion: ResponseAssertion
+        if (assertionOperatorRequiresValue(operator)) {
+          const expected = parseAssertionValue(val)
+          const valueError = assertionValueValidationError(
+            operator,
+            expected,
+            "Expected value",
+          )
+          if (valueError) return fail(valueError)
+          assertion = { expression: key, operator, value: expected, ...enabled }
+        } else {
+          assertion = { expression: key, operator, ...enabled }
+        }
+        if (!addingRow && state.cursor.row < assertions.length)
+          assertions[state.cursor.row] = assertion
+        else assertions.push(assertion)
+        draftMutators.setAssertions(assertions)
+        draftRef.current = { ...current, assertions }
+      }
+      setEditError(null)
+    } else if (field === "body") {
       const currentBody = draftRef.current
       const bodyType = currentBody?.bodyType
       if (bodyType === "multipart" || bodyType === "urlencoded") {
@@ -761,16 +993,42 @@ export function useEditBrowse(
         else draftMutators.setParamRow(state.cursor.row, key, value)
       }
     }
+    editStateRef.current = commitEditing(state)
     setEditState((prev) => commitEditing(prev))
+    return true
   }, [draftMutators])
 
   const cancelEdit = useCallback(() => {
     setEditKey("")
+    setEditError(null)
     setEditState((prev) => cancelEditing(prev))
   }, [])
 
   const browseTab = useCallback(() => {
-    setEditState((prev) => toggleSubfield(prev))
+    setEditState((prev) => {
+      if (prev.mode !== "editing") {
+        return toggleSubfield(prev)
+      }
+      if (prev.cursor.field === "captures") {
+        return {
+          ...prev,
+          cursor: {
+            ...prev.cursor,
+            subfield: prev.cursor.subfield === "key" ? "value" : "key",
+          },
+        }
+      }
+      if (prev.cursor.field !== "assertions") return toggleSubfield(prev)
+      const subfield = prev.cursor.subfield ?? "key"
+      const next =
+        subfield === "key"
+          ? "operator"
+          : subfield === "operator" &&
+              assertionOperatorRequiresValue(editOperatorRef.current)
+            ? "value"
+            : "key"
+      return { ...prev, cursor: { ...prev.cursor, subfield: next } }
+    })
   }, [])
 
   const revertFieldHandler = useCallback(() => {
@@ -779,6 +1037,20 @@ export function useEditBrowse(
     const { field, addingRow, row } = state.cursor
     if (field === "auth") {
       draftMutators.revertField(field, row)
+      return
+    }
+    if (field === "captures") {
+      const entries = Object.entries(draftRef.current?.captures ?? {})
+      if (addingRow || row < 0 || row >= entries.length) return
+      entries.splice(row, 1)
+      draftMutators.setCaptures(Object.fromEntries(entries))
+      return
+    }
+    if (field === "assertions") {
+      const assertions = [...(draftRef.current?.assertions ?? [])]
+      if (addingRow || row < 0 || row >= assertions.length) return
+      assertions.splice(row, 1)
+      draftMutators.setAssertions(assertions)
       return
     }
     if (field === "body") {
@@ -799,7 +1071,15 @@ export function useEditBrowse(
       return
     }
     if (field === "settings") {
-      draftMutators.revertField(field)
+      if (row >= 5) {
+        const tags = [...(draftRef.current?.tags ?? [])]
+        const tagIndex = row - 5
+        if (tagIndex >= tags.length) return
+        tags.splice(tagIndex, 1)
+        draftMutators.setTags(tags)
+      } else {
+        draftMutators.revertField(field)
+      }
     } else if (field === "pathParams") {
       if (addingRow) return
       draftMutators.revertField(field, row)
@@ -842,6 +1122,8 @@ export function useEditBrowse(
     if (field === "pathParams") return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
+    else if (field === "captures") draftMutators.toggleCaptureRow(row)
+    else if (field === "assertions") draftMutators.toggleAssertionRow(row)
     else if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
@@ -887,6 +1169,9 @@ export function useEditBrowse(
       setEditValue,
       editKey,
       setEditKey,
+      editOperator,
+      setEditOperator,
+      editError,
       isActive: editState.mode !== "inactive",
       activeTab,
       enterBrowse,
@@ -921,6 +1206,8 @@ export function useEditBrowse(
       editState,
       editValue,
       editKey,
+      editOperator,
+      editError,
       activeTab,
       enterBrowse,
       enterBrowseAt,

@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { Focus } from "./focus"
+import type { FieldKind } from "./editMode"
 import { toggleExpand } from "./focus"
 import type { AppView } from "./appState"
 import { copyToClipboard } from "./clipboard"
@@ -324,6 +325,33 @@ export function openCookieJar(
 ): boolean {
   setView("cookie-jar")
   setFocus("cookie-sidebar")
+  return true
+}
+
+export function openCollectionRunner(
+  scope: string | null,
+  reset: (scope: string | null) => void,
+  setView: (view: AppView) => void,
+  setFocus: (focus: Focus) => void,
+): boolean {
+  reset(scope)
+  setView("runner")
+  setFocus("runner-options")
+  return true
+}
+
+export function openRunnerRequestTab(
+  requestId: string,
+  tab: Extract<FieldKind, "assertions" | "captures">,
+  revealRequest: (requestId: string) => void,
+  enterBrowseAt: (tab: FieldKind) => void,
+  setView: (view: AppView) => void,
+  setFocus: (focus: Focus) => void,
+): boolean {
+  revealRequest(requestId)
+  setView("main")
+  setFocus("request")
+  enterBrowseAt(tab)
   return true
 }
 

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { Auth, Method, Request } from "../schema"
+import type {
+  Auth,
+  KvEntry,
+  Method,
+  Request,
+  ResponseAssertion,
+} from "../schema"
 import type { BodyType } from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { requestEquals, removeRequestDraftEntry } from "./draftUtils"
@@ -56,6 +62,11 @@ export interface UseRequestDraftResult {
   removeFormRow: (index: number) => void
   toggleFormRow: (index: number) => void
   setFilePath: (path: string) => void
+  setTags: (tags: string[]) => void
+  setCaptures: (captures: Record<string, KvEntry>) => void
+  toggleCaptureRow: (index: number) => void
+  setAssertions: (assertions: ResponseAssertion[]) => void
+  toggleAssertionRow: (index: number) => void
   markSaved: (request: Request) => void
   moveRequestDraft: (oldId: string, request: Request) => void
   resetRequestDraft: (id: string) => void
@@ -225,6 +236,28 @@ export function useRequestDraft(
     (filePath: string) => apply({ kind: "setFilePath", filePath }),
     [apply],
   )
+  const setTags = useCallback(
+    (tags: string[]) => apply({ kind: "setTags", tags }),
+    [apply],
+  )
+  const setCaptures = useCallback(
+    (captures: Record<string, KvEntry>) =>
+      apply({ kind: "setCaptures", captures }),
+    [apply],
+  )
+  const toggleCaptureRow = useCallback(
+    (index: number) => apply({ kind: "toggleCaptureRow", index }),
+    [apply],
+  )
+  const setAssertions = useCallback(
+    (assertions: ResponseAssertion[]) =>
+      apply({ kind: "setAssertions", assertions }),
+    [apply],
+  )
+  const toggleAssertionRow = useCallback(
+    (index: number) => apply({ kind: "toggleAssertionRow", index }),
+    [apply],
+  )
   const revertField = useCallback(
     (field: FieldKind, row?: number) =>
       apply({ kind: "revertField", field, row }),
@@ -352,6 +385,11 @@ export function useRequestDraft(
       removeFormRow: removeFormRowCb,
       toggleFormRow: toggleFormRowCb,
       setFilePath: setFilePathCb,
+      setTags,
+      setCaptures,
+      toggleCaptureRow,
+      setAssertions,
+      toggleAssertionRow,
       markSaved,
       moveRequestDraft,
       resetRequestDraft,
@@ -393,6 +431,11 @@ export function useRequestDraft(
       removeFormRowCb,
       toggleFormRowCb,
       setFilePathCb,
+      setTags,
+      setCaptures,
+      toggleCaptureRow,
+      setAssertions,
+      toggleAssertionRow,
       markSaved,
       moveRequestDraft,
       resetRequestDraft,

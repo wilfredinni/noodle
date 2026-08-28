@@ -107,6 +107,7 @@ export interface VarInputProps {
   variableNames?: Iterable<string>
   pathParams?: ParamEntry[]
   pathCompletion?: PathCompletionOptions
+  completionValues?: readonly string[]
   stopMousePropagation?: boolean
   onFocus?: () => void
 }
@@ -129,6 +130,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       variableNames,
       pathParams,
       pathCompletion,
+      completionValues,
       stopMousePropagation = false,
       onFocus,
     },
@@ -255,6 +257,74 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     )
 
     const { token, suggestions, isComplete } = completion
+    const valueSuggestions = useMemo(() => {
+      if (!completionValues) return []
+      const prefix = value.toLowerCase()
+      return completionValues
+        .filter(
+          (suggestion) =>
+            suggestion !== value && suggestion.toLowerCase().startsWith(prefix),
+        )
+        .slice(0, MAX_COMPLETION_VISIBLE)
+    }, [completionValues, value])
+
+    const selectValueCompletion = useCallback(
+      (index: number): boolean => {
+        const editable = getEditable()
+        const suggestion = valueSuggestions[index]
+        if (!editable?.focused || !suggestion) return false
+        editable.replaceText(suggestion)
+        editable.cursorOffset = suggestion.length
+        onChange?.(suggestion)
+        setCompletionDismissed(true)
+        return true
+      },
+      [getEditable, onChange, valueSuggestions],
+    )
+
+    useEffect(() => {
+      const editable = getEditable()
+      if (
+        !isEditing ||
+        !inputFocused ||
+        !editable?.focused ||
+        completionDismissed ||
+        valueSuggestions.length === 0
+      )
+        return
+      return registerVariableCompletion((key) => {
+        if (key.defaultPrevented) return false
+        if (key.name === "up" || key.name === "down") {
+          setCompletionIndex((current) => {
+            const next = current + (key.name === "up" ? -1 : 1)
+            return next < 0
+              ? valueSuggestions.length - 1
+              : next >= valueSuggestions.length
+                ? 0
+                : next
+          })
+          return true
+        }
+        if (key.name === "tab" || key.name === "return") {
+          return selectValueCompletion(
+            Math.min(completionIndex, valueSuggestions.length - 1),
+          )
+        }
+        if (key.name === "escape") {
+          setCompletionDismissed(true)
+          return true
+        }
+        return false
+      })
+    }, [
+      completionDismissed,
+      completionIndex,
+      getEditable,
+      inputFocused,
+      isEditing,
+      selectValueCompletion,
+      valueSuggestions,
+    ])
 
     useEffect(() => {
       const editable = getEditable()
@@ -297,6 +367,12 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       suggestions.length > 0 &&
       !isComplete
 
+    const showValueCompletion =
+      isEditing &&
+      inputFocused &&
+      !completionDismissed &&
+      valueSuggestions.length > 0
+
     const completionPopup = pathCompletionState.active ? (
       <CompletionPopup
         id="path-completion-menu"
@@ -313,6 +389,20 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         value={value}
         onSelect={pathCompletionState.selectItem}
         onHighlight={pathCompletionState.setSelectedIndex}
+      />
+    ) : showValueCompletion ? (
+      <CompletionPopup
+        id="value-completion-menu"
+        items={valueSuggestions.map((suggestion) => ({
+          key: suggestion,
+          label: suggestion,
+        }))}
+        completionIndex={completionIndex}
+        isEditing={isEditing && inputFocused}
+        getEditable={getEditable}
+        value={value}
+        onSelect={selectValueCompletion}
+        onHighlight={setCompletionIndex}
       />
     ) : showCompletion ? (
       <CompletionPopup

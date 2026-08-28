@@ -16,6 +16,7 @@ export const EDITABLE_OVERLAYS = new Set([
   "edit-request",
   "clone-request",
   "new-folder",
+  "tag-editor",
   "cookie-form",
 ])
 

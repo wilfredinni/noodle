@@ -13,6 +13,8 @@ import {
   fetchOAuth2Token,
   getEditRequestYamlFile,
   installAgentSkill,
+  openCollectionRunner,
+  openRunnerRequestTab,
   openAppSettingsInEditor,
   openCollectionInEditor,
   saveFolder,
@@ -79,6 +81,7 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     onReloadCollection: () => {},
+    openRunner: () => true,
     paletteTarget: null,
   }
 }
@@ -337,11 +340,67 @@ describe("buildCommandPaletteCommands", () => {
       "folder.save",
       "request.new",
       "request.import-curl",
+      "collection.runner",
       "folder.new",
       "folder.delete",
       "workspace.edit-yaml",
     ])
     expect(commands.every((command) => command.section === "Folder")).toBe(true)
+  })
+
+  it("opens collection and folder Runner commands with the correct scope", () => {
+    const ctx = minimalContext()
+    const scopes: Array<string | null> = []
+    ctx.openRunner = (scope) => {
+      scopes.push(scope)
+      return true
+    }
+
+    const collectionCommand = buildCommandPaletteCommands(ctx).find(
+      (command) => command.id === "collection.runner",
+    )
+    expect(collectionCommand?.label).toBe("Run Collection…")
+    expect(collectionCommand?.run()).toBe(true)
+
+    ctx.paletteTarget = "folder"
+    ctx.focusedFolderPathRef = { current: "admin" } as never
+    const folderCommand = buildCommandPaletteCommands(ctx).find(
+      (command) => command.id === "collection.runner",
+    )
+    expect(folderCommand?.label).toBe("Run Folder…")
+    expect(folderCommand?.run()).toBe(true)
+    expect(scopes).toEqual([null, "admin"])
+  })
+
+  it("centralizes Runner open and request-tab transitions", () => {
+    const calls: string[] = []
+    expect(
+      openCollectionRunner(
+        "admin",
+        (scope) => calls.push(`reset:${scope}`),
+        (view) => calls.push(`view:${view}`),
+        (focus) => calls.push(`focus:${focus}`),
+      ),
+    ).toBe(true)
+    expect(
+      openRunnerRequestTab(
+        "admin/users",
+        "assertions",
+        (id) => calls.push(`request:${id}`),
+        (tab) => calls.push(`tab:${tab}`),
+        (view) => calls.push(`view:${view}`),
+        (focus) => calls.push(`focus:${focus}`),
+      ),
+    ).toBe(true)
+    expect(calls).toEqual([
+      "reset:admin",
+      "view:runner",
+      "focus:runner-options",
+      "request:admin/users",
+      "view:main",
+      "focus:request",
+      "tab:assertions",
+    ])
   })
 
   it("shows only environment commands for an environment context menu", () => {

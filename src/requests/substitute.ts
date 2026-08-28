@@ -8,6 +8,11 @@ import type {
 } from "../schema"
 
 const VAR_RE = /\$(\w+)/g
+const VARIABLE_NAME_RE = /^\w+$/
+
+export function isValidVariableName(value: string): boolean {
+  return VARIABLE_NAME_RE.test(value)
+}
 
 export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   headers: Record<string, string>
@@ -70,7 +75,9 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
       : req.filePath
 
   const assertions = req.assertions?.map((assertion, index) => {
-    if (assertion.value === undefined) return assertion
+    if (assertion.enabled === false || assertion.value === undefined) {
+      return assertion
+    }
     return {
       ...assertion,
       value: substituteAssertionValue(

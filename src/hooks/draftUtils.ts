@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util"
 import type { Auth, FormEntry, KvEntry, ParamEntry, Request } from "../schema"
 import { defaultAuth } from "../auth/defaults"
 
@@ -252,6 +253,9 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.followRedirects !== b.followRedirects) return false
   if (a.maxRedirects !== b.maxRedirects) return false
   if (a.tls?.verify !== b.tls?.verify) return false
+  if (!isDeepStrictEqual(a.tags, b.tags)) return false
+  if (!isDeepStrictEqual(a.captures, b.captures)) return false
+  if (!isDeepStrictEqual(a.assertions, b.assertions)) return false
   if (a.body !== b.body) return false
   if ((a.bodyType ?? "json") !== (b.bodyType ?? "json")) return false
   if (a.filePath !== b.filePath) return false

@@ -11,7 +11,7 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import type { SendState } from "./sendState"
 import { useRef, type RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
-import type { FieldKind } from "./editMode"
+import type { FieldKind, FieldSubfield } from "./editMode"
 
 interface RequestResponseViewProps {
   draft: UseRequestDraftResult
@@ -52,10 +52,10 @@ interface RequestResponseViewProps {
     field: FieldKind,
     row: number,
     addingRow?: boolean,
-    subfield?: "key" | "value",
+    subfield?: FieldSubfield,
   ) => void
   onRequestFieldToggle?: (field: FieldKind, row: number) => void
-  onRequestInteraction?: () => void
+  onRequestInteraction?: () => boolean | void
 }
 
 export function RequestResponseView({
@@ -105,6 +105,9 @@ export function RequestResponseView({
   const requestPane = (
     <RequestPane
       request={draft.draft}
+      response={
+        responseState.status === "done" ? responseState.response : undefined
+      }
       visible={requestVisible}
       error={error}
       editState={eb.editState}
@@ -112,6 +115,9 @@ export function RequestResponseView({
       editValue={eb.editValue}
       setEditKey={eb.setEditKey}
       setEditValue={eb.setEditValue}
+      editOperator={eb.editOperator}
+      setEditOperator={eb.setEditOperator}
+      editError={eb.editError}
       focused={requestVisible && focus === "request"}
       activeTab={eb.activeTab}
       activeEnv={activeEnv}

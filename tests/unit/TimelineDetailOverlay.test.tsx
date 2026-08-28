@@ -153,6 +153,117 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("renders persisted assertion rows and expandable details", async () => {
+    const { renderOnce, captureCharFrame, host, renderer, mockMouse, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 200,
+                passed: false,
+                message: "Expected values to be equal",
+              },
+            ],
+          },
+        }),
+        () => {},
+      )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Results")
+    expect(frame).toContain("0 passed · 1 failed")
+    expect(frame).toContain("FAIL")
+    expect(frame).not.toContain("Expected 201")
+
+    const assertionRow = renderer.root.findDescendantById(
+      "response-assertion-0",
+    )!
+    await act(async () =>
+      mockMouse.click(
+        assertionRow.screenX + 3,
+        assertionRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await renderOnce()
+    const expanded = captureCharFrame()
+    expect(expanded).toMatch(/Expected\s+201/)
+    expect(expanded).toMatch(/Actual\s+200/)
+    expect(expanded).toContain("Expected values to be equal")
+    expect(expanded).not.toContain("Captures")
+    cleanup()
+  })
+
+  it("allows Results navigation while the timeline overlay is active", async () => {
+    const { keymap, renderOnce, captureCharFrame, host, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 200,
+                passed: false,
+                message: "Expected values to be equal",
+              },
+            ],
+          },
+        }),
+        () => {},
+      )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    keymap.setData("app.overlay", "timeline-detail")
+    await act(async () => host.press("return"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Expected 201")
+    cleanup()
+  })
+
+  it("scrolls persisted assertion details back to the summary", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        assertions: {
+          evaluated: true,
+          results: Array.from({ length: 20 }, (_, index) => ({
+            expression: `body.value${index}`,
+            operator: "exists" as const,
+            actual: index,
+            passed: true,
+            message: "Assertion passed",
+          })),
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("20 passed · 0 failed")
+    await act(async () => host.press("end"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("body.value19")
+    await act(async () => host.press("home"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("20 passed · 0 failed")
+    cleanup()
+  })
+
   it("scrolls persisted network activity", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({

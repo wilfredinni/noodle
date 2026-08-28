@@ -1041,7 +1041,9 @@ describe("RequestPane mouse transitions", () => {
               setEditValue={() => {}}
               focused={true}
               activeTab="settings"
-              onInteraction={() => events.push("commit")}
+              onInteraction={() => {
+                events.push("commit")
+              }}
               onTabChange={(tab) => events.push(tab)}
             />
           </box>

@@ -5,6 +5,7 @@ import { useTheme } from "../theme"
 import { statusColor } from "../format"
 import {
   entryMethod,
+  entryAssertionStatus,
   entryStatus,
   entryTiming,
   relativeTime,
@@ -31,6 +32,7 @@ export function TimelineEntry({
   const [hovered, setHovered] = useState(false)
   const status = entryStatus(entry)
   const hasError = entry.error !== undefined
+  const assertionStatus = entryAssertionStatus(entry)
 
   const rowBg =
     isSelected || (hovered && onActivate) ? theme.backgroundElement : undefined
@@ -44,7 +46,7 @@ export function TimelineEntry({
 
   const ROW_PADDING = 2
   // icon (2) + method box (6) + status box (4) = 12
-  const FIXED_ELEMENTS = 12 + rightStr.length
+  const FIXED_ELEMENTS = 12 + (assertionStatus ? 2 : 0) + rightStr.length
   const urlMaxLength =
     containerWidth > 0
       ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
@@ -102,6 +104,24 @@ export function TimelineEntry({
               <text fg={theme.textMuted}>---</text>
             )}
           </box>
+          {assertionStatus ? (
+            <text
+              fg={
+                assertionStatus === "passed"
+                  ? theme.success
+                  : assertionStatus === "failed"
+                    ? theme.error
+                    : theme.warning
+              }
+              style={{ marginRight: 1 }}
+            >
+              {assertionStatus === "passed"
+                ? "✓"
+                : assertionStatus === "failed"
+                  ? "✗"
+                  : "–"}
+            </text>
+          ) : null}
           <text
             fg={theme.text}
             wrapMode="none"

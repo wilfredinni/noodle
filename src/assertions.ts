@@ -1,19 +1,118 @@
 import { isDeepStrictEqual } from "node:util"
 import type {
   AssertionOperator,
+  AssertionResult,
   AssertionValue,
+  AssertionWithoutValueOperator,
+  AssertionWithValueOperator,
   Response,
   ResponseAssertion,
 } from "./schema"
 import { createResponseResolver, type ResponseResolver } from "./response"
 
-export interface AssertionResult {
-  expression: string
-  operator: AssertionOperator
-  expected?: AssertionValue
-  actual?: AssertionValue
-  passed: boolean
-  message: string
+export type { AssertionResult } from "./schema"
+
+export const ASSERTION_WITHOUT_VALUE_OPERATORS = [
+  "exists",
+  "notExists",
+  "isString",
+  "isNumber",
+  "isBoolean",
+  "isArray",
+  "isObject",
+  "isNull",
+  "notNull",
+] as const satisfies readonly AssertionWithoutValueOperator[]
+
+export const ASSERTION_WITH_VALUE_OPERATORS = [
+  "equals",
+  "notEquals",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "contains",
+  "notContains",
+  "matches",
+] as const satisfies readonly AssertionWithValueOperator[]
+
+export const ASSERTION_OPERATORS: readonly AssertionOperator[] = [
+  ...ASSERTION_WITHOUT_VALUE_OPERATORS,
+  ...ASSERTION_WITH_VALUE_OPERATORS,
+]
+
+export function assertionOperatorRequiresValue(
+  operator: AssertionOperator,
+): operator is AssertionWithValueOperator {
+  return (
+    ASSERTION_WITH_VALUE_OPERATORS as readonly AssertionOperator[]
+  ).includes(operator)
+}
+
+export function assertionValueValidationError(
+  operator: AssertionWithValueOperator,
+  value: unknown,
+  path = "value",
+): string | null {
+  const valueError = jsonValueValidationError(value, path, new Set())
+  if (valueError) return valueError
+  if (
+    ["gt", "gte", "lt", "lte"].includes(operator) &&
+    (typeof value !== "number" || !Number.isFinite(value))
+  ) {
+    return `operator "${operator}" requires a finite numeric value`
+  }
+  if (operator === "matches") {
+    if (typeof value !== "string") {
+      return 'operator "matches" requires a string value'
+    }
+    const compiled = compileAssertionRegex(value)
+    if (compiled.kind === "error") {
+      return `operator "matches": ${compiled.message}`
+    }
+  }
+  return null
+}
+
+function jsonValueValidationError(
+  value: unknown,
+  path: string,
+  ancestors: Set<object>,
+): string | null {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return null
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? null : `${path} must contain finite numbers`
+  }
+  if (typeof value !== "object") {
+    return `${path} must be a JSON-compatible value`
+  }
+  if (ancestors.has(value)) return `${path} must not contain cycles`
+  const prototype = Object.getPrototypeOf(value)
+  if (
+    !Array.isArray(value) &&
+    prototype !== Object.prototype &&
+    prototype !== null
+  ) {
+    return `${path} must be a JSON-compatible value`
+  }
+
+  ancestors.add(value)
+  for (const [key, item] of Object.entries(value)) {
+    const error = jsonValueValidationError(
+      item,
+      Array.isArray(value) ? `${path}[${key}]` : `${path}.${key}`,
+      ancestors,
+    )
+    if (error) return error
+  }
+  ancestors.delete(value)
+  return null
 }
 
 type CompiledAssertionRegex =
@@ -94,7 +193,10 @@ export function evaluateAssertions(
   response: Response,
   resolve: ResponseResolver = createResponseResolver(response),
 ): AssertionResult[] {
-  return assertions.map((assertion) => {
+  const activeAssertions = assertions.filter(
+    (assertion) => assertion.enabled !== false,
+  )
+  return activeAssertions.map((assertion) => {
     const resolution = resolve(assertion.expression)
     const expected = Object.hasOwn(assertion, "value")
       ? { expected: assertion.value }

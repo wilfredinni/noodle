@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import type { Request, Environment } from "../src/schema"
-import { substitute } from "../src/requests/substitute"
+import { isValidVariableName, substitute } from "../src/requests/substitute"
 import { bodyForSend } from "../src/requests/send"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
@@ -155,6 +155,14 @@ describe("substitute — formData", () => {
   })
 })
 
+describe("capture variable names", () => {
+  it("exports the canonical variable-name rule", () => {
+    expect(isValidVariableName("token_2")).toBe(true)
+    expect(isValidVariableName("bad-name")).toBe(false)
+    expect(isValidVariableName("")).toBe(false)
+  })
+})
+
 describe("substitute — auth", () => {
   it("should substitute a bearer token", () => {
     const result = substitute(
@@ -281,11 +289,37 @@ describe("substitute — response assertions", () => {
       { expression: "body.$FIELD", operator: "exists" },
     ])
   })
+
+  it("does not substitute disabled assertion values", () => {
+    const result = substitute(
+      makeReq({
+        assertions: [
+          {
+            expression: "body.id",
+            operator: "equals",
+            value: "$MISSING",
+            enabled: false,
+          },
+        ],
+      }),
+      { name: "dev", vars: {} },
+    )
+    expect(result.assertions).toEqual([
+      {
+        expression: "body.id",
+        operator: "equals",
+        value: "$MISSING",
+        enabled: false,
+      },
+    ])
+  })
 })
 
 describe("substitute: response captures", () => {
   it("preserves capture expressions without substituting them", () => {
-    const captures = { user_id: "body.$path" }
+    const captures = {
+      user_id: { value: "body.$path", enabled: true },
+    }
     const result = substitute(makeReq({ captures }), {
       name: "test",
       vars: { path: "id" },

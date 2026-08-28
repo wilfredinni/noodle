@@ -93,13 +93,23 @@ export function serializeRequest(req: Request): string {
   }
 
   if (req.captures && Object.keys(req.captures).length > 0) {
-    out += yaml.dump({ capture: req.captures }, { lineWidth: -1, noRefs: true })
+    out += "capture:\n"
+    for (const [variable, capture] of Object.entries(req.captures)) {
+      const value = yamlVal(capture.value, 2)
+      if (capture.enabled) {
+        out += `  ${variable}: ${value}\n`
+      } else {
+        out += `  ${variable}: { value: ${value}, enabled: false }\n`
+      }
+    }
   }
 
   if (req.assertions && req.assertions.length > 0) {
     out += yaml.dump(
       {
-        assert: req.assertions.map((assertion) => ({ ...assertion })),
+        assert: req.assertions.map(({ enabled, ...assertion }) =>
+          enabled === false ? { ...assertion, enabled: false } : assertion,
+        ),
       },
       { lineWidth: -1, noRefs: true },
     )

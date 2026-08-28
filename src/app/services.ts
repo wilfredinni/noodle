@@ -43,7 +43,6 @@ import type {
   CollectionItem,
   CollectionSettings,
   Environment,
-  JsonValue,
   NetworkError,
   Request,
 } from "../schema"
@@ -56,10 +55,15 @@ import {
   loadTlsPassphrases,
   setStoredSecret,
 } from "../secrets"
-import { environmentSecretValues, redactKnownSecrets } from "../secrets/redact"
-import { evaluateAssertions, type AssertionResult } from "../assertions"
-import { createResponseResolver } from "../response"
-import { evaluateCaptures, RunScope, type CaptureResult } from "../runScope"
+import { redactKnownSecrets } from "../secrets/redact"
+import type { AssertionResult } from "../assertions"
+import { RunScope, type CaptureResult } from "../runScope"
+import {
+  evaluateResponseExecution,
+  executionSecretValues,
+  unevaluatedExecutionResults,
+} from "../executionResults"
+import { effectiveRequestTags, isValidTag } from "../tags"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -148,28 +152,6 @@ function requestsForTargets(
   )
 }
 
-function requestTags(
-  items: CollectionItem[],
-  inherited = new Set<string>(),
-  result = new Map<string, Set<string>>(),
-): Map<string, Set<string>> {
-  for (const item of items) {
-    if (item.type === "request") {
-      result.set(
-        item.data.id,
-        new Set([...inherited, ...(item.data.tags ?? [])]),
-      )
-      continue
-    }
-    requestTags(
-      item.data.children,
-      new Set([...inherited, ...(item.data.tags ?? [])]),
-      result,
-    )
-  }
-  return result
-}
-
 function filterRequests(
   items: CollectionItem[],
   requests: Request[],
@@ -180,12 +162,12 @@ function filterRequests(
     ["--tag", tag],
     ["--exclude-tag", excludeTag],
   ] as const) {
-    if (value !== undefined && (!value || value.trim() !== value)) {
+    if (value !== undefined && !isValidTag(value)) {
       throw new Error(`${name} must be a non-empty trimmed string`)
     }
   }
 
-  const tags = requestTags(items)
+  const tags = effectiveRequestTags(items)
   const filtered = requests.filter((request) => {
     const effective = tags.get(request.id) ?? new Set<string>()
     return (
@@ -200,6 +182,20 @@ function filterRequests(
     throw new Error("no requests match the tag filters")
   }
   return filtered
+}
+
+export function selectCollectionRunRequests(
+  items: CollectionItem[],
+  targets: string[] = [],
+  tag?: string,
+  excludeTag?: string,
+): Request[] {
+  return filterRequests(
+    items,
+    requestsForTargets(items, targets),
+    tag,
+    excludeTag,
+  )
 }
 export type CollectionTreeItem =
   | {
@@ -694,14 +690,11 @@ async function runRequest(
   cookies?: CollectionCookieJar,
 ): Promise<RequestRunResult> {
   const effectiveEnvironment = runScope.environment(environment)
-  const secretValues = [
-    ...environmentSecretValues(environment),
-    ...environmentSecretValues(effectiveEnvironment),
-    ...(proxyPolicy?.kind === "custom"
-      ? Object.values(proxyPolicy.credentials ?? {})
-      : []),
-    ...Object.values(tlsPolicy?.passphrases ?? {}),
-  ].filter((value): value is string => Boolean(value))
+  const secretValues = executionSecretValues(
+    [environment, effectiveEnvironment],
+    proxyPolicy,
+    tlsPolicy,
+  )
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   try {
     const effective = substitute(request, effectiveEnvironment)
@@ -724,29 +717,14 @@ async function runRequest(
           ),
       )
       .map((event) => event.message)
-    const resolve = createResponseResolver(response)
-    const rawCaptureResults = effective.captures
-      ? evaluateCaptures(effective.captures, resolve)
-      : undefined
-    for (const result of rawCaptureResults ?? []) {
-      if (result.success) runScope.set(result.variable, result.value)
-    }
-    const captureResults = rawCaptureResults?.map((result): CaptureResult =>
-      result.success
-        ? { ...result, value: redactJsonValue(result.value, redact) }
-        : { ...result, message: redact(result.message) },
+    const execution = evaluateResponseExecution(
+      effective,
+      response,
+      runScope,
+      secretValues,
     )
-    const assertionResults = effective.assertions?.length
-      ? evaluateAssertions(effective.assertions, response, resolve).map(
-          (result) => ({
-            ...result,
-            ...(Object.hasOwn(result, "expected")
-              ? { expected: redactJsonValue(result.expected!, redact) }
-              : {}),
-            message: redact(result.message),
-          }),
-        )
-      : undefined
+    const captureResults = execution.captures?.results
+    const assertionResults = execution.assertions?.results
     const failureCategories: RunFailureCategory[] = []
     if (response.status >= 400) failureCategories.push("http")
     if (captureResults?.some((result) => !result.success)) {
@@ -771,12 +749,7 @@ async function runRequest(
         (captureResults?.every((result) => result.success) ?? true) &&
         (assertionResults?.every((result) => result.passed) ?? true),
       failureCategories,
-      ...(captureResults
-        ? { captures: { evaluated: true, results: captureResults } }
-        : {}),
-      ...(assertionResults
-        ? { assertions: { evaluated: true, results: assertionResults } }
-        : {}),
+      ...execution,
       ...(authWarnings.length > 0
         ? { warnings: [...new Set(authWarnings)] }
         : {}),
@@ -789,12 +762,7 @@ async function runRequest(
       error: redact(errorMessage(error)),
       ok: false,
       failureCategories: [failureCategoryForError(error)],
-      ...(request.captures && Object.keys(request.captures).length > 0
-        ? { captures: { evaluated: false, results: [] } }
-        : {}),
-      ...(request.assertions?.length
-        ? { assertions: { evaluated: false, results: [] } }
-        : {}),
+      ...unevaluatedExecutionResults(request),
     }
   }
 }
@@ -857,24 +825,6 @@ function configurationRunResult(
   }
 }
 
-function redactJsonValue(
-  value: JsonValue,
-  redact: (value: string) => string,
-): JsonValue {
-  if (typeof value === "string") return redact(value)
-  if (Array.isArray(value)) {
-    return value.map((item) => redactJsonValue(item, redact))
-  }
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        key,
-        redactJsonValue(item, redact),
-      ]),
-    )
-  }
-  return value
-}
 export async function collectionRun(
   path: string,
   environmentName?: string,
@@ -900,8 +850,12 @@ export async function collectionRun(
   try {
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir)
-    requests = requestsForTargets(collection.items, targets)
-    requests = filterRequests(collection.items, requests, tag, excludeTag)
+    requests = selectCollectionRunRequests(
+      collection.items,
+      targets,
+      tag,
+      excludeTag,
+    )
     selected = requests.length
     settings = await loadSettings(dir)
     environment = await environmentFor(dir, settings, environmentName)

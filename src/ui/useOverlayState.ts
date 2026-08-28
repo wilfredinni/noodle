@@ -10,11 +10,17 @@ import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverl
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
 import type { CookieFormOverlayHandle } from "./overlays/CookieFormOverlay"
+import type { TagEditorOverlayHandle } from "./overlays/TagEditorOverlay"
 import type { JarCookie } from "../cookies"
 
 export interface ImportedCollectionPending {
   path: string
   name: string
+}
+
+export interface TagEditPending {
+  index: number
+  value: string
 }
 
 export type CookieDeletePending =
@@ -48,6 +54,7 @@ export type ActiveOverlay =
   | "edit-request"
   | "clone-request"
   | "new-folder"
+  | "tag-editor"
   | "delete-folder"
   | "request-delete"
   | "cookie-form"
@@ -102,6 +109,10 @@ export function useOverlayState({
   >(null)
   const [newFolderVisible, setNewFolderVisible] = useState(false)
   const newFolderRef = useRef<NewFolderOverlayHandle>(null)
+  const [tagEditPending, setTagEditPending] = useState<TagEditPending | null>(
+    null,
+  )
+  const tagEditorRef = useRef<TagEditorOverlayHandle>(null)
   const [folderDeletePending, setFolderDeletePending] = useState<string | null>(
     null,
   )
@@ -155,6 +166,7 @@ export function useOverlayState({
     if (editRequestVisible) return "edit-request"
     if (cloneRequestVisible) return "clone-request"
     if (newFolderVisible) return "new-folder"
+    if (tagEditPending !== null) return "tag-editor"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
     if (timelineDetailEntry !== null) return "timeline-detail"
@@ -186,6 +198,7 @@ export function useOverlayState({
     editRequestVisible,
     cloneRequestVisible,
     newFolderVisible,
+    tagEditPending,
     folderDeletePending,
     requestDeletePending,
     timelineDetailEntry,
@@ -234,6 +247,9 @@ export function useOverlayState({
     newFolderVisible,
     setNewFolderVisible,
     newFolderRef,
+    tagEditPending,
+    setTagEditPending,
+    tagEditorRef,
     folderDeletePending,
     setFolderDeletePending,
     undoAllPending,

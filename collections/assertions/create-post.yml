@@ -47,3 +47,6 @@ assert:
   - expression: body.tags
     operator: notContains
     value: missing
+  - expression: response.time
+    operator: lt
+    value: 3000

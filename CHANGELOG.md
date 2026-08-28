@@ -4,6 +4,26 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### ✨ Features
+
+- Split request authoring into focused Assert and Capture tabs, keep tags in Settings, and preserve shared validation and response-aware expression completion.
+- Add persistent per-row Assert and Capture checkboxes, with disabled declarations retained in YAML and excluded from evaluation and results.
+- Evaluate captures and assertions on every manual send with a fresh RunScope, keep Results available, and mark the tab when a send has assertion or capture outcomes.
+- Add a transient collection Runner with request selection, local environment and tag filters, fail-fast execution, progress, and detailed in-memory results.
+- Show effective request and inherited folder tags in request search, and persist redacted assertion status and details in response timeline history.
+
+### 🔧 Refactors
+
+- Share assertion operator metadata, capture variable validation, effective-tag inheritance, request selection, and capture-before-assertion execution orchestration between the TUI and automation commands.
+
+### 🔒 Security
+
+- Keep capture results and RunScope values out of timeline history while recursively redacting known secrets from manual execution results and persisted assertion metadata.
+
+### 📚 Documentation
+
+- Document Assert, Capture, Results, and collection Runner workflows in the README, in-app help and tips, and the bundled `noodle-use` skill.
+
 ## [0.8.2] - 2026-08-27
 
 Noodle 0.8.2 turns request and folder tags into dynamic collection suites, with include and exclude filters, fail-fast execution, and stable summaries for CI. It also preserves established YAML behavior through the `js-yaml` upgrade and strengthens dependency auditing without changing the TUI workflow.

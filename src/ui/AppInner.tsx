@@ -8,11 +8,13 @@ import {
 } from "react"
 import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { SIDEBAR_WIDTH } from "./Sidebar"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { CookieJarView } from "./cookie-jar/CookieJarView"
+import { CollectionRunnerView } from "./CollectionRunnerView"
 import {
   SettingsView,
   type CollectionSettingsCategory,
@@ -48,6 +50,7 @@ import {
 import type { TlsPolicy } from "../tls"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
+import { useCollectionRunner } from "../hooks/useCollectionRunner"
 import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
@@ -102,8 +105,10 @@ import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
 import {
   closeCollectionExport,
+  openCollectionRunner,
   openEnvironmentEditor,
   openEnvironmentPicker,
+  openRunnerRequestTab,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
 import {
@@ -300,6 +305,10 @@ export function AppInner({
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const exportPendingRef = useRef(false)
   const importCollectionPendingRef = useRef(false)
+  const [runnerScope, setRunnerScope] = useState<string | null>(null)
+  const [runnerResetKey, setRunnerResetKey] = useState(0)
+  const runnerReturnFocusRef = useRef<Focus>("sidebar")
+  const runnerDetailScrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -472,9 +481,13 @@ export function AppInner({
     [selectedRequest?.id, setTab],
   )
 
+  const openTagEditorRef = useRef<(index: number, value: string) => void>(
+    () => {},
+  )
   const eb = useEditBrowse(draft.draft, draft, {
     initialTab: initialRequestTab,
     onTabChange: onRequestTabChange,
+    onTagEdit: (index, value) => openTagEditorRef.current(index, value),
   })
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
@@ -644,7 +657,7 @@ export function AppInner({
     (next: Focus) => {
       setJumpMode(false)
       if (next !== focus) {
-        eb.commitEdit()
+        if (eb.commitEdit() === false) return
         folderEb.commitEdit()
         envEditor.commitEdit()
       }
@@ -673,7 +686,7 @@ export function AppInner({
     (subFocus: UrlBarSubFocus) => {
       setJumpMode(false)
       if (focus !== "urlbar") {
-        eb.commitEdit()
+        if (eb.commitEdit() === false) return
         folderEb.commitEdit()
       }
       setUrlbarSubFocus(subFocus)
@@ -690,6 +703,57 @@ export function AppInner({
     eb.editState.mode === "editing" ||
     folderEb.editState.mode === "editing" ||
     envEditor.editState.mode === "editing"
+  const runner = useCollectionRunner({
+    collection,
+    collectionDir,
+    folderPath: runnerScope,
+    activeEnvironment: envState.activeName,
+    environmentNames: envState.names,
+    hasUnsavedChanges,
+    noProxy,
+    systemProxy,
+    insecure,
+    resetKey: runnerResetKey,
+  })
+  const runnerRef = useRef(runner)
+  useLayoutEffect(() => {
+    runnerRef.current = runner
+  }, [runner])
+  const resetRunner = useCallback((scope: string | null) => {
+    setRunnerScope(scope)
+    setRunnerResetKey((key) => key + 1)
+  }, [])
+  const handleOpenRunner = useCallback(
+    (scope: string | null) => {
+      runnerReturnFocusRef.current = settingsReturnFocus(
+        viewRef.current,
+        focusRef.current,
+      )
+      const opened = openCollectionRunner(scope, resetRunner, setView, setFocus)
+      setJumpMode(false)
+      return opened
+    },
+    [resetRunner],
+  )
+  const closeRunner = useCallback(() => {
+    if (runnerRef.current.phase === "running") return
+    setView("main")
+    setFocus(runnerReturnFocusRef.current)
+  }, [])
+  const handleOpenRunnerRequestTab = useCallback(
+    (requestId: string, tab: FieldKind) => {
+      if (tab !== "assertions" && tab !== "captures") return
+      openRunnerRequestTab(
+        requestId,
+        tab,
+        revealRequest,
+        eb.enterBrowseAt,
+        setView,
+        setFocus,
+      )
+    },
+    [eb.enterBrowseAt, revealRequest],
+  )
   const {
     collectionSwitcherVisible,
     setCollectionSwitcherVisible,
@@ -717,6 +781,8 @@ export function AppInner({
     reloadPending,
   })
   const { activeOverlay } = overlays
+  openTagEditorRef.current = (index, value) =>
+    overlays.setTagEditPending({ index, value })
 
   useEffect(() => {
     if (overlays.aboutVisible) triggerAboutUpdateCheck()
@@ -841,6 +907,7 @@ export function AppInner({
         queryVisible,
         responseBodyEditorAvailable,
         settingsCategory,
+        runnerPhase: runner.phase,
         keybinds,
       }),
     [
@@ -857,6 +924,7 @@ export function AppInner({
       queryVisible,
       responseBodyEditorAvailable,
       settingsCategory,
+      runner.phase,
       keybinds,
     ],
   )
@@ -867,9 +935,14 @@ export function AppInner({
         ? "browse.send"
         : paneMode === "edit" && focus === "request" && eb.isEditingTextBody
           ? "edit.text-body-send"
-          : paneMode === "base" && focus !== "folder"
-            ? "request.send"
-            : undefined
+          : paneMode === "edit" &&
+              focus === "request" &&
+              (eb.editState.cursor.field === "assertions" ||
+                eb.editState.cursor.field === "captures")
+            ? "edit.request-send"
+            : paneMode === "base" && focus !== "folder"
+              ? "request.send"
+              : undefined
       : undefined
 
   const handleHintActivate = useCallback(
@@ -1092,6 +1165,12 @@ export function AppInner({
       setCookieFormInitial: overlays.setCookieFormInitial,
       setCookieDeletePending: overlays.setCookieDeletePending,
       retryCookieStorage,
+    },
+    runner: {
+      runnerRef,
+      detailScrollRef: runnerDetailScrollRef,
+      close: closeRunner,
+      openRequestTab: handleOpenRunnerRequestTab,
     },
   })
 
@@ -1322,6 +1401,17 @@ export function AppInner({
     onRequestDeleteConfirm: handleRequestDeleteConfirm,
     onRequestDeleteCancel: cancelRequestDelete,
     onNewFolderConfirm: handleNewFolderConfirm,
+    onTagConfirm: (tag) => {
+      const pending = overlays.tagEditPending
+      const current = draftRef.current.draft
+      if (!pending || !current) return
+      const tags = [...(current.tags ?? [])]
+      if (pending.index < tags.length) tags[pending.index] = tag
+      else if (pending.index === tags.length) tags.push(tag)
+      else return
+      draftRef.current.setTags(tags)
+      overlays.setTagEditPending(null)
+    },
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
     collectionSwitchPending,
     setCollectionSwitchPending,
@@ -1402,6 +1492,7 @@ export function AppInner({
         setEnvDeletePending: overlays.setEnvDeletePending,
         onReloadCollection: requestReload,
         paletteTarget,
+        openRunner: handleOpenRunner,
       }),
     [
       keybinds,
@@ -1417,6 +1508,7 @@ export function AppInner({
       view,
       effectiveCollectionMode,
       paletteTarget,
+      handleOpenRunner,
       proxyPolicy,
       tlsPolicy,
       draft.draft?.auth,
@@ -1591,6 +1683,15 @@ export function AppInner({
             onReset={requestCookieStorageReset}
             resetKey={displayKey(keybinds.cookie_clear)}
           />
+        ) : view === "runner" && mode === "collection" ? (
+          <CollectionRunnerView
+            runner={runner}
+            focus={focus}
+            hasUnsavedChanges={hasUnsavedChanges}
+            detailScrollRef={runnerDetailScrollRef}
+            onPaneFocus={setFocus}
+            onEditRequestTab={handleOpenRunnerRequestTab}
+          />
         ) : view === "settings" ? (
           <SettingsView
             scope={visibleSettingsScope}
@@ -1706,6 +1807,7 @@ export function AppInner({
           editRequestActions={overlayActions.editRequest}
           cloneRequestActions={overlayActions.cloneRequest}
           newFolderActions={overlayActions.newFolder}
+          tagEditorActions={overlayActions.tagEditor}
           updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}

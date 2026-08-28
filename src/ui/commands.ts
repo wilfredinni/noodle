@@ -151,6 +151,7 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onReloadCollection: () => void
+  openRunner: (folderPath: string | null) => boolean
   paletteTarget: CommandPaletteTarget | null
 }
 
@@ -439,6 +440,17 @@ export function buildCommandPaletteCommands(
 
   const workspaceCommands: CommandItem[] = [
     {
+      id: "collection.runner",
+      label: paletteTarget === "folder" ? "Run Folder…" : "Run Collection…",
+      section: paletteTarget === "folder" ? "Folder" : "Workspace",
+      run: () => {
+        const folderPath =
+          paletteTarget === "folder" ? c.focusedFolderPathRef.current : null
+        if (paletteTarget === "folder" && !folderPath) return false
+        return ctx.openRunner(folderPath)
+      },
+    },
+    {
       id: "collection.import",
       label: "Import Collection",
       section: "Workspace",
@@ -721,9 +733,12 @@ export function buildCommandPaletteCommands(
         .map((command) => ({ ...command, section: "Folder" })),
       ...workspaceCommands
         .filter((command) =>
-          ["folder.new", "folder.delete", "workspace.edit-yaml"].includes(
-            command.id,
-          ),
+          [
+            "collection.runner",
+            "folder.new",
+            "folder.delete",
+            "workspace.edit-yaml",
+          ].includes(command.id),
         )
         .map((command) => ({
           ...command,
@@ -759,6 +774,8 @@ export function buildCommandPaletteCommands(
 
   if (view === "settings")
     return [...externalEditorCommands, ...settingsCommands, ...systemCommands]
+
+  if (view === "runner") return systemCommands
 
   return [
     ...(mode === "collection" ? visibleRequestCommands : []),

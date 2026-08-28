@@ -6,6 +6,7 @@ import type { FieldKind } from "../editMode"
 export type ResponseTabKind =
   | "body"
   | "headers"
+  | "results"
   | "network"
   | "timeline"
   | "cookies"
@@ -24,6 +25,23 @@ function statePath(colDir: string): string {
 }
 
 const DEFAULTS: TabPrefs = { requestTab: "headers", responseTab: "body" }
+const REQUEST_TABS = new Set<FieldKind>([
+  "headers",
+  "params",
+  "pathParams",
+  "body",
+  "auth",
+  "assertions",
+  "captures",
+  "settings",
+])
+
+function requestTab(value: unknown): FieldKind {
+  if (value === "automation") return "assertions"
+  return typeof value === "string" && REQUEST_TABS.has(value as FieldKind)
+    ? (value as FieldKind)
+    : DEFAULTS.requestTab
+}
 
 export function isDefaultPrefs(prefs: TabPrefs): boolean {
   return (
@@ -127,13 +145,14 @@ export async function loadUIState(
         const response =
           v.response === "body" ||
           v.response === "headers" ||
+          v.response === "results" ||
           v.response === "network" ||
           v.response === "timeline" ||
           v.response === "cookies"
             ? v.response
             : DEFAULTS.responseTab
         map.set(key, {
-          requestTab: v.request as FieldKind,
+          requestTab: requestTab(v.request),
           responseTab: response as ResponseTabKind,
         })
       }

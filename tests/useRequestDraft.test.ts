@@ -235,6 +235,107 @@ describe("requestEquals", () => {
     const b = makeReq({ id: "r2", name: "B" })
     expect(requestEquals(a, b)).toBe(true)
   })
+  it("tracks automation fields in equality", () => {
+    expect(
+      requestEquals(makeReq({ tags: ["smoke"] }), makeReq({ tags: ["full"] })),
+    ).toBe(false)
+    expect(
+      requestEquals(
+        makeReq({
+          captures: { token: { value: "body.token", enabled: true } },
+        }),
+        makeReq({
+          captures: { token: { value: "headers.x-token", enabled: true } },
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      requestEquals(
+        makeReq({
+          assertions: [
+            { expression: "status", operator: "equals", value: 200 },
+          ],
+        }),
+        makeReq({
+          assertions: [
+            { expression: "status", operator: "equals", value: 201 },
+          ],
+        }),
+      ),
+    ).toBe(false)
+  })
+})
+
+describe("automation drafts", () => {
+  it("adds, edits, removes, and reverts automation declarations", () => {
+    const original = makeReq({
+      tags: ["smoke"],
+      captures: { token: { value: "body.token", enabled: true } },
+      assertions: [{ expression: "status", operator: "equals", value: 200 }],
+    })
+    let drafts = applyDraft(new Map(), original.id, original, {
+      kind: "setTags",
+      tags: ["critical"],
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setCaptures",
+      captures: { id: { value: "body.id", enabled: true } },
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setAssertions",
+      assertions: [{ expression: "body.id", operator: "exists" }],
+    })
+    expect(drafts.get(original.id)).toMatchObject({
+      tags: ["critical"],
+      captures: { id: { value: "body.id", enabled: true } },
+      assertions: [{ expression: "body.id", operator: "exists" }],
+    })
+
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "revertField",
+      field: "captures",
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "revertField",
+      field: "assertions",
+    })
+    expect(drafts.get(original.id)).toMatchObject({
+      tags: ["critical"],
+      captures: { token: { value: "body.token", enabled: true } },
+      assertions: [{ expression: "status", operator: "equals", value: 200 }],
+    })
+  })
+
+  it("toggles capture and assertion rows back to a clean draft", () => {
+    const original = makeReq({
+      captures: { token: { value: "body.token", enabled: true } },
+      assertions: [{ expression: "status", operator: "exists" }],
+    })
+    let drafts = applyDraft(new Map(), original.id, original, {
+      kind: "toggleCaptureRow",
+      index: 0,
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "toggleAssertionRow",
+      index: 0,
+    })
+    expect(drafts.get(original.id)).toMatchObject({
+      captures: { token: { value: "body.token", enabled: false } },
+      assertions: [
+        { expression: "status", operator: "exists", enabled: false },
+      ],
+    })
+
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "toggleCaptureRow",
+      index: 0,
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "toggleAssertionRow",
+      index: 0,
+    })
+    expect(requestEquals(drafts.get(original.id)!, original)).toBe(true)
+  })
 })
 
 describe("applyDraft", () => {

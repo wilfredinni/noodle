@@ -7,10 +7,12 @@ import { VarInput } from "../VarInput"
 import { Checkbox } from "../Checkbox"
 import { LeftBar } from "../borders"
 import { Select } from "../Select"
+import { Badge } from "../Badge"
 
 export function SettingsSection({
   request,
   editState,
+  editValue,
   setEditValue,
   inEdit,
   browseActive,
@@ -26,6 +28,7 @@ export function SettingsSection({
 }: {
   request: Request
   editState: EditState
+  editValue: string
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
@@ -84,9 +87,71 @@ export function SettingsSection({
       desc: "Send cookies from the collection cookie jar",
     },
   ]
+  const tagsActive =
+    (inEdit || browseActive) &&
+    editState.cursor.field === "settings" &&
+    editState.cursor.row >= rows.length
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
+      <box
+        id="settings-tags"
+        border={[...LeftBar.border]}
+        customBorderChars={LeftBar.customBorderChars}
+        borderColor={tagsActive ? theme.primary : theme.borderSubtle}
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 1,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        <text fg={theme.text} style={{ flexShrink: 0 }}>
+          Tags:{" "}
+        </text>
+        <box
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 0,
+            flexGrow: 1,
+            minWidth: 0,
+          }}
+        >
+          {[...(request.tags ?? []), null].map((tag, index) => {
+            const row = rows.length + index
+            const active =
+              browseActive &&
+              editState.cursor.field === "settings" &&
+              editState.cursor.row === row
+
+            return (
+              <box
+                key={`tag-${index}`}
+                id={`settings-${row}`}
+                style={{
+                  flexDirection: "column",
+                  minHeight: 1,
+                  marginRight: 1,
+                }}
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT || !interactive) return
+                  onActivateRow?.(row)
+                  event.stopPropagation()
+                }}
+              >
+                <Badge
+                  bg={active ? theme.primary : theme.backgroundElement}
+                  fg={active ? theme.backgroundPanel : theme.textMuted}
+                >
+                  {tag ?? "+ Add tag"}
+                </Badge>
+              </box>
+            )
+          })}
+        </box>
+      </box>
       {rows.map((row, idx) => {
         const editingRow =
           inEdit &&
@@ -139,7 +204,7 @@ export function SettingsSection({
                 <>
                   <text fg={theme.textMuted}>{row.label}: </text>
                   <VarInput
-                    value={String(row.value)}
+                    value={editValue}
                     env={activeEnv ?? null}
                     isEditing
                     useTextarea
