@@ -18,7 +18,6 @@ import {
 } from "../assertions"
 import { parseResponseExpression } from "../response"
 import { isValidVariableName } from "../requests/substitute"
-import { isValidTag } from "../tags"
 import {
   initialEditState,
   enterEditBrowse,
@@ -292,6 +291,7 @@ export interface UseEditBrowseResult {
 export interface UseEditBrowseOptions {
   initialTab?: FieldKind
   onTabChange?: (tab: FieldKind) => void
+  onTagEdit?: (index: number, value: string) => void
 }
 
 export function useEditBrowse(
@@ -327,6 +327,8 @@ export function useEditBrowse(
 
   const onTabChangeRef = useRef(options?.onTabChange)
   onTabChangeRef.current = options?.onTabChange
+  const onTagEditRef = useRef(options?.onTagEdit)
+  onTagEditRef.current = options?.onTagEdit
 
   // Sync inactiveTab when initialTab prop changes (request switch)
   useEffect(() => {
@@ -386,6 +388,23 @@ export function useEditBrowse(
       setInactiveTab(field)
       const currentDraft = draftRef.current
       setEditError(null)
+
+      if (field === "settings" && row >= 5) {
+        setEditState((prev) => {
+          const browsed =
+            prev.mode === "inactive"
+              ? enterEditBrowse(prev, rowCount(currentDraft), field)
+              : cancelEditing(prev)
+          return {
+            ...browsed,
+            mode: "browsing",
+            editingRow: -1,
+            cursor: { field, row, addingRow: false },
+          }
+        })
+        onTagEditRef.current?.(row - 5, currentDraft?.tags?.[row - 5] ?? "")
+        return
+      }
 
       if (field === "assertions") {
         const values = assertionEditValues(currentDraft, row)
@@ -722,6 +741,10 @@ export function useEditBrowse(
     }
     if (field === "settings" && row === 3) return
     const currentDraft = draftRef.current
+    if (field === "settings" && row >= 5) {
+      onTagEditRef.current?.(row - 5, currentDraft?.tags?.[row - 5] ?? "")
+      return
+    }
     if (field === "assertions") {
       const values = assertionEditValues(currentDraft, row)
       setEditKey(values.key)
@@ -934,20 +957,6 @@ export function useEditBrowse(
         draftMutators.setMaxRedirects(
           Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5,
         )
-      } else if (row >= 5) {
-        const current = draftRef.current
-        if (!current) return false
-        if (!isValidTag(val)) {
-          setEditError("Tag must be a non-empty trimmed string")
-          return false
-        }
-        const tags = [...(current.tags ?? [])]
-        const tagIndex = row - 5
-        if (tagIndex < tags.length) tags[tagIndex] = val
-        else tags.push(val)
-        draftMutators.setTags(tags)
-        draftRef.current = { ...current, tags }
-        setEditError(null)
       }
     } else if (field === "pathParams") {
       const key = editKeyRef.current.trim()

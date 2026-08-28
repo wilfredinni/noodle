@@ -64,6 +64,7 @@ function baseProps() {
     editRequestActions: actions,
     cloneRequestActions: actions,
     newFolderActions: actions,
+    tagEditorActions: actions,
     updateFlow: { phase: "idle" as const },
     envColors: {},
     onLoadTimelineBody: async () => "",
@@ -234,6 +235,14 @@ describe("AppOverlays routing", () => {
       name: "new folder",
       overrides: { activeOverlay: "new-folder", newFolderVisible: true },
       expected: "New Folder",
+    },
+    {
+      name: "tag editor",
+      overrides: {
+        activeOverlay: "tag-editor",
+        tagEditPending: { index: 0, value: "smoke" },
+      },
+      expected: "Edit Tag",
     },
     {
       name: "new environment",

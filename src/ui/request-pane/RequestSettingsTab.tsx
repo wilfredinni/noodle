@@ -13,7 +13,6 @@ export function SettingsSection({
   request,
   editState,
   editValue,
-  editError,
   setEditValue,
   inEdit,
   browseActive,
@@ -30,7 +29,6 @@ export function SettingsSection({
   request: Request
   editState: EditState
   editValue: string
-  editError?: string | null
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
@@ -123,10 +121,6 @@ export function SettingsSection({
         >
           {[...(request.tags ?? []), null].map((tag, index) => {
             const row = rows.length + index
-            const editing =
-              inEdit &&
-              editState.cursor.field === "settings" &&
-              editState.cursor.row === row
             const active =
               browseActive &&
               editState.cursor.field === "settings" &&
@@ -147,30 +141,12 @@ export function SettingsSection({
                   event.stopPropagation()
                 }}
               >
-                {editing ? (
-                  <VarInput
-                    value={editValue}
-                    placeholder="Tag"
-                    env={null}
-                    isEditing
-                    isFocused
-                    onChange={setEditValue}
-                    baseColor={theme.primary}
-                    backgroundColor={theme.backgroundElement}
-                    paddingX={1}
-                    stopMousePropagation
-                  />
-                ) : (
-                  <Badge
-                    bg={active ? theme.primary : theme.backgroundElement}
-                    fg={active ? theme.backgroundPanel : theme.textMuted}
-                  >
-                    {tag ?? "+ Add tag"}
-                  </Badge>
-                )}
-                {editing && editError ? (
-                  <text fg={theme.error}> {editError}</text>
-                ) : null}
+                <Badge
+                  bg={active ? theme.primary : theme.backgroundElement}
+                  fg={active ? theme.backgroundPanel : theme.textMuted}
+                >
+                  {tag ?? "+ Add tag"}
+                </Badge>
               </box>
             )
           })}

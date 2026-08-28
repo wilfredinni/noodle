@@ -481,9 +481,13 @@ export function AppInner({
     [selectedRequest?.id, setTab],
   )
 
+  const openTagEditorRef = useRef<(index: number, value: string) => void>(
+    () => {},
+  )
   const eb = useEditBrowse(draft.draft, draft, {
     initialTab: initialRequestTab,
     onTabChange: onRequestTabChange,
+    onTagEdit: (index, value) => openTagEditorRef.current(index, value),
   })
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
@@ -775,6 +779,8 @@ export function AppInner({
     reloadPending,
   })
   const { activeOverlay } = overlays
+  openTagEditorRef.current = (index, value) =>
+    overlays.setTagEditPending({ index, value })
 
   useEffect(() => {
     if (overlays.aboutVisible) triggerAboutUpdateCheck()
@@ -1388,6 +1394,17 @@ export function AppInner({
     onRequestDeleteConfirm: handleRequestDeleteConfirm,
     onRequestDeleteCancel: cancelRequestDelete,
     onNewFolderConfirm: handleNewFolderConfirm,
+    onTagConfirm: (tag) => {
+      const pending = overlays.tagEditPending
+      const current = draftRef.current.draft
+      if (!pending || !current) return
+      const tags = [...(current.tags ?? [])]
+      if (pending.index < tags.length) tags[pending.index] = tag
+      else if (pending.index === tags.length) tags.push(tag)
+      else return
+      draftRef.current.setTags(tags)
+      overlays.setTagEditPending(null)
+    },
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
     collectionSwitchPending,
     setCollectionSwitchPending,
@@ -1783,6 +1800,7 @@ export function AppInner({
           editRequestActions={overlayActions.editRequest}
           cloneRequestActions={overlayActions.cloneRequest}
           newFolderActions={overlayActions.newFolder}
+          tagEditorActions={overlayActions.tagEditor}
           updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}

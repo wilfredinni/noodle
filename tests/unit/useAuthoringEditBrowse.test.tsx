@@ -284,11 +284,14 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     expect(result.value).toEqual({ token: "body.token" })
   })
 
-  it("adds tags from the Settings tab through the existing draft operation", async () => {
-    const result: { value?: string[] } = {}
+  it("routes existing and new tag rows to the overlay", async () => {
+    const opened: { index: number; value: string }[] = []
+    let finalMode: string | undefined
     function Harness() {
-      const draft = useRequestDraft(request)
-      const editor = useEditBrowse(draft.draft, draft)
+      const draft = useRequestDraft({ ...request, tags: ["smoke"] })
+      const editor = useEditBrowse(draft.draft, draft, {
+        onTagEdit: (index, value) => opened.push({ index, value }),
+      })
       const [step, setStep] = useState(0)
       useEffect(() => {
         if (step === 0) {
@@ -297,20 +300,23 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
         } else if (step === 1 && editor.editState.mode === "browsing") {
           editor.enterEdit()
           setStep(2)
-        } else if (step === 2 && editor.editState.mode === "editing") {
-          editor.setEditValue("smoke")
+        } else if (step === 2) {
+          editor.activateAt("settings", 6)
           setStep(3)
-        } else if (step === 3 && editor.editValue === "smoke") {
-          editor.commitEdit()
-          setStep(4)
-        } else if (step === 4 && draft.draft?.tags) {
-          result.value = draft.draft.tags
+        } else if (step === 3) {
+          finalMode = editor.editState.mode
         }
-      }, [draft.draft, editor, step])
+      }, [editor, step])
       return null
     }
     const render = await testRender(<Harness />, { width: 20, height: 4 })
-    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
-    expect(result.value).toEqual(["smoke"])
+    for (let i = 0; i < 6 && finalMode === undefined; i++) {
+      await render.renderOnce()
+    }
+    expect(opened).toEqual([
+      { index: 0, value: "smoke" },
+      { index: 1, value: "" },
+    ])
+    expect(finalMode).toBe("browsing")
   })
 })

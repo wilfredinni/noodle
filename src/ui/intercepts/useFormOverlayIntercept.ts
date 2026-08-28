@@ -142,7 +142,7 @@ export function useSingleFieldFormOverlayIntercept(opts: {
         const handle = handleRef.current
         if (!handle) return
 
-        if (e.name === "s" && e.ctrl) {
+        if (e.name === "return" || (e.name === "s" && e.ctrl)) {
           e.preventDefault()
           e.stopPropagation()
           confirm()

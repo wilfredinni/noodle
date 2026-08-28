@@ -35,7 +35,6 @@ describe("RequestSettingsTab tags", () => {
             editingRow: -1,
           }}
           editValue=""
-          editError={null}
           setEditValue={() => {}}
           inEdit={false}
           browseActive
@@ -88,7 +87,6 @@ describe("RequestSettingsTab tags", () => {
             editingRow: -1,
           }}
           editValue=""
-          editError={null}
           setEditValue={() => {}}
           inEdit={false}
           browseActive
@@ -106,6 +104,46 @@ describe("RequestSettingsTab tags", () => {
 
     expect(firstBadgeRow).toBe(tagsRow)
     expect(addTagRow).toBe(tagsRow + 1)
+    cleanup()
+  })
+
+  it("keeps tags as badges while editing happens in an overlay", async () => {
+    const { keymap, cleanup } = createTestKeymap()
+    const render = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <SettingsSection
+          request={{
+            id: "tagged",
+            name: "Tagged",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+            timeout: 0,
+            tags: ["smoke"],
+          }}
+          editState={{
+            mode: "editing",
+            cursor: { field: "settings", row: 5, addingRow: false },
+            editingRow: 5,
+          }}
+          editValue="inline draft"
+          setEditValue={() => {}}
+          inEdit
+          browseActive={false}
+          theme={THEMES[0]!}
+        />
+      </KeymapProvider>,
+      { width: 50, height: 32 },
+    )
+    await render.renderOnce()
+    const frame = render.captureCharFrame()
+    expect(frame).toContain("smoke")
+    expect(frame).not.toContain("inline draft")
     cleanup()
   })
 })

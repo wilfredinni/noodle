@@ -26,6 +26,10 @@ describe("useModalKeyboardShield", () => {
     expect(HARD_BLOCKING_OVERLAYS).toContain("cookie-delete")
   })
 
+  it("treats the tag editor as editable", () => {
+    expect(EDITABLE_OVERLAYS).toContain("tag-editor")
+  })
+
   it("treats collection unregister confirmation as hard-blocking", () => {
     expect(HARD_BLOCKING_OVERLAYS).toContain("collection-unregister")
   })

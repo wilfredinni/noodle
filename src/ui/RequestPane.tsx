@@ -582,7 +582,6 @@ export function RequestPane({
                       request={request}
                       editState={editState}
                       editValue={editValue}
-                      editError={editError}
                       setEditValue={setEditValue}
                       inEdit={inEdit}
                       browseActive={browseActive}
