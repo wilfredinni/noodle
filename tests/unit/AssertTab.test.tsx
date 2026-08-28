@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test"
+import { RGBA, type BoxRenderable } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { act, useState } from "react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -7,7 +9,7 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { AssertTab } from "../../src/ui/request-pane/AssertTab"
 import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 import type { AssertionOperator, Request } from "../../src/schema"
@@ -78,7 +80,8 @@ describe("AssertTab", () => {
     }
     const render = await testRender(<Harness />, { width: 58, height: 12 })
     await render.renderOnce()
-    expect(render.captureCharFrame()).toContain("equals ▼ 42")
+    expect(render.captureCharFrame()).toContain("equals")
+    expect(render.captureCharFrame()).toContain("42")
     await act(async () => host.press("return"))
     await act(async () => host.press("up"))
     await act(async () => host.press("return"))
@@ -86,6 +89,111 @@ describe("AssertTab", () => {
     expect(render.captureCharFrame()).toContain("notNull")
     expect(render.captureCharFrame()).not.toContain("42")
     cleanup()
+  })
+
+  it("uses aligned columns and shared add-row mouse interactions", async () => {
+    const { keymap, cleanup } = setup()
+    const activations: Array<
+      [number, boolean, "key" | "operator" | "value" | undefined]
+    > = []
+    const tableRequest: Request = {
+      ...request,
+      assertions: [
+        { expression: "status", operator: "equals", value: 200 },
+        { expression: "body.id", operator: "exists" },
+      ],
+    }
+    try {
+      const render = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <AssertTab
+              request={tableRequest}
+              editState={{
+                mode: "inactive",
+                cursor: { field: "headers", row: -1, addingRow: false },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              editOperator="equals"
+              editError={null}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              setEditOperator={() => {}}
+              onActivateRow={(row, addingRow, subfield) =>
+                activations.push([row, addingRow, subfield])
+              }
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 8 },
+      )
+      await render.renderOnce()
+
+      const frame = render.captureCharFrame()
+      expect(frame).toContain("Response expression...")
+      expect(frame).toContain("Expected...")
+      expect(frame).not.toContain("+ Add assertion")
+
+      const first = render.renderer.root.findDescendantById(
+        "assertions-0",
+      ) as BoxRenderable
+      const valueLess = render.renderer.root.findDescendantById(
+        "assertions-1",
+      ) as BoxRenderable
+      const add = render.renderer.root.findDescendantById(
+        "assertions-add",
+      ) as BoxRenderable
+      const firstCells = first.getChildren() as BoxRenderable[]
+      const valueLessCells = valueLess.getChildren() as BoxRenderable[]
+      const addCells = add.getChildren() as BoxRenderable[]
+
+      expect(firstCells[2]!.x).toBe(valueLessCells[2]!.x)
+      expect(firstCells[2]!.width).toBe(valueLessCells[2]!.width)
+      expect(valueLessCells[2]!.getChildren()).toHaveLength(0)
+
+      await act(async () => {
+        await render.mockMouse.moveTo(first.x + 1, first.y)
+      })
+      await act(async () => {
+        await render.renderOnce()
+      })
+      const hoveredFirst = render.renderer.root.findDescendantById(
+        "assertions-0",
+      ) as BoxRenderable
+      expect(
+        hoveredFirst.backgroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.backgroundElement),
+        ),
+      ).toBe(true)
+
+      for (const cell of firstCells) {
+        await act(async () => {
+          await render.mockMouse.click(cell.x + 1, cell.y, MouseButtons.LEFT)
+        })
+      }
+      for (const cell of addCells) {
+        await act(async () => {
+          await render.mockMouse.click(cell.x + 1, cell.y, MouseButtons.LEFT)
+        })
+      }
+
+      expect(activations).toEqual([
+        [0, false, "key"],
+        [0, false, "operator"],
+        [0, false, "value"],
+        [-1, true, "key"],
+        [-1, true, "operator"],
+        [-1, true, "value"],
+      ])
+    } finally {
+      cleanup()
+    }
   })
 
   it("offers response-expression completion at narrow widths", async () => {

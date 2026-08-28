@@ -174,7 +174,9 @@ export function RequestPane({
         addingRow ? "captures-add" : `captures-${row}`,
       )
     } else if (field === "assertions") {
-      scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? "assertions-add" : `assertions-${row}`,
+      )
     } else if ((field === "auth" || field === "settings") && row > 0) {
       scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else {
@@ -524,13 +526,13 @@ export function RequestPane({
                       activeEnv={activeEnv}
                       onActivateRow={
                         onFieldActivate
-                          ? (row, subfield) => {
+                          ? (row, addingRow, subfield) => {
                               if (onInteraction?.() === false) return
                               onPaneFocus?.()
                               onFieldActivate(
                                 "assertions",
                                 row,
-                                false,
+                                addingRow,
                                 subfield,
                               )
                             }

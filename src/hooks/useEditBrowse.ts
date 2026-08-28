@@ -56,7 +56,7 @@ function rowCount(req: Request | null): SectionRowCount {
       pathParams: 0,
       body: 0,
       auth: 1,
-      assertions: 1,
+      assertions: 0,
       captures: 0,
       settings: 6,
     }
@@ -73,7 +73,7 @@ function rowCount(req: Request | null): SectionRowCount {
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
-    assertions: (req.assertions?.length ?? 0) + 1,
+    assertions: req.assertions?.length ?? 0,
     captures: Object.keys(req.captures ?? {}).length,
     settings: 6 + (req.tags?.length ?? 0),
   }
@@ -854,31 +854,42 @@ export function useEditBrowse(
         setEditError(message)
         return false
       }
-      try {
-        parseResponseExpression(key)
-      } catch (error) {
-        return fail(error instanceof Error ? error.message : String(error))
-      }
-      const operator = editOperatorRef.current
-      let assertion: ResponseAssertion
-      if (assertionOperatorRequiresValue(operator)) {
-        const expected = parseAssertionValue(val)
-        const valueError = assertionValueValidationError(
-          operator,
-          expected,
-          "Expected value",
-        )
-        if (valueError) return fail(valueError)
-        assertion = { expression: key, operator, value: expected }
-      } else {
-        assertion = { expression: key, operator }
-      }
       const assertions = [...(current.assertions ?? [])]
-      if (state.cursor.row < assertions.length)
-        assertions[state.cursor.row] = assertion
-      else assertions.push(assertion)
-      draftMutators.setAssertions(assertions)
-      draftRef.current = { ...current, assertions }
+      if (key === "") {
+        if (!addingRow && state.cursor.row >= 0) {
+          assertions.splice(state.cursor.row, 1)
+          draftMutators.setAssertions(assertions)
+          draftRef.current = {
+            ...current,
+            assertions: assertions.length > 0 ? assertions : undefined,
+          }
+        }
+      } else {
+        try {
+          parseResponseExpression(key)
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : String(error))
+        }
+        const operator = editOperatorRef.current
+        let assertion: ResponseAssertion
+        if (assertionOperatorRequiresValue(operator)) {
+          const expected = parseAssertionValue(val)
+          const valueError = assertionValueValidationError(
+            operator,
+            expected,
+            "Expected value",
+          )
+          if (valueError) return fail(valueError)
+          assertion = { expression: key, operator, value: expected }
+        } else {
+          assertion = { expression: key, operator }
+        }
+        if (!addingRow && state.cursor.row < assertions.length)
+          assertions[state.cursor.row] = assertion
+        else assertions.push(assertion)
+        draftMutators.setAssertions(assertions)
+        draftRef.current = { ...current, assertions }
+      }
       setEditError(null)
     } else if (field === "body") {
       const currentBody = draftRef.current
@@ -1017,7 +1028,7 @@ export function useEditBrowse(
     }
     if (field === "assertions") {
       const assertions = [...(draftRef.current?.assertions ?? [])]
-      if (row >= assertions.length) return
+      if (addingRow || row < 0 || row >= assertions.length) return
       assertions.splice(row, 1)
       draftMutators.setAssertions(assertions)
       return

@@ -25,7 +25,7 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
       const [step, setStep] = useState(0)
       useEffect(() => {
         if (step === 0) {
-          editor.enterBrowseAt("assertions", 0)
+          editor.enterBrowseAt("assertions")
           setStep(1)
         } else if (step === 1 && editor.editState.mode === "browsing") {
           editor.enterEdit()
@@ -53,6 +53,98 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     expect(result.value).toEqual([
       { expression: "status", operator: "equals", value: 200 },
     ])
+  })
+
+  it("deletes an assertion when its expression is cleared", async () => {
+    const result: { value?: Request["assertions"] | null } = {}
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        assertions: [{ expression: "status", operator: "equals", value: 200 }],
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("assertions", 0)
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditKey("")
+          setStep(3)
+        } else if (step === 3 && editor.editKey === "") {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4) {
+          result.value = draft.draft?.assertions ?? null
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && result.value === undefined; i++) {
+      await render.renderOnce()
+    }
+    expect(result.value).toBeNull()
+  })
+
+  it("does not delete an assertion from the add row", async () => {
+    const assertion = { expression: "status", operator: "exists" } as const
+    const result: { value?: Request["assertions"] } = {}
+    function Harness() {
+      const draft = useRequestDraft({ ...request, assertions: [assertion] })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("assertions")
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.browseLast()
+          setStep(2)
+        } else if (step === 2 && editor.editState.cursor.addingRow) {
+          editor.revertField()
+          result.value = draft.draft?.assertions
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 5 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual([assertion])
+  })
+
+  it("commits a blank assertion add row as a no-op", async () => {
+    const assertion = { expression: "status", operator: "exists" } as const
+    const result: { value?: Request["assertions"] } = {}
+    function Harness() {
+      const draft = useRequestDraft({ ...request, assertions: [assertion] })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("assertions")
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.browseLast()
+          setStep(2)
+        } else if (step === 2 && editor.editState.cursor.addingRow) {
+          editor.enterEdit()
+          setStep(3)
+        } else if (step === 3 && editor.editState.mode === "editing") {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4 && editor.editState.mode === "browsing") {
+          result.value = draft.draft?.assertions
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual([assertion])
   })
 
   it("keeps invalid capture variable edits active", async () => {

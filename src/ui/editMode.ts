@@ -164,8 +164,6 @@ export function cursorForField(
             : 0,
         addingRow: false,
       }
-    case "assertions":
-      return { field, row: 0, addingRow: false }
     case "activity":
       return { field, row: 0, addingRow: false }
   }
@@ -174,9 +172,11 @@ export function cursorForField(
       ? counts.headers
       : field === "params"
         ? counts.params
-        : field === "captures"
-          ? (counts.captures ?? 0)
-          : counts.pathParams
+        : field === "assertions"
+          ? (counts.assertions ?? 0)
+          : field === "captures"
+            ? (counts.captures ?? 0)
+            : counts.pathParams
   if (count === 0) {
     if (field === "pathParams") {
       return { field, row: -1, addingRow: false }
@@ -317,7 +317,7 @@ export function moveRowCursor(
     }
   }
 
-  if (field === "settings" || field === "auth" || field === "assertions") {
+  if (field === "settings" || field === "auth") {
     // settings has no addingRow state, clamp to bounds
     if (next < 0)
       return { ...prev, cursor: { field, row: 0, addingRow: false } }
@@ -403,7 +403,12 @@ export function moveRowFirst(
   else if (field === "body") count = counts.body
 
   if (count === 0) {
-    if (field === "headers" || field === "params" || field === "captures") {
+    if (
+      field === "headers" ||
+      field === "params" ||
+      field === "assertions" ||
+      field === "captures"
+    ) {
       return { ...prev, cursor: { field, row: -1, addingRow: true } }
     }
     if (field === "pathParams") {
@@ -449,7 +454,12 @@ export function moveRowLast(
   else if (field === "captures") count = counts.captures ?? 0
   else if (field === "body") count = counts.body
 
-  if (field === "headers" || field === "params" || field === "captures") {
+  if (
+    field === "headers" ||
+    field === "params" ||
+    field === "assertions" ||
+    field === "captures"
+  ) {
     return { ...prev, cursor: { field, row: -1, addingRow: true } }
   }
   if (field === "pathParams") {

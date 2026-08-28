@@ -71,6 +71,14 @@ describe("enterEditBrowse", () => {
       addingRow: true,
     })
   })
+  it("starts an empty assertion section on its add row", () => {
+    const s = enterEditBrowse(inactive, c(0, 0), "assertions")
+    expect(s.cursor).toEqual({
+      field: "assertions",
+      row: -1,
+      addingRow: true,
+    })
+  })
 })
 
 describe("exitEditBrowse", () => {
@@ -106,7 +114,8 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("assertions")
-    expect(s.cursor.row).toBe(0)
+    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.addingRow).toBe(true)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("captures")
     expect(s.cursor.row).toBe(-1)
@@ -126,6 +135,7 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.field).toBe("captures")
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("assertions")
+    expect(s.cursor.addingRow).toBe(true)
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
     s = moveFieldCursor(s, -1, c(2, 1))
@@ -195,6 +205,22 @@ describe("moveRowCursor", () => {
     s = moveRowCursor(s, +1, counts)
     expect(s.cursor).toEqual({
       field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, -1, counts)
+    expect(s.cursor.addingRow).toBe(true)
+  })
+  it("walks assertion rows through the shared add row", () => {
+    const counts = { ...c(0, 0), assertions: 2 }
+    let s = enterEditBrowse(inactive, counts, "assertions")
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor).toEqual({
+      field: "assertions",
       row: -1,
       addingRow: true,
     })
@@ -274,6 +300,17 @@ describe("moveRowFirst", () => {
     expect(moveRowFirst(moveRowLast(s, counts), counts).cursor.row).toBe(0)
     expect(moveRowLast(s, counts).cursor).toEqual({
       field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+  })
+
+  it("uses the add row for assertion Home and End navigation", () => {
+    const counts = { ...c(0, 0), assertions: 2 }
+    const s = enterEditBrowse(inactive, counts, "assertions")
+    expect(moveRowFirst(moveRowLast(s, counts), counts).cursor.row).toBe(0)
+    expect(moveRowLast(s, counts).cursor).toEqual({
+      field: "assertions",
       row: -1,
       addingRow: true,
     })
