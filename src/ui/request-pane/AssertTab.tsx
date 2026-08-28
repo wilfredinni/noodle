@@ -185,15 +185,9 @@ export function AssertTab({
                 />
               </box>
               <box
-                onMouseDown={
-                  !editing
-                    ? (event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        activate("operator")
-                        event.stopPropagation()
-                      }
-                    : undefined
-                }
+                onMouseDown={(event) => {
+                  if (event.button === MouseButton.LEFT) event.stopPropagation()
+                }}
                 width={OPERATOR_WIDTH}
               >
                 <Select
@@ -208,7 +202,10 @@ export function AssertTab({
                     setEditOperator(value as AssertionOperator)
                   }
                   onOpenChange={onSelectOpenChange}
-                  interactive={interactive && editing}
+                  interactive={interactive}
+                  triggerBackgroundColor={
+                    backgroundColor ?? theme.backgroundPanel
+                  }
                   width={OPERATOR_WIDTH}
                 />
               </box>
@@ -222,7 +219,12 @@ export function AssertTab({
                       }
                     : undefined
                 }
-                style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  paddingLeft: 2,
+                }}
               >
                 {showExpected ? (
                   <VarInput

@@ -13,6 +13,7 @@ import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { AssertTab } from "../../src/ui/request-pane/AssertTab"
 import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 import type { AssertionOperator, Request } from "../../src/schema"
+import type { EditState } from "../../src/ui/editMode"
 
 const testRender = createTestRender()
 const request: Request = {
@@ -24,6 +25,13 @@ const request: Request = {
   params: [],
   timeout: 0,
   assertions: [{ expression: "body.id", operator: "equals", value: 42 }],
+}
+const tableRequest: Request = {
+  ...request,
+  assertions: [
+    { expression: "status", operator: "equals", value: 200 },
+    { expression: "body.id", operator: "exists" },
+  ],
 }
 
 function setup() {
@@ -96,13 +104,6 @@ describe("AssertTab", () => {
     const activations: Array<
       [number, boolean, "key" | "operator" | "value" | undefined]
     > = []
-    const tableRequest: Request = {
-      ...request,
-      assertions: [
-        { expression: "status", operator: "equals", value: 200 },
-        { expression: "body.id", operator: "exists" },
-      ],
-    }
     try {
       const render = await testRender(
         <KeymapProvider
@@ -138,6 +139,7 @@ describe("AssertTab", () => {
       const frame = render.captureCharFrame()
       expect(frame).toContain("Response expression...")
       expect(frame).toContain("Expected...")
+      expect(frame).toContain("▼    200")
       expect(frame).not.toContain("+ Add assertion")
 
       const first = render.renderer.root.findDescendantById(
@@ -203,6 +205,70 @@ describe("AssertTab", () => {
         [-1, true, "operator"],
         [-1, true, "value"],
       ])
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("opens a striped-row operator with one mouse click", async () => {
+    const { keymap, cleanup } = setup()
+    function Harness() {
+      const [editState, setEditState] = useState<EditState>({
+        mode: "inactive",
+        cursor: { field: "assertions", row: 0, addingRow: false },
+        editingRow: -1,
+      })
+      return (
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <AssertTab
+              request={tableRequest}
+              editState={editState}
+              editKey="body.id"
+              editValue=""
+              editOperator="exists"
+              editError={null}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              setEditOperator={() => {}}
+              onActivateRow={(row, addingRow, subfield) => {
+                setEditState({
+                  mode: "editing",
+                  cursor: { field: "assertions", row, addingRow, subfield },
+                  editingRow: row,
+                })
+              }}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    try {
+      const render = await testRender(<Harness />, { width: 80, height: 20 })
+      await render.renderOnce()
+
+      const row = render.renderer.root.findDescendantById(
+        "assertions-1",
+      ) as BoxRenderable
+      const operatorCell = row.getChildren()[1] as BoxRenderable
+      const select = operatorCell.getChildren()[0] as BoxRenderable
+      const relative = select.getChildren()[0] as BoxRenderable
+      const trigger = relative.getChildren()[0] as BoxRenderable
+      expect(trigger.backgroundColor.equals(row.backgroundColor)).toBe(true)
+
+      await act(async () => {
+        await render.mockMouse.click(
+          trigger.x + 1,
+          trigger.y,
+          MouseButtons.LEFT,
+        )
+      })
+      await render.renderOnce()
+      expect(render.captureCharFrame()).toContain("notEquals")
     } finally {
       cleanup()
     }
