@@ -223,7 +223,7 @@ describe("AssertTab", () => {
     }
   })
 
-  it("opens a striped-row operator with one mouse click", async () => {
+  it("uses the normal select surface and opens with one mouse click", async () => {
     const { keymap, cleanup } = setup()
     function Harness() {
       const [editState, setEditState] = useState<EditState>({
@@ -271,7 +271,11 @@ describe("AssertTab", () => {
       const select = operatorCell.getChildren()[0] as BoxRenderable
       const relative = select.getChildren()[0] as BoxRenderable
       const trigger = relative.getChildren()[0] as BoxRenderable
-      expect(trigger.backgroundColor.equals(row.backgroundColor)).toBe(true)
+      expect(
+        trigger.backgroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.backgroundElement),
+        ),
+      ).toBe(true)
 
       await act(async () => {
         await render.mockMouse.click(

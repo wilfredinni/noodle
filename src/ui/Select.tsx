@@ -37,7 +37,6 @@ export interface SelectProps {
   onActivate?: () => void
   interactive?: boolean
   triggerPriority?: number
-  triggerBackgroundColor?: string
   triggerColor?: string
 }
 
@@ -57,7 +56,6 @@ export function Select({
   onActivate,
   interactive = true,
   triggerPriority = 50,
-  triggerBackgroundColor,
   triggerColor,
 }: SelectProps) {
   const theme = useTheme()
@@ -184,7 +182,7 @@ export function Select({
       ? theme.primary
       : visualFocused || hovered
         ? theme.borderSubtle
-        : (triggerBackgroundColor ?? theme.backgroundElement)
+        : theme.backgroundElement
 
   const labelColor = selectedBadgeBg
     ? visualFocused

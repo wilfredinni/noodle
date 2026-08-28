@@ -225,9 +225,6 @@ export function AssertTab({
                   }
                   onOpenChange={onSelectOpenChange}
                   interactive={interactive}
-                  triggerBackgroundColor={
-                    backgroundColor ?? theme.backgroundPanel
-                  }
                   triggerColor={dimmed ? theme.textMuted : undefined}
                   width={OPERATOR_WIDTH}
                 />
