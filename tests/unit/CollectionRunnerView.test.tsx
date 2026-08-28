@@ -352,6 +352,120 @@ describe("CollectionRunnerView", () => {
     cleanup()
   })
 
+  it("resizes runner panes and restores the split on double click", async () => {
+    const { keymap, cleanup } = createTestKeymap()
+    keymap.setData("app.overlay", "none")
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      const runner = useCollectionRunner({
+        collection: folderCollection,
+        collectionDir: "/tmp/collection",
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: false,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 1,
+      })
+      return (
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-requests"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditRequestTab={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+
+    const render = await testRender(<Harness />, { width: 120, height: 24 })
+    await render.renderOnce()
+    const split = render.renderer.root.findDescendantById(
+      "runner-split",
+    ) as BoxRenderable
+    const requestsPane = split.getChildren()[2] as BoxRenderable
+    const requestRow = render.renderer.root.findDescendantById(
+      "runner-row-1",
+    ) as BoxRenderable
+    const requestName = requestRow.getChildren()[2]!
+    const initialNameWidth = requestName.width
+    let handle = render.renderer.root.findDescendantById(
+      "runner-resize-handle",
+    ) as BoxRenderable
+    const initialX = handle.screenX
+
+    await act(async () => {
+      await render.mockMouse.pressDown(
+        handle.screenX,
+        handle.screenY + Math.floor(handle.height / 2),
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.moveTo(
+        split.screenX + 100,
+        handle.screenY + Math.floor(handle.height / 2),
+      )
+      await render.mockMouse.release(
+        split.screenX + 100,
+        handle.screenY + Math.floor(handle.height / 2),
+        MouseButtons.LEFT,
+      )
+    })
+    await render.renderOnce()
+    handle = render.renderer.root.findDescendantById(
+      "runner-resize-handle",
+    ) as BoxRenderable
+    expect(handle.screenX).toBeGreaterThan(initialX)
+    expect(requestName.screenX + requestName.width).toBeLessThanOrEqual(
+      requestsPane.screenX + requestsPane.width,
+    )
+
+    await act(async () => {
+      await render.mockMouse.pressDown(
+        handle.screenX,
+        handle.screenY + Math.floor(handle.height / 2),
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.moveTo(
+        split.screenX + 20,
+        handle.screenY + Math.floor(handle.height / 2),
+      )
+      await render.mockMouse.release(
+        split.screenX + 20,
+        handle.screenY + Math.floor(handle.height / 2),
+        MouseButtons.LEFT,
+      )
+    })
+    await render.renderOnce()
+    expect(requestName.width).toBeGreaterThan(initialNameWidth)
+
+    await act(async () => {
+      await render.mockMouse.doubleClick(
+        handle.screenX,
+        handle.screenY + Math.floor(handle.height / 2),
+        MouseButtons.LEFT,
+      )
+    })
+    await render.renderOnce()
+    handle = render.renderer.root.findDescendantById(
+      "runner-resize-handle",
+    ) as BoxRenderable
+    expect(
+      Math.abs(handle.screenX - (split.screenX + Math.floor(split.width / 2))),
+    ).toBeLessThanOrEqual(1)
+    cleanup()
+  })
+
   it("renders ordered response details and opens the focused request editors", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")

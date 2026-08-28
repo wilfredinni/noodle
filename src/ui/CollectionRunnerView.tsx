@@ -3,11 +3,13 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type RefObject,
 } from "react"
 import {
   MouseButton,
   TextAttributes,
+  type BoxRenderable,
   type InputRenderable,
   type ScrollBoxRenderable,
 } from "@opentui/core"
@@ -59,6 +61,26 @@ function resultLabel(row: RunnerResultRow): string {
 
 function requestTagLabel(tags: string[]): string {
   return tags.map((tag) => `#${tag}`).join(" ")
+}
+
+interface ResizeClick {
+  time: number
+  x: number
+  y: number
+}
+
+const DOUBLE_CLICK_INTERVAL = 300
+
+function isDoubleClick(
+  previous: ResizeClick | null,
+  current: ResizeClick,
+): boolean {
+  return (
+    previous !== null &&
+    current.time - previous.time <= DOUBLE_CLICK_INTERVAL &&
+    Math.abs(current.x - previous.x) <= 1 &&
+    Math.abs(current.y - previous.y) <= 1
+  )
 }
 
 type RunnerListRow =
@@ -123,6 +145,13 @@ export function CollectionRunnerView({
   const optionScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const requestScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const resultScrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const splitContainerRef = useRef<BoxRenderable | null>(null)
+  const resizingSplitRef = useRef(false)
+  const splitDraggedRef = useRef(false)
+  const lastSplitClickRef = useRef<(ResizeClick & { stacked: boolean }) | null>(
+    null,
+  )
+  const [splitRatio, setSplitRatio] = useState(0.5)
   const activeResult = runner.resultRows[runner.resultIndex]
   const activeRequest = activeResult
     ? runner.requests.find((request) => request.id === activeResult.id)
@@ -156,7 +185,9 @@ export function CollectionRunnerView({
   }, [runner.resultIndex])
 
   const paneDirection = stacked ? "column" : "row"
-  const requestPaneWidth = stacked ? width : Math.floor((width - 1) / 2)
+  const requestPaneWidth = stacked
+    ? width
+    : Math.floor((width - 1) * (1 - splitRatio))
   const requestContentWidth = Math.max(0, requestPaneWidth - 4)
   const requestIndexById = new Map(
     runner.requests.map((request, index) => [request.id, index]),
@@ -199,6 +230,42 @@ export function CollectionRunnerView({
     runner.editingOption !== null ||
     runner.selectOpen
 
+  const splitPaneStyle = (first: boolean) => {
+    const ratio = first ? splitRatio : 1 - splitRatio
+    return {
+      ...paneStyle,
+      flexGrow: 0,
+      flexBasis: "auto",
+      width: stacked ? "100%" : `${ratio * 100}%`,
+      height: stacked ? `${ratio * 100}%` : "100%",
+    }
+  }
+
+  const startSplitResize = (event: {
+    button: MouseButton
+    preventDefault: () => void
+    stopPropagation: () => void
+  }) => {
+    if (event.button !== MouseButton.LEFT) return
+    resizingSplitRef.current = true
+    splitDraggedRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const splitHandle = (
+    <box
+      id="runner-resize-handle"
+      style={{
+        width: stacked ? "100%" : 1,
+        height: stacked ? 1 : "100%",
+        flexShrink: 0,
+        zIndex: 1,
+      }}
+      onMouseDown={startSplitResize}
+    />
+  )
+
   useLayoutEffect(() => {
     if (
       activePage === "results" &&
@@ -216,7 +283,48 @@ export function CollectionRunnerView({
   }, [activePage, focus, onPaneFocus])
 
   return (
-    <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+    <box
+      id="collection-runner"
+      onMouseDrag={(event) => {
+        if (!resizingSplitRef.current || !splitContainerRef.current) return
+        splitDraggedRef.current = true
+        const size =
+          (stacked
+            ? splitContainerRef.current.height
+            : splitContainerRef.current.width) - 1
+        const minimum = stacked ? 6 : 16
+        const position = stacked
+          ? event.y - splitContainerRef.current.y
+          : event.x - splitContainerRef.current.x
+        setSplitRatio(
+          size <= minimum * 2
+            ? 0.5
+            : Math.max(minimum, Math.min(size - minimum, position)) / size,
+        )
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onMouseUp={(event) => {
+        if (!resizingSplitRef.current) return
+        resizingSplitRef.current = false
+        const click = { time: Date.now(), x: event.x, y: event.y }
+        const previous = lastSplitClickRef.current
+        if (splitDraggedRef.current) {
+          lastSplitClickRef.current = null
+        } else if (
+          previous?.stacked === stacked &&
+          isDoubleClick(previous, click)
+        ) {
+          lastSplitClickRef.current = null
+          setSplitRatio(0.5)
+        } else {
+          lastSplitClickRef.current = { ...click, stacked }
+        }
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}
+    >
       <Tabs
         tabs={tabs}
         activeId={activePage}
@@ -228,11 +336,13 @@ export function CollectionRunnerView({
       >
         {activePage === "configure" ? (
           <box
+            id="runner-split"
+            ref={splitContainerRef}
             style={{
               flexDirection: paneDirection,
               flexGrow: 1,
               minHeight: 0,
-              gap: 1,
+              gap: 0,
             }}
           >
             <Frame
@@ -243,7 +353,7 @@ export function CollectionRunnerView({
               borderColor={
                 focus === "runner-options" ? theme.primary : theme.borderSubtle
               }
-              style={paneStyle}
+              style={splitPaneStyle(true)}
               onPaneFocus={() => onPaneFocus("runner-options")}
             >
               <scrollbox
@@ -392,6 +502,7 @@ export function CollectionRunnerView({
                 </>
               ) : null}
             </Frame>
+            {splitHandle}
             <Frame
               title="Requests"
               titleAlignment="right"
@@ -400,7 +511,7 @@ export function CollectionRunnerView({
               borderColor={
                 focus === "runner-requests" ? theme.primary : theme.borderSubtle
               }
-              style={paneStyle}
+              style={splitPaneStyle(false)}
               onPaneFocus={() => onPaneFocus("runner-requests")}
             >
               <scrollbox
@@ -568,11 +679,13 @@ export function CollectionRunnerView({
           </box>
         ) : (
           <box
+            id="runner-split"
+            ref={splitContainerRef}
             style={{
               flexDirection: paneDirection,
               flexGrow: 1,
               minHeight: 0,
-              gap: 1,
+              gap: 0,
             }}
           >
             <Frame
@@ -583,7 +696,7 @@ export function CollectionRunnerView({
               borderColor={
                 focus === "runner-results" ? theme.primary : theme.borderSubtle
               }
-              style={paneStyle}
+              style={splitPaneStyle(true)}
               onPaneFocus={() => onPaneFocus("runner-results")}
             >
               <scrollbox
@@ -655,6 +768,7 @@ export function CollectionRunnerView({
                 </box>
               </scrollbox>
             </Frame>
+            {splitHandle}
             <Frame
               title="Request Detail"
               titleAlignment="right"
@@ -663,7 +777,7 @@ export function CollectionRunnerView({
               borderColor={
                 focus === "runner-detail" ? theme.primary : theme.borderSubtle
               }
-              style={paneStyle}
+              style={splitPaneStyle(false)}
               onPaneFocus={() => onPaneFocus("runner-detail")}
             >
               <scrollbox
