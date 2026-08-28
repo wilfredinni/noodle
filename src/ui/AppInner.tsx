@@ -716,7 +716,9 @@ export function AppInner({
     resetKey: runnerResetKey,
   })
   const runnerRef = useRef(runner)
-  runnerRef.current = runner
+  useLayoutEffect(() => {
+    runnerRef.current = runner
+  }, [runner])
   const resetRunner = useCallback((scope: string | null) => {
     setRunnerScope(scope)
     setRunnerResetKey((key) => key + 1)

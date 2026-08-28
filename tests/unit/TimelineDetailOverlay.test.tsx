@@ -202,6 +202,38 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("allows Results navigation while the timeline overlay is active", async () => {
+    const { keymap, renderOnce, captureCharFrame, host, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 200,
+                passed: false,
+                message: "Expected values to be equal",
+              },
+            ],
+          },
+        }),
+        () => {},
+      )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    keymap.setData("app.overlay", "timeline-detail")
+    await act(async () => host.press("return"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Expected 201")
+    cleanup()
+  })
+
   it("scrolls persisted assertion details back to the summary", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({

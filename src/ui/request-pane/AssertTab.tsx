@@ -160,8 +160,9 @@ export function AssertTab({
                   !addingRow && onToggleRow
                     ? (event) => {
                         if (event.button !== MouseButton.LEFT) return
-                        onToggleRow(row)
                         event.stopPropagation()
+                        if (!interactive) return
+                        onToggleRow(row)
                       }
                     : undefined
                 }

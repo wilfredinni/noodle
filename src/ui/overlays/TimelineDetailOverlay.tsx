@@ -335,6 +335,7 @@ export function TimelineDetailOverlay({
                 execution={{ assertions: entry.assertions! }}
                 showCaptures={false}
                 scrollRef={bodyScrollRef}
+                allowOverlayNavigation
               />
             </scrollbox>
           ) : (

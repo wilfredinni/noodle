@@ -542,7 +542,7 @@ export function RequestPane({
                       onToggleRow={
                         onFieldToggle
                           ? (row) => {
-                              onInteraction?.()
+                              if (onInteraction?.() === false) return
                               onPaneFocus?.()
                               onFieldToggle("assertions", row)
                             }
@@ -584,7 +584,7 @@ export function RequestPane({
                       onToggleRow={
                         onFieldToggle
                           ? (row) => {
-                              onInteraction?.()
+                              if (onInteraction?.() === false) return
                               onPaneFocus?.()
                               onFieldToggle("captures", row)
                             }

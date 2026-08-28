@@ -377,6 +377,14 @@ describe("app keymap layers", () => {
     expect(calls.focus).toBe("")
 
     context.runner.runnerRef.current.editingOption = null
+    context.runner.runnerRef.current.selectOpen = false
+    context.runner.runnerRef.current.phase = "running"
+    host.press("tab")
+    host.press("tab", { shift: true })
+    expect(calls.focus).toBe("")
+
+    context.runner.runnerRef.current.phase = "configure"
+    context.runner.runnerRef.current.editingOption = null
     context.runner.runnerRef.current.selectOpen = true
     host.press("tab")
     host.press("tab", { shift: true })

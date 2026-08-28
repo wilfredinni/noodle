@@ -346,6 +346,53 @@ describe("AssertTab", () => {
     }
   })
 
+  it("does not toggle rows when interaction is disabled", async () => {
+    const { keymap, cleanup } = setup()
+    const toggles: number[] = []
+    try {
+      const render = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <AssertTab
+              request={tableRequest}
+              editState={{
+                mode: "browsing",
+                cursor: { field: "assertions", row: 0, addingRow: false },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              editOperator="equals"
+              editError={null}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              setEditOperator={() => {}}
+              onToggleRow={(row) => toggles.push(row)}
+              interactive={false}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 8 },
+      )
+      await render.renderOnce()
+      const row = render.renderer.root.findDescendantById(
+        "assertions-0",
+      ) as BoxRenderable
+      const toggle = row.getChildren()[0] as BoxRenderable
+      await act(async () => {
+        await render.mockMouse.click(toggle.x + 1, toggle.y, MouseButtons.LEFT)
+      })
+
+      expect(toggles).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
+
   it("offers response-expression completion at narrow widths", async () => {
     const { keymap, cleanup } = setup()
     const render = await testRender(

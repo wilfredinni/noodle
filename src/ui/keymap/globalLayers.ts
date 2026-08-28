@@ -36,12 +36,11 @@ export function createGlobalLayers(
       global.responseQueryRef.current?.isOpen() === true
     )
   }
+  const isRunnerRunning = () =>
+    global.viewRef.current === "runner" &&
+    runner.runnerRef.current.phase === "running"
   const shortcutEnabled = (binding: string, enabled = true) => {
-    if (
-      global.viewRef.current === "runner" &&
-      runner.runnerRef.current.phase === "running"
-    )
-      return false
+    if (isRunnerRunning()) return false
     if (!enabled || !isTextInputActive()) return enabled
     const key = binding.startsWith("shift+") ? binding.slice(6) : binding
     return !(
@@ -57,6 +56,7 @@ export function createGlobalLayers(
         name: "focus.next",
         enabled: () => {
           const editState = request.ebRef.current.editState
+          if (isRunnerRunning()) return false
           if (
             global.viewRef.current === "main" &&
             editState.mode === "editing" &&
@@ -104,6 +104,7 @@ export function createGlobalLayers(
         name: "focus.prev",
         enabled: () => {
           const editState = request.ebRef.current.editState
+          if (isRunnerRunning()) return false
           if (
             global.viewRef.current === "main" &&
             editState.mode === "editing" &&

@@ -26,6 +26,12 @@ const request: Request = {
   auth: { type: "none" },
 }
 
+const automationRequest: Request = {
+  ...request,
+  assertions: [{ expression: "status", operator: "exists" }],
+  captures: { token: { value: "body.token", enabled: true } },
+}
+
 function EditingPane({
   activeTab,
   onInteraction,
@@ -99,6 +105,88 @@ describe("RequestPane blank click commit", () => {
       })
 
       expect(changes).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("does not toggle assertion rows when interaction is vetoed", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const toggled: Array<[FieldKind, number]> = []
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={automationRequest}
+              editState={{
+                mode: "browsing",
+                cursor: { field: "assertions", row: 0, addingRow: false },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="assertions"
+              onInteraction={() => false}
+              onFieldToggle={(field, row) => toggled.push([field, row])}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 10 },
+      )
+      await render.renderOnce()
+      const row = render.renderer.root.findDescendantById(
+        "assertions-0",
+      ) as BoxRenderable
+      const toggle = row.getChildren()[0] as BoxRenderable
+      await act(async () => {
+        await render.mockMouse.click(toggle.x + 1, toggle.y, MouseButtons.LEFT)
+      })
+
+      expect(toggled).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("does not toggle capture rows when interaction is vetoed", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const toggled: Array<[FieldKind, number]> = []
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={automationRequest}
+              editState={{
+                mode: "browsing",
+                cursor: { field: "captures", row: 0, addingRow: false },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="captures"
+              onInteraction={() => false}
+              onFieldToggle={(field, row) => toggled.push([field, row])}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 10 },
+      )
+      await render.renderOnce()
+      const row = render.renderer.root.findDescendantById(
+        "captures-0",
+      ) as BoxRenderable
+      const toggle = row.getChildren()[0] as BoxRenderable
+      await act(async () => {
+        await render.mockMouse.click(toggle.x + 1, toggle.y, MouseButtons.LEFT)
+      })
+
+      expect(toggled).toEqual([])
     } finally {
       cleanup()
     }

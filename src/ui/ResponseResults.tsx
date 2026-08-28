@@ -18,6 +18,7 @@ export function ResponseResults({
   captureLifetimeNote,
   scrollRef,
   focused = true,
+  allowOverlayNavigation = false,
   onPaneFocus,
 }: {
   execution?: ResponseExecutionResults
@@ -26,6 +27,7 @@ export function ResponseResults({
   captureLifetimeNote?: string
   scrollRef?: RefObject<ScrollBoxRenderable | null>
   focused?: boolean
+  allowOverlayNavigation?: boolean
   onPaneFocus?: () => void
 }) {
   const theme = useTheme()
@@ -68,7 +70,8 @@ export function ResponseResults({
     return keymap.intercept(
       "key",
       ({ event }) => {
-        if (keymap.getData("app.overlay") !== "none") return
+        if (keymap.getData("app.overlay") !== "none" && !allowOverlayNavigation)
+          return
         if (!focused || rowIds.length === 0) return
         if (event.name === "up" || event.name === "down") {
           event.preventDefault()
@@ -112,7 +115,14 @@ export function ResponseResults({
       },
       { priority: 110 },
     )
-  }, [focused, keymap, rowIds.length, scrollRef, selectedRowId])
+  }, [
+    allowOverlayNavigation,
+    focused,
+    keymap,
+    rowIds.length,
+    scrollRef,
+    selectedRowId,
+  ])
   const assertionNameWidth = Math.max(
     9,
     cookieNameWidth(
