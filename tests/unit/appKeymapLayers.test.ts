@@ -501,6 +501,27 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("commits and sends assertion and capture edits", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const editState = context.request.ebRef.current.editState
+    context.global.focusRef.current = "request"
+    keymap.setData("app.focus", "request")
+    keymap.setData("app.mode", "edit")
+    const disposers = register(context)
+
+    for (const field of ["assertions", "captures"] as const) {
+      editState.mode = "editing"
+      editState.cursor.field = field
+      host.press("return", { ctrl: true })
+    }
+
+    expect(calls.requestCommit).toBe(2)
+    expect(calls.send).toBe(2)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("routes collection error delete and save through the existing commands", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

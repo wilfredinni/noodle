@@ -258,6 +258,17 @@ export function createRequestLayers(
         enabled: () => request.ebRef.current.isEditingTextBody && canEdit(),
         run: () => sendRequest(actions),
       },
+      {
+        name: "edit.request-send",
+        enabled: () => {
+          const field = request.ebRef.current.editState.cursor.field
+          return canEdit() && (field === "assertions" || field === "captures")
+        },
+        run: () => {
+          if (request.ebRef.current.commitEdit() === false) return
+          sendRequest(actions)
+        },
+      },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
@@ -267,6 +278,8 @@ export function createRequestLayers(
       { key: "shift+tab", cmd: "edit.text-body-shift-tab" },
       { key: keybinds.request_send, cmd: "edit.text-body-send" },
       { key: "linefeed", cmd: "edit.text-body-send" },
+      { key: keybinds.request_send, cmd: "edit.request-send" },
+      { key: "linefeed", cmd: "edit.request-send" },
     ],
   }
 

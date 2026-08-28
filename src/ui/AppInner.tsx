@@ -933,9 +933,14 @@ export function AppInner({
         ? "browse.send"
         : paneMode === "edit" && focus === "request" && eb.isEditingTextBody
           ? "edit.text-body-send"
-          : paneMode === "base" && focus !== "folder"
-            ? "request.send"
-            : undefined
+          : paneMode === "edit" &&
+              focus === "request" &&
+              (eb.editState.cursor.field === "assertions" ||
+                eb.editState.cursor.field === "captures")
+            ? "edit.request-send"
+            : paneMode === "base" && focus !== "folder"
+              ? "request.send"
+              : undefined
       : undefined
 
   const handleHintActivate = useCallback(
