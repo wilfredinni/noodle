@@ -56,7 +56,7 @@ describe("ResponseResults", () => {
     expect(collapsed).toMatch(/Assertions 0 passed · 1 failed/)
     expect(collapsed).toMatch(/Captures 1 captured · 0 failed/)
     expect(collapsed).toMatch(/FAIL\s+status\s+equals/)
-    expect(collapsed).toMatch(/CAPTURED\s+token\s+← body.token/)
+    expect(collapsed).toMatch(/CAPTURED\s+token\s+body.token/)
     expect(collapsed).not.toContain("Expected 201")
     expect(collapsed).not.toContain("[REDACTED]")
 
@@ -80,11 +80,53 @@ describe("ResponseResults", () => {
     await act(async () => host.press("return"))
     await act(async () => renderOnce())
     const expandedCapture = captureCharFrame()
-    expect(expandedCapture).toMatch(/Value\s+\(string: \[REDACTED\]\)/)
+    expect(expandedCapture).toMatch(/Type\s+string/)
+    expect(expandedCapture).toMatch(/Value\s+\[REDACTED\]/)
 
     await act(async () => host.press("return"))
     await act(async () => renderOnce())
     expect(captureCharFrame()).not.toContain("[REDACTED]")
+  })
+
+  it("keeps detail labels compact and pretty-prints structured values", async () => {
+    const { keymap, host } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              assertions: {
+                evaluated: true,
+                results: [
+                  {
+                    expression: "body.response.payload",
+                    operator: "isObject",
+                    actual: {
+                      title: "Assertion example",
+                      userId: 1,
+                    },
+                    passed: true,
+                    message: "Assertion passed",
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 52, height: 14 },
+    )
+    await renderOnce()
+    await act(async () => host.press("return"))
+    await act(async () => renderOnce())
+
+    const lines = captureCharFrame().split("\n")
+    const actualIndex = lines.findIndex((line) => line.includes("Actual"))
+    expect(actualIndex).toBeGreaterThanOrEqual(0)
+    expect(lines[actualIndex]!.trimEnd()).toEndWith("Actual")
+    expect(lines[actualIndex + 1]!.trim()).toBe("{")
+    expect(lines[actualIndex + 2]).toContain('"title": "Assertion example"')
+    expect(lines[actualIndex + 3]).toContain('"userId": 1')
   })
 
   it("renders declarations in the not-evaluated state", async () => {
@@ -112,7 +154,7 @@ describe("ResponseResults", () => {
     const frame = captureCharFrame()
     expect(frame.match(/Not evaluated/g)).toHaveLength(2)
     expect(frame).toContain("status exists")
-    expect(frame).toContain("token ← headers.x-token")
+    expect(frame).toContain("token headers.x-token")
   })
 
   it("excludes disabled declarations from unevaluated Results", async () => {
