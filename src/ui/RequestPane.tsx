@@ -26,7 +26,7 @@ import { SettingsSection } from "./request-pane/RequestSettingsTab"
 import { syncPathParamsWithUrl } from "./urlParams"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
 import { AssertTab } from "./request-pane/AssertTab"
-import { CaptureTab } from "./request-pane/CaptureTab"
+import { responseExpressionSuggestions } from "../response"
 
 interface Props {
   request: Request | null
@@ -169,7 +169,11 @@ export function RequestPane({
       (request?.bodyType === "multipart" || request?.bodyType === "urlencoded")
     ) {
       scrollRef.current?.scrollChildIntoView(`body-${row - 1}`)
-    } else if (field === "assertions" || field === "captures") {
+    } else if (field === "captures") {
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? "captures-add" : `captures-${row}`,
+      )
+    } else if (field === "assertions") {
       scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else if ((field === "auth" || field === "settings") && row > 0) {
       scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
@@ -538,27 +542,37 @@ export function RequestPane({
                     />
                   )}
                   {activeTab === "captures" && (
-                    <CaptureTab
-                      request={request}
-                      response={response}
+                    <KeyValueSection
+                      kind="captures"
+                      entries={Object.entries(request.captures ?? {}).map(
+                        ([key, value]) => ({
+                          key,
+                          value: { value, enabled: true },
+                        }),
+                      )}
                       editState={editState}
                       editKey={editKey}
                       editValue={editValue}
-                      editError={editError}
                       setEditKey={setEditKey}
                       setEditValue={setEditValue}
+                      theme={theme}
                       activeEnv={activeEnv}
+                      completionValues={responseExpressionSuggestions(response)}
+                      editError={editError}
                       onActivateRow={
                         onFieldActivate
-                          ? (row, subfield) => {
+                          ? (row, addingRow, subfield) => {
                               if (onInteraction?.() === false) return
                               onPaneFocus?.()
-                              onFieldActivate("captures", row, false, subfield)
+                              onFieldActivate(
+                                "captures",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
                             }
                           : undefined
                       }
-                      onSubfieldFocus={onFieldSubfieldFocus}
-                      interactive={interactive}
                     />
                   )}
                   {activeTab === "settings" && (

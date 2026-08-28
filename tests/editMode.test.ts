@@ -63,6 +63,14 @@ describe("enterEditBrowse", () => {
     const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     expect(enterEditBrowse(editing)).toBe(editing)
   })
+  it("starts an empty capture section on its add row", () => {
+    const s = enterEditBrowse(inactive, c(0, 0), "captures")
+    expect(s.cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+  })
 })
 
 describe("exitEditBrowse", () => {
@@ -101,7 +109,8 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("captures")
-    expect(s.cursor.row).toBe(0)
+    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.addingRow).toBe(true)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
     expect(s.cursor.row).toBe(0)
@@ -178,6 +187,22 @@ describe("moveRowCursor", () => {
     expect(s.cursor.row).toBe(0)
     expect(s.cursor.addingRow).toBe(false)
   })
+  it("walks capture rows through the shared add row", () => {
+    const counts = { ...c(0, 0), captures: 2 }
+    let s = enterEditBrowse(inactive, counts, "captures")
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, -1, counts)
+    expect(s.cursor.addingRow).toBe(true)
+  })
   it("empty section is no-op (no rows to navigate)", () => {
     const s = enterEditBrowse(inactive, c(0, 0))
     expect(moveRowCursor(s, +1, c(0, 0))).toBe(s)
@@ -241,6 +266,17 @@ describe("moveRowFirst", () => {
     const first = moveRowFirst(s, c(0, 0))
     expect(first.cursor.addingRow).toBe(true)
     expect(first.cursor.row).toBe(-1)
+  })
+
+  it("uses the add row for capture Home and End navigation", () => {
+    const counts = { ...c(0, 0), captures: 2 }
+    const s = enterEditBrowse(inactive, counts, "captures")
+    expect(moveRowFirst(moveRowLast(s, counts), counts).cursor.row).toBe(0)
+    expect(moveRowLast(s, counts).cursor).toEqual({
+      field: "captures",
+      row: -1,
+      addingRow: true,
+    })
   })
 
   it("empty settings/auth/body section is no-op", () => {

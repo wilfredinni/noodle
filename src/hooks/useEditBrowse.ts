@@ -57,7 +57,7 @@ function rowCount(req: Request | null): SectionRowCount {
       body: 0,
       auth: 1,
       assertions: 1,
-      captures: 1,
+      captures: 0,
       settings: 6,
     }
   const authRows = authRowCount(req.auth)
@@ -74,7 +74,7 @@ function rowCount(req: Request | null): SectionRowCount {
     body,
     auth: authRows,
     assertions: (req.assertions?.length ?? 0) + 1,
-    captures: Object.keys(req.captures ?? {}).length + 1,
+    captures: Object.keys(req.captures ?? {}).length,
     settings: 6 + (req.tags?.length ?? 0),
   }
 }
@@ -808,25 +808,43 @@ export function useEditBrowse(
         setEditError(message)
         return false
       }
-      if (!isValidVariableName(key)) return fail("Invalid variable name")
-      try {
-        parseResponseExpression(value)
-      } catch (error) {
-        return fail(error instanceof Error ? error.message : String(error))
-      }
       const entries = Object.entries(current.captures ?? {})
-      const replacedIndex =
-        state.cursor.row < entries.length ? state.cursor.row : -1
-      if (
-        entries.some(([name], index) => name === key && index !== replacedIndex)
-      ) {
-        return fail(`Capture variable "${key}" already exists`)
+      if (key === "") {
+        if (!addingRow && state.cursor.row >= 0) {
+          entries.splice(state.cursor.row, 1)
+          const captures = Object.fromEntries(entries)
+          draftMutators.setCaptures(captures)
+          draftRef.current = {
+            ...current,
+            captures: entries.length > 0 ? captures : undefined,
+          }
+        }
+      } else {
+        if (!isValidVariableName(key)) return fail("Invalid variable name")
+        try {
+          parseResponseExpression(value)
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : String(error))
+        }
+        const replacedIndex =
+          !addingRow &&
+          state.cursor.row >= 0 &&
+          state.cursor.row < entries.length
+            ? state.cursor.row
+            : -1
+        if (
+          entries.some(
+            ([name], index) => name === key && index !== replacedIndex,
+          )
+        ) {
+          return fail(`Capture variable "${key}" already exists`)
+        }
+        if (replacedIndex >= 0) entries[replacedIndex] = [key, value]
+        else entries.push([key, value])
+        const captures = Object.fromEntries(entries)
+        draftMutators.setCaptures(captures)
+        draftRef.current = { ...current, captures }
       }
-      if (replacedIndex >= 0) entries[replacedIndex] = [key, value]
-      else entries.push([key, value])
-      const captures = Object.fromEntries(entries)
-      draftMutators.setCaptures(captures)
-      draftRef.current = { ...current, captures }
       setEditError(null)
     } else if (field === "assertions") {
       const current = draftRef.current
@@ -992,7 +1010,7 @@ export function useEditBrowse(
     }
     if (field === "captures") {
       const entries = Object.entries(draftRef.current?.captures ?? {})
-      if (row >= entries.length) return
+      if (addingRow || row < 0 || row >= entries.length) return
       entries.splice(row, 1)
       draftMutators.setCaptures(Object.fromEntries(entries))
       return

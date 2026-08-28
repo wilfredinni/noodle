@@ -53,6 +53,99 @@ describe("request row mouse controls", () => {
     expect(toggles).toEqual([0])
   })
 
+  it("uses key/value row interactions for captures without toggles", async () => {
+    const activations: Array<[number, boolean, "key" | "value" | undefined]> =
+      []
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={4}>
+          <KeyValueSection
+            kind="captures"
+            entries={[
+              {
+                key: "token",
+                value: { value: "body.token", enabled: true },
+              },
+            ]}
+            editState={{
+              mode: "browsing",
+              cursor: { field: "captures", row: 0, addingRow: false },
+              editingRow: -1,
+            }}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            theme={THEMES[0]!}
+            onActivateRow={(row, addingRow, subfield) =>
+              activations.push([row, addingRow, subfield])
+            }
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 4 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("token")
+    expect(frame).toContain("body.token")
+    expect(frame).toContain("Variable...")
+    expect(frame).toContain("Response expression...")
+    expect(frame).not.toContain("[x]")
+    expect(frame).not.toContain("Extract response values")
+    expect(frame).not.toContain("←")
+
+    await mockMouse.click(8, 0, MouseButtons.LEFT)
+    await mockMouse.click(60, 0, MouseButtons.LEFT)
+    await mockMouse.click(8, 1, MouseButtons.LEFT)
+    await mockMouse.click(60, 1, MouseButtons.LEFT)
+
+    expect(activations).toEqual([
+      [0, false, "key"],
+      [0, false, "value"],
+      [-1, true, "key"],
+      [-1, true, "value"],
+    ])
+  })
+
+  it("shows capture validation under the active row", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={44} height={4}>
+          <KeyValueSection
+            kind="captures"
+            entries={[
+              {
+                key: "token",
+                value: { value: "body.token", enabled: true },
+              },
+            ]}
+            editState={{
+              mode: "editing",
+              cursor: {
+                field: "captures",
+                row: 0,
+                addingRow: false,
+                subfield: "key",
+              },
+              editingRow: 0,
+            }}
+            editKey="bad-name"
+            editValue="body.token"
+            editError="Invalid variable name"
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            theme={THEMES[0]!}
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 44, height: 4 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Invalid variable name")
+  })
+
   it("activates and toggles form rows independently", async () => {
     const activations: Array<[number, boolean, "key" | "value" | undefined]> =
       []

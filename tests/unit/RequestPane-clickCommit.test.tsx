@@ -71,11 +71,11 @@ describe("RequestPane blank click commit", () => {
                 mode: "editing",
                 cursor: {
                   field: "captures",
-                  row: 0,
-                  addingRow: false,
+                  row: -1,
+                  addingRow: true,
                   subfield: "key",
                 },
-                editingRow: 1,
+                editingRow: -1,
               }}
               editKey="bad-name"
               editValue="body.token"

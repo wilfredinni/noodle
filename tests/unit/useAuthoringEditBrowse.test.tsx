@@ -94,6 +94,104 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     expect(committed).toBe(false)
   })
 
+  it("adds captures from the shared add row", async () => {
+    const result: { value?: Request["captures"] } = {}
+    function Harness() {
+      const draft = useRequestDraft(request)
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("captures")
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditKey("token")
+          editor.setEditValue("body.token")
+          setStep(3)
+        } else if (
+          step === 3 &&
+          editor.editKey === "token" &&
+          editor.editValue === "body.token"
+        ) {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4 && draft.draft?.captures) {
+          result.value = draft.draft.captures
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual({ token: "body.token" })
+  })
+
+  it("deletes a capture when its key is cleared", async () => {
+    const result: { value?: Request["captures"] | null } = {}
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        captures: { token: "body.token" },
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("captures", 0)
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditKey("")
+          setStep(3)
+        } else if (step === 3 && editor.editKey === "") {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4) {
+          result.value = draft.draft?.captures ?? null
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && result.value === undefined; i++) {
+      await render.renderOnce()
+    }
+    expect(result.value).toBeNull()
+  })
+
+  it("does not delete the last capture from the add row", async () => {
+    const result: { value?: Request["captures"] } = {}
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        captures: { token: "body.token" },
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("captures")
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.browseLast()
+          setStep(2)
+        } else if (step === 2 && editor.editState.cursor.addingRow) {
+          editor.revertField()
+          result.value = draft.draft?.captures
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 5 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual({ token: "body.token" })
+  })
+
   it("adds tags from the Settings tab through the existing draft operation", async () => {
     const result: { value?: string[] } = {}
     function Harness() {
