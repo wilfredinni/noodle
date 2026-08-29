@@ -478,7 +478,7 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("opens runner details on Response with Results and Network drill-ins", async () => {
+  it("supports a Response initial tab with Results and Network drill-ins", async () => {
     let assertionEdits = 0
     let captureEdits = 0
     let closes = 0
@@ -541,10 +541,18 @@ describe("TimelineDetailOverlay", () => {
     )
 
     await renderOnce()
-    expect(captureCharFrame()).toContain("201 Created")
-    expect(captureCharFrame()).toContain("Authorization token was refreshed")
-    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Results\s+Network/)
-
+    const responseFrame = captureCharFrame()
+    expect(responseFrame).toContain("201 Created")
+    expect(responseFrame).toContain("Authorization token was refreshed")
+    expect(responseFrame).toMatch(/Request\s+Response\s+Results\s+Network/)
+    const responseLines = responseFrame.split("\n")
+    const statusLine = responseLines.findIndex((line) =>
+      line.includes("201 Created"),
+    )
+    const metadataLine = responseLines.findIndex((line) =>
+      line.includes("9B in 12ms"),
+    )
+    expect(metadataLine).toBe(statusLine)
     await act(async () => host.press("right"))
     await renderOnce()
     const results = captureCharFrame()
@@ -555,6 +563,13 @@ describe("TimelineDetailOverlay", () => {
     )
     expect(results).toContain("Edit Assert")
     expect(results).toContain("Edit Capture")
+    const resultsActionLine = results
+      .split("\n")
+      .find((line) => line.includes("Edit Assert"))!
+    expect(resultsActionLine.indexOf("Edit Assert")).toBeGreaterThan(30)
+    expect(
+      results.split("\n").findIndex((line) => line.includes("Edit Assert")),
+    ).toBeGreaterThan(20)
     await act(async () => host.press("a"))
     await act(async () => host.press("c"))
     expect(assertionEdits).toBe(1)
@@ -569,25 +584,27 @@ describe("TimelineDetailOverlay", () => {
   })
 
   it("keeps footer position stable when switching body tabs", async () => {
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
-      makeEntry({
-        request: {
-          ...makeEntry().request,
-          body: "request body",
-        },
-        response: {
-          status: 200,
-          statusText: "OK",
-          headers: {},
-          body: Array.from({ length: 20 }, (_, i) => `response line ${i}`).join(
-            "\n",
-          ),
-          timeMs: 12,
-          size: 100,
-        },
-      }),
-      () => {},
-    )
+    const { renderer, renderOnce, captureCharFrame, host, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          request: {
+            ...makeEntry().request,
+            body: "request body",
+          },
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: Array.from(
+              { length: 20 },
+              (_, i) => `response line ${i}`,
+            ).join("\n"),
+            timeMs: 12,
+            size: 100,
+          },
+        }),
+        () => {},
+      )
     await renderOnce()
     const requestFooterRow = captureCharFrame()
       .split("\n")
@@ -600,6 +617,11 @@ describe("TimelineDetailOverlay", () => {
     expect(requestFooterRow).toBeGreaterThanOrEqual(0)
     expect(responseFooterRow).toBeGreaterThanOrEqual(0)
     expect(responseFooterRow).toBe(requestFooterRow)
+    const footer = renderer.root.findDescendantById("timeline-detail-footer")!
+    const panel = footer.parent!.parent!
+    expect(
+      panel.screenY + panel.height - (footer.screenY + footer.height),
+    ).toBe(1)
     cleanup()
   })
 
@@ -905,6 +927,40 @@ describe("TimelineDetailOverlay", () => {
     })
     expect(captureCharFrame()).toContain('"data"')
     expect(captureCharFrame()).toContain('"id": 0')
+    cleanup()
+  })
+
+  it("scrolls the response body with the mouse wheel", async () => {
+    const body = JSON.stringify(
+      { data: Array.from({ length: 100 }, (_, i) => ({ id: i })) },
+      null,
+      2,
+    )
+    const { renderer, renderOnce, mockMouse, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+      true,
+      { initialTab: "response" },
+    )
+    await renderOnce()
+    const editor = renderer.root.findDescendantById(
+      "timeline-body-editor",
+    ) as CodeEditorRenderable
+    await act(async () => {
+      await mockMouse.scroll(editor.screenX + 1, editor.screenY + 1, "down")
+      await renderOnce()
+    })
+
+    expect(editor.scrollY).toBeGreaterThan(0)
     cleanup()
   })
 

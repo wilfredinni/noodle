@@ -334,7 +334,7 @@ describe("AppOverlays routing", () => {
     cleanup()
   })
 
-  it("routes Runner result edits after closing the shared detail overlay", async () => {
+  it("opens Runner details on Request and routes edits from Results", async () => {
     const closed: unknown[] = []
     const edits: string[] = []
     const { frame, host, renderOnce, cleanup } = await renderOverlays(
@@ -377,7 +377,8 @@ describe("AppOverlays routing", () => {
       },
     )
 
-    expect(frame).toContain("200 OK")
+    expect(frame).toContain("GET https://example.com/health")
+    await act(async () => host.press("right"))
     await act(async () => host.press("right"))
     await renderOnce()
     await act(async () => host.press("a"))

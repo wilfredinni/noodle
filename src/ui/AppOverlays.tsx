@@ -549,7 +549,6 @@ export function AppOverlays({
             if (runnerDetail) setRunnerDetail(null)
             else setTimelineDetailEntry(null)
           }}
-          initialTab={runnerDetail ? "response" : "request"}
           execution={runnerDetail?.execution}
           request={runnerDetail?.request}
           showCaptures={runnerDetail !== null}

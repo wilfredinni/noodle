@@ -9,7 +9,6 @@ import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
 import { Tabs, type TabDef } from "../Tabs"
-import { Badge } from "../Badge"
 import { bodyFiletype, formatSize, statusColor } from "../format"
 import { methodColor } from "../formatRequest"
 import { CodeEditorRenderable } from "../editor/CodeEditor"
@@ -361,21 +360,30 @@ export function TimelineDetailOverlay({
               scrollRef={bodyScrollRef}
             />
           ) : activeTab === "results" ? (
-            <scrollbox
-              ref={bodyScrollRef}
-              scrollY
-              style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
-            >
-              <ResponseResults
-                execution={resultExecution}
-                request={request}
-                showCaptures={showCaptures}
-                captureLifetimeNote={captureLifetimeNote}
-                scrollRef={bodyScrollRef}
-                allowOverlayNavigation
-              />
+            <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+              <scrollbox
+                ref={bodyScrollRef}
+                scrollY
+                style={{ flexGrow: 1, minHeight: 0 }}
+              >
+                <ResponseResults
+                  execution={resultExecution}
+                  request={request}
+                  showCaptures={showCaptures}
+                  captureLifetimeNote={captureLifetimeNote}
+                  scrollRef={bodyScrollRef}
+                  allowOverlayNavigation
+                />
+              </scrollbox>
               {onEditAssertions || onEditCaptures ? (
-                <box style={{ flexDirection: "row", gap: 2, paddingTop: 1 }}>
+                <box
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    gap: 2,
+                    paddingTop: 1,
+                  }}
+                >
                   {onEditAssertions ? (
                     <ActionButton
                       shortcut="a"
@@ -392,7 +400,7 @@ export function TimelineDetailOverlay({
                   ) : null}
                 </box>
               ) : null}
-            </scrollbox>
+            </box>
           ) : (
             <box
               key="details"
@@ -426,24 +434,12 @@ export function TimelineDetailOverlay({
                           rawText.length > 13
                             ? `${rawText.slice(0, 13)}…`
                             : rawText
-                        const statusStr = `${status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
                         return (
-                          <box
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                            }}
-                          >
-                            <Badge bg={theme.backgroundElement} fg={theme.text}>
-                              {formatSize(entry.response.size)} in{" "}
-                              {entryTiming(entry)}
-                            </Badge>
-                            <Badge
-                              bg={statusColor(status!, theme)}
-                              fg={theme.background}
-                            >
-                              {statusStr}
-                            </Badge>
+                          <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                            <text
+                              wrapMode="none"
+                              content={t`${fg(statusColor(status!, theme))(String(status))}${fg(theme.text)(truncatedStatusText !== "" ? ` ${truncatedStatusText}` : "")}${fg(theme.textMuted)(` · ${formatSize(entry.response.size)} in ${entryTiming(entry)}`)}`}
+                            />
                           </box>
                         )
                       })()
@@ -526,21 +522,13 @@ export function TimelineDetailOverlay({
                 </box>
               ) : renderedBody ? (
                 <box
-                  onMouseScroll={(event) => {
-                    const direction = event.scroll?.direction
-                    if (!direction) return
-                    const amount = event.scroll?.delta || 1
-                    bodyEditorRef.current?.scrollBy(
-                      (direction === "up" ? -1 : 1) * amount,
-                    )
-                    event.preventDefault()
-                    event.stopPropagation()
-                  }}
                   style={{
                     flexDirection: "row",
                     flexGrow: 1,
+                    flexShrink: 1,
                     flexBasis: 0,
                     minHeight: 0,
+                    overflow: "hidden",
                   }}
                 >
                   <line-number
@@ -548,7 +536,26 @@ export function TimelineDetailOverlay({
                     paddingRight={1}
                     fg={theme.textMuted}
                     bg={theme.backgroundPanel}
-                    style={{ flexGrow: 1, minHeight: 0, minWidth: 0 }}
+                    onMouseScroll={(event) => {
+                      const editor = bodyEditorRef.current
+                      if (!editor || !event.scroll) return
+                      if (event.scroll.direction === "up") {
+                        editor.scrollBy(-event.scroll.delta)
+                      } else if (event.scroll.direction === "down") {
+                        editor.scrollBy(event.scroll.delta)
+                      } else {
+                        return
+                      }
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    style={{
+                      flexGrow: 1,
+                      flexShrink: 1,
+                      flexBasis: 0,
+                      minHeight: 0,
+                      minWidth: 0,
+                    }}
                   >
                     <code-editor
                       id="timeline-body-editor"
@@ -564,7 +571,12 @@ export function TimelineDetailOverlay({
                       focusedTextColor={theme.text}
                       cursorColor={theme.primary}
                       scrollMargin={0}
-                      style={{ flexGrow: 1, minHeight: 0 }}
+                      style={{
+                        flexGrow: 1,
+                        flexShrink: 1,
+                        flexBasis: 0,
+                        minHeight: 0,
+                      }}
                     />
                   </line-number>
                   <code-editor-scrollbar
@@ -586,6 +598,7 @@ export function TimelineDetailOverlay({
         </Tabs>
         {(activeTab === "request" || activeTab === "response") && (
           <box
+            id="timeline-detail-footer"
             style={{
               flexDirection: "row",
               justifyContent: "flex-end",
