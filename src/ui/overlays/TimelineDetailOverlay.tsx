@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
-import type { TimelineBodyRef, TimelineEntry } from "../../schema"
+import type { Request, TimelineBodyRef, TimelineEntry } from "../../schema"
+import type { ResponseExecutionResults } from "../../executionResults"
 import { formatJson } from "../../lang/formatJson"
 import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
@@ -71,6 +72,14 @@ export function TimelineDetailOverlay({
   visible,
   entry,
   onClose,
+  initialTab = "request",
+  execution,
+  request,
+  showCaptures = false,
+  captureLifetimeNote,
+  warnings = [],
+  onEditAssertions,
+  onEditCaptures,
   envColors: _envColors,
   onLoadBody = async () => {
     throw new Error("No timeline body loader configured")
@@ -82,6 +91,14 @@ export function TimelineDetailOverlay({
   visible: boolean
   entry: TimelineEntry | null
   onClose: () => void
+  initialTab?: Extract<DetailTab, "request" | "response">
+  execution?: ResponseExecutionResults
+  request?: Pick<Request, "assertions" | "captures">
+  showCaptures?: boolean
+  captureLifetimeNote?: string
+  warnings?: string[]
+  onEditAssertions?: () => void
+  onEditCaptures?: () => void
   envColors?: Record<string, string | undefined>
   onLoadBody?: (ref: TimelineBodyRef) => Promise<string>
   onCopyHeaders?: (headersText: string) => void
@@ -94,7 +111,7 @@ export function TimelineDetailOverlay({
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const [activeTab, setActiveTab] = useState<DetailTab>("request")
+  const [activeTab, setActiveTab] = useState<DetailTab>(initialTab)
   const [loadedBody, setLoadedBody] = useState<string | null>(null)
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -113,7 +130,15 @@ export function TimelineDetailOverlay({
   )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
-  const hasResults = entry?.assertions !== undefined
+  const resultExecution =
+    execution ??
+    (entry?.assertions ? { assertions: entry.assertions } : undefined)
+  const hasResults = Boolean(
+    resultExecution?.assertions ||
+    resultExecution?.captures ||
+    request?.assertions?.some((assertion) => assertion.enabled !== false) ||
+    Object.values(request?.captures ?? {}).some((capture) => capture.enabled),
+  )
   const tabs = [
     ...BASE_TAB_DEFS,
     ...(hasResults ? [{ id: "results", label: "Results" }] : []),
@@ -175,14 +200,14 @@ export function TimelineDetailOverlay({
 
   useEffect(() => {
     if (!visible) return
-    setActiveTab("request")
+    setActiveTab(initialTab)
     setLoadedBody(null)
     setBodyError(null)
     setLoading(false)
     setShowLargeBody(false)
     bodyScrollRef.current?.scrollTo(0)
     bodyEditorRef.current?.scrollTo(0)
-  }, [visible, entry])
+  }, [visible, entry, initialTab])
 
   useEffect(() => {
     if (!visible || !entry || !info?.ref || (isLarge && !showLargeBody)) return
@@ -233,6 +258,14 @@ export function TimelineDetailOverlay({
         else if (key.name === "h") copyHeaders()
         else if (key.name === "b") copyBody()
         else if (key.name === "e") exportBody()
+        else if (
+          key.name === "a" &&
+          activeTab === "results" &&
+          onEditAssertions
+        )
+          onEditAssertions()
+        else if (key.name === "c" && activeTab === "results" && onEditCaptures)
+          onEditCaptures()
         else if (key.name === "up") {
           if (activeTab === "network" || activeTab === "results")
             bodyScrollRef.current?.scrollBy(-1)
@@ -280,6 +313,8 @@ export function TimelineDetailOverlay({
     copyHeaders,
     copyBody,
     exportBody,
+    onEditAssertions,
+    onEditCaptures,
   ])
 
   if (!visible || !entry) return null
@@ -332,11 +367,31 @@ export function TimelineDetailOverlay({
               style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
             >
               <ResponseResults
-                execution={{ assertions: entry.assertions! }}
-                showCaptures={false}
+                execution={resultExecution}
+                request={request}
+                showCaptures={showCaptures}
+                captureLifetimeNote={captureLifetimeNote}
                 scrollRef={bodyScrollRef}
                 allowOverlayNavigation
               />
+              {onEditAssertions || onEditCaptures ? (
+                <box style={{ flexDirection: "row", gap: 2, paddingTop: 1 }}>
+                  {onEditAssertions ? (
+                    <ActionButton
+                      shortcut="a"
+                      label="Edit Assert"
+                      onAction={onEditAssertions}
+                    />
+                  ) : null}
+                  {onEditCaptures ? (
+                    <ActionButton
+                      shortcut="c"
+                      label="Edit Capture"
+                      onAction={onEditCaptures}
+                    />
+                  ) : null}
+                </box>
+              ) : null}
             </scrollbox>
           ) : (
             <box
@@ -402,6 +457,11 @@ export function TimelineDetailOverlay({
                       <text fg={theme.error}>{entry.error.message}</text>
                     </box>
                   ) : null}
+                  {warnings.map((warning, index) => (
+                    <text key={index} fg={theme.warning} wrapMode="char">
+                      {`Warning: ${warning}`}
+                    </text>
+                  ))}
                 </box>
               )}
               <box style={{ height: 1 }}>

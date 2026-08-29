@@ -85,7 +85,7 @@ describe("getKeybindingHints footer", () => {
       ).footer,
     ).toEqual([
       seg("↑/↓", "select"),
-      seg("Enter", "expand", "runner.activate"),
+      seg("Enter", "open", "runner.activate"),
       seg("←", "select", "runner.configure"),
       seg("Tab", "options", "runner.focus-next"),
       seg("Esc", "close", "runner.escape"),

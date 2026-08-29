@@ -5,6 +5,7 @@ import {
   collectionRun,
   selectCollectionRunRequests,
   type CollectionRunResult,
+  type RequestRunDetail,
   type RequestRunResult,
 } from "../app/services"
 import { findFolderByPath, flattenRequests } from "../ui/tree"
@@ -49,7 +50,7 @@ export interface UseCollectionRunnerResult {
   requestIndex: number
   requestRowIndex: number
   resultIndex: number
-  resultExpandedId: string | null
+  resultDetails: Map<string, RequestRunDetail>
   editingOption: RunnerEditingOption
   editValue: string
   selectOpen: boolean
@@ -65,7 +66,6 @@ export interface UseCollectionRunnerResult {
   setRequestIndex: (index: number) => void
   setRequestRowIndex: (index: number) => void
   setResultIndex: (index: number) => void
-  toggleResultExpanded: (index?: number) => void
   optionUp: () => void
   optionDown: () => void
   requestUp: () => void
@@ -155,7 +155,9 @@ export function useCollectionRunner({
   const [requestIndex, setRequestIndexState] = useState(0)
   const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
-  const [resultExpandedId, setResultExpandedId] = useState<string | null>(null)
+  const [resultDetails, setResultDetails] = useState<
+    Map<string, RequestRunDetail>
+  >(new Map())
   const [editingOption, setEditingOption] = useState<RunnerEditingOption>(null)
   const [editValue, setEditValue] = useState("")
   const [selectOpen, setSelectOpen] = useState(false)
@@ -176,7 +178,7 @@ export function useCollectionRunner({
     setRequestIndexState(0)
     setRequestRowIndex(0)
     setResultIndex(0)
-    setResultExpandedId(null)
+    setResultDetails(new Map())
     setEditingOption(null)
     setEditValue("")
     setSelectOpen(false)
@@ -271,15 +273,6 @@ export function useCollectionRunner({
     () => setResultIndex(Math.max(0, resultRows.length - 1)),
     [resultRows.length],
   )
-  const toggleResultExpanded = useCallback(
-    (index = resultIndex) => {
-      const row = resultRows[index]
-      if (!row) return
-      setResultExpandedId((current) => (current === row.id ? null : row.id))
-    },
-    [resultIndex, resultRows],
-  )
-
   const toggleFolder = useCallback(
     (path: string) => {
       if (phase === "running") return
@@ -378,10 +371,11 @@ export function useCollectionRunner({
     setRunError(null)
     setResult(null)
     setResultIndex(0)
-    setResultExpandedId(null)
+    setResultDetails(new Map())
     setProgress({ completed: 0, total: ids.length })
     setPhase("running")
     try {
+      const nextDetails = new Map<string, RequestRunDetail>()
       const next = await runCollection(
         collectionDir,
         environmentName ?? undefined,
@@ -393,7 +387,9 @@ export function useCollectionRunner({
         includeTag || undefined,
         excludeTag || undefined,
         failFast,
+        (detail) => nextDetails.set(detail.requestId, detail),
       )
+      setResultDetails(nextDetails)
       setResult(next)
       setPhase("results")
     } catch (error) {
@@ -443,7 +439,7 @@ export function useCollectionRunner({
     requestIndex,
     requestRowIndex,
     resultIndex,
-    resultExpandedId,
+    resultDetails,
     editingOption,
     editValue,
     selectOpen,
@@ -459,7 +455,6 @@ export function useCollectionRunner({
     setRequestIndex,
     setRequestRowIndex,
     setResultIndex,
-    toggleResultExpanded,
     optionUp,
     optionDown,
     requestUp,

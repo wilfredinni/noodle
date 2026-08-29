@@ -85,6 +85,8 @@ export function makeOverlayState(
     setImportOpenPending: noop,
     requestFinderVisible: false,
     setRequestFinderVisible: noop,
+    runnerDetail: null,
+    setRunnerDetail: noop,
     timelineDetailEntry: null,
     setTimelineDetailEntry: noop,
   }

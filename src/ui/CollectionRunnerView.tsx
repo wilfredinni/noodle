@@ -15,7 +15,6 @@ import {
 import { stringWidth } from "bun"
 import { useTerminalDimensions } from "@opentui/react"
 import type { Focus } from "./focus"
-import type { FieldKind } from "./editMode"
 import type {
   RunnerResultRow,
   UseCollectionRunnerResult,
@@ -27,8 +26,7 @@ import { FullBorder, LeftBar } from "./borders"
 import { Tabs } from "./Tabs"
 import { Checkbox } from "./Checkbox"
 import { Select } from "./Select"
-import { COOKIE_CHEVRON_WIDTH, CookieRow } from "./CookieRow"
-import { ResponseResults } from "./ResponseResults"
+import { CookieRow } from "./CookieRow"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
 import { flattenRequests } from "./tree"
@@ -64,39 +62,6 @@ function resultRowValue(row: RunnerResultRow): string {
     ? ` · ${Math.round(row.result.response.timeMs)}ms`
     : ""
   return `${row.result.method} ${status}${timing}`
-}
-
-function resultDetails(row: RunnerResultRow) {
-  if (row.kind === "skipped") {
-    return [{ label: "Status", value: "Skipped by fail-fast." }]
-  }
-
-  const details = [
-    { label: "Method", value: row.result.method },
-    { label: "URL", value: row.result.url },
-  ]
-  if (row.result.response) {
-    details.push(
-      {
-        label: "Status",
-        value: `${row.result.response.status} ${row.result.response.statusText} · ${Math.round(row.result.response.timeMs)}ms`,
-      },
-      {
-        label: "Headers",
-        value:
-          Object.entries(row.result.response.headers)
-            .map(([name, value]) => `${name}: ${value}`)
-            .join("\n") || "(none)",
-      },
-      { label: "Body", value: row.result.response.body || "(no body)" },
-    )
-  }
-  if (row.result.error)
-    details.push({ label: "Error", value: row.result.error })
-  for (const [index, warning] of (row.result.warnings ?? []).entries()) {
-    details.push({ label: `Warning ${index + 1}`, value: warning })
-  }
-  return details
 }
 
 function requestTagLabel(tags: string[]): string {
@@ -169,14 +134,14 @@ export function CollectionRunnerView({
   hasUnsavedChanges,
   detailScrollRef,
   onPaneFocus,
-  onEditRequestTab,
+  onOpenResultDetail,
 }: {
   runner: UseCollectionRunnerResult
   focus: Focus
   hasUnsavedChanges: boolean
   detailScrollRef: RefObject<ScrollBoxRenderable | null>
   onPaneFocus: (focus: Focus) => void
-  onEditRequestTab: (requestId: string, tab: FieldKind) => void
+  onOpenResultDetail: (index: number) => void
 }) {
   const theme = useTheme()
   const { width = 100 } = useTerminalDimensions()
@@ -737,13 +702,8 @@ export function CollectionRunnerView({
                   ) : null}
                   {runner.resultRows.map((row, index) => {
                     const active = runner.resultIndex === index
-                    const expanded = runner.resultExpandedId === row.id
-                    const resultRequest =
-                      row.kind === "result"
-                        ? runner.requests.find(
-                            (request) => request.id === row.id,
-                          )
-                        : undefined
+                    const canOpen =
+                      row.kind === "result" && runner.resultDetails.has(row.id)
                     const resultColor =
                       row.kind === "skipped"
                         ? theme.textMuted
@@ -766,7 +726,7 @@ export function CollectionRunnerView({
                           value={` ${resultRowValue(row)}`}
                           nameWidth={resultNameWidth}
                           selected={active}
-                          expanded={expanded}
+                          expanded={false}
                           hovered={false}
                           valueColor={
                             row.kind === "skipped"
@@ -775,54 +735,15 @@ export function CollectionRunnerView({
                                 ? statusColor(row.result.response.status, theme)
                                 : theme.error
                           }
-                          details={resultDetails(row)}
                           onSelect={() => runner.setResultIndex(index)}
-                          onToggleExpanded={() =>
-                            runner.toggleResultExpanded(index)
+                          onActivate={
+                            canOpen
+                              ? () => onOpenResultDetail(index)
+                              : undefined
                           }
                           onHover={() => {}}
                           onPaneFocus={() => onPaneFocus("runner-requests")}
                         />
-                        {expanded && row.kind === "result" ? (
-                          <box
-                            style={{
-                              flexDirection: "column",
-                              gap: 1,
-                              paddingLeft: COOKIE_CHEVRON_WIDTH + 1,
-                            }}
-                          >
-                            <ResponseResults
-                              execution={row.result}
-                              request={resultRequest}
-                              captureLifetimeNote="Available to later requests in this collection run."
-                              scrollRef={detailScrollRef}
-                              focused={active}
-                              onPaneFocus={() => onPaneFocus("runner-requests")}
-                            />
-                            <box style={{ flexDirection: "row", gap: 2 }}>
-                              <text
-                                fg={theme.primary}
-                                onMouseDown={(event) => {
-                                  if (event.button !== MouseButton.LEFT) return
-                                  onEditRequestTab(row.id, "assertions")
-                                  event.stopPropagation()
-                                }}
-                              >
-                                [a] Edit Assert
-                              </text>
-                              <text
-                                fg={theme.primary}
-                                onMouseDown={(event) => {
-                                  if (event.button !== MouseButton.LEFT) return
-                                  onEditRequestTab(row.id, "captures")
-                                  event.stopPropagation()
-                                }}
-                              >
-                                [c] Edit Capture
-                              </text>
-                            </box>
-                          </box>
-                        ) : null}
                       </box>
                     )
                   })}

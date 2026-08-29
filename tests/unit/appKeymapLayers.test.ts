@@ -66,7 +66,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     runnerClose: 0,
     runnerCancel: 0,
     runnerOptionDown: 0,
-    runnerResultToggle: 0,
+    runnerResultOpen: 0,
     cookieDelete: [] as Array<{
       kind: string
       domain?: string
@@ -166,12 +166,13 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         selectOpen: false,
         result: null,
         resultRows: [],
+        resultIndex: 0,
+        resultDetails: new Map(),
         optionDown: () => calls.runnerOptionDown++,
         resultUp: () => {},
         resultDown: () => {},
         resultFirst: () => {},
         resultLast: () => {},
-        toggleResultExpanded: () => calls.runnerResultToggle++,
         cancelOptionEdit: () => calls.runnerCancel++,
         showConfigure: () => {},
         showResults: () => {},
@@ -179,7 +180,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     },
     detailScrollRef: { current: null },
     close: () => calls.runnerClose++,
-    openRequestTab: () => {},
+    openResultDetail: () => calls.runnerResultOpen++,
   }
   const context = {
     keymap,
@@ -370,7 +371,7 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("uses the Requests pane to expand result rows", () => {
+  it("uses the Requests pane to open executed result rows", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "runner")
@@ -379,13 +380,50 @@ describe("app keymap layers", () => {
     context.global.focusRef.current = "runner-requests"
     context.runner.runnerRef.current.phase = "results"
     context.runner.runnerRef.current.resultRows = [
-      { kind: "skipped", id: "health", reason: "fail-fast" },
+      {
+        kind: "result",
+        id: "health",
+        result: {
+          id: "health",
+          method: "GET",
+          url: "https://example.com/health",
+          ok: true,
+          failureCategories: [],
+          captures: { evaluated: false, results: [] },
+          assertions: { evaluated: false, results: [] },
+        },
+      },
     ]
+    context.runner.runnerRef.current.resultDetails = new Map([
+      [
+        "health",
+        {
+          requestId: "health",
+          entry: {
+            timestamp: 1,
+            request: {
+              id: "health",
+              name: "Health",
+              method: "GET",
+              url: "https://example.com/health",
+              headers: {},
+              params: [],
+            },
+          },
+        },
+      ],
+    ])
     const disposers = register(context)
 
     host.press("return")
     host.press("space")
-    expect(calls.runnerResultToggle).toBe(1)
+    expect(calls.runnerResultOpen).toBe(1)
+
+    context.runner.runnerRef.current.resultRows = [
+      { kind: "skipped", id: "health", reason: "fail-fast" },
+    ]
+    host.press("return")
+    expect(calls.runnerResultOpen).toBe(1)
 
     disposers.forEach((dispose) => dispose())
     cleanup()

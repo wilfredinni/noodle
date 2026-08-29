@@ -45,12 +45,7 @@ async function renderOverlay(
   entry: TimelineEntry,
   onClose: () => void,
   visible = true,
-  actions: Partial<
-    Pick<
-      ComponentProps<typeof TimelineDetailOverlay>,
-      "onLoadBody" | "onCopyHeaders" | "onCopyBody" | "onExportBody"
-    >
-  > = {},
+  actions: Partial<ComponentProps<typeof TimelineDetailOverlay>> = {},
 ) {
   const { keymap, host, cleanup } = setupKeymap()
   ;(
@@ -480,6 +475,96 @@ describe("TimelineDetailOverlay", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("Test request")
     expect(frame).toContain("GET https://example.com")
+    cleanup()
+  })
+
+  it("opens runner details on Response with Results and Network drill-ins", async () => {
+    let assertionEdits = 0
+    let captureEdits = 0
+    let closes = 0
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 201,
+          statusText: "Created",
+          headers: {},
+          body: '{"id":42}',
+          timeMs: 12,
+          size: 9,
+        },
+        network: [{ timeMs: 1, type: "request", message: "GET example.com" }],
+      }),
+      () => closes++,
+      true,
+      {
+        initialTab: "response",
+        execution: {
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 201,
+                passed: true,
+                message: "Assertion passed",
+              },
+            ],
+          },
+          captures: {
+            evaluated: true,
+            results: [
+              {
+                variable: "user_id",
+                expression: "body.id",
+                success: true,
+                type: "number",
+                value: 42,
+              },
+            ],
+          },
+        },
+        request: {
+          assertions: [
+            { expression: "status", operator: "equals", value: 201 },
+          ],
+          captures: { user_id: { value: "body.id", enabled: true } },
+        },
+        showCaptures: true,
+        captureLifetimeNote:
+          "Available to later requests in this collection run.",
+        warnings: ["Authorization token was refreshed"],
+        onEditAssertions: () => assertionEdits++,
+        onEditCaptures: () => captureEdits++,
+      },
+    )
+
+    await renderOnce()
+    expect(captureCharFrame()).toContain("201 Created")
+    expect(captureCharFrame()).toContain("Authorization token was refreshed")
+    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Results\s+Network/)
+
+    await act(async () => host.press("right"))
+    await renderOnce()
+    const results = captureCharFrame()
+    expect(results).toContain("Assertions")
+    expect(results).toContain("Captures")
+    expect(results).toContain(
+      "Available to later requests in this collection run.",
+    )
+    expect(results).toContain("Edit Assert")
+    expect(results).toContain("Edit Capture")
+    await act(async () => host.press("a"))
+    await act(async () => host.press("c"))
+    expect(assertionEdits).toBe(1)
+    expect(captureEdits).toBe(1)
+
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("GET example.com")
+    await act(async () => host.press("escape"))
+    expect(closes).toBe(1)
     cleanup()
   })
 

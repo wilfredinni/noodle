@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
+import { addDefaultParsers } from "@opentui/core"
+import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { setupKeymap } from "./_helpers"
@@ -8,6 +10,17 @@ import { ThemeProvider } from "../../src/ui/theme"
 import { AppOverlays } from "../../src/ui/AppOverlays"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { OverlayState } from "../../src/ui/useOverlayState"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../../src/ui/editor/CodeEditor"
+import { codeEditorParsers } from "../../src/ui/editor/codeEditorParsers"
+
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
+addDefaultParsers([...codeEditorParsers])
 
 const testRender = createTestRender()
 
@@ -71,6 +84,7 @@ function baseProps() {
     onCopyTimelineHeaders: noop,
     onCopyTimelineBody: noop,
     onExportTimelineBody: async () => {},
+    onEditRunnerRequestTab: noop,
   } as unknown as Omit<Parameters<typeof AppOverlays>[0], "overlays">
 }
 
@@ -82,7 +96,7 @@ async function renderOverlays(
   overlayState: Partial<OverlayState>,
   extraProps: Partial<Parameters<typeof AppOverlays>[0]> = {},
 ) {
-  const { keymap, cleanup } = setupKeymap()
+  const { keymap, host, cleanup } = setupKeymap()
   const props = {
     ...baseProps(),
     overlays: makeOverlayState(overlayState),
@@ -103,7 +117,7 @@ async function renderOverlays(
   // Overlay text wraps to the frame width, so compare against a
   // whitespace-normalized frame instead of the raw character grid.
   const frame = captureCharFrame().replace(/\s+/g, " ").trim()
-  return { frame, cleanup }
+  return { frame, host, renderOnce, captureCharFrame, cleanup }
 }
 
 describe("AppOverlays routing", () => {
@@ -317,6 +331,58 @@ describe("AppOverlays routing", () => {
       { collectionSwitchPending: "/tmp/next" },
     )
     expect(frame).toContain("and discard unsaved changes?")
+    cleanup()
+  })
+
+  it("routes Runner result edits after closing the shared detail overlay", async () => {
+    const closed: unknown[] = []
+    const edits: string[] = []
+    const { frame, host, renderOnce, cleanup } = await renderOverlays(
+      {
+        activeOverlay: "timeline-detail",
+        runnerDetail: {
+          entry: {
+            timestamp: 1,
+            request: {
+              id: "health",
+              name: "Health",
+              method: "GET",
+              url: "https://example.com/health",
+              headers: {},
+              params: [],
+            },
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "ready",
+              timeMs: 1,
+              size: 5,
+            },
+          },
+          execution: {
+            assertions: { evaluated: true, results: [] },
+          },
+          request: {
+            assertions: [
+              { expression: "status", operator: "equals", value: 200 },
+            ],
+          },
+        },
+        setRunnerDetail: (detail) => closed.push(detail),
+      },
+      {
+        onEditRunnerRequestTab: (requestId, tab) =>
+          edits.push(`${requestId}:${tab}`),
+      },
+    )
+
+    expect(frame).toContain("200 OK")
+    await act(async () => host.press("right"))
+    await renderOnce()
+    await act(async () => host.press("a"))
+    expect(closed).toEqual([null])
+    expect(edits).toEqual(["health:assertions"])
     cleanup()
   })
 })

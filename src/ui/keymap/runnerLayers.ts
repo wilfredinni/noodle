@@ -68,8 +68,11 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
           if (state().selectOpen) return
           if (focus() === "runner-options") state().activateOption()
           else if (focus() === "runner-requests") {
-            if (state().phase === "results") state().toggleResultExpanded()
-            else state().toggleSelected()
+            if (state().phase === "results") {
+              const row = state().resultRows[state().resultIndex]
+              if (row?.kind === "result" && state().resultDetails.has(row.id))
+                runner.openResultDetail()
+            } else state().toggleSelected()
           }
         },
       },
@@ -134,28 +137,6 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         },
       },
       {
-        name: "runner.edit-assert",
-        enabled: () =>
-          focus() === "runner-requests" &&
-          state().phase === "results" &&
-          state().resultRows.length > 0,
-        run: () => {
-          const row = state().resultRows[state().resultIndex]
-          if (row) runner.openRequestTab(row.id, "assertions")
-        },
-      },
-      {
-        name: "runner.edit-capture",
-        enabled: () =>
-          focus() === "runner-requests" &&
-          state().phase === "results" &&
-          state().resultRows.length > 0,
-        run: () => {
-          const row = state().resultRows[state().resultIndex]
-          if (row) runner.openRequestTab(row.id, "captures")
-        },
-      },
-      {
         name: "runner.escape",
         run: () => {
           if (state().phase === "running" || state().selectOpen) return
@@ -177,8 +158,6 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       { key: "right", cmd: "runner.results" },
       { key: "tab", cmd: "runner.focus-next" },
       { key: "shift+tab", cmd: "runner.focus-prev" },
-      { key: "a", cmd: "runner.edit-assert" },
-      { key: "c", cmd: "runner.edit-capture" },
       { key: "escape", cmd: "runner.escape" },
     ],
   }

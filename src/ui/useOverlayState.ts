@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { TimelineEntry } from "../schema"
+import type { Request, TimelineEntry } from "../schema"
+import type { ResponseExecutionResults } from "../executionResults"
 import type { YamlEditorState } from "./appState"
 import { initialYamlEditorState } from "./appState"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
@@ -21,6 +22,13 @@ export interface ImportedCollectionPending {
 export interface TagEditPending {
   index: number
   value: string
+}
+
+export interface RunnerDetailOverlayState {
+  entry: TimelineEntry
+  execution: ResponseExecutionResults
+  request: Pick<Request, "assertions" | "captures">
+  warnings?: string[]
 }
 
 export type CookieDeletePending =
@@ -130,6 +138,8 @@ export function useOverlayState({
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
+  const [runnerDetail, setRunnerDetail] =
+    useState<RunnerDetailOverlayState | null>(null)
 
   useEffect(() => {
     envDeletePendingRef.current = envDeletePending
@@ -169,7 +179,8 @@ export function useOverlayState({
     if (tagEditPending !== null) return "tag-editor"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
-    if (timelineDetailEntry !== null) return "timeline-detail"
+    if (runnerDetail !== null || timelineDetailEntry !== null)
+      return "timeline-detail"
     return "none"
   }, [
     commandPaletteVisible,
@@ -201,6 +212,7 @@ export function useOverlayState({
     tagEditPending,
     folderDeletePending,
     requestDeletePending,
+    runnerDetail,
     timelineDetailEntry,
   ])
 
@@ -272,6 +284,8 @@ export function useOverlayState({
     setImportOpenPending,
     requestFinderVisible,
     setRequestFinderVisible,
+    runnerDetail,
+    setRunnerDetail,
     timelineDetailEntry,
     setTimelineDetailEntry,
   }

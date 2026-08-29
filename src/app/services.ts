@@ -24,6 +24,7 @@ import {
 import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
+import type { SubstitutedRequest } from "../requests/substitute"
 import { withDefaultHttpsScheme } from "../requests/url"
 import {
   resolveProxyPolicy,
@@ -45,6 +46,7 @@ import type {
   Environment,
   NetworkError,
   Request,
+  TimelineEntry,
 } from "../schema"
 import {
   deleteStoredSecret,
@@ -64,6 +66,7 @@ import {
   unevaluatedExecutionResults,
 } from "../executionResults"
 import { effectiveRequestTags, isValidTag } from "../tags"
+import { buildTimelineEntry } from "../timelineEntry"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -678,6 +681,29 @@ export interface CollectionRunResult {
   warnings?: string[]
 }
 export type RunProgress = (completed: number, total: number) => void
+export type RequestRunDetail = {
+  requestId: string
+  entry: TimelineEntry
+}
+export type RunDetail = (detail: RequestRunDetail) => void
+
+function timelineRequest(
+  request: Request,
+  effective: SubstitutedRequest,
+): Request {
+  return {
+    ...effective,
+    headers: Object.fromEntries(
+      Object.entries(request.headers).map(([key, header]) => [
+        key,
+        {
+          ...header,
+          value: header.enabled ? effective.headers[key]! : header.value,
+        },
+      ]),
+    ),
+  }
+}
 
 async function runRequest(
   collectionDir: string,
@@ -688,6 +714,7 @@ async function runRequest(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar,
+  onDetail?: RunDetail,
 ): Promise<RequestRunResult> {
   const effectiveEnvironment = runScope.environment(environment)
   const secretValues = executionSecretValues(
@@ -696,8 +723,10 @@ async function runRequest(
     tlsPolicy,
   )
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
+  let detailRequest = request
   try {
     const effective = substitute(request, effectiveEnvironment)
+    detailRequest = timelineRequest(request, effective)
     const response = await executor.send(request, {
       environment: effectiveEnvironment,
       collection,
@@ -733,7 +762,7 @@ async function runRequest(
     if (assertionResults?.some((result) => !result.passed)) {
       failureCategories.push("assertion")
     }
-    return {
+    const result: RequestRunResult = {
       id: request.id,
       method: request.method,
       url: redact(effective.url),
@@ -754,8 +783,19 @@ async function runRequest(
         ? { warnings: [...new Set(authWarnings)] }
         : {}),
     }
+    onDetail?.({
+      requestId: request.id,
+      entry: buildTimelineEntry(
+        detailRequest,
+        { status: "done", response, execution },
+        environment?.name,
+        undefined,
+        secretValues,
+      ),
+    })
+    return result
   } catch (error) {
-    return {
+    const result: RequestRunResult = {
       id: request.id,
       method: request.method,
       url: redact(request.url),
@@ -764,6 +804,25 @@ async function runRequest(
       failureCategories: [failureCategoryForError(error)],
       ...unevaluatedExecutionResults(request),
     }
+    const network = (error as NetworkError | undefined)?.network
+    const detailError = Object.assign(new Error(errorMessage(error)), {
+      ...(Array.isArray(network) ? { network } : {}),
+    })
+    onDetail?.({
+      requestId: request.id,
+      entry: buildTimelineEntry(
+        detailRequest,
+        {
+          status: "error",
+          error: detailError,
+          execution: unevaluatedExecutionResults(request),
+        },
+        environment?.name,
+        undefined,
+        secretValues,
+      ),
+    })
+    return result
   }
 }
 
@@ -836,6 +895,7 @@ export async function collectionRun(
   tag?: string,
   excludeTag?: string,
   failFast = false,
+  onDetail?: RunDetail,
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
@@ -886,6 +946,7 @@ export async function collectionRun(
         policy,
         tlsPolicy,
         cookies,
+        onDetail,
       )
       results.push(result)
       onProgress?.(results.length, requests.length)

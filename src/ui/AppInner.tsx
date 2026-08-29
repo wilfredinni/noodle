@@ -81,7 +81,7 @@ import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
-import { buildTimelineEntry } from "./timeline/formatTimeline"
+import { buildTimelineEntry } from "../timelineEntry"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
@@ -787,6 +787,32 @@ export function AppInner({
   useEffect(() => {
     if (overlays.aboutVisible) triggerAboutUpdateCheck()
   }, [overlays.aboutVisible, triggerAboutUpdateCheck])
+  const handleOpenRunnerResultDetail = useCallback(
+    (index = runnerRef.current.resultIndex) => {
+      const row = runnerRef.current.resultRows[index]
+      if (!row || row.kind !== "result") return
+      const detail = runnerRef.current.resultDetails.get(row.id)
+      const request = runnerRef.current.requests.find(
+        (candidate) => candidate.id === row.id,
+      )
+      if (!detail || !request) return
+      overlays.setRunnerDetail({
+        entry: detail.entry,
+        execution: {
+          ...(row.result.assertions
+            ? { assertions: row.result.assertions }
+            : {}),
+          ...(row.result.captures ? { captures: row.result.captures } : {}),
+        },
+        request: {
+          assertions: request.assertions,
+          captures: request.captures,
+        },
+        warnings: row.result.warnings,
+      })
+    },
+    [overlays.setRunnerDetail],
+  )
   useEffect(() => {
     if (!overlays.commandPaletteVisible) setPaletteTarget(null)
   }, [overlays.commandPaletteVisible])
@@ -1170,7 +1196,7 @@ export function AppInner({
       runnerRef,
       detailScrollRef: runnerDetailScrollRef,
       close: closeRunner,
-      openRequestTab: handleOpenRunnerRequestTab,
+      openResultDetail: handleOpenRunnerResultDetail,
     },
   })
 
@@ -1690,7 +1716,7 @@ export function AppInner({
             hasUnsavedChanges={hasUnsavedChanges}
             detailScrollRef={runnerDetailScrollRef}
             onPaneFocus={setFocus}
-            onEditRequestTab={handleOpenRunnerRequestTab}
+            onOpenResultDetail={handleOpenRunnerResultDetail}
           />
         ) : view === "settings" ? (
           <SettingsView
@@ -1773,6 +1799,7 @@ export function AppInner({
           collection={collection}
           requests={requests}
           onFindRequest={findRequest}
+          onEditRunnerRequestTab={handleOpenRunnerRequestTab}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
           collectionSettingsByPath={collectionSettingsByPath}

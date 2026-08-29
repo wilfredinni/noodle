@@ -71,6 +71,7 @@ export function CookieRow({
   details,
   onSelect,
   onToggleExpanded,
+  onActivate,
   onHover,
   onPaneFocus,
 }: {
@@ -87,14 +88,22 @@ export function CookieRow({
   valueColor?: string
   details?: CookieRowDetail[]
   onSelect: () => void
-  onToggleExpanded: () => void
+  onToggleExpanded?: () => void
+  onActivate?: () => void
   onHover: (hovered: boolean) => void
   onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const displayValue = deleted ? "Deleted" : value || "(empty)"
   const rowValueColor = valueColor ?? theme.textMuted
-  const chevron = expanded ? "▾" : "▸"
+  const activate = onActivate ?? onToggleExpanded
+  const chevron = onActivate
+    ? "⏎"
+    : onToggleExpanded
+      ? expanded
+        ? "▾"
+        : "▸"
+      : ""
   const detailLabelWidth = details
     ? cookieNameWidth(details.map(({ label }) => ({ name: label })))
     : 0
@@ -115,7 +124,7 @@ export function CookieRow({
         if (event.button !== MouseButton.LEFT) return
         onPaneFocus?.()
         onSelect()
-        onToggleExpanded()
+        activate?.()
         event.stopPropagation()
       }}
       onMouseOver={() => onHover(true)}

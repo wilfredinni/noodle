@@ -167,7 +167,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditRequestTab={() => {}}
+              onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>
@@ -236,7 +236,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditRequestTab={() => {}}
+              onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>
@@ -306,7 +306,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditRequestTab={() => {}}
+              onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>
@@ -384,7 +384,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditRequestTab={() => {}}
+              onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>
@@ -468,72 +468,116 @@ describe("CollectionRunnerView", () => {
     cleanup()
   })
 
-  it("renders ordered response details and opens the focused request editors", async () => {
+  it("opens executed result details without expanding the result row", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
-    const edits: string[] = []
-    const runCollection = (async () => ({
-      results: [
+    const opened: number[] = []
+    const resultCollection: Collection = {
+      ...collection,
+      items: [
+        ...collection.items,
         {
-          id: "health",
-          method: "GET" as const,
-          url: "https://example.com/health",
-          ok: true,
-          failureCategories: [],
+          type: "request",
+          data: {
+            id: "skipped",
+            name: "Skipped",
+            method: "GET",
+            url: "https://example.com/skipped",
+            headers: {},
+            params: [],
+            timeout: 0,
+          },
+        },
+      ],
+    }
+    const runCollection = (async (
+      ...args: Parameters<typeof collectionRun>
+    ) => {
+      args[10]?.({
+        requestId: "health",
+        entry: {
+          timestamp: 1,
+          request: {
+            id: "health",
+            name: "Health",
+            method: "GET",
+            url: "https://example.com/health",
+            headers: {},
+            params: [],
+          },
           response: {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
             body: '{"ready":true}',
             timeMs: 7,
-          },
-          assertions: {
-            evaluated: true,
-            results: [
-              {
-                expression: "status",
-                operator: "equals" as const,
-                expected: 200,
-                actual: 200,
-                passed: true,
-                message: "passed",
-              },
-            ],
-          },
-          captures: {
-            evaluated: true,
-            results: [
-              {
-                variable: "token",
-                expression: "body.token",
-                success: true,
-                value: "[REDACTED]",
-                type: "string" as const,
-              },
-            ],
+            size: 14,
           },
         },
-      ],
-      skipped: [],
-      failed: false,
-      summary: {
-        selected: 1,
-        executed: 1,
-        skipped: 0,
-        requestSuccesses: 1,
-        requestFailures: 0,
-        assertionPasses: 1,
-        assertionFailures: 0,
-        captureFailures: 0,
-        durationMs: 7,
-        failureCategories: [],
-      },
-    })) as typeof collectionRun
+      })
+      return {
+        results: [
+          {
+            id: "health",
+            method: "GET" as const,
+            url: "https://example.com/health",
+            ok: true,
+            failureCategories: [],
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: '{"ready":true}',
+              timeMs: 7,
+            },
+            assertions: {
+              evaluated: true,
+              results: [
+                {
+                  expression: "status",
+                  operator: "equals" as const,
+                  expected: 200,
+                  actual: 200,
+                  passed: true,
+                  message: "passed",
+                },
+              ],
+            },
+            captures: {
+              evaluated: true,
+              results: [
+                {
+                  variable: "token",
+                  expression: "body.token",
+                  success: true,
+                  value: "[REDACTED]",
+                  type: "string" as const,
+                },
+              ],
+            },
+          },
+        ],
+        skipped: [{ id: "skipped", reason: "fail-fast" as const }],
+        failed: false,
+        summary: {
+          selected: 2,
+          executed: 1,
+          skipped: 1,
+          requestSuccesses: 1,
+          requestFailures: 0,
+          assertionPasses: 1,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 7,
+          failureCategories: [],
+        },
+      }
+    }) as typeof collectionRun
     function Harness() {
       const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
       const runner = useCollectionRunner({
-        collection,
+        collection: resultCollection,
         collectionDir: "/tmp/collection",
         folderPath: null,
         activeEnvironment: null,
@@ -559,7 +603,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditRequestTab={(id, tab) => edits.push(`${id}:${tab}`)}
+              onOpenResultDetail={(index) => opened.push(index)}
             />
           </ThemeProvider>
         </KeymapProvider>
@@ -572,8 +616,12 @@ describe("CollectionRunnerView", () => {
     const frame = render.captureCharFrame()
     expect(frame).toContain("Select")
     expect(frame).toContain("Results")
-    expect(frame).toContain("1 passed · 0 failed · 1/1 executed")
+    expect(frame).toContain("1 passed · 0 failed · 1/2 executed")
     expect(frame).toMatch(/PASS\s+health\s+GET 200 OK · 7ms/)
+    expect(frame).toContain("⏎")
+    expect(
+      frame.split("\n").find((line) => line.includes("skipped")),
+    ).not.toContain("⏎")
     expect(frame).not.toContain('{"ready":true}')
 
     const resultRow =
@@ -610,40 +658,19 @@ describe("CollectionRunnerView", () => {
       ),
     )
     await render.renderOnce()
-    const resultDetailFrame = render.captureCharFrame()
-    expect(resultDetailFrame).toContain('{"ready":true}')
-    expect(resultDetailFrame).toContain(
-      "Available to later requests in this collection run.",
-    )
+    expect(opened).toEqual([0])
+    expect(render.captureCharFrame()).not.toContain('{"ready":true}')
 
-    const captureRow =
-      render.renderer.root.findDescendantById("response-capture-0")!
+    const skippedRow =
+      render.renderer.root.findDescendantById("runner-result-1")!
     await act(async () =>
       render.mockMouse.click(
-        captureRow.screenX + 3,
-        captureRow.screenY,
+        skippedRow.screenX + 1,
+        skippedRow.screenY,
         MouseButtons.LEFT,
       ),
     )
-    await act(async () => render.renderOnce())
-    const expandedFrame = render.captureCharFrame()
-    expect(expandedFrame).toContain("[REDACTED]")
-
-    const rows = expandedFrame.split("\n")
-    const actionRow = rows.findIndex((row) => row.includes("Edit Assert"))
-    await act(async () => {
-      await render.mockMouse.click(
-        rows[actionRow]!.indexOf("Edit Assert"),
-        actionRow,
-        MouseButtons.LEFT,
-      )
-      await render.mockMouse.click(
-        rows[actionRow]!.indexOf("Edit Capture"),
-        actionRow,
-        MouseButtons.LEFT,
-      )
-    })
-    expect(edits).toEqual(["health:assertions", "health:captures"])
+    expect(opened).toEqual([0])
     cleanup()
   })
 
@@ -700,7 +727,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={setFocus}
-              onEditRequestTab={() => {}}
+              onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>

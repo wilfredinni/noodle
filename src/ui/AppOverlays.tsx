@@ -69,6 +69,10 @@ interface AppOverlaysProps {
   collection: Collection | null
   requests: NoodleRequest[]
   onFindRequest: (item: FinderItem) => void
+  onEditRunnerRequestTab: (
+    requestId: string,
+    tab: "assertions" | "captures",
+  ) => void
   collectionPaths: string[]
   collectionSettingsByPath: Record<string, CollectionSettings>
   collectionDir: string
@@ -133,6 +137,7 @@ export function AppOverlays({
   collection,
   requests,
   onFindRequest,
+  onEditRunnerRequestTab,
   collectionSwitcherVisible,
   collectionPaths,
   collectionSettingsByPath,
@@ -224,9 +229,13 @@ export function AppOverlays({
     tagEditorRef,
     folderDeletePending,
     requestDeletePending,
+    runnerDetail,
+    setRunnerDetail,
     timelineDetailEntry,
     setTimelineDetailEntry,
   } = overlays
+
+  const detailEntry = runnerDetail?.entry ?? timelineDetailEntry
 
   return (
     <>
@@ -532,13 +541,44 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {timelineDetailEntry !== null && (
+      {detailEntry !== null && (
         <TimelineDetailOverlay
           visible
-          entry={timelineDetailEntry}
-          onClose={() => setTimelineDetailEntry(null)}
+          entry={detailEntry}
+          onClose={() => {
+            if (runnerDetail) setRunnerDetail(null)
+            else setTimelineDetailEntry(null)
+          }}
+          initialTab={runnerDetail ? "response" : "request"}
+          execution={runnerDetail?.execution}
+          request={runnerDetail?.request}
+          showCaptures={runnerDetail !== null}
+          captureLifetimeNote={
+            runnerDetail
+              ? "Available to later requests in this collection run."
+              : undefined
+          }
+          warnings={runnerDetail?.warnings}
+          onEditAssertions={
+            runnerDetail
+              ? () => {
+                  const requestId = runnerDetail.entry.request.id
+                  setRunnerDetail(null)
+                  onEditRunnerRequestTab(requestId, "assertions")
+                }
+              : undefined
+          }
+          onEditCaptures={
+            runnerDetail
+              ? () => {
+                  const requestId = runnerDetail.entry.request.id
+                  setRunnerDetail(null)
+                  onEditRunnerRequestTab(requestId, "captures")
+                }
+              : undefined
+          }
           envColors={envColors}
-          onLoadBody={(ref) => onLoadTimelineBody(timelineDetailEntry, ref)}
+          onLoadBody={(ref) => onLoadTimelineBody(detailEntry, ref)}
           onCopyHeaders={onCopyTimelineHeaders}
           onCopyBody={onCopyTimelineBody}
           onExportBody={onExportTimelineBody}

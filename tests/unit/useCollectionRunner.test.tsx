@@ -145,6 +145,20 @@ describe("useCollectionRunner", () => {
       args = received
       received[2]?.(0, 1)
       received[2]?.(1, 1)
+      received[10]?.({
+        requestId: "root",
+        entry: {
+          timestamp: 1,
+          request: {
+            id: "root",
+            name: "root",
+            method: "GET",
+            url: "https://example.com/root",
+            headers: {},
+            params: [],
+          },
+        },
+      })
       return {
         results: [
           {
@@ -195,11 +209,9 @@ describe("useCollectionRunner", () => {
       "admin/second",
     ])
     expect(harness.get().phase).toBe("results")
-    expect(harness.get().resultExpandedId).toBeNull()
-    await act(async () => harness.get().toggleResultExpanded())
-    expect(harness.get().resultExpandedId).toBe("root")
-    await act(async () => harness.get().toggleResultExpanded())
-    expect(harness.get().resultExpandedId).toBeNull()
+    expect(harness.get().resultDetails.get("root")?.entry.request.url).toBe(
+      "https://example.com/root",
+    )
   })
 
   it("blocks Run while workspace drafts are dirty", async () => {
