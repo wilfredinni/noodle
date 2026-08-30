@@ -134,15 +134,10 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         run: () => {
           if (!unlocked()) return
           const current = focus()
-          if (
-            current === "runner-options" &&
-            state().phase !== "results" &&
-            state().optionIndex < 3
-          )
-            state().setOptionIndex(state().optionIndex + 1)
-          else if (current === "runner-options")
-            global.setFocus("runner-requests")
-          else if (current === "runner-requests")
+          if (current === "runner-options") {
+            if (state().phase === "results" || state().optionNext() === "after")
+              global.setFocus("runner-requests")
+          } else if (current === "runner-requests")
             global.setFocus("runner-options")
         },
       },
@@ -152,15 +147,13 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         run: () => {
           if (!unlocked()) return
           const current = focus()
-          if (
-            current === "runner-options" &&
-            state().phase !== "results" &&
-            state().optionIndex > 0
-          )
-            state().setOptionIndex(state().optionIndex - 1)
-          else if (current === "runner-options")
-            global.setFocus("runner-requests")
-          else if (current === "runner-requests")
+          if (current === "runner-options") {
+            if (
+              state().phase === "results" ||
+              state().optionPrevious() === "before"
+            )
+              global.setFocus("runner-requests")
+          } else if (current === "runner-requests")
             global.setFocus("runner-options")
         },
       },

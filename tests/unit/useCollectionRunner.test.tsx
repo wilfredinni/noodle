@@ -80,6 +80,10 @@ describe("useCollectionRunner", () => {
     expect(harness.get().optionIndex).toBe(0)
     await act(async () => harness.get().optionLast())
     expect(harness.get().optionIndex).toBe(3)
+    await act(async () => harness.get().activateOption())
+    expect(harness.get().failFast).toBe(false)
+    await act(async () => harness.get().toggleFailFast())
+    expect(harness.get().failFast).toBe(true)
     await act(async () => harness.get().optionDown())
     expect(harness.get().optionIndex).toBe(3)
     await act(async () => harness.get().optionFirst())
@@ -142,7 +146,9 @@ describe("useCollectionRunner", () => {
     const render = await harness.render
     await render.renderOnce()
     await act(async () => {
-      harness.get().setIncludeTag("smoke")
+      harness.get().setOptionIndex(1)
+      harness.get().setIncludeTagDraft("smoke")
+      harness.get().setOptionIndex(2)
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual([
@@ -152,7 +158,8 @@ describe("useCollectionRunner", () => {
     ])
 
     await act(async () => {
-      harness.get().setExcludeTag("destructive")
+      harness.get().setExcludeTagDraft("destructive")
+      harness.get().setOptionIndex(0)
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual(["root"])
@@ -215,6 +222,8 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     await act(async () => {
       harness.get().setEnvironmentName("staging")
+      harness.get().setOptionIndex(1)
+      harness.get().setIncludeTagDraft("smoke")
       harness.get().toggleFailFast()
     })
     await render.renderOnce()
@@ -222,7 +231,9 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     expect(args?.[1]).toBe("staging")
     expect(args?.[6]).toEqual(["root", "admin/first", "admin/second"])
+    expect(args?.[7]).toBe("smoke")
     expect(args?.[9]).toBe(true)
+    expect(harness.get().includeTag).toBe("smoke")
     expect(harness.get().progress).toEqual({ completed: 1, total: 1 })
     expect(harness.get().resultRows.map((row) => row.id)).toEqual([
       "root",
@@ -249,16 +260,29 @@ describe("useCollectionRunner", () => {
     expect(calls).toBe(0)
   })
 
-  it("updates Run availability as tag filters are typed", async () => {
+  it("updates Run availability only after tag filters are committed", async () => {
     const harness = renderHook()
     const render = await harness.render
     await render.renderOnce()
 
-    await act(async () => harness.get().setIncludeTag("missing"))
+    await act(async () => {
+      harness.get().setOptionIndex(1)
+      harness.get().setIncludeTagDraft("missing")
+    })
+    await render.renderOnce()
+    expect(harness.get().canRun).toBe(true)
+    expect(harness.get().includeTag).toBe("")
+
+    await act(async () => harness.get().setOptionIndex(2))
     await render.renderOnce()
     expect(harness.get().canRun).toBe(false)
+    expect(harness.get().includeTag).toBe("missing")
 
-    await act(async () => harness.get().setIncludeTag("smoke"))
+    await act(async () => {
+      harness.get().setOptionIndex(1)
+      harness.get().setIncludeTagDraft("smoke")
+      harness.get().setOptionIndex(0)
+    })
     await render.renderOnce()
     expect(harness.get().canRun).toBe(true)
   })

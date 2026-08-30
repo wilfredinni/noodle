@@ -30,6 +30,7 @@ describe("ActionButton", () => {
     const shortcut = () => spans().find((span) => span.text.includes("enter"))
     const label = () => spans().find((span) => span.text.includes("Save"))
 
+    expect(action.width).toBe("enter Save".length + 2)
     expect(shortcut()?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(true)
     expect(label()?.fg.equals(RGBA.fromHex(theme.textMuted))).toBe(true)
 

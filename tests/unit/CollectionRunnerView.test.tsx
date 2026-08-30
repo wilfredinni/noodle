@@ -203,18 +203,23 @@ describe("CollectionRunnerView", () => {
     )
     expect(requestRows.join("\n")).not.toContain("…")
     const tagColumn = requestRows[0]!.indexOf("#smoke")
-    await act(async () => current!.setIncludeTag("s"))
+    await act(async () => current!.setIncludeTagDraft("s"))
     await render.renderOnce()
     const filteredRows = render
       .captureCharFrame()
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
-    await act(async () => current!.setIncludeTag(""))
+    await act(async () => current!.setIncludeTagDraft(""))
     await render.renderOnce()
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
+    const runButtonGeometry = {
+      x: runButton.screenX,
+      y: runButton.screenY,
+      width: runButton.width,
+    }
     expect(runButton.width).toBe("r Run 3 requests".length + 2)
     expect(
       runButton.backgroundColor.equals(
@@ -233,12 +238,30 @@ describe("CollectionRunnerView", () => {
     await render.renderOnce()
     expect(current!.phase).toBe("running")
     expect(render.captureCharFrame()).toContain("r Run 3 requests")
+    const runningButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    expect(runningButton).toBe(runButton)
+    expect({
+      x: runningButton.screenX,
+      y: runningButton.screenY,
+      width: runningButton.width,
+    }).toEqual(runButtonGeometry)
     await act(async () => {
       finishRun?.()
       await Promise.resolve()
     })
     await render.renderOnce()
     expect(current!.optionIndex).toBe(0)
+    const completedButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    expect(completedButton).toBe(runButton)
+    expect({
+      x: completedButton.screenX,
+      y: completedButton.screenY,
+      width: completedButton.width,
+    }).toEqual(runButtonGeometry)
     const resultFrame = render.captureCharFrame()
     expect(resultFrame).toContain("PASS  3/3 requests · 1ms")
     expect(resultFrame).toContain("0 assertions passed · no capture failures")
@@ -326,6 +349,7 @@ describe("CollectionRunnerView", () => {
     const runButton =
       render.renderer.root.findDescendantById("runner-run-button")!
     expect(runButton.screenY).toBeGreaterThan(failFast.screenY)
+    expect(runButton.width).toBe("r Run 0 requests".length + 2)
     expect(scrolled).toContain("Exclude tag")
     expect(scrolled).toContain("Fail fast")
     expect(scrolled).toContain("Save")
@@ -388,6 +412,11 @@ describe("CollectionRunnerView", () => {
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
+    const runButtonGeometry = {
+      x: runButton.screenX,
+      y: runButton.screenY,
+      width: runButton.width,
+    }
     expect(
       runButton.backgroundColor.equals(
         RGBA.fromHex(THEMES[0]!.backgroundElement),
@@ -395,12 +424,14 @@ describe("CollectionRunnerView", () => {
     ).toBe(true)
     await act(async () => render.mockInput.typeText("smoke"))
     await act(async () => render.renderOnce())
-    expect(current!.includeTag).toBe("smoke")
+    expect(current!.includeTag).toBe("")
+    expect(current!.matchedIds.size).toBe(1)
     await clickOption(2)
     expect(current!.optionIndex).toBe(2)
+    expect(current!.includeTag).toBe("smoke")
     await act(async () => render.mockInput.typeText("destructive"))
     await act(async () => render.renderOnce())
-    expect(current!.excludeTag).toBe("destructive")
+    expect(current!.excludeTag).toBe("")
 
     const environment = render.renderer.root.findDescendantById(
       "runner-option-0",
@@ -417,6 +448,17 @@ describe("CollectionRunnerView", () => {
       await render.mockMouse.moveTo(0, 0)
     })
     expect(current!.selectOpen).toBe(true)
+    expect(current!.excludeTag).toBe("destructive")
+    const openSelectButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    expect(openSelectButton).toBe(runButton)
+    expect({
+      x: openSelectButton.screenX,
+      y: openSelectButton.screenY,
+      width: openSelectButton.width,
+    }).toEqual(runButtonGeometry)
+    expect(render.captureCharFrame()).toContain("r Run 0 requests")
     await act(async () => host.press("escape"))
     await render.renderOnce()
 
@@ -424,8 +466,10 @@ describe("CollectionRunnerView", () => {
     expect(current!.failFast).toBe(true)
 
     await act(async () => {
-      current!.setIncludeTag("")
-      current!.setExcludeTag("")
+      current!.setOptionIndex(1)
+      current!.setIncludeTagDraft("")
+      current!.setOptionIndex(2)
+      current!.setExcludeTagDraft("")
       current!.setOptionIndex(0)
     })
     await render.renderOnce()

@@ -184,6 +184,16 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         optionDown: () => calls.runnerOptionDown++,
         optionFirst: () => calls.runnerOptionFirst++,
         optionLast: () => calls.runnerOptionLast++,
+        optionNext() {
+          if (this.optionIndex >= 3) return "after"
+          calls.runnerOptionIndex = this.optionIndex + 1
+          return "moved"
+        },
+        optionPrevious() {
+          if (this.optionIndex <= 0) return "before"
+          calls.runnerOptionIndex = this.optionIndex - 1
+          return "moved"
+        },
         toggleFailFast: () => calls.runnerFailFast++,
         resultUp: () => {},
         resultDown: () => {},
@@ -495,6 +505,15 @@ describe("app keymap layers", () => {
     expect(calls.runnerOptionIndex).toBe(1)
     expect(calls.focus).toBe("")
 
+    context.runner.runnerRef.current.phase = "results"
+    context.global.focusRef.current = "runner-requests"
+    host.press("tab")
+    expect(calls.focus).toBe("runner-options")
+    context.global.focusRef.current = "runner-options"
+    host.press("tab")
+    expect(calls.focus).toBe("runner-requests")
+
+    calls.focus = ""
     context.runner.runnerRef.current.selectOpen = false
     context.runner.runnerRef.current.phase = "running"
     host.press("tab")

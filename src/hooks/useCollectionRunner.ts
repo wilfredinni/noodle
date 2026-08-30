@@ -11,6 +11,7 @@ import {
 import { findFolderByPath, flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
+import { useFormNavigation, type FormMoveResult } from "./useFormNavigation"
 
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerResultRow =
@@ -44,6 +45,8 @@ export interface UseCollectionRunnerResult {
   environmentNames: string[]
   includeTag: string
   excludeTag: string
+  includeTagDraft: string
+  excludeTagDraft: string
   failFast: boolean
   optionIndex: number
   requestIndex: number
@@ -58,8 +61,8 @@ export interface UseCollectionRunnerResult {
   runAvailable: boolean
   canRun: boolean
   setEnvironmentName: (name: string | null) => void
-  setIncludeTag: (tag: string) => void
-  setExcludeTag: (tag: string) => void
+  setIncludeTagDraft: (tag: string) => void
+  setExcludeTagDraft: (tag: string) => void
   setSelectOpen: (open: boolean) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
@@ -69,6 +72,8 @@ export interface UseCollectionRunnerResult {
   optionDown: () => void
   optionFirst: () => void
   optionLast: () => void
+  optionNext: () => FormMoveResult
+  optionPrevious: () => FormMoveResult
   requestUp: () => void
   requestDown: () => void
   requestFirst: () => void
@@ -148,20 +153,52 @@ export function useCollectionRunner({
   const [environmentName, setEnvironmentName] = useState<string | null>(null)
   const [includeTag, setIncludeTag] = useState("")
   const [excludeTag, setExcludeTag] = useState("")
+  const [includeTagDraft, setIncludeTagDraftState] = useState("")
+  const [excludeTagDraft, setExcludeTagDraftState] = useState("")
   const [failFast, setFailFast] = useState(false)
-  const [optionIndex, setOptionIndex] = useState(0)
   const [requestIndex, setRequestIndexState] = useState(0)
   const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
   const [resultDetails, setResultDetails] = useState<
     Map<string, RequestRunDetail>
   >(new Map())
-  const [selectOpen, setSelectOpen] = useState(false)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [result, setResult] = useState<CollectionRunResult | null>(null)
   const [runRequestIds, setRunRequestIds] = useState<string[]>([])
   const [runError, setRunError] = useState<string | null>(null)
   const runningRef = useRef(false)
+  const includeTagDraftRef = useRef("")
+  const excludeTagDraftRef = useRef("")
+
+  const setIncludeTagDraft = useCallback((tag: string) => {
+    includeTagDraftRef.current = tag
+    setIncludeTagDraftState(tag)
+  }, [])
+  const setExcludeTagDraft = useCallback((tag: string) => {
+    excludeTagDraftRef.current = tag
+    setExcludeTagDraftState(tag)
+  }, [])
+  const commitOption = useCallback((index: number) => {
+    if (index === 1) setIncludeTag(includeTagDraftRef.current)
+    else if (index === 2) setExcludeTag(excludeTagDraftRef.current)
+    return true
+  }, [])
+  const {
+    fieldIndex: optionIndex,
+    selectOpen,
+    setSelectOpen,
+    focusField: setOptionIndex,
+    moveField: moveOption,
+    moveWithinFields: moveWithinOptions,
+    focusFirstField: focusFirstOption,
+    focusLastField: focusLastOption,
+    commitCurrentField: commitCurrentOption,
+  } = useFormNavigation({
+    fieldCount: OPTION_COUNT,
+    locked: phase === "running",
+    resetKey,
+    commitField: commitOption,
+  })
 
   useEffect(() => {
     setPhase("configure")
@@ -169,13 +206,13 @@ export function useCollectionRunner({
     setEnvironmentName(activeEnvironment)
     setIncludeTag("")
     setExcludeTag("")
+    setIncludeTagDraft("")
+    setExcludeTagDraft("")
     setFailFast(false)
-    setOptionIndex(0)
     setRequestIndexState(0)
     setRequestRowIndex(0)
     setResultIndex(0)
     setResultDetails(new Map())
-    setSelectOpen(false)
     setProgress({ completed: 0, total: 0 })
     setResult(null)
     setRunRequestIds([])
@@ -225,16 +262,15 @@ export function useCollectionRunner({
     })
   }, [result, runRequestIds])
 
-  const optionUp = useCallback(
-    () => setOptionIndex((index) => nextIndex(index, OPTION_COUNT, -1)),
-    [],
-  )
+  const optionUp = useCallback(() => moveWithinOptions(-1), [moveWithinOptions])
   const optionDown = useCallback(
-    () => setOptionIndex((index) => nextIndex(index, OPTION_COUNT, 1)),
-    [],
+    () => moveWithinOptions(1),
+    [moveWithinOptions],
   )
-  const optionFirst = useCallback(() => setOptionIndex(0), [])
-  const optionLast = useCallback(() => setOptionIndex(OPTION_COUNT - 1), [])
+  const optionFirst = useCallback(() => focusFirstOption(), [focusFirstOption])
+  const optionLast = useCallback(() => focusLastOption(), [focusLastOption])
+  const optionNext = useCallback(() => moveOption(1), [moveOption])
+  const optionPrevious = useCallback(() => moveOption(-1), [moveOption])
   const requestUp = useCallback(
     () =>
       setRequestRowIndex((index) =>
@@ -339,11 +375,33 @@ export function useCollectionRunner({
   const canRun = runAvailable && !selectOpen
 
   const run = useCallback(async () => {
-    if (!canRun || runningRef.current) return
+    if (
+      phase === "running" ||
+      runningRef.current ||
+      hasUnsavedChanges ||
+      selectOpen ||
+      !collection ||
+      selectedRequestIds.length === 0
+    )
+      return
+    const nextIncludeTag = includeTagDraftRef.current
+    const nextExcludeTag = excludeTagDraftRef.current
+    setIncludeTag(nextIncludeTag)
+    setExcludeTag(nextExcludeTag)
+    let nextRequests: Request[]
+    try {
+      nextRequests = selectCollectionRunRequests(
+        collection.items,
+        selectedRequestIds,
+        nextIncludeTag || undefined,
+        nextExcludeTag || undefined,
+      )
+    } catch {
+      return
+    }
+    if (nextRequests.length === 0) return
     runningRef.current = true
-    const ids = requests
-      .filter((request) => preview.ids.has(request.id))
-      .map((request) => request.id)
+    const ids = nextRequests.map((request) => request.id)
     setRunRequestIds(ids)
     setRunError(null)
     setResult(null)
@@ -361,8 +419,8 @@ export function useCollectionRunner({
         systemProxy,
         insecure,
         selectedRequestIds,
-        includeTag || undefined,
-        excludeTag || undefined,
+        nextIncludeTag || undefined,
+        nextExcludeTag || undefined,
         failFast,
         (detail) => nextDetails.set(detail.requestId, detail),
       )
@@ -376,24 +434,23 @@ export function useCollectionRunner({
       runningRef.current = false
     }
   }, [
-    canRun,
+    collection,
     collectionDir,
     environmentName,
-    excludeTag,
     failFast,
-    includeTag,
+    hasUnsavedChanges,
     insecure,
     noProxy,
-    preview.ids,
-    requests,
+    phase,
     runCollection,
+    selectOpen,
     selectedRequestIds,
     systemProxy,
   ])
 
   const activateOption = useCallback(() => {
-    if (optionIndex === 3) toggleFailFast()
-  }, [optionIndex, toggleFailFast])
+    if (optionIndex === 1 || optionIndex === 2) commitCurrentOption()
+  }, [commitCurrentOption, optionIndex])
 
   return {
     phase,
@@ -408,6 +465,8 @@ export function useCollectionRunner({
     environmentNames,
     includeTag,
     excludeTag,
+    includeTagDraft,
+    excludeTagDraft,
     failFast,
     optionIndex,
     requestIndex,
@@ -422,8 +481,8 @@ export function useCollectionRunner({
     runAvailable,
     canRun,
     setEnvironmentName,
-    setIncludeTag,
-    setExcludeTag,
+    setIncludeTagDraft,
+    setExcludeTagDraft,
     setSelectOpen,
     setOptionIndex,
     setRequestIndex,
@@ -433,6 +492,8 @@ export function useCollectionRunner({
     optionDown,
     optionFirst,
     optionLast,
+    optionNext,
+    optionPrevious,
     requestUp,
     requestDown,
     requestFirst,

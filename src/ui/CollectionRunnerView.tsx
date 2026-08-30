@@ -217,6 +217,13 @@ export function CollectionRunnerView({
     ),
   )
   const resultNameWidth = Math.max(0, resultNameAvailable - resultValueWidth)
+  const runButtonMinWidth =
+    Math.max(
+      stringWidth("r Run 0 requests"),
+      stringWidth(
+        `r Run ${runner.requests.length} request${runner.requests.length === 1 ? "" : "s"}`,
+      ),
+    ) + 2
   const paneStyle = {
     flexDirection: "column" as const,
     flexGrow: 1,
@@ -405,12 +412,14 @@ export function CollectionRunnerView({
                             : "runner-exclude-tag-input"
                         }
                         value={
-                          index === 1 ? runner.includeTag : runner.excludeTag
+                          index === 1
+                            ? runner.includeTagDraft
+                            : runner.excludeTagDraft
                         }
                         onInput={
                           index === 1
-                            ? runner.setIncludeTag
-                            : runner.setExcludeTag
+                            ? runner.setIncludeTagDraft
+                            : runner.setExcludeTagDraft
                         }
                         onMouseDown={() => {
                           if (runner.phase === "running") return
@@ -433,18 +442,17 @@ export function CollectionRunnerView({
                   </SettingsField>
                 )
               })}
-              <box style={{ flexDirection: "row" }}>
-                <ActionButton
-                  id="runner-run-button"
-                  shortcut="r"
-                  label={`Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`}
-                  disabled={!runner.runAvailable && runner.phase !== "running"}
-                  onAction={() => {
-                    onPaneFocus("runner-options")
-                    void runner.run()
-                  }}
-                />
-              </box>
+              <ActionButton
+                id="runner-run-button"
+                shortcut="r"
+                minWidth={runButtonMinWidth}
+                label={`Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`}
+                disabled={!runner.runAvailable && runner.phase !== "running"}
+                onAction={() => {
+                  onPaneFocus("runner-options")
+                  void runner.run()
+                }}
+              />
             </box>
           </scrollbox>
           {hasUnsavedChanges ? (
