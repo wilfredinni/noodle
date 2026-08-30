@@ -19,10 +19,13 @@ export interface ImportedCollectionPending {
   name: string
 }
 
-export interface TagEditPending {
-  index: number
-  value: string
-}
+export type TagEditPending =
+  | { kind: "request"; index: number; value: string }
+  | {
+      kind: "runner-filter"
+      filter: "include" | "exclude"
+      value: string
+    }
 
 export interface RunnerDetailOverlayState {
   entry: TimelineEntry

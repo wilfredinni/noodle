@@ -782,7 +782,22 @@ export function AppInner({
   })
   const { activeOverlay } = overlays
   openTagEditorRef.current = (index, value) =>
-    overlays.setTagEditPending({ index, value })
+    overlays.setTagEditPending({ kind: "request", index, value })
+
+  const handleOpenRunnerTagFilter = useCallback(
+    (filter: "include" | "exclude") => {
+      if (runnerRef.current.phase === "running") return
+      overlays.setTagEditPending({
+        kind: "runner-filter",
+        filter,
+        value:
+          filter === "include"
+            ? runnerRef.current.includeTag
+            : runnerRef.current.excludeTag,
+      })
+    },
+    [overlays.setTagEditPending],
+  )
 
   useEffect(() => {
     if (overlays.aboutVisible) triggerAboutUpdateCheck()
@@ -1196,6 +1211,7 @@ export function AppInner({
       runnerRef,
       detailScrollRef: runnerDetailScrollRef,
       close: closeRunner,
+      openTagFilter: handleOpenRunnerTagFilter,
       openResultDetail: handleOpenRunnerResultDetail,
     },
   })
@@ -1429,13 +1445,25 @@ export function AppInner({
     onNewFolderConfirm: handleNewFolderConfirm,
     onTagConfirm: (tag) => {
       const pending = overlays.tagEditPending
+      if (!pending) return
+      if (pending.kind === "runner-filter") {
+        runnerRef.current.setTagFilter(pending.filter, tag)
+        overlays.setTagEditPending(null)
+        return
+      }
       const current = draftRef.current.draft
-      if (!pending || !current) return
+      if (!current) return
       const tags = [...(current.tags ?? [])]
       if (pending.index < tags.length) tags[pending.index] = tag
       else if (pending.index === tags.length) tags.push(tag)
       else return
       draftRef.current.setTags(tags)
+      overlays.setTagEditPending(null)
+    },
+    onTagClear: () => {
+      const pending = overlays.tagEditPending
+      if (pending?.kind !== "runner-filter") return
+      runnerRef.current.setTagFilter(pending.filter, "")
       overlays.setTagEditPending(null)
     },
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
@@ -1716,6 +1744,7 @@ export function AppInner({
             hasUnsavedChanges={hasUnsavedChanges}
             detailScrollRef={runnerDetailScrollRef}
             onPaneFocus={setFocus}
+            onEditTagFilter={handleOpenRunnerTagFilter}
             onOpenResultDetail={handleOpenRunnerResultDetail}
           />
         ) : view === "settings" ? (

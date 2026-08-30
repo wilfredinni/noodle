@@ -107,7 +107,11 @@ interface AppOverlaysProps {
   editRequestActions: { confirm: () => void; cancel: () => void }
   cloneRequestActions: { confirm: () => void; cancel: () => void }
   newFolderActions: { confirm: () => void; cancel: () => void }
-  tagEditorActions: { confirm: () => void; cancel: () => void }
+  tagEditorActions: {
+    confirm: () => void
+    cancel: () => void
+    clear: () => void
+  }
   updateFlow: UpdateFlowState
   envColors: Record<string, string | undefined>
   onLoadTimelineBody: (
@@ -521,7 +525,19 @@ export function AppOverlays({
           visible
           ref={tagEditorRef}
           initialValue={tagEditPending.value}
+          title={
+            tagEditPending.kind === "runner-filter"
+              ? tagEditPending.filter === "include"
+                ? "Include Tag"
+                : "Exclude Tag"
+              : undefined
+          }
           onConfirm={tagEditorActions.confirm}
+          onClear={
+            tagEditPending.kind === "runner-filter" && tagEditPending.value
+              ? tagEditorActions.clear
+              : undefined
+          }
           onClose={tagEditorActions.cancel}
         />
       )}

@@ -138,6 +138,7 @@ export interface AppKeymapRunner {
   runnerRef: RefObject<UseCollectionRunnerResult>
   detailScrollRef: RefObject<ScrollBoxRenderable | null>
   close: () => void
+  openTagFilter: (filter: "include" | "exclude") => void
   openResultDetail: (index?: number) => void
 }
 

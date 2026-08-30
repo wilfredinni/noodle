@@ -2,13 +2,10 @@ import type { UseBindingsLayer } from "@opentui/keymap/react"
 import type { AppKeymapContext } from "./types"
 
 export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
-  const { keymap, global, runner } = context
+  const { keymap, keybinds, global, runner } = context
   const state = () => runner.runnerRef.current
   const focus = () => global.focusRef.current
   const unlocked = () => state().phase !== "running" && !state().selectOpen
-  const textInputActive = () =>
-    focus() === "runner-options" &&
-    (state().optionIndex === 1 || state().optionIndex === 2)
 
   return {
     enabled: () =>
@@ -61,7 +58,7 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.run",
-        enabled: () => unlocked() && !textInputActive() && state().canRun,
+        enabled: () => unlocked() && state().canRun,
         run: () => void state().run(),
       },
       {
@@ -69,8 +66,11 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         run: () => {
           if (state().phase === "running") return
           if (state().selectOpen) return
-          if (focus() === "runner-options") state().activateOption()
-          else if (focus() === "runner-requests") {
+          if (focus() === "runner-options") {
+            if (state().optionIndex === 1) runner.openTagFilter("include")
+            else if (state().optionIndex === 2) runner.openTagFilter("exclude")
+            else if (state().optionIndex === 3) state().toggleFailFast()
+          } else if (focus() === "runner-requests") {
             if (state().phase === "results") {
               const row = state().resultRows[state().resultIndex]
               if (row?.kind === "result" && state().resultDetails.has(row.id))
@@ -78,6 +78,19 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
             } else state().toggleSelected()
           }
         },
+      },
+      {
+        name: "runner.clear-tag-filter",
+        enabled: () =>
+          unlocked() &&
+          focus() === "runner-options" &&
+          ((state().optionIndex === 1 && state().includeTag !== "") ||
+            (state().optionIndex === 2 && state().excludeTag !== "")),
+        run: () =>
+          state().setTagFilter(
+            state().optionIndex === 1 ? "include" : "exclude",
+            "",
+          ),
       },
       {
         name: "runner.toggle",
@@ -134,10 +147,8 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         run: () => {
           if (!unlocked()) return
           const current = focus()
-          if (current === "runner-options") {
-            if (state().phase === "results" || state().optionNext() === "after")
-              global.setFocus("runner-requests")
-          } else if (current === "runner-requests")
+          if (current === "runner-options") global.setFocus("runner-requests")
+          else if (current === "runner-requests")
             global.setFocus("runner-options")
         },
       },
@@ -147,13 +158,8 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         run: () => {
           if (!unlocked()) return
           const current = focus()
-          if (current === "runner-options") {
-            if (
-              state().phase === "results" ||
-              state().optionPrevious() === "before"
-            )
-              global.setFocus("runner-requests")
-          } else if (current === "runner-requests")
+          if (current === "runner-options") global.setFocus("runner-requests")
+          else if (current === "runner-requests")
             global.setFocus("runner-options")
         },
       },
@@ -173,6 +179,7 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       { key: "r", cmd: "runner.run" },
       { key: "return", cmd: "runner.activate" },
       { key: "space", cmd: "runner.toggle" },
+      { key: keybinds.browse_delete, cmd: "runner.clear-tag-filter" },
       { key: "pageup", cmd: "runner.page-up" },
       { key: "pagedown", cmd: "runner.page-down" },
       { key: "left", cmd: "runner.configure" },

@@ -11,7 +11,6 @@ import {
 import { findFolderByPath, flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
-import { useFormNavigation, type FormMoveResult } from "./useFormNavigation"
 
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerResultRow =
@@ -45,8 +44,6 @@ export interface UseCollectionRunnerResult {
   environmentNames: string[]
   includeTag: string
   excludeTag: string
-  includeTagDraft: string
-  excludeTagDraft: string
   failFast: boolean
   optionIndex: number
   requestIndex: number
@@ -61,8 +58,7 @@ export interface UseCollectionRunnerResult {
   runAvailable: boolean
   canRun: boolean
   setEnvironmentName: (name: string | null) => void
-  setIncludeTagDraft: (tag: string) => void
-  setExcludeTagDraft: (tag: string) => void
+  setTagFilter: (filter: "include" | "exclude", tag: string) => void
   setSelectOpen: (open: boolean) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
@@ -72,8 +68,6 @@ export interface UseCollectionRunnerResult {
   optionDown: () => void
   optionFirst: () => void
   optionLast: () => void
-  optionNext: () => FormMoveResult
-  optionPrevious: () => FormMoveResult
   requestUp: () => void
   requestDown: () => void
   requestFirst: () => void
@@ -85,7 +79,6 @@ export interface UseCollectionRunnerResult {
   toggleSelected: (index?: number) => void
   toggleFolder: (path: string) => void
   toggleFailFast: () => void
-  activateOption: () => void
   showConfigure: () => void
   showResults: () => void
   run: () => Promise<void>
@@ -153,9 +146,9 @@ export function useCollectionRunner({
   const [environmentName, setEnvironmentName] = useState<string | null>(null)
   const [includeTag, setIncludeTag] = useState("")
   const [excludeTag, setExcludeTag] = useState("")
-  const [includeTagDraft, setIncludeTagDraftState] = useState("")
-  const [excludeTagDraft, setExcludeTagDraftState] = useState("")
   const [failFast, setFailFast] = useState(false)
+  const [optionIndex, setOptionIndexState] = useState(0)
+  const [selectOpen, setSelectOpen] = useState(false)
   const [requestIndex, setRequestIndexState] = useState(0)
   const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
@@ -167,38 +160,27 @@ export function useCollectionRunner({
   const [runRequestIds, setRunRequestIds] = useState<string[]>([])
   const [runError, setRunError] = useState<string | null>(null)
   const runningRef = useRef(false)
-  const includeTagDraftRef = useRef("")
-  const excludeTagDraftRef = useRef("")
-
-  const setIncludeTagDraft = useCallback((tag: string) => {
-    includeTagDraftRef.current = tag
-    setIncludeTagDraftState(tag)
-  }, [])
-  const setExcludeTagDraft = useCallback((tag: string) => {
-    excludeTagDraftRef.current = tag
-    setExcludeTagDraftState(tag)
-  }, [])
-  const commitOption = useCallback((index: number) => {
-    if (index === 1) setIncludeTag(includeTagDraftRef.current)
-    else if (index === 2) setExcludeTag(excludeTagDraftRef.current)
-    return true
-  }, [])
-  const {
-    fieldIndex: optionIndex,
-    selectOpen,
-    setSelectOpen,
-    focusField: setOptionIndex,
-    moveField: moveOption,
-    moveWithinFields: moveWithinOptions,
-    focusFirstField: focusFirstOption,
-    focusLastField: focusLastOption,
-    commitCurrentField: commitCurrentOption,
-  } = useFormNavigation({
-    fieldCount: OPTION_COUNT,
-    locked: phase === "running",
-    resetKey,
-    commitField: commitOption,
-  })
+  const setOptionIndex = useCallback(
+    (index: number) => {
+      if (
+        phase === "running" ||
+        selectOpen ||
+        index < 0 ||
+        index >= OPTION_COUNT
+      )
+        return
+      setOptionIndexState(index)
+    },
+    [phase, selectOpen],
+  )
+  const setTagFilter = useCallback(
+    (filter: "include" | "exclude", tag: string) => {
+      if (phase === "running") return
+      if (filter === "include") setIncludeTag(tag)
+      else setExcludeTag(tag)
+    },
+    [phase],
+  )
 
   useEffect(() => {
     setPhase("configure")
@@ -206,9 +188,9 @@ export function useCollectionRunner({
     setEnvironmentName(activeEnvironment)
     setIncludeTag("")
     setExcludeTag("")
-    setIncludeTagDraft("")
-    setExcludeTagDraft("")
     setFailFast(false)
+    setOptionIndexState(0)
+    setSelectOpen(false)
     setRequestIndexState(0)
     setRequestRowIndex(0)
     setResultIndex(0)
@@ -262,15 +244,22 @@ export function useCollectionRunner({
     })
   }, [result, runRequestIds])
 
-  const optionUp = useCallback(() => moveWithinOptions(-1), [moveWithinOptions])
-  const optionDown = useCallback(
-    () => moveWithinOptions(1),
-    [moveWithinOptions],
+  const moveOption = useCallback(
+    (direction: 1 | -1) => {
+      if (phase === "running" || selectOpen) return
+      setOptionIndexState((index) =>
+        Math.max(0, Math.min(OPTION_COUNT - 1, index + direction)),
+      )
+    },
+    [phase, selectOpen],
   )
-  const optionFirst = useCallback(() => focusFirstOption(), [focusFirstOption])
-  const optionLast = useCallback(() => focusLastOption(), [focusLastOption])
-  const optionNext = useCallback(() => moveOption(1), [moveOption])
-  const optionPrevious = useCallback(() => moveOption(-1), [moveOption])
+  const optionUp = useCallback(() => moveOption(-1), [moveOption])
+  const optionDown = useCallback(() => moveOption(1), [moveOption])
+  const optionFirst = useCallback(() => setOptionIndex(0), [setOptionIndex])
+  const optionLast = useCallback(
+    () => setOptionIndex(OPTION_COUNT - 1),
+    [setOptionIndex],
+  )
   const requestUp = useCallback(
     () =>
       setRequestRowIndex((index) =>
@@ -384,17 +373,13 @@ export function useCollectionRunner({
       selectedRequestIds.length === 0
     )
       return
-    const nextIncludeTag = includeTagDraftRef.current
-    const nextExcludeTag = excludeTagDraftRef.current
-    setIncludeTag(nextIncludeTag)
-    setExcludeTag(nextExcludeTag)
     let nextRequests: Request[]
     try {
       nextRequests = selectCollectionRunRequests(
         collection.items,
         selectedRequestIds,
-        nextIncludeTag || undefined,
-        nextExcludeTag || undefined,
+        includeTag || undefined,
+        excludeTag || undefined,
       )
     } catch {
       return
@@ -419,8 +404,8 @@ export function useCollectionRunner({
         systemProxy,
         insecure,
         selectedRequestIds,
-        nextIncludeTag || undefined,
-        nextExcludeTag || undefined,
+        includeTag || undefined,
+        excludeTag || undefined,
         failFast,
         (detail) => nextDetails.set(detail.requestId, detail),
       )
@@ -437,8 +422,10 @@ export function useCollectionRunner({
     collection,
     collectionDir,
     environmentName,
+    excludeTag,
     failFast,
     hasUnsavedChanges,
+    includeTag,
     insecure,
     noProxy,
     phase,
@@ -447,10 +434,6 @@ export function useCollectionRunner({
     selectedRequestIds,
     systemProxy,
   ])
-
-  const activateOption = useCallback(() => {
-    if (optionIndex === 1 || optionIndex === 2) commitCurrentOption()
-  }, [commitCurrentOption, optionIndex])
 
   return {
     phase,
@@ -465,8 +448,6 @@ export function useCollectionRunner({
     environmentNames,
     includeTag,
     excludeTag,
-    includeTagDraft,
-    excludeTagDraft,
     failFast,
     optionIndex,
     requestIndex,
@@ -481,8 +462,7 @@ export function useCollectionRunner({
     runAvailable,
     canRun,
     setEnvironmentName,
-    setIncludeTagDraft,
-    setExcludeTagDraft,
+    setTagFilter,
     setSelectOpen,
     setOptionIndex,
     setRequestIndex,
@@ -492,8 +472,6 @@ export function useCollectionRunner({
     optionDown,
     optionFirst,
     optionLast,
-    optionNext,
-    optionPrevious,
     requestUp,
     requestDown,
     requestFirst,
@@ -505,7 +483,6 @@ export function useCollectionRunner({
     toggleSelected,
     toggleFolder,
     toggleFailFast,
-    activateOption,
     showConfigure: () => result && setPhase("configure"),
     showResults: () => result && setPhase("results"),
     run,

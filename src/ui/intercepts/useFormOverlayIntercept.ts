@@ -125,8 +125,9 @@ export function useSingleFieldFormOverlayIntercept(opts: {
   handleRef: RefObject<{ confirm: () => string | null } | null>
   onConfirm: (result: string) => void
   onCancel: () => void
-}): { confirm: () => void; cancel: () => void } {
-  const { visible, handleRef, onConfirm, onCancel } = opts
+  onClear?: () => void
+}): { confirm: () => void; cancel: () => void; clear: () => void } {
+  const { visible, handleRef, onConfirm, onCancel, onClear } = opts
   const keymap = useKeymap()
   const confirm = useCallback(() => {
     const result = handleRef.current?.confirm()
@@ -154,11 +155,16 @@ export function useSingleFieldFormOverlayIntercept(opts: {
           onCancel()
           return
         }
+        if (e.name === "d" && e.ctrl && onClear) {
+          e.preventDefault()
+          e.stopPropagation()
+          onClear()
+        }
       },
       { priority: 100 },
     )
     return dispose
-  }, [visible, keymap, handleRef, confirm, onCancel])
+  }, [visible, keymap, handleRef, confirm, onCancel, onClear])
 
-  return { confirm, cancel: onCancel }
+  return { confirm, cancel: onCancel, clear: () => onClear?.() }
 }

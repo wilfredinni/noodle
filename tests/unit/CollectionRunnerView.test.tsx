@@ -176,6 +176,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -203,14 +204,14 @@ describe("CollectionRunnerView", () => {
     )
     expect(requestRows.join("\n")).not.toContain("…")
     const tagColumn = requestRows[0]!.indexOf("#smoke")
-    await act(async () => current!.setIncludeTagDraft("s"))
+    await act(async () => current!.setTagFilter("include", "s"))
     await render.renderOnce()
     const filteredRows = render
       .captureCharFrame()
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
-    await act(async () => current!.setIncludeTagDraft(""))
+    await act(async () => current!.setTagFilter("include", ""))
     await render.renderOnce()
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
@@ -314,6 +315,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -352,6 +354,10 @@ describe("CollectionRunnerView", () => {
     expect(runButton.width).toBe("r Run 0 requests".length + 2)
     expect(scrolled).toContain("Exclude tag")
     expect(scrolled).toContain("Fail fast")
+    expect(scrolled).toContain("Any")
+    expect(
+      render.renderer.root.findDescendantById("runner-include-tag-input"),
+    ).toBeUndefined()
     expect(scrolled).toContain("Save")
     cleanup()
   })
@@ -359,6 +365,7 @@ describe("CollectionRunnerView", () => {
   it("switches between every Runner option by keyboard and mouse", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let current: UseCollectionRunnerResult | null = null
+    const opened: Array<"include" | "exclude"> = []
     function Harness() {
       const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
       const runner = useCollectionRunner({
@@ -383,6 +390,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={(filter) => opened.push(filter)}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -409,6 +417,10 @@ describe("CollectionRunnerView", () => {
 
     await clickOption(1)
     expect(current!.optionIndex).toBe(1)
+    expect(opened).toEqual(["include"])
+    expect(
+      render.renderer.root.findDescendantById("runner-include-tag-input"),
+    ).toBeUndefined()
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -422,16 +434,16 @@ describe("CollectionRunnerView", () => {
         RGBA.fromHex(THEMES[0]!.backgroundElement),
       ),
     ).toBe(true)
-    await act(async () => render.mockInput.typeText("smoke"))
-    await act(async () => render.renderOnce())
-    expect(current!.includeTag).toBe("")
-    expect(current!.matchedIds.size).toBe(1)
+    await act(async () => current!.setTagFilter("include", "smoke"))
+    await render.renderOnce()
+    expect(current!.includeTag).toBe("smoke")
+    expect(render.captureCharFrame()).toContain("#smoke")
     await clickOption(2)
     expect(current!.optionIndex).toBe(2)
-    expect(current!.includeTag).toBe("smoke")
-    await act(async () => render.mockInput.typeText("destructive"))
-    await act(async () => render.renderOnce())
-    expect(current!.excludeTag).toBe("")
+    expect(opened.at(-1)).toBe("exclude")
+    await act(async () => current!.setTagFilter("exclude", "destructive"))
+    await render.renderOnce()
+    expect(current!.excludeTag).toBe("destructive")
 
     const environment = render.renderer.root.findDescendantById(
       "runner-option-0",
@@ -466,10 +478,8 @@ describe("CollectionRunnerView", () => {
     expect(current!.failFast).toBe(true)
 
     await act(async () => {
-      current!.setOptionIndex(1)
-      current!.setIncludeTagDraft("")
-      current!.setOptionIndex(2)
-      current!.setExcludeTagDraft("")
+      current!.setTagFilter("include", "")
+      current!.setTagFilter("exclude", "")
       current!.setOptionIndex(0)
     })
     await render.renderOnce()
@@ -521,6 +531,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -599,6 +610,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -818,6 +830,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={(index) => opened.push(index)}
             />
           </ThemeProvider>
@@ -947,6 +960,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={setFocus}
+              onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>

@@ -25,7 +25,7 @@ addDefaultParsers([...codeEditorParsers])
 const testRender = createTestRender()
 
 const noop = () => {}
-const actions = { confirm: noop, cancel: noop }
+const actions = { confirm: noop, cancel: noop, clear: noop }
 
 /** Props outside the overlay bag, with nothing visible. */
 function baseProps() {
@@ -254,7 +254,7 @@ describe("AppOverlays routing", () => {
       name: "tag editor",
       overrides: {
         activeOverlay: "tag-editor",
-        tagEditPending: { index: 0, value: "smoke" },
+        tagEditPending: { kind: "request", index: 0, value: "smoke" },
       },
       expected: "Edit Tag",
     },
@@ -285,6 +285,32 @@ describe("AppOverlays routing", () => {
       cleanup()
     })
   }
+
+  it("labels Runner filters contextually and offers clear only when set", async () => {
+    const existing = await renderOverlays({
+      activeOverlay: "tag-editor",
+      tagEditPending: {
+        kind: "runner-filter",
+        filter: "include",
+        value: "smoke",
+      },
+    })
+    expect(existing.frame).toContain("Include Tag")
+    expect(existing.frame).toContain("^D clear")
+    existing.cleanup()
+
+    const empty = await renderOverlays({
+      activeOverlay: "tag-editor",
+      tagEditPending: {
+        kind: "runner-filter",
+        filter: "exclude",
+        value: "",
+      },
+    })
+    expect(empty.frame).toContain("Exclude Tag")
+    expect(empty.frame).not.toContain("clear")
+    empty.cleanup()
+  })
 
   it("should render the environment picker with its environments", async () => {
     const { frame, cleanup } = await renderOverlays(

@@ -15,7 +15,6 @@ import {
 } from "@opentui/core"
 import { stringWidth } from "bun"
 import { useTerminalDimensions } from "@opentui/react"
-import { useKeymap } from "@opentui/keymap/react"
 import type { Focus } from "./focus"
 import type {
   RunnerResultRow,
@@ -33,6 +32,7 @@ import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
 import { flattenRequests } from "./tree"
 import { ActionButton } from "./ActionButton"
+import { Badge } from "./Badge"
 import { SettingsField } from "./settings/SettingsField"
 
 const OPTION_LABELS = [
@@ -134,6 +134,7 @@ export function CollectionRunnerView({
   hasUnsavedChanges,
   detailScrollRef,
   onPaneFocus,
+  onEditTagFilter,
   onOpenResultDetail,
 }: {
   runner: UseCollectionRunnerResult
@@ -141,10 +142,10 @@ export function CollectionRunnerView({
   hasUnsavedChanges: boolean
   detailScrollRef: RefObject<ScrollBoxRenderable | null>
   onPaneFocus: (focus: Focus) => void
+  onEditTagFilter: (filter: "include" | "exclude") => void
   onOpenResultDetail: (index: number) => void
 }) {
   const theme = useTheme()
-  const keymap = useKeymap()
   const { width = 100 } = useTerminalDimensions()
   const stacked = width < 100
   const optionScrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -165,14 +166,6 @@ export function CollectionRunnerView({
       )
     }
   }, [runner.optionIndex])
-  useEffect(() => {
-    const textInputActive =
-      runner.phase !== "running" &&
-      focus === "runner-options" &&
-      (runner.optionIndex === 1 || runner.optionIndex === 2)
-    keymap.setData("app.text-input", textInputActive)
-    return () => keymap.setData("app.text-input", false)
-  }, [focus, keymap, runner.optionIndex, runner.phase])
   useEffect(() => {
     requestScrollRef.current?.scrollChildIntoView(
       `runner-row-${runner.requestRowIndex}`,
@@ -381,7 +374,9 @@ export function CollectionRunnerView({
                       if (configurationLocked) return
                       onPaneFocus("runner-options")
                       runner.setOptionIndex(index)
-                      if (index === 3) runner.toggleFailFast()
+                      if (index === 1) onEditTagFilter("include")
+                      else if (index === 2) onEditTagFilter("exclude")
+                      else if (index === 3) runner.toggleFailFast()
                     }}
                   >
                     {index === 0 ? (
@@ -405,37 +400,26 @@ export function CollectionRunnerView({
                         fitContent
                       />
                     ) : index === 1 || index === 2 ? (
-                      <input
+                      <box
                         id={
                           index === 1
-                            ? "runner-include-tag-input"
-                            : "runner-exclude-tag-input"
+                            ? "runner-include-tag-value"
+                            : "runner-exclude-tag-value"
                         }
-                        value={
-                          index === 1
-                            ? runner.includeTagDraft
-                            : runner.excludeTagDraft
-                        }
-                        onInput={
-                          index === 1
-                            ? runner.setIncludeTagDraft
-                            : runner.setExcludeTagDraft
-                        }
-                        onMouseDown={() => {
-                          if (runner.phase === "running") return
-                          onPaneFocus("runner-options")
-                          runner.setOptionIndex(index)
-                        }}
-                        focused={active && runner.phase !== "running"}
-                        placeholder="Any"
-                        backgroundColor="transparent"
-                        focusedBackgroundColor="transparent"
-                        textColor={theme.text}
-                        cursorColor={theme.primary}
-                        placeholderColor={theme.textMuted}
-                        paddingX={0}
-                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-                      />
+                      >
+                        <Badge
+                          bg={active ? theme.primary : theme.backgroundElement}
+                          fg={active ? theme.backgroundPanel : theme.textMuted}
+                        >
+                          {index === 1
+                            ? runner.includeTag
+                              ? `#${runner.includeTag}`
+                              : "Any"
+                            : runner.excludeTag
+                              ? `#${runner.excludeTag}`
+                              : "Any"}
+                        </Badge>
+                      </box>
                     ) : (
                       <Checkbox checked={runner.failFast} theme={theme} />
                     )}

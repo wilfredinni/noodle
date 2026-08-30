@@ -80,7 +80,6 @@ describe("useCollectionRunner", () => {
     expect(harness.get().optionIndex).toBe(0)
     await act(async () => harness.get().optionLast())
     expect(harness.get().optionIndex).toBe(3)
-    await act(async () => harness.get().activateOption())
     expect(harness.get().failFast).toBe(false)
     await act(async () => harness.get().toggleFailFast())
     expect(harness.get().failFast).toBe(true)
@@ -146,9 +145,7 @@ describe("useCollectionRunner", () => {
     const render = await harness.render
     await render.renderOnce()
     await act(async () => {
-      harness.get().setOptionIndex(1)
-      harness.get().setIncludeTagDraft("smoke")
-      harness.get().setOptionIndex(2)
+      harness.get().setTagFilter("include", "smoke")
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual([
@@ -158,8 +155,7 @@ describe("useCollectionRunner", () => {
     ])
 
     await act(async () => {
-      harness.get().setExcludeTagDraft("destructive")
-      harness.get().setOptionIndex(0)
+      harness.get().setTagFilter("exclude", "destructive")
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual(["root"])
@@ -222,8 +218,7 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     await act(async () => {
       harness.get().setEnvironmentName("staging")
-      harness.get().setOptionIndex(1)
-      harness.get().setIncludeTagDraft("smoke")
+      harness.get().setTagFilter("include", "smoke")
       harness.get().toggleFailFast()
     })
     await render.renderOnce()
@@ -260,28 +255,20 @@ describe("useCollectionRunner", () => {
     expect(calls).toBe(0)
   })
 
-  it("updates Run availability only after tag filters are committed", async () => {
+  it("updates Run availability from the confirmed tag filter", async () => {
     const harness = renderHook()
     const render = await harness.render
     await render.renderOnce()
 
     await act(async () => {
-      harness.get().setOptionIndex(1)
-      harness.get().setIncludeTagDraft("missing")
+      harness.get().setTagFilter("include", "missing")
     })
-    await render.renderOnce()
-    expect(harness.get().canRun).toBe(true)
-    expect(harness.get().includeTag).toBe("")
-
-    await act(async () => harness.get().setOptionIndex(2))
     await render.renderOnce()
     expect(harness.get().canRun).toBe(false)
     expect(harness.get().includeTag).toBe("missing")
 
     await act(async () => {
-      harness.get().setOptionIndex(1)
-      harness.get().setIncludeTagDraft("smoke")
-      harness.get().setOptionIndex(0)
+      harness.get().setTagFilter("include", "smoke")
     })
     await render.renderOnce()
     expect(harness.get().canRun).toBe(true)

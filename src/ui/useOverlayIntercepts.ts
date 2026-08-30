@@ -84,6 +84,7 @@ export function useOverlayIntercepts(opts: {
   onRequestDeleteCancel: () => void
   onNewFolderConfirm: (name: string) => void
   onTagConfirm: (tag: string) => void
+  onTagClear: () => void
   onFolderDeleteConfirm: () => void
   collectionSwitchPending: string | null
   setCollectionSwitchPending: (s: string | null) => void
@@ -179,6 +180,11 @@ export function useOverlayIntercepts(opts: {
     handleRef: overlays.tagEditorRef,
     onConfirm: opts.onTagConfirm,
     onCancel: () => overlays.setTagEditPending(null),
+    onClear:
+      overlays.tagEditPending?.kind === "runner-filter" &&
+      overlays.tagEditPending.value
+        ? opts.onTagClear
+        : undefined,
   })
 
   useEnvEditorIntercept(opts)
