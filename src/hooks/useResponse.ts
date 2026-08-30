@@ -202,7 +202,7 @@ async function runSend(
         (capture) => capture.success && capture.persisted,
       )
     ) {
-      await onEnvironmentPersisted?.()
+      await onEnvironmentPersisted?.().catch(() => {})
     }
     const result = { status: "done" as const, response: res, execution }
     cacheRef.current.set(req.id, result)

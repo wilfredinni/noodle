@@ -36,7 +36,9 @@ export function useEnvironments(
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
   const activeNameRef = useRef(activeName)
-  activeNameRef.current = activeName
+  useEffect(() => {
+    activeNameRef.current = activeName
+  }, [activeName])
 
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {

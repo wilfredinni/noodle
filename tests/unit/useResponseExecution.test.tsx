@@ -136,7 +136,7 @@ describe("useResponse execution results", () => {
     }
   })
 
-  it("persists manual captures and reloads the environment before completion", async () => {
+  it("keeps a completed send when the environment refresh fails", async () => {
     const collectionDir = await mkdtemp(
       join(tmpdir(), "noodle-manual-capture-"),
     )
@@ -186,8 +186,8 @@ describe("useResponse execution results", () => {
         (_request, result) => {
           if (result.status === "done") {
             observed.reloadedBeforeComplete = observed.reloaded
-            resolveComplete?.()
           }
+          resolveComplete?.()
         },
         undefined,
         undefined,
@@ -199,11 +199,15 @@ describe("useResponse execution results", () => {
           observed.reloaded = (
             await env.loadEnvironment(environmentDir, "development")
           ).vars.token
+          throw new Error("refresh failed")
         },
       )
       useEffect(() => {
         if (response.state.status === "idle") response.trySend()
-        else if (response.state.status === "done")
+        else if (
+          response.state.status === "done" ||
+          response.state.status === "error"
+        )
           observed.final = response.state
       }, [response])
       return null
