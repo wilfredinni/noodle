@@ -5,6 +5,7 @@ import type {
   AssertionWithoutValueOperator,
   AssertionWithValueOperator,
   BodyType,
+  CaptureEntry,
   FormEntry,
   KvEntry,
   Method,
@@ -274,31 +275,29 @@ export function parseTags(
   return tags.length > 0 ? tags : undefined
 }
 
-function parseCaptures(value: unknown): Record<string, KvEntry> | undefined {
+function parseCaptures(
+  value: unknown,
+): Record<string, CaptureEntry> | undefined {
   if (value === undefined) return undefined
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error('lang.parseRequest: "capture" must be a mapping')
   }
 
-  const captures: Record<string, KvEntry> = {}
+  const captures: Record<string, CaptureEntry> = {}
   for (const [variable, declaration] of Object.entries(value)) {
     if (!isValidVariableName(variable)) {
       throw new Error(
         `lang.parseRequest: invalid capture variable "${variable}"`,
       )
     }
-    let expression: string
-    let enabled = true
-    if (typeof declaration === "string") {
-      expression = declaration
-    } else if (
+    if (
       typeof declaration === "object" &&
       declaration !== null &&
       !Array.isArray(declaration)
     ) {
       const raw = declaration as Record<string, unknown>
       for (const key of Object.keys(raw)) {
-        if (key !== "value" && key !== "enabled") {
+        if (key !== "value" && key !== "persist" && key !== "enabled") {
           throw new Error(
             `lang.parseRequest: unknown capture.${variable} field "${key}"`,
           )
@@ -314,27 +313,40 @@ function parseCaptures(value: unknown): Record<string, KvEntry> | undefined {
           `lang.parseRequest: capture.${variable}.enabled must be a boolean`,
         )
       }
-      expression = raw.value
-      enabled = raw.enabled ?? true
+      if (
+        raw.persist !== undefined &&
+        raw.persist !== "secret" &&
+        raw.persist !== "environment"
+      ) {
+        throw new Error(
+          `lang.parseRequest: capture.${variable}.persist must be "secret" or "environment"`,
+        )
+      }
+      const expression = raw.value
+      const enabled = raw.enabled ?? true
+      try {
+        parseResponseExpression(expression)
+      } catch (error) {
+        throw new Error(
+          `lang.parseRequest: capture.${variable}: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
+        )
+      }
+      Object.defineProperty(captures, variable, {
+        value: {
+          value: expression,
+          enabled,
+          ...(raw.persist ? { persist: raw.persist } : {}),
+        },
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      })
     } else {
       throw new Error(
-        `lang.parseRequest: capture.${variable} must be a string or {value, enabled} object`,
+        `lang.parseRequest: capture.${variable} must be an object`,
       )
     }
-    try {
-      parseResponseExpression(expression)
-    } catch (error) {
-      throw new Error(
-        `lang.parseRequest: capture.${variable}: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      )
-    }
-    Object.defineProperty(captures, variable, {
-      value: { value: expression, enabled },
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    })
   }
   return Object.keys(captures).length > 0 ? captures : undefined
 }

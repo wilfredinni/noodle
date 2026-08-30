@@ -287,6 +287,14 @@ export function ResponseResults({
                       result.success
                         ? [
                             { label: "Type", value: result.type },
+                            ...(result.persisted
+                              ? [
+                                  {
+                                    label: "Persisted",
+                                    value: result.persisted,
+                                  },
+                                ]
+                              : []),
                             {
                               label: "Value",
                               value: formatValue(result.value),

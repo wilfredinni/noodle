@@ -202,6 +202,7 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
         } else if (step === 2 && editor.editState.mode === "editing") {
           editor.setEditKey("token")
           editor.setEditValue("body.token")
+          editor.setEditCapturePersistence("secret")
           setStep(3)
         } else if (
           step === 3 &&
@@ -219,7 +220,7 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     const render = await testRender(<Harness />, { width: 20, height: 4 })
     for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
     expect(result.value).toEqual({
-      token: { value: "body.token", enabled: true },
+      token: { value: "body.token", enabled: true, persist: "secret" },
     })
   })
 
@@ -293,7 +294,13 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     function Harness() {
       const draft = useRequestDraft({
         ...request,
-        captures: { token: { value: "body.token", enabled: false } },
+        captures: {
+          token: {
+            value: "body.token",
+            enabled: false,
+            persist: "environment",
+          },
+        },
       })
       const editor = useEditBrowse(draft.draft, draft)
       const [step, setStep] = useState(0)
@@ -319,7 +326,11 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     const render = await testRender(<Harness />, { width: 20, height: 4 })
     for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
     expect(result.value).toEqual({
-      token: { value: "body.other", enabled: false },
+      token: {
+        value: "body.other",
+        enabled: false,
+        persist: "environment",
+      },
     })
   })
 

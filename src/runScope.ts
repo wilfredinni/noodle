@@ -1,4 +1,4 @@
-import type { Environment, JsonValue, KvEntry } from "./schema"
+import type { CaptureEntry, Environment, JsonValue } from "./schema"
 import type { ResponseResolver } from "./response"
 
 export type CaptureValueType =
@@ -16,24 +16,37 @@ export type CaptureResult =
       success: true
       type: CaptureValueType
       value: JsonValue
+      persisted?: "secret" | "environment"
     }
   | {
       variable: string
       expression: string
       success: false
-      failureReason: "missing" | "resolution_error"
+      failureReason: "missing" | "resolution_error" | "persistence_error"
       message: string
     }
 
 export class RunScope {
   private readonly values = new Map<string, JsonValue>()
+  private readonly secretVariables = new Set<string>()
 
-  set(variable: string, value: JsonValue): void {
+  set(variable: string, value: JsonValue, secret = false): void {
     this.values.set(variable, value)
+    if (secret) this.secretVariables.add(variable)
+    else this.secretVariables.delete(variable)
   }
 
   get(variable: string): JsonValue | undefined {
     return this.values.get(variable)
+  }
+
+  secretValues(): string[] {
+    return [...this.secretVariables]
+      .map((variable) => this.values.get(variable))
+      .filter((value): value is JsonValue => value !== undefined)
+      .map((value) =>
+        typeof value === "string" ? value : JSON.stringify(value),
+      )
   }
 
   environment(base?: Environment): Environment {
@@ -51,7 +64,7 @@ export class RunScope {
 }
 
 export function evaluateCaptures(
-  captures: Record<string, KvEntry>,
+  captures: Record<string, CaptureEntry>,
   resolve: ResponseResolver,
 ): CaptureResult[] {
   const activeCaptures = Object.entries(captures).filter(

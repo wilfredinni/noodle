@@ -229,6 +229,7 @@ describe("human CLI output", () => {
                 success: true,
                 type: "string",
                 value: "raw-captured-value",
+                persisted: "environment",
               },
               {
                 variable: "user_id",
@@ -244,7 +245,7 @@ describe("human CLI output", () => {
     )
 
     expect(output).toContain("Captures: 1 captured, 1 failed")
-    expect(output).toContain("✓ $token <- body.token")
+    expect(output).toContain("✓ $token <- body.token (environment)")
     expect(output).toContain(
       '✗ $user_id <- body.user.id: Expression "body.user.id" is missing',
     )

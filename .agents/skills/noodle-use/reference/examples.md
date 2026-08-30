@@ -65,9 +65,13 @@ url: $base_url/users
 body_type: json
 body: '{"name":"Ada"}'
 capture:
-  user_id: body.id
-  request_id: headers.x-request-id
-  optional_trace: { value: headers.x-trace, enabled: false }
+  user_id:
+    value: body.id
+  request_id:
+    value: headers.x-request-id
+  optional_trace:
+    value: headers.x-trace
+    enabled: false
 ```
 
 Later request (`users/get-created-user.yml`):
@@ -86,14 +90,16 @@ Run both in collection order:
 noodle collection run ./my-api users/create-user users/get-created-user --json
 ```
 
-`user_id` and `request_id` exist only for this command and never modify
-environment files. The simple capture form is enabled. Use
-`{ value: ..., enabled: false }` to keep a validated declaration without
-resolving it or changing RunScope.
+`user_id` and `request_id` exist only for this collection command and never
+modify environment files. Every capture uses the object form. Add
+`enabled: false` to keep a validated declaration without resolving it or
+changing RunScope.
 
 Read capture results from `data.results[].captures`. Human output never prints
 captured values. JSON output includes typed server values unless they match a
-known secret, so treat it as sensitive.
+known secret, so treat it as sensitive. A `persist: secret` capture is always
+fully redacted. Persistence applies only to manual TUI sends and CLI
+`request run`, never collection runs.
 
 ## POST with JSON body
 

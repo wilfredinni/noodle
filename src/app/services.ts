@@ -65,6 +65,7 @@ import {
   evaluateResponseExecution,
   executionSecretValues,
   unevaluatedExecutionResults,
+  type ResponseExecutionResults,
 } from "../executionResults"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
@@ -715,6 +716,7 @@ async function runRequest(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar,
+  persistCaptures = false,
   onDetail?: RunDetail,
 ): Promise<RequestRunResult> {
   const effectiveEnvironment = runScope.environment(environment)
@@ -723,6 +725,7 @@ async function runRequest(
     proxyPolicy,
     tlsPolicy,
   )
+  secretValues.push(...runScope.secretValues())
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   let detailRequest = request
   try {
@@ -748,12 +751,25 @@ async function runRequest(
           ),
       )
       .map((event) => event.message)
-    const execution = evaluateResponseExecution(
+    let rawCaptureResults: CaptureResult[] = []
+    let execution = evaluateResponseExecution(
       effective,
       response,
       runScope,
       secretValues,
+      (results) => {
+        rawCaptureResults = results
+      },
     )
+    if (persistCaptures) {
+      execution = await persistResponseCaptures(
+        effective,
+        rawCaptureResults,
+        execution,
+        environment?.name,
+        collectionDir,
+      )
+    }
     const captureResults = execution.captures?.results
     const assertionResults = execution.assertions?.results
     const failureCategories: RunFailureCategory[] = []
@@ -948,6 +964,7 @@ export async function collectionRun(
         policy,
         tlsPolicy,
         cookies,
+        false,
         onDetail,
       )
       results.push(result)
@@ -1033,6 +1050,7 @@ export async function requestRun(
       ),
       await tlsPolicyFor(dir, settings, insecure),
       cookies,
+      true,
     )
   } finally {
     await closeCookieJar(cookies)
@@ -1222,7 +1240,7 @@ export async function environmentSet(
   const current = await env.loadEnvironment(dir, name, {
     resolveSecrets: false,
   })
-  if (current.secretVars?.[key]) {
+  if (Object.hasOwn(current.secretVars ?? {}, key)) {
     throw new Error(
       `"${key}" is a secret; use "noodle secret set ${key} --env ${name}"`,
     )
@@ -1235,6 +1253,64 @@ export async function environmentSet(
     disabledVars: Object.keys(disabled).length ? disabled : undefined,
   })
   return { environment: name, key }
+}
+
+export async function persistResponseCaptures(
+  request: Pick<Request, "captures">,
+  rawResults: CaptureResult[],
+  execution: ResponseExecutionResults,
+  environmentName: string | undefined,
+  collectionDir: string | undefined,
+): Promise<ResponseExecutionResults> {
+  if (!execution.captures?.evaluated) return execution
+  const rawByVariable = new Map(
+    rawResults.map((result) => [result.variable, result]),
+  )
+  const results: CaptureResult[] = []
+
+  for (const result of execution.captures.results) {
+    const persist = request.captures?.[result.variable]?.persist
+    const raw = rawByVariable.get(result.variable)
+    if (!persist || !result.success || !raw?.success) {
+      results.push(result)
+      continue
+    }
+
+    const value =
+      typeof raw.value === "string" ? raw.value : JSON.stringify(raw.value)
+    try {
+      if (!environmentName || !collectionDir) {
+        throw new Error("no active environment")
+      }
+      if (persist === "secret") {
+        await secretSet(result.variable, value, environmentName, collectionDir)
+      } else {
+        await environmentSet(
+          result.variable,
+          value,
+          environmentName,
+          collectionDir,
+        )
+      }
+      results.push({ ...result, persisted: persist })
+    } catch (error) {
+      results.push({
+        variable: result.variable,
+        expression: result.expression,
+        success: false,
+        failureReason: "persistence_error",
+        message:
+          persist === "secret"
+            ? redactKnownSecrets(errorMessage(error), [value])
+            : errorMessage(error),
+      })
+    }
+  }
+
+  return {
+    ...execution,
+    captures: { ...execution.captures, results },
+  }
 }
 
 export interface SecretListItem {
@@ -1264,7 +1340,11 @@ export async function secretSet(
   const current = await env.loadEnvironment(directory, name, {
     resolveSecrets: false,
   })
-  const oldPlaintext = current.vars[key] ?? current.disabledVars?.[key]
+  const oldPlaintext = Object.hasOwn(current.vars, key)
+    ? current.vars[key]
+    : Object.hasOwn(current.disabledVars ?? {}, key)
+      ? current.disabledVars?.[key]
+      : undefined
   if (oldPlaintext) await redactTimelineSecrets(collectionRoot, [oldPlaintext])
 
   const previous = await getStoredSecret(collectionRoot, name, key)
@@ -1327,7 +1407,7 @@ export async function secretDelete(
     name,
     { resolveSecrets: false },
   )
-  if (!current.secretVars?.[key]) {
+  if (!Object.hasOwn(current.secretVars ?? {}, key)) {
     throw new Error(`secret "${key}" is not declared in ${name}`)
   }
   const deleted = await deleteStoredSecret(collectionRoot, name, key)

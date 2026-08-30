@@ -629,6 +629,7 @@ export function AppInner({
     tlsPolicy,
     cookieJar,
     collectionDir,
+    envState.reloadActiveEnv,
   )
 
   const responseStateRef = useRef(responseState)

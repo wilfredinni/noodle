@@ -63,14 +63,19 @@ references and must resolve in the active environment before sending.
 
 ### Response captures
 
-An optional `capture` mapping assigns response expressions to temporary
-variables for later requests in the same ordered `collection run`:
+An optional `capture` mapping assigns response expressions to run variables and
+can persist successful captures during an individual run:
 
 ```yaml
 capture:
-  user_id: body.user.id
-  request_id: headers.x-request-id
-  optional_trace: { value: headers.x-trace, enabled: false }
+  user_id:
+    value: body.user.id
+  access_token:
+    value: body.access_token
+    persist: secret
+  optional_trace:
+    value: headers.x-trace
+    enabled: false
 ```
 
 Variable names must match `^\w+$`. Expressions use the same grammar as
@@ -78,10 +83,13 @@ assertions and are validated while loading the request, before it can be sent.
 Duplicate mapping keys are invalid YAML. Capture expressions themselves are
 never variable-substituted.
 
-The string form is shorthand for `{ value: "...", enabled: true }`. Use the
-expanded form with `enabled: false` to keep a capture declaration without
-evaluating it. Disabled declarations are still validated while loading, but
-they produce no result, failure, summary count, or RunScope mutation.
+Every entry must be an object with required string `value`, optional
+`persist: secret|environment`, and optional boolean `enabled`. Unknown fields,
+invalid persistence values, and scalar shorthand are rejected. Omitted
+`enabled` normalizes to `true`; canonical YAML uses multiline fields ordered
+`value`, `persist`, then `enabled` and omits transient persistence and
+`enabled: true`. Disabled declarations are still validated while loading but
+produce no result, failure, summary count, RunScope mutation, or write.
 
 Environment values and resolved declared secrets load first. RunScope values
 then override same-named values, and the latest successful capture wins. String
@@ -97,10 +105,17 @@ them. A capture failure fails the request and command, but a collection run
 continues in collection order.
 
 One scope exists for each top-level `request run`, `collection run`, or manual
-TUI send. It is discarded when that call returns and never modifies request
-YAML, environment files, collection settings, or timeline history. Manual TUI
-sends show redacted capture outcomes in the response Results tab but never make
-captured values available to a later send.
+TUI send. Transient values are discarded when it returns and never modify
+request YAML, collection settings, or timeline history. During manual TUI sends
+and CLI `request run`, a successful `persist: environment` capture overwrites
+and enables a plaintext value but refuses to replace a declared secret;
+`persist: secret` stores the value in the OS vault and leaves only its blank
+secret declaration in `.env`. The active or `--env`/settings environment is
+required. Persistence runs sequentially in declaration order, keeps partial
+successes, and a failed write fails the capture without discarding the HTTP
+response. CLI `collection run` and the TUI Runner ignore persistence and keep
+the shared scope transient. Secret capture values are always fully redacted
+from capture results, including collection runs.
 
 ### Response assertions
 

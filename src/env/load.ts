@@ -8,6 +8,15 @@ export interface LoadEnvironmentOptions {
   resolveSecrets?: boolean
 }
 
+function setOwn<T>(record: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(record, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  })
+}
+
 export async function loadEnvironment(
   dir: string,
   name: string,
@@ -93,8 +102,8 @@ export async function loadEnvironment(
           throw new Error(`env.load: secret "${key}" must have a blank value`)
         }
         declarations.set(key, false)
-        secretVars[key] = "disabled"
-        disabledVars[key] = ""
+        setOwn(secretVars, key, "disabled")
+        setOwn(disabledVars, key, "")
         pendingSecret = undefined
       } else {
         if (declarations.has(key)) {
@@ -102,7 +111,7 @@ export async function loadEnvironment(
             `env.load: secret "${key}" is declared more than once`,
           )
         }
-        disabledVars[key] = value
+        setOwn(disabledVars, key, value)
       }
       continue
     }
@@ -146,7 +155,7 @@ export async function loadEnvironment(
       if (declarations.has(key)) {
         throw new Error(`env.load: secret "${key}" is declared more than once`)
       }
-      vars[key] = value
+      setOwn(vars, key, value)
     }
   }
 
@@ -157,12 +166,12 @@ export async function loadEnvironment(
   for (const [key, enabled] of declarations) {
     if (!enabled) continue
     if (options.resolveSecrets === false) {
-      secretVars[key] = "missing"
+      setOwn(secretVars, key, "missing")
       continue
     }
     const resolved = await resolveStoredSecret(dirname(dir), name, key)
-    secretVars[key] = resolved.status
-    if (resolved.value !== undefined) vars[key] = resolved.value
+    setOwn(secretVars, key, resolved.status)
+    if (resolved.value !== undefined) setOwn(vars, key, resolved.value)
   }
 
   return {

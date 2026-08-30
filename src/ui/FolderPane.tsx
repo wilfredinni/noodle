@@ -225,6 +225,7 @@ export function FolderPane({
                         ? (row, addingRow, subfield) => {
                             onPaneFocus?.()
                             onInteraction?.()
+                            if (subfield === "persist") return
                             onFieldActivate("headers", row, addingRow, subfield)
                           }
                         : undefined

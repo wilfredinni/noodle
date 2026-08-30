@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react"
 import type {
   AssertionOperator,
   Auth,
+  CapturePersistence,
   Request,
   Environment,
   Response,
@@ -40,6 +41,10 @@ interface Props {
   setEditValue: (v: string) => void
   editOperator?: AssertionOperator
   setEditOperator?: (operator: AssertionOperator) => void
+  editCapturePersistence?: CapturePersistence | "transient"
+  setEditCapturePersistence?: (
+    persist: CapturePersistence | "transient",
+  ) => void
   editError?: string | null
   focused?: boolean
   activeTab: FieldKind
@@ -98,6 +103,8 @@ export function RequestPane({
   setEditValue,
   editOperator = "equals",
   setEditOperator = () => {},
+  editCapturePersistence = "transient",
+  setEditCapturePersistence = () => {},
   editError = null,
   focused = false,
   activeTab,
@@ -563,6 +570,8 @@ export function RequestPane({
                       editValue={editValue}
                       setEditKey={setEditKey}
                       setEditValue={setEditValue}
+                      editCapturePersistence={editCapturePersistence}
+                      setEditCapturePersistence={setEditCapturePersistence}
                       theme={theme}
                       activeEnv={activeEnv}
                       completionValues={responseExpressionSuggestions(response)}
@@ -590,6 +599,9 @@ export function RequestPane({
                             }
                           : undefined
                       }
+                      onSubfieldFocus={onFieldSubfieldFocus}
+                      onSelectOpenChange={onSelectOpenChange}
+                      interactive={interactive}
                     />
                   )}
                   {activeTab === "settings" && (

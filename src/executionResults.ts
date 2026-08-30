@@ -4,7 +4,11 @@ import type { ProxyPolicy } from "./proxy"
 import type { TlsPolicy } from "./tls"
 import { createResponseResolver } from "./response"
 import { evaluateCaptures, type CaptureResult, RunScope } from "./runScope"
-import { environmentSecretValues, redactKnownSecrets } from "./secrets/redact"
+import {
+  environmentSecretValues,
+  REDACTED,
+  redactKnownSecrets,
+} from "./secrets/redact"
 
 export interface ExecutionResultGroup<T> {
   evaluated: boolean
@@ -52,9 +56,11 @@ export function evaluateResponseExecution(
   response: Response,
   runScope: RunScope,
   secretValues: string[] = [],
+  onRawCaptures?: (results: CaptureResult[]) => void,
 ): ResponseExecutionResults {
   const resolve = createResponseResolver(response)
-  const redact = (value: string) => redactKnownSecrets(value, secretValues)
+  const redact = (value: string) =>
+    redactKnownSecrets(value, [...secretValues, ...runScope.secretValues()])
   const hasCaptures = Object.values(request.captures ?? {}).some(
     (capture) => capture.enabled,
   )
@@ -65,11 +71,24 @@ export function evaluateResponseExecution(
     ? evaluateCaptures(request.captures!, resolve)
     : undefined
   for (const result of rawCaptures ?? []) {
-    if (result.success) runScope.set(result.variable, result.value)
+    if (result.success) {
+      runScope.set(
+        result.variable,
+        result.value,
+        request.captures?.[result.variable]?.persist === "secret",
+      )
+    }
   }
+  if (rawCaptures) onRawCaptures?.(rawCaptures)
   const captures = rawCaptures?.map((result): CaptureResult =>
     result.success
-      ? { ...result, value: redactExecutionValue(result.value, redact) }
+      ? {
+          ...result,
+          value:
+            request.captures?.[result.variable]?.persist === "secret"
+              ? REDACTED
+              : redactExecutionValue(result.value, redact),
+        }
       : { ...result, message: redact(result.message) },
   )
   const assertions = hasAssertions

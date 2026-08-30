@@ -117,6 +117,8 @@ export function RequestResponseView({
       setEditValue={eb.setEditValue}
       editOperator={eb.editOperator}
       setEditOperator={eb.setEditOperator}
+      editCapturePersistence={eb.editCapturePersistence}
+      setEditCapturePersistence={eb.setEditCapturePersistence}
       editError={eb.editError}
       focused={requestVisible && focus === "request"}
       activeTab={eb.activeTab}

@@ -12,7 +12,7 @@ export type FieldKind =
 export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
-export type FieldSubfield = "key" | "operator" | "value"
+export type FieldSubfield = "key" | "operator" | "value" | "persist"
 
 export interface FieldCursor {
   field: FieldKind
@@ -223,6 +223,12 @@ export function toggleSubfield(prev: EditState): EditState {
     const current = prev.cursor.subfield ?? "key"
     const next: FieldSubfield =
       current === "key" ? "operator" : current === "operator" ? "value" : "key"
+    return { ...prev, cursor: { ...prev.cursor, subfield: next } }
+  }
+  if (field === "captures") {
+    const current = prev.cursor.subfield ?? "key"
+    const next: FieldSubfield =
+      current === "key" ? "value" : current === "value" ? "persist" : "key"
     return { ...prev, cursor: { ...prev.cursor, subfield: next } }
   }
   const current = prev.cursor.subfield ?? "key"

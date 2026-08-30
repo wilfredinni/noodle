@@ -1,19 +1,36 @@
-import type { KvEntry, Environment } from "../schema"
+import type {
+  CaptureEntry,
+  CapturePersistence,
+  KvEntry,
+  Environment,
+} from "../schema"
 import { MouseButton } from "@opentui/core"
 import { Fragment, useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
 import { VarInput } from "./VarInput"
+import { Select } from "./Select"
+
+const CAPTURE_PERSISTENCE_ITEMS = [
+  { id: "transient", label: "Run only" },
+  { id: "secret", label: "Secret" },
+  { id: "environment", label: "Environment" },
+]
+const CAPTURE_PERSISTENCE_WIDTH = 15
 
 export interface KeyValueSectionProps {
   kind: "headers" | "params" | "pathParams" | "captures"
-  entries: Array<{ key: string; value: KvEntry }>
+  entries: Array<{ key: string; value: KvEntry | CaptureEntry }>
   editState: EditState
   editKey: string
   editValue: string
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
+  editCapturePersistence?: CapturePersistence | "transient"
+  setEditCapturePersistence?: (
+    persist: CapturePersistence | "transient",
+  ) => void
   theme: Theme
   activeEnv?: Environment | null
   completionValues?: readonly string[]
@@ -21,9 +38,12 @@ export interface KeyValueSectionProps {
   onActivateRow?: (
     row: number,
     addingRow: boolean,
-    subfield?: "key" | "value",
+    subfield?: "key" | "value" | "persist",
   ) => void
+  onSubfieldFocus?: (subfield: "key" | "value" | "persist") => void
   onToggleRow?: (row: number) => void
+  onSelectOpenChange?: (open: boolean) => void
+  interactive?: boolean
 }
 
 export function KeyValueSection({
@@ -34,12 +54,17 @@ export function KeyValueSection({
   editValue,
   setEditKey,
   setEditValue,
+  editCapturePersistence = "transient",
+  setEditCapturePersistence = () => {},
   theme,
   activeEnv,
   completionValues,
   editError,
   onActivateRow,
+  onSubfieldFocus,
   onToggleRow,
+  onSelectOpenChange,
+  interactive = true,
 }: KeyValueSectionProps) {
   const rows = entries
   const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
@@ -75,6 +100,42 @@ export function KeyValueSection({
       ? editState.cursor.row
       : -1
   const editingAdd = inEdit && cursorHere && editState.cursor.addingRow
+
+  const persistenceSelect = (
+    row: number,
+    addingRow: boolean,
+    editing: boolean,
+    selected: boolean,
+    value: CapturePersistence | "transient",
+    dimmed: boolean,
+  ) =>
+    kind === "captures" ? (
+      <box
+        width={CAPTURE_PERSISTENCE_WIDTH}
+        onMouseDown={(event) => {
+          if (event.button === MouseButton.LEFT) event.stopPropagation()
+        }}
+      >
+        <Select
+          items={CAPTURE_PERSISTENCE_ITEMS}
+          value={value}
+          focused={editing && editState.cursor.subfield === "persist"}
+          visualFocused={selected && editState.cursor.subfield === "persist"}
+          onActivate={() => {
+            if (editing) onSubfieldFocus?.("persist")
+            else onActivateRow?.(row, addingRow, "persist")
+          }}
+          onChange={(next) =>
+            setEditCapturePersistence(next as CapturePersistence | "transient")
+          }
+          onOpenChange={onSelectOpenChange}
+          interactive={interactive}
+          triggerColor={dimmed ? theme.textMuted : undefined}
+          width={CAPTURE_PERSISTENCE_WIDTH}
+          dropdownAlign="right"
+        />
+      </box>
+    ) : null
 
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
@@ -130,6 +191,7 @@ export function KeyValueSection({
             paddingX={1}
             style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
           />
+          {persistenceSelect(-1, true, false, false, "transient", true)}
         </box>
       ) : (
         <>
@@ -260,6 +322,16 @@ export function KeyValueSection({
                       style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                     />
                   </box>
+                  {persistenceSelect(
+                    i,
+                    false,
+                    isEditingThisRow,
+                    cursorOnThisRow || isEditingThisRow,
+                    isEditingThisRow
+                      ? editCapturePersistence
+                      : ((kv as CaptureEntry).persist ?? "transient"),
+                    dimmed,
+                  )}
                 </box>
                 {isEditingThisRow && editError ? (
                   <text fg={theme.error}> {editError}</text>
@@ -379,6 +451,15 @@ export function KeyValueSection({
                           style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                         />
                       </box>
+                      {persistenceSelect(
+                        -1,
+                        true,
+                        editingAdd,
+                        cursorHere && editState.cursor.addingRow,
+                        editingAdd ? editCapturePersistence : "transient",
+                        !editingAdd &&
+                          !(cursorHere && editState.cursor.addingRow),
+                      )}
                     </box>
                     {editingAdd && editError ? (
                       <text fg={theme.error}> {editError}</text>
