@@ -1,11 +1,15 @@
 import { describe, expect, it } from "bun:test"
 import { act, useRef, useState } from "react"
-import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core"
+import {
+  RGBA,
+  type BoxRenderable,
+  type ScrollBoxRenderable,
+} from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { createTestRender } from "../testRender"
-import { ThemeProvider } from "../../src/ui/theme"
+import { THEMES, ThemeProvider } from "../../src/ui/theme"
 import { CollectionRunnerView } from "../../src/ui/CollectionRunnerView"
 import { useCollectionRunner } from "../../src/hooks/useCollectionRunner"
 import { LeftBar } from "../../src/ui/borders"
@@ -13,6 +17,7 @@ import type { UseCollectionRunnerResult } from "../../src/hooks/useCollectionRun
 import type { Focus } from "../../src/ui/focus"
 import type { Collection } from "../../src/schema"
 import type { collectionRun } from "../../src/app/services"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
 const collection: Collection = {
@@ -101,6 +106,7 @@ describe("CollectionRunnerView", () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
+    let finishRun: (() => void) | null = null
     const runCollection = (async () => {
       const results = multiRequestCollection.items.map((item) => {
         if (item.type !== "request") throw new Error("expected request")
@@ -119,6 +125,9 @@ describe("CollectionRunnerView", () => {
             timeMs: 1,
           },
         }
+      })
+      await new Promise<void>((resolve) => {
+        finishRun = resolve
       })
       return {
         results,
@@ -193,10 +202,56 @@ describe("CollectionRunnerView", () => {
       requestRows[2]!.indexOf("#smoke"),
     )
     expect(requestRows.join("\n")).not.toContain("…")
-    await act(async () => current!.run())
+    const tagColumn = requestRows[0]!.indexOf("#smoke")
+    await act(async () => current!.setIncludeTag("s"))
     await render.renderOnce()
+    const filteredRows = render
+      .captureCharFrame()
+      .split("\n")
+      .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
+    expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
+    await act(async () => current!.setIncludeTag(""))
+    await render.renderOnce()
+    const runButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    expect(runButton.width).toBe("r Run 3 requests".length + 2)
+    expect(
+      runButton.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
+    ).toBe(true)
+    await act(async () => {
+      await render.mockMouse.click(
+        runButton.screenX + 1,
+        runButton.screenY,
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.moveTo(0, 0)
+      await Promise.resolve()
+    })
+    await render.renderOnce()
+    expect(current!.phase).toBe("running")
+    expect(render.captureCharFrame()).toContain("r Run 3 requests")
+    await act(async () => {
+      finishRun?.()
+      await Promise.resolve()
+    })
+    await render.renderOnce()
+    expect(current!.optionIndex).toBe(0)
     const resultFrame = render.captureCharFrame()
+    expect(resultFrame).toContain("PASS  3/3 requests · 1ms")
+    expect(resultFrame).toContain("0 assertions passed · no capture failures")
+    expect(resultFrame).not.toContain("0 skipped")
     expect(resultFrame).toMatch(/one\s+GET 200 OK/)
+    const resultLines = resultFrame.split("\n")
+    const summaryLine = resultLines.findIndex((line) =>
+      line.includes("0 assertions passed"),
+    )
+    const firstResultLine = resultLines.findIndex((line) =>
+      /PASS\s+one\s+GET 200 OK/.test(line),
+    )
+    expect(firstResultLine - summaryLine).toBe(2)
     const first = render.renderer.root.findDescendantById("runner-result-0")!
     const second = render.renderer.root.findDescendantById("runner-result-1")!
     expect(first.height).toBe(1)
@@ -245,15 +300,15 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 80, height: 24 })
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    for (const label of ["Scope", "Environment", "Include tag", "Health"]) {
+    for (const label of ["Scope", "Environment", "Health"]) {
       expect(frame).toContain(label)
     }
-    for (const index of [3, 4, 5]) {
+    for (const index of [2, 3]) {
       expect(
         render.renderer.root.findDescendantById(`runner-option-${index}`),
       ).not.toBeNull()
     }
-    for (const index of [0, 1, 2, 3, 4, 5]) {
+    for (const index of [0, 1, 2, 3]) {
       const option = render.renderer.root.findDescendantById(
         `runner-option-${index}`,
       ) as BoxRenderable
@@ -263,14 +318,130 @@ describe("CollectionRunnerView", () => {
       "Run every request in the collection or selected folder.",
     )
     expect(frame).toContain("Select the environment used for this run.")
-    await act(async () => current!.setOptionIndex(5))
+    await act(async () => current!.setOptionIndex(3))
     await render.renderOnce()
     await render.renderOnce()
     const scrolled = render.captureCharFrame()
+    const failFast = render.renderer.root.findDescendantById("runner-option-3")!
+    const runButton =
+      render.renderer.root.findDescendantById("runner-run-button")!
+    expect(runButton.screenY).toBeGreaterThan(failFast.screenY)
     expect(scrolled).toContain("Exclude tag")
     expect(scrolled).toContain("Fail fast")
-    expect(scrolled).toContain("Run 1 request")
     expect(scrolled).toContain("Save")
+    cleanup()
+  })
+
+  it("switches between every Runner option by keyboard and mouse", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let current: UseCollectionRunnerResult | null = null
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      const runner = useCollectionRunner({
+        collection,
+        collectionDir: "/tmp/collection",
+        folderPath: null,
+        activeEnvironment: "development",
+        environmentNames: ["development", "staging"],
+        hasUnsavedChanges: false,
+        noProxy: false,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 1,
+      })
+      current = runner
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-options"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onOpenResultDetail={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    const render = await testRender(<Harness />, { width: 100, height: 28 })
+    await render.renderOnce()
+
+    const clickOption = async (index: number) => {
+      const option = render.renderer.root.findDescendantById(
+        `runner-option-${index}`,
+      )!
+      await act(async () => {
+        await render.mockMouse.click(
+          option.screenX + 1,
+          option.screenY,
+          MouseButtons.LEFT,
+        )
+        await render.renderOnce()
+        await render.mockMouse.moveTo(0, 0)
+      })
+    }
+
+    await clickOption(1)
+    expect(current!.optionIndex).toBe(1)
+    const runButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    expect(
+      runButton.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
+    ).toBe(true)
+    await act(async () => render.mockInput.typeText("smoke"))
+    await act(async () => render.renderOnce())
+    expect(current!.includeTag).toBe("smoke")
+    await clickOption(2)
+    expect(current!.optionIndex).toBe(2)
+    await act(async () => render.mockInput.typeText("destructive"))
+    await act(async () => render.renderOnce())
+    expect(current!.excludeTag).toBe("destructive")
+
+    const environment = render.renderer.root.findDescendantById(
+      "runner-option-0",
+    ) as BoxRenderable
+    const environmentContent = environment.getChildren()[1] as BoxRenderable
+    const environmentSelect = environmentContent.getChildren()[0]!
+    await act(async () => {
+      await render.mockMouse.click(
+        environmentSelect.screenX + 1,
+        environmentSelect.screenY,
+        MouseButtons.LEFT,
+      )
+      await render.renderOnce()
+      await render.mockMouse.moveTo(0, 0)
+    })
+    expect(current!.selectOpen).toBe(true)
+    await act(async () => host.press("escape"))
+    await render.renderOnce()
+
+    await clickOption(3)
+    expect(current!.failFast).toBe(true)
+
+    await act(async () => {
+      current!.setIncludeTag("")
+      current!.setExcludeTag("")
+      current!.setOptionIndex(0)
+    })
+    await render.renderOnce()
+    await act(async () => host.press("return"))
+    await render.renderOnce()
+    expect(current!.selectOpen).toBe(true)
+    expect(render.captureCharFrame()).toContain("Collection default")
+    expect(
+      runButton.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
+    ).toBe(true)
+
+    await act(async () => host.press("escape"))
+    await render.renderOnce()
+    expect(current!.selectOpen).toBe(false)
     cleanup()
   })
 
@@ -616,11 +787,14 @@ describe("CollectionRunnerView", () => {
     const frame = render.captureCharFrame()
     expect(frame).toContain("Select")
     expect(frame).toContain("Results")
-    expect(frame).toContain("1 passed · 0 failed · 1/2 executed")
+    expect(frame).toContain("PASS  1/1 request · 7ms")
+    expect(frame).toContain(
+      "1 assertion passed · no capture failures · 1 skipped",
+    )
     expect(frame).toMatch(/PASS\s+health\s+GET 200 OK · 7ms/)
     expect(frame).toContain("⏎")
     expect(
-      frame.split("\n").find((line) => line.includes("skipped")),
+      frame.split("\n").find((line) => line.includes("SKIPPED")),
     ).not.toContain("⏎")
     expect(frame).not.toContain('{"ready":true}')
 
@@ -674,11 +848,12 @@ describe("CollectionRunnerView", () => {
     cleanup()
   })
 
-  it("moves focus to the visible pane when the phase changes", async () => {
+  it("focuses results once and preserves later pane changes", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
     let currentFocus: Focus = "runner-options"
+    let setCurrentFocus: ((focus: Focus) => void) | null = null
     const runCollection = (async () => ({
       results: [],
       skipped: [],
@@ -714,6 +889,7 @@ describe("CollectionRunnerView", () => {
       })
       current = runner
       currentFocus = focus
+      setCurrentFocus = setFocus
       return (
         <KeymapProvider
           keymap={
@@ -739,9 +915,13 @@ describe("CollectionRunnerView", () => {
     await render.renderOnce()
     expect(currentFocus as Focus).toBe("runner-requests")
 
+    await act(async () => setCurrentFocus!("runner-options"))
+    await render.renderOnce()
+    expect(currentFocus as Focus).toBe("runner-options")
+
     await act(async () => current!.showConfigure())
     await render.renderOnce()
-    expect(currentFocus as Focus).toBe("runner-requests")
+    expect(currentFocus as Focus).toBe("runner-options")
     cleanup()
   })
 })

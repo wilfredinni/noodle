@@ -6,14 +6,16 @@ import {
   type RefObject,
 } from "react"
 import {
+  fg,
   MouseButton,
+  t,
   TextAttributes,
   type BoxRenderable,
-  type InputRenderable,
   type ScrollBoxRenderable,
 } from "@opentui/core"
 import { stringWidth } from "bun"
 import { useTerminalDimensions } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import type { Focus } from "./focus"
 import type {
   RunnerResultRow,
@@ -22,7 +24,7 @@ import type {
 import type { CollectionItem, Request } from "../schema"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
-import { FullBorder, LeftBar } from "./borders"
+import { FullBorder } from "./borders"
 import { Tabs } from "./Tabs"
 import { Checkbox } from "./Checkbox"
 import { Select } from "./Select"
@@ -30,23 +32,21 @@ import { CookieRow } from "./CookieRow"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
 import { flattenRequests } from "./tree"
+import { ActionButton } from "./ActionButton"
+import { SettingsField } from "./settings/SettingsField"
 
 const OPTION_LABELS = [
-  "Scope",
   "Environment",
   "Include tag",
   "Exclude tag",
   "Fail fast",
-  "Run",
 ] as const
 
 const OPTION_DESCRIPTIONS = [
-  "Run every request in the collection or selected folder.",
   "Select the environment used for this run.",
   "Only run requests with this tag.",
   "Skip requests with this tag.",
   "Stop running after the first failed request.",
-  "Run the selected requests with the options above.",
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
@@ -144,9 +144,9 @@ export function CollectionRunnerView({
   onOpenResultDetail: (index: number) => void
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const { width = 100 } = useTerminalDimensions()
   const stacked = width < 100
-  const inputRef = useRef<InputRenderable | null>(null)
   const optionScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const requestScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const splitContainerRef = useRef<BoxRenderable | null>(null)
@@ -155,16 +155,24 @@ export function CollectionRunnerView({
   const lastSplitClickRef = useRef<(ResizeClick & { stacked: boolean }) | null>(
     null,
   )
+  const previousPhaseRef = useRef<typeof runner.phase | null>(null)
   const [splitRatio, setSplitRatio] = useState(0.5)
 
   useEffect(() => {
-    optionScrollRef.current?.scrollChildIntoView(
-      `runner-option-${runner.optionIndex}`,
-    )
+    if (runner.optionIndex < OPTION_LABELS.length) {
+      optionScrollRef.current?.scrollChildIntoView(
+        `runner-option-${runner.optionIndex}`,
+      )
+    }
   }, [runner.optionIndex])
   useEffect(() => {
-    if (runner.editingOption) inputRef.current?.focus()
-  }, [runner.editingOption])
+    const textInputActive =
+      runner.phase !== "running" &&
+      focus === "runner-options" &&
+      (runner.optionIndex === 1 || runner.optionIndex === 2)
+    keymap.setData("app.text-input", textInputActive)
+    return () => keymap.setData("app.text-input", false)
+  }, [focus, keymap, runner.optionIndex, runner.phase])
   useEffect(() => {
     requestScrollRef.current?.scrollChildIntoView(
       `runner-row-${runner.requestRowIndex}`,
@@ -193,13 +201,7 @@ export function CollectionRunnerView({
     Math.max(0, ...requestTagLabels.map((label) => stringWidth(label))),
     Math.floor(requestBaseLabelWidth / 2),
   )
-  const hasFilteredRequests = runner.requests.some(
-    (request) =>
-      runner.selectedIds.has(request.id) && !runner.matchedIds.has(request.id),
-  )
-  const filteredColumnWidth = hasFilteredRequests
-    ? stringWidth("filtered") + 1
-    : 0
+  const filteredColumnWidth = stringWidth("filtered") + 1
   const requestLabelWidth = Math.max(
     0,
     requestBaseLabelWidth -
@@ -226,10 +228,7 @@ export function CollectionRunnerView({
     backgroundColor: theme.backgroundPanel,
   }
   const activeTab = runner.phase === "results" ? "results" : "select"
-  const configurationLocked =
-    runner.phase === "running" ||
-    runner.editingOption !== null ||
-    runner.selectOpen
+  const configurationLocked = runner.phase === "running" || runner.selectOpen
 
   const splitPaneStyle = (first: boolean) => {
     const ratio = first ? splitRatio : 1 - splitRatio
@@ -268,15 +267,16 @@ export function CollectionRunnerView({
   )
 
   useLayoutEffect(() => {
-    if (runner.phase === "results" && focus !== "runner-requests") {
-      onPaneFocus("runner-requests")
-    } else if (
-      runner.phase !== "results" &&
-      focus !== "runner-options" &&
-      focus !== "runner-requests"
-    ) {
-      onPaneFocus("runner-options")
+    const previousPhase = previousPhaseRef.current
+    previousPhaseRef.current = runner.phase
+    if (runner.phase === "results" && previousPhase !== "results") {
+      if (focus !== "runner-requests") onPaneFocus("runner-requests")
+      return
     }
+    if (focus !== "runner-options" && focus !== "runner-requests")
+      onPaneFocus(
+        runner.phase === "results" ? "runner-requests" : "runner-options",
+      )
   }, [focus, onPaneFocus, runner.phase])
 
   return (
@@ -354,107 +354,97 @@ export function CollectionRunnerView({
             }}
           >
             <box style={{ flexDirection: "column", gap: 1 }}>
+              <box style={{ flexDirection: "column" }}>
+                <text fg={theme.text}>{`Scope: ${runner.scopeLabel}`}</text>
+                <text fg={theme.textMuted} wrapMode="word">
+                  Run every request in the collection or selected folder.
+                </text>
+              </box>
               {OPTION_LABELS.map((label, index) => {
                 const active =
                   focus === "runner-options" && runner.optionIndex === index
-                const backgroundColor = active
-                  ? theme.backgroundElement
-                  : undefined
                 return (
-                  <box key={label} style={{ flexDirection: "column" }}>
-                    <box
-                      id={`runner-option-${index}`}
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={active ? theme.primary : theme.borderSubtle}
-                      style={{ flexDirection: "column", backgroundColor }}
-                      onMouseDown={(event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        if (configurationLocked) {
-                          event.stopPropagation()
-                          return
+                  <SettingsField
+                    key={label}
+                    id={`runner-option-${index}`}
+                    title={label}
+                    description={OPTION_DESCRIPTIONS[index]}
+                    active={active}
+                    onMouseDown={() => {
+                      if (configurationLocked) return
+                      onPaneFocus("runner-options")
+                      runner.setOptionIndex(index)
+                      if (index === 3) runner.toggleFailFast()
+                    }}
+                  >
+                    {index === 0 ? (
+                      <Select
+                        items={[
+                          { id: "", label: "Collection default" },
+                          ...runner.environmentNames.map((name) => ({
+                            id: name,
+                            label: name,
+                          })),
+                        ]}
+                        value={runner.environmentName ?? ""}
+                        focused={active}
+                        visualFocused={active}
+                        interactive={runner.phase !== "running"}
+                        onActivate={() => runner.setOptionIndex(0)}
+                        onOpenChange={runner.setSelectOpen}
+                        onChange={(name) =>
+                          runner.setEnvironmentName(name || null)
                         }
-                        onPaneFocus("runner-options")
-                        runner.setOptionIndex(index)
-                        if (index === 2) runner.beginOptionEdit("include")
-                        else if (index === 3) runner.beginOptionEdit("exclude")
-                        else if (index === 4) runner.toggleFailFast()
-                        else if (index === 5) void runner.run()
-                        event.stopPropagation()
-                      }}
-                    >
-                      {index === 0 ? (
-                        <text fg={theme.text}>
-                          {`${label}: ${runner.scopeLabel}`}
-                        </text>
-                      ) : index === 1 ? (
-                        <box style={{ flexDirection: "row", gap: 1 }}>
-                          <text fg={theme.text}>{`${label}:`}</text>
-                          <Select
-                            items={[
-                              { id: "", label: "Collection default" },
-                              ...runner.environmentNames.map((name) => ({
-                                id: name,
-                                label: name,
-                              })),
-                            ]}
-                            value={runner.environmentName ?? ""}
-                            focused={active}
-                            visualFocused={active}
-                            interactive={!configurationLocked}
-                            onActivate={() => runner.setOptionIndex(1)}
-                            onOpenChange={runner.setSelectOpen}
-                            onChange={(name) =>
-                              runner.setEnvironmentName(name || null)
-                            }
-                            fitContent
-                          />
-                        </box>
-                      ) : index === 2 || index === 3 ? (
-                        <box style={{ flexDirection: "row", gap: 1 }}>
-                          <text fg={theme.text}>{`${label}:`}</text>
-                          {runner.editingOption ===
-                          (index === 2 ? "include" : "exclude") ? (
-                            <input
-                              ref={inputRef}
-                              value={runner.editValue}
-                              onInput={runner.setEditValue}
-                              placeholder="tag"
-                              backgroundColor={theme.backgroundElement}
-                              focusedBackgroundColor={theme.backgroundElement}
-                              textColor={theme.text}
-                              cursorColor={theme.primary}
-                              style={{ flexGrow: 1 }}
-                            />
-                          ) : (
-                            <text fg={theme.text}>
-                              {(index === 2
-                                ? runner.includeTag
-                                : runner.excludeTag) || "Any"}
-                            </text>
-                          )}
-                        </box>
-                      ) : index === 4 ? (
-                        <box style={{ flexDirection: "row", gap: 1 }}>
-                          <text fg={theme.text}>{`${label}:`}</text>
-                          <Checkbox checked={runner.failFast} theme={theme} />
-                        </box>
-                      ) : (
-                        <text
-                          fg={runner.canRun ? theme.primary : theme.textMuted}
-                          attributes={TextAttributes.BOLD}
-                        >
-                          Run {runner.matchedIds.size} request
-                          {runner.matchedIds.size === 1 ? "" : "s"}
-                        </text>
-                      )}
-                    </box>
-                    <text fg={theme.textMuted}>
-                      {OPTION_DESCRIPTIONS[index]}
-                    </text>
-                  </box>
+                        fitContent
+                      />
+                    ) : index === 1 || index === 2 ? (
+                      <input
+                        id={
+                          index === 1
+                            ? "runner-include-tag-input"
+                            : "runner-exclude-tag-input"
+                        }
+                        value={
+                          index === 1 ? runner.includeTag : runner.excludeTag
+                        }
+                        onInput={
+                          index === 1
+                            ? runner.setIncludeTag
+                            : runner.setExcludeTag
+                        }
+                        onMouseDown={() => {
+                          if (runner.phase === "running") return
+                          onPaneFocus("runner-options")
+                          runner.setOptionIndex(index)
+                        }}
+                        focused={active && runner.phase !== "running"}
+                        placeholder="Any"
+                        backgroundColor="transparent"
+                        focusedBackgroundColor="transparent"
+                        textColor={theme.text}
+                        cursorColor={theme.primary}
+                        placeholderColor={theme.textMuted}
+                        paddingX={0}
+                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                      />
+                    ) : (
+                      <Checkbox checked={runner.failFast} theme={theme} />
+                    )}
+                  </SettingsField>
                 )
               })}
+              <box style={{ flexDirection: "row" }}>
+                <ActionButton
+                  id="runner-run-button"
+                  shortcut="r"
+                  label={`Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`}
+                  disabled={!runner.runAvailable && runner.phase !== "running"}
+                  onAction={() => {
+                    onPaneFocus("runner-options")
+                    void runner.run()
+                  }}
+                />
+              </box>
             </box>
           </scrollbox>
           {hasUnsavedChanges ? (
@@ -467,16 +457,6 @@ export function CollectionRunnerView({
           ) : null}
           {runner.runError ? (
             <text fg={theme.error}>{runner.runError}</text>
-          ) : null}
-          {runner.phase === "running" ? (
-            <>
-              <text fg={theme.primary}>
-                {`Running ${runner.progress.completed}/${runner.progress.total}`}
-              </text>
-              <text fg={theme.textMuted}>
-                Run in progress. Escape is unavailable.
-              </text>
-            </>
           ) : null}
         </Frame>
         {splitHandle}
@@ -675,14 +655,23 @@ export function CollectionRunnerView({
                 <box style={{ flexDirection: "column", gap: 0 }}>
                   {runner.result ? (
                     <>
+                      <box style={{ flexDirection: "row" }}>
+                        <text
+                          fg={
+                            runner.result.failed ? theme.error : theme.success
+                          }
+                          attributes={TextAttributes.BOLD}
+                        >
+                          {runner.result.failed ? "FAIL" : "PASS"}
+                        </text>
+                        <text fg={theme.text}>
+                          {`  ${runner.result.summary.requestSuccesses}/${runner.result.summary.executed} request${runner.result.summary.executed === 1 ? "" : "s"} · ${runner.result.summary.durationMs}ms`}
+                        </text>
+                      </box>
                       <text
-                        fg={runner.result.failed ? theme.error : theme.success}
-                      >
-                        {`${runner.result.summary.requestSuccesses} passed · ${runner.result.summary.requestFailures} failed · ${runner.result.summary.executed}/${runner.result.summary.selected} executed · ${runner.result.summary.skipped} skipped`}
-                      </text>
-                      <text fg={theme.textMuted}>
-                        {`Assertions ${runner.result.summary.assertionPasses} passed, ${runner.result.summary.assertionFailures} failed · Capture failures ${runner.result.summary.captureFailures} · ${runner.result.summary.durationMs}ms`}
-                      </text>
+                        content={t`${fg(theme.textMuted)(`${runner.result.summary.assertionPasses} assertion${runner.result.summary.assertionPasses === 1 ? "" : "s"} passed`)}${fg(theme.error)(runner.result.summary.assertionFailures > 0 ? ` · ${runner.result.summary.assertionFailures} failed` : "")}${fg(runner.result.summary.captureFailures > 0 ? theme.error : theme.textMuted)(runner.result.summary.captureFailures > 0 ? ` · ${runner.result.summary.captureFailures} capture failure${runner.result.summary.captureFailures === 1 ? "" : "s"}` : " · no capture failures")}${fg(theme.warning)(runner.result.summary.skipped > 0 ? ` · ${runner.result.summary.skipped} skipped` : "")}`}
+                        style={{ marginBottom: 1 }}
+                      />
                       {runner.result.summary.failureCategories.length > 0 ? (
                         <text fg={theme.warning}>
                           {`Failure categories: ${runner.result.summary.failureCategories.join(", ")}`}

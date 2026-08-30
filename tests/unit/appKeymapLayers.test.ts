@@ -64,8 +64,15 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     cookieExpand: 0,
     cookieEdit: 0,
     runnerClose: 0,
-    runnerCancel: 0,
+    runnerActivate: 0,
+    runnerFailFast: 0,
+    runnerRun: 0,
+    runnerOptionFirst: 0,
+    runnerOptionLast: 0,
     runnerOptionDown: 0,
+    runnerOptionIndex: -1,
+    runnerConfigure: 0,
+    runnerResults: 0,
     runnerResultOpen: 0,
     cookieDelete: [] as Array<{
       kind: string
@@ -162,20 +169,28 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     runnerRef: {
       current: {
         phase: "configure",
-        editingOption: null,
         selectOpen: false,
         result: null,
         resultRows: [],
         resultIndex: 0,
         resultDetails: new Map(),
+        canRun: true,
+        optionIndex: 0,
+        setOptionIndex: (index: number) => {
+          calls.runnerOptionIndex = index
+        },
+        activateOption: () => calls.runnerActivate++,
+        run: () => calls.runnerRun++,
         optionDown: () => calls.runnerOptionDown++,
+        optionFirst: () => calls.runnerOptionFirst++,
+        optionLast: () => calls.runnerOptionLast++,
+        toggleFailFast: () => calls.runnerFailFast++,
         resultUp: () => {},
         resultDown: () => {},
         resultFirst: () => {},
         resultLast: () => {},
-        cancelOptionEdit: () => calls.runnerCancel++,
-        showConfigure: () => {},
-        showResults: () => {},
+        showConfigure: () => calls.runnerConfigure++,
+        showResults: () => calls.runnerResults++,
       },
     },
     detailScrollRef: { current: null },
@@ -354,18 +369,26 @@ describe("app keymap layers", () => {
     const disposers = register(context)
 
     host.press("down")
+    host.press("home")
+    host.press("end")
+    host.press("return")
+    host.press("r")
+    context.runner.runnerRef.current.optionIndex = 3
+    host.press("space")
+    host.press("tab")
     host.press("escape")
     expect(calls.runnerOptionDown).toBe(1)
+    expect(calls.runnerOptionFirst).toBe(1)
+    expect(calls.runnerOptionLast).toBe(1)
+    expect(calls.runnerActivate).toBe(1)
+    expect(calls.runnerFailFast).toBe(1)
+    expect(calls.runnerRun).toBe(1)
+    expect(calls.focus).toBe("runner-requests")
     expect(calls.runnerClose).toBe(1)
 
     context.runner.runnerRef.current.phase = "running"
     host.press("escape")
     expect(calls.runnerClose).toBe(1)
-
-    context.runner.runnerRef.current.phase = "configure"
-    context.runner.runnerRef.current.editingOption = "include"
-    host.press("escape")
-    expect(calls.runnerCancel).toBe(1)
 
     disposers.forEach((dispose) => dispose())
     cleanup()
@@ -429,21 +452,49 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("keeps Tab inside an active Runner input or select", () => {
+  it("moves Tab through Runner fields and blocks it for an open select or run", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "runner")
     keymap.setData("app.focus", "runner-options")
     context.global.viewRef.current = "runner"
     context.global.focusRef.current = "runner-options"
-    context.runner.runnerRef.current.editingOption = "include"
+    context.runner.runnerRef.current.optionIndex = 1
     const disposers = register(context)
 
+    host.press("r")
+    host.press("space")
+    context.runner.runnerRef.current.result = {
+      results: [],
+      skipped: [],
+      failed: false,
+      summary: {
+        selected: 0,
+        executed: 0,
+        skipped: 0,
+        requestSuccesses: 0,
+        requestFailures: 0,
+        assertionPasses: 0,
+        assertionFailures: 0,
+        captureFailures: 0,
+        durationMs: 0,
+        failureCategories: [],
+      },
+    }
+    host.press("left")
+    host.press("right")
+    expect(calls.runnerRun).toBe(0)
+    expect(calls.runnerFailFast).toBe(0)
+    expect(calls.runnerConfigure).toBe(0)
+    expect(calls.runnerResults).toBe(0)
+
     host.press("tab")
+    expect(calls.runnerOptionIndex).toBe(2)
+    context.runner.runnerRef.current.optionIndex = 2
     host.press("tab", { shift: true })
+    expect(calls.runnerOptionIndex).toBe(1)
     expect(calls.focus).toBe("")
 
-    context.runner.runnerRef.current.editingOption = null
     context.runner.runnerRef.current.selectOpen = false
     context.runner.runnerRef.current.phase = "running"
     host.press("tab")
@@ -451,7 +502,6 @@ describe("app keymap layers", () => {
     expect(calls.focus).toBe("")
 
     context.runner.runnerRef.current.phase = "configure"
-    context.runner.runnerRef.current.editingOption = null
     context.runner.runnerRef.current.selectOpen = true
     host.press("tab")
     host.press("tab", { shift: true })

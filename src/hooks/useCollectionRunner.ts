@@ -13,7 +13,6 @@ import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
 
 export type RunnerPhase = "configure" | "running" | "results"
-export type RunnerEditingOption = "include" | "exclude" | null
 export type RunnerResultRow =
   | { kind: "result"; id: string; result: RequestRunResult }
   | { kind: "skipped"; id: string; reason: "fail-fast" }
@@ -51,23 +50,25 @@ export interface UseCollectionRunnerResult {
   requestRowIndex: number
   resultIndex: number
   resultDetails: Map<string, RequestRunDetail>
-  editingOption: RunnerEditingOption
-  editValue: string
   selectOpen: boolean
   progress: { completed: number; total: number }
   result: CollectionRunResult | null
   resultRows: RunnerResultRow[]
   runError: string | null
+  runAvailable: boolean
   canRun: boolean
   setEnvironmentName: (name: string | null) => void
+  setIncludeTag: (tag: string) => void
+  setExcludeTag: (tag: string) => void
   setSelectOpen: (open: boolean) => void
-  setEditValue: (value: string) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
   setRequestRowIndex: (index: number) => void
   setResultIndex: (index: number) => void
   optionUp: () => void
   optionDown: () => void
+  optionFirst: () => void
+  optionLast: () => void
   requestUp: () => void
   requestDown: () => void
   requestFirst: () => void
@@ -80,15 +81,12 @@ export interface UseCollectionRunnerResult {
   toggleFolder: (path: string) => void
   toggleFailFast: () => void
   activateOption: () => void
-  beginOptionEdit: (option: "include" | "exclude") => void
-  commitOptionEdit: () => void
-  cancelOptionEdit: () => void
   showConfigure: () => void
   showResults: () => void
   run: () => Promise<void>
 }
 
-const OPTION_COUNT = 6
+const OPTION_COUNT = 4
 
 type RunnerNavigationRow =
   | { kind: "folder"; path: string }
@@ -158,8 +156,6 @@ export function useCollectionRunner({
   const [resultDetails, setResultDetails] = useState<
     Map<string, RequestRunDetail>
   >(new Map())
-  const [editingOption, setEditingOption] = useState<RunnerEditingOption>(null)
-  const [editValue, setEditValue] = useState("")
   const [selectOpen, setSelectOpen] = useState(false)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [result, setResult] = useState<CollectionRunResult | null>(null)
@@ -179,8 +175,6 @@ export function useCollectionRunner({
     setRequestRowIndex(0)
     setResultIndex(0)
     setResultDetails(new Map())
-    setEditingOption(null)
-    setEditValue("")
     setSelectOpen(false)
     setProgress({ completed: 0, total: 0 })
     setResult(null)
@@ -239,6 +233,8 @@ export function useCollectionRunner({
     () => setOptionIndex((index) => nextIndex(index, OPTION_COUNT, 1)),
     [],
   )
+  const optionFirst = useCallback(() => setOptionIndex(0), [])
+  const optionLast = useCallback(() => setOptionIndex(OPTION_COUNT - 1), [])
   const requestUp = useCallback(
     () =>
       setRequestRowIndex((index) =>
@@ -334,32 +330,13 @@ export function useCollectionRunner({
     if (phase !== "running") setFailFast((value) => !value)
   }, [phase])
 
-  const beginOptionEdit = useCallback(
-    (option: "include" | "exclude") => {
-      if (phase === "running") return
-      setEditingOption(option)
-      setEditValue(option === "include" ? includeTag : excludeTag)
-    },
-    [excludeTag, includeTag, phase],
-  )
-  const commitOptionEdit = useCallback(() => {
-    if (editingOption === "include") setIncludeTag(editValue)
-    if (editingOption === "exclude") setExcludeTag(editValue)
-    setEditingOption(null)
-  }, [editValue, editingOption])
-  const cancelOptionEdit = useCallback(() => {
-    setEditingOption(null)
-    setEditValue("")
-  }, [])
-
-  const canRun =
+  const runAvailable =
     phase !== "running" &&
-    editingOption === null &&
-    !selectOpen &&
     !hasUnsavedChanges &&
     selectedRequestIds.length > 0 &&
     preview.ids.size > 0 &&
     preview.error === null
+  const canRun = runAvailable && !selectOpen
 
   const run = useCallback(async () => {
     if (!canRun || runningRef.current) return
@@ -415,11 +392,8 @@ export function useCollectionRunner({
   ])
 
   const activateOption = useCallback(() => {
-    if (optionIndex === 2) beginOptionEdit("include")
-    else if (optionIndex === 3) beginOptionEdit("exclude")
-    else if (optionIndex === 4) toggleFailFast()
-    else if (optionIndex === 5) void run()
-  }, [beginOptionEdit, optionIndex, run, toggleFailFast])
+    if (optionIndex === 3) toggleFailFast()
+  }, [optionIndex, toggleFailFast])
 
   return {
     phase,
@@ -440,23 +414,25 @@ export function useCollectionRunner({
     requestRowIndex,
     resultIndex,
     resultDetails,
-    editingOption,
-    editValue,
     selectOpen,
     progress,
     result,
     resultRows,
     runError,
+    runAvailable,
     canRun,
     setEnvironmentName,
+    setIncludeTag,
+    setExcludeTag,
     setSelectOpen,
-    setEditValue,
     setOptionIndex,
     setRequestIndex,
     setRequestRowIndex,
     setResultIndex,
     optionUp,
     optionDown,
+    optionFirst,
+    optionLast,
     requestUp,
     requestDown,
     requestFirst,
@@ -469,9 +445,6 @@ export function useCollectionRunner({
     toggleFolder,
     toggleFailFast,
     activateOption,
-    beginOptionEdit,
-    commitOptionEdit,
-    cancelOptionEdit,
     showConfigure: () => result && setPhase("configure"),
     showResults: () => result && setPhase("results"),
     run,
