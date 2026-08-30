@@ -27,7 +27,7 @@ import { FullBorder } from "./borders"
 import { Tabs } from "./Tabs"
 import { Checkbox } from "./Checkbox"
 import { Select } from "./Select"
-import { CookieRow } from "./CookieRow"
+import { COOKIE_CHEVRON_WIDTH, CookieRow } from "./CookieRow"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
 import { flattenRequests } from "./tree"
@@ -57,13 +57,18 @@ function resultStatusLabel(row: RunnerResultRow): string {
   return `${row.result.response.status} ${row.result.response.statusText}`
 }
 
-function resultRowValue(row: RunnerResultRow): string {
-  if (row.kind === "skipped") return resultStatusLabel(row)
-  const status = resultStatusLabel(row)
-  const timing = row.result.response
-    ? ` · ${Math.round(row.result.response.timeMs)}ms`
-    : ""
-  return `${row.result.method} ${status}${timing}`
+function resultKindLabel(row: RunnerResultRow): string {
+  if (row.kind === "skipped") return "SKIPPED"
+  return row.result.ok ? "PASS" : "FAIL"
+}
+
+function resultMethodLabel(row: RunnerResultRow): string {
+  return row.kind === "result" ? row.result.method : ""
+}
+
+function resultTimingLabel(row: RunnerResultRow): string {
+  if (row.kind === "skipped" || !row.result.response) return ""
+  return `${Math.round(row.result.response.timeMs)}ms`
 }
 
 function requestTagLabel(tags: string[]): string {
@@ -201,26 +206,77 @@ export function CollectionRunnerView({
   const requestTagLabels = runner.requests.map((request) =>
     requestTagLabel(runner.requestTags.get(request.id) ?? []),
   )
-  const requestTagColumnWidth = Math.min(
-    Math.max(0, ...requestTagLabels.map((label) => stringWidth(label))),
-    Math.floor(requestBaseLabelWidth / 2),
-  )
-  const filteredColumnWidth = stringWidth("filtered") + 1
-  const requestLabelWidth = Math.max(
+  const requestNamePreferredWidth = Math.max(
     0,
-    requestBaseLabelWidth -
-      filteredColumnWidth -
-      (requestTagColumnWidth > 0 ? requestTagColumnWidth + 1 : 0),
-  )
-  const resultNameAvailable = Math.max(0, requestContentWidth - 14)
-  const resultValueWidth = Math.min(
-    resultNameAvailable,
-    Math.max(
-      8,
-      ...runner.resultRows.map((row) => stringWidth(` ${resultRowValue(row)}`)),
+    ...runnerRows.flatMap((row) =>
+      row.kind === "request"
+        ? [stringWidth(row.request.name) + row.depth * 2]
+        : [],
     ),
   )
-  const resultNameWidth = Math.max(0, resultNameAvailable - resultValueWidth)
+  const filteredColumnWidth = runner.requests.some(
+    (request) =>
+      runner.selectedIds.has(request.id) && !runner.matchedIds.has(request.id),
+  )
+    ? stringWidth(" filtered")
+    : 0
+  const requestColumnsWidth = Math.max(
+    0,
+    requestBaseLabelWidth - filteredColumnWidth,
+  )
+  const requestLabelWidth = Math.min(
+    requestNamePreferredWidth,
+    requestColumnsWidth,
+  )
+  const requestTagColumnWidth = Math.min(
+    Math.max(
+      0,
+      ...requestTagLabels.map((label) =>
+        label ? stringWidth(` ${label}`) : 0,
+      ),
+    ),
+    Math.max(0, requestColumnsWidth - requestLabelWidth),
+  )
+  const resultKindWidth =
+    Math.max(
+      0,
+      ...runner.resultRows.map((row) => stringWidth(resultKindLabel(row))),
+    ) + 1
+  const resultMethodWidth =
+    Math.max(
+      0,
+      ...runner.resultRows.map((row) => stringWidth(resultMethodLabel(row))),
+    ) + 1
+  const resultStatusWidth = Math.max(
+    0,
+    ...runner.resultRows.map((row) => stringWidth(resultStatusLabel(row))),
+  )
+  const resultTimingWidth = Math.max(
+    0,
+    ...runner.resultRows.map((row) => stringWidth(resultTimingLabel(row))),
+  )
+  const resultTimingColumnWidth =
+    resultTimingWidth > 0 ? resultTimingWidth + 1 : 0
+  const resultNameAvailable = Math.max(
+    0,
+    requestContentWidth -
+      COOKIE_CHEVRON_WIDTH -
+      2 -
+      resultKindWidth -
+      resultMethodWidth,
+  )
+  const resultValueWidth = Math.min(resultNameAvailable, resultStatusWidth + 1)
+  const resultPreferredNameWidth = Math.max(
+    0,
+    ...runner.resultRows.map((row) => stringWidth(row.id)),
+  )
+  const resultNameWidth = Math.min(
+    resultPreferredNameWidth,
+    Math.max(
+      0,
+      resultNameAvailable - resultValueWidth - resultTimingColumnWidth,
+    ),
+  )
   const maximumRequestCount = runner.requests.length
   const runButtonMinWidth =
     Math.max(
@@ -638,11 +694,11 @@ export function CollectionRunnerView({
                             wrapMode="none"
                           >
                             {tagsLabel
-                              ? ` ${truncateToWidth(
-                                  tagsLabel,
+                              ? truncateToWidth(
+                                  ` ${tagsLabel}`,
                                   requestTagColumnWidth,
                                   false,
-                                )}`
+                                )
                               : ""}
                           </text>
                         ) : null}
@@ -708,6 +764,7 @@ export function CollectionRunnerView({
                   ) : null}
                   {runner.resultRows.map((row, index) => {
                     const active = runner.resultIndex === index
+                    const timing = resultTimingLabel(row)
                     const canOpen =
                       row.kind === "result" && runner.resultDetails.has(row.id)
                     const resultColor =
@@ -720,16 +777,27 @@ export function CollectionRunnerView({
                       <box key={row.id} style={{ flexDirection: "column" }}>
                         <CookieRow
                           id={`runner-result-${index}`}
-                          kindLabel={
-                            row.kind === "skipped"
-                              ? "SKIPPED"
-                              : row.result.ok
-                                ? "PASS"
-                                : "FAIL"
-                          }
+                          kindLabel={resultKindLabel(row)}
                           kindColor={resultColor}
+                          kindWidth={resultKindWidth}
+                          method={{
+                            label: resultMethodLabel(row),
+                            color:
+                              row.kind === "result"
+                                ? methodColor(row.result.method, theme)
+                                : theme.textMuted,
+                            width: resultMethodWidth,
+                          }}
                           name={row.id}
-                          value={` ${resultRowValue(row)}`}
+                          value={` ${resultStatusLabel(row)}`}
+                          trailingValue={
+                            timing
+                              ? {
+                                  label: timing,
+                                  width: resultTimingColumnWidth,
+                                }
+                              : undefined
+                          }
                           nameWidth={resultNameWidth}
                           selected={active}
                           expanded={false}

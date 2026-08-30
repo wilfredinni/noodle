@@ -46,7 +46,7 @@ const multiRequestCollection: Collection = {
     data: {
       id,
       name: id,
-      method: "GET" as const,
+      method: id === "one" ? ("POST" as const) : ("GET" as const),
       url: `https://example.com/${id}`,
       headers: {},
       params: [],
@@ -122,11 +122,16 @@ describe("CollectionRunnerView", () => {
           ok: true,
           failureCategories: [],
           response: {
-            status: 200,
-            statusText: "OK",
+            status: data.id === "one" ? 201 : data.id === "three" ? 204 : 200,
+            statusText:
+              data.id === "one"
+                ? "Created"
+                : data.id === "three"
+                  ? "No Content"
+                  : "OK",
             headers: {},
             body: "",
-            timeMs: 1,
+            timeMs: data.id === "one" ? 290 : data.id === "three" ? 9 : 74,
           },
         }
       })
@@ -203,11 +208,12 @@ describe("CollectionRunnerView", () => {
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(requestRows).toHaveLength(3)
-    expect(requestRows[0]!.indexOf("GET")).toBe(requestRows[1]!.indexOf("GET"))
+    expect(requestRows[0]!.indexOf("POST")).toBe(requestRows[1]!.indexOf("GET"))
     expect(requestRows[0]!.indexOf("one")).toBe(requestRows[1]!.indexOf("two"))
     expect(requestRows[0]!.indexOf("#smoke")).toBe(
       requestRows[2]!.indexOf("#smoke"),
     )
+    expect(requestRows[2]).toContain("#a-very-long-regression-tag")
     expect(requestRows.join("\n")).not.toContain("…")
     const tagColumn = requestRows[0]!.indexOf("#smoke")
     await act(async () => current!.setTagFilter("include", "s"))
@@ -300,16 +306,46 @@ describe("CollectionRunnerView", () => {
     expect(resultFrame).toContain("PASS  3/3 requests · 1ms")
     expect(resultFrame).toContain("0 assertions passed · no capture failures")
     expect(resultFrame).not.toContain("0 skipped")
-    expect(resultFrame).toMatch(/one\s+GET 200 OK/)
+    expect(resultFrame).toMatch(/POST\s+one\s+201 Created\s+290ms/)
     const resultLines = resultFrame.split("\n")
     const summaryLine = resultLines.findIndex((line) =>
       line.includes("0 assertions passed"),
     )
     const firstResultLine = resultLines.findIndex((line) =>
-      /PASS\s+one\s+GET 200 OK/.test(line),
+      /PASS\s+POST\s+one\s+201 Created\s+290ms/.test(line),
     )
     expect(firstResultLine - summaryLine).toBe(2)
+    const renderedResultLines = resultLines.filter((line) =>
+      /PASS\s+(?:POST|GET)\s+(?:one|two|three)/.test(line),
+    )
     const first = render.renderer.root.findDescendantById("runner-result-0")!
+    expect(renderedResultLines).toHaveLength(3)
+    expect(renderedResultLines[0]!.indexOf("POST")).toBe(
+      renderedResultLines[1]!.indexOf("GET"),
+    )
+    expect(renderedResultLines[0]!.indexOf("one")).toBe(
+      renderedResultLines[1]!.indexOf("two"),
+    )
+    expect(renderedResultLines[0]!.indexOf("201 Created")).toBe(
+      renderedResultLines[1]!.indexOf("200 OK"),
+    )
+    expect(
+      renderedResultLines[0]!.indexOf("201 Created") -
+        (renderedResultLines[0]!.indexOf("one") + "one".length),
+    ).toBeLessThanOrEqual(3)
+    expect(renderedResultLines.map((line) => line.indexOf("ms"))).toEqual([
+      renderedResultLines[0]!.indexOf("ms"),
+      renderedResultLines[0]!.indexOf("ms"),
+      renderedResultLines[0]!.indexOf("ms"),
+    ])
+    expect(renderedResultLines[0]!.indexOf("ms") + "ms".length).toBe(
+      first.screenX + first.width,
+    )
+    const postSpan = render
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.trim() === "POST")
+    expect(postSpan?.fg.equals(RGBA.fromHex(THEMES[0]!.warning))).toBe(true)
     const second = render.renderer.root.findDescendantById("runner-result-1")!
     expect(first.height).toBe(1)
     expect(second.screenY - first.screenY).toBe(1)
@@ -709,7 +745,7 @@ describe("CollectionRunnerView", () => {
       )
     })
     await render.renderOnce()
-    expect(requestName.width).toBeGreaterThan(initialNameWidth)
+    expect(requestName.width).toBe(initialNameWidth)
 
     await act(async () => {
       await render.mockMouse.doubleClick(
@@ -881,7 +917,7 @@ describe("CollectionRunnerView", () => {
     expect(frame).toContain(
       "1 assertion passed · no capture failures · 1 skipped",
     )
-    expect(frame).toMatch(/PASS\s+health\s+GET 200 OK · 7ms/)
+    expect(frame).toMatch(/PASS\s+GET\s+health\s+200 OK\s+7ms/)
     expect(frame).toContain("⏎")
     expect(
       frame.split("\n").find((line) => line.includes("SKIPPED")),
@@ -891,7 +927,8 @@ describe("CollectionRunnerView", () => {
     const resultRow =
       render.renderer.root.findDescendantById("runner-result-0")!
     const resultLine = resultRow.getChildren()[0] as BoxRenderable
-    const resultName = resultLine.getChildren()[2] as BoxRenderable
+    const resultName = resultLine.getChildren()[3] as BoxRenderable
+    const initialResultRowWidth = resultRow.width
     const initialResultNameWidth = resultName.width
     const split = render.renderer.root.findDescendantById(
       "runner-split",
@@ -913,7 +950,8 @@ describe("CollectionRunnerView", () => {
       )
     })
     await render.renderOnce()
-    expect(resultName.width).toBeGreaterThan(initialResultNameWidth)
+    expect(resultRow.width).toBeGreaterThan(initialResultRowWidth)
+    expect(resultName.width).toBe(initialResultNameWidth)
     await act(async () =>
       render.mockMouse.click(
         resultRow.screenX + 1,
