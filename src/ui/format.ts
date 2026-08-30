@@ -5,19 +5,24 @@ import { stringWidth } from "bun"
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
-export function truncateToWidth(text: string, maxWidth: number): string {
+export function truncateToWidth(
+  text: string,
+  maxWidth: number,
+  withEllipsis = true,
+): string {
   if (stringWidth(text) <= maxWidth) return text
-  if (maxWidth <= 1) return maxWidth === 1 ? "…" : ""
+  if (maxWidth <= 0) return ""
 
   let result = ""
   let width = 0
+  const suffixWidth = withEllipsis ? 1 : 0
   for (const { segment } of graphemes.segment(text)) {
     const segmentWidth = stringWidth(segment)
-    if (width + segmentWidth > maxWidth - 1) break
+    if (width + segmentWidth > maxWidth - suffixWidth) break
     result += segment
     width += segmentWidth
   }
-  return `${result}…`
+  return withEllipsis ? `${result}…` : result
 }
 
 export function formatSize(bytes: number): string {

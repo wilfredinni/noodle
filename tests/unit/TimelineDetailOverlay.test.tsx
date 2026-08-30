@@ -45,12 +45,7 @@ async function renderOverlay(
   entry: TimelineEntry,
   onClose: () => void,
   visible = true,
-  actions: Partial<
-    Pick<
-      ComponentProps<typeof TimelineDetailOverlay>,
-      "onLoadBody" | "onCopyHeaders" | "onCopyBody" | "onExportBody"
-    >
-  > = {},
+  actions: Partial<ComponentProps<typeof TimelineDetailOverlay>> = {},
 ) {
   const { keymap, host, cleanup } = setupKeymap()
   ;(
@@ -483,26 +478,133 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("keeps footer position stable when switching body tabs", async () => {
+  it("supports a Response initial tab with Results and Network drill-ins", async () => {
+    let assertionEdits = 0
+    let captureEdits = 0
+    let closes = 0
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({
-        request: {
-          ...makeEntry().request,
-          body: "request body",
-        },
         response: {
-          status: 200,
-          statusText: "OK",
+          status: 201,
+          statusText: "Created",
           headers: {},
-          body: Array.from({ length: 20 }, (_, i) => `response line ${i}`).join(
-            "\n",
-          ),
+          body: '{"id":42}',
           timeMs: 12,
-          size: 100,
+          size: 9,
         },
+        network: [{ timeMs: 1, type: "request", message: "GET example.com" }],
       }),
-      () => {},
+      () => closes++,
+      true,
+      {
+        initialTab: "response",
+        execution: {
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 201,
+                passed: true,
+                message: "Assertion passed",
+              },
+            ],
+          },
+          captures: {
+            evaluated: true,
+            results: [
+              {
+                variable: "user_id",
+                expression: "body.id",
+                success: true,
+                type: "number",
+                value: 42,
+              },
+            ],
+          },
+        },
+        request: {
+          assertions: [
+            { expression: "status", operator: "equals", value: 201 },
+          ],
+          captures: { user_id: { value: "body.id", enabled: true } },
+        },
+        showCaptures: true,
+        captureLifetimeNote:
+          "Available to later requests in this collection run.",
+        warnings: ["Authorization token was refreshed"],
+        onEditAssertions: () => assertionEdits++,
+        onEditCaptures: () => captureEdits++,
+      },
     )
+
+    await renderOnce()
+    const responseFrame = captureCharFrame()
+    expect(responseFrame).toContain("201 Created")
+    expect(responseFrame).toContain("Authorization token was refreshed")
+    expect(responseFrame).toMatch(/Request\s+Response\s+Results\s+Network/)
+    const responseLines = responseFrame.split("\n")
+    const statusLine = responseLines.findIndex((line) =>
+      line.includes("201 Created"),
+    )
+    const metadataLine = responseLines.findIndex((line) =>
+      line.includes("9B in 12ms"),
+    )
+    expect(metadataLine).toBe(statusLine)
+    await act(async () => host.press("right"))
+    await renderOnce()
+    const results = captureCharFrame()
+    expect(results).toContain("Assertions")
+    expect(results).toContain("Captures")
+    expect(results).toContain(
+      "Available to later requests in this collection run.",
+    )
+    expect(results).toContain("Edit Assert")
+    expect(results).toContain("Edit Capture")
+    const resultsActionLine = results
+      .split("\n")
+      .find((line) => line.includes("Edit Assert"))!
+    expect(resultsActionLine.indexOf("Edit Assert")).toBeGreaterThan(30)
+    expect(
+      results.split("\n").findIndex((line) => line.includes("Edit Assert")),
+    ).toBeGreaterThan(20)
+    await act(async () => host.press("a"))
+    await act(async () => host.press("c"))
+    expect(assertionEdits).toBe(1)
+    expect(captureEdits).toBe(1)
+
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("GET example.com")
+    await act(async () => host.press("escape"))
+    expect(closes).toBe(1)
+    cleanup()
+  })
+
+  it("keeps footer position stable when switching body tabs", async () => {
+    const { renderer, renderOnce, captureCharFrame, host, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          request: {
+            ...makeEntry().request,
+            body: "request body",
+          },
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: Array.from(
+              { length: 20 },
+              (_, i) => `response line ${i}`,
+            ).join("\n"),
+            timeMs: 12,
+            size: 100,
+          },
+        }),
+        () => {},
+      )
     await renderOnce()
     const requestFooterRow = captureCharFrame()
       .split("\n")
@@ -515,6 +617,11 @@ describe("TimelineDetailOverlay", () => {
     expect(requestFooterRow).toBeGreaterThanOrEqual(0)
     expect(responseFooterRow).toBeGreaterThanOrEqual(0)
     expect(responseFooterRow).toBe(requestFooterRow)
+    const footer = renderer.root.findDescendantById("timeline-detail-footer")!
+    const panel = footer.parent!.parent!
+    expect(
+      panel.screenY + panel.height - (footer.screenY + footer.height),
+    ).toBe(1)
     cleanup()
   })
 
@@ -820,6 +927,40 @@ describe("TimelineDetailOverlay", () => {
     })
     expect(captureCharFrame()).toContain('"data"')
     expect(captureCharFrame()).toContain('"id": 0')
+    cleanup()
+  })
+
+  it("scrolls the response body with the mouse wheel", async () => {
+    const body = JSON.stringify(
+      { data: Array.from({ length: 100 }, (_, i) => ({ id: i })) },
+      null,
+      2,
+    )
+    const { renderer, renderOnce, mockMouse, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+      true,
+      { initialTab: "response" },
+    )
+    await renderOnce()
+    const editor = renderer.root.findDescendantById(
+      "timeline-body-editor",
+    ) as CodeEditorRenderable
+    await act(async () => {
+      await mockMouse.scroll(editor.screenX + 1, editor.screenY + 1, "down")
+      await renderOnce()
+    })
+
+    expect(editor.scrollY).toBeGreaterThan(0)
     cleanup()
   })
 

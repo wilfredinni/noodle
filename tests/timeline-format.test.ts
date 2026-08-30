@@ -8,13 +8,13 @@ import {
   entryTiming,
   entrySize,
   entryIsError,
-  buildTimelineEntry,
   shortMethod,
   formatRequestUrl,
   formatRequestDisplayName,
   maskedAuthHeader,
   buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
+import { buildTimelineEntry } from "../src/timelineEntry"
 import type { Auth, Request, TimelineEntry } from "../src/schema"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 

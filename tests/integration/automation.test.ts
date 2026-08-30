@@ -16,6 +16,7 @@ import {
   requestCreate,
   requestRun,
   selectCollectionRunRequests,
+  type RequestRunDetail,
   validateId,
   workspaceAudit,
 } from "../../src/app/services"
@@ -974,6 +975,182 @@ describe("automation services", () => {
         settingsBefore,
       )
       expect(existsSync(join(dir, ".timeline"))).toBe(false)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("reports transient redacted collection details without persisting them", async () => {
+    const environmentSecretKey = "NOODLE_RUNNER_DETAIL_SECRET"
+    const environmentSecret = "runner-environment-secret"
+    const proxyUsername = "runner-proxy-user"
+    const proxyPassword = "runner-proxy-password"
+    const tlsPassphrase = "runner-tls-passphrase"
+    const originalValue = process.env[environmentSecretKey]
+    const send = executor.send
+    try {
+      process.env[environmentSecretKey] = environmentSecret
+      await writeFile(
+        join(dir, "settings.yml"),
+        [
+          "collection_id: 11111111-1111-4111-8111-111111111111",
+          "environment: development",
+          "cookies:",
+          "  enabled: false",
+          "proxy:",
+          "  mode: custom",
+          "  url: http://proxy.test:8080",
+          "  auth: true",
+          "tls:",
+          "  client_certificates:",
+          "    - host: example.com",
+          "      cert_file: ./client.pem",
+          "      key_file: ./client-key.pem",
+          "      secret_id: 22222222-2222-4222-8222-222222222222",
+          "",
+        ].join("\n"),
+      )
+      await env.saveEnvironment(join(dir, ".environments"), {
+        name: "development",
+        vars: { BASE_URL: "https://example.com" },
+        secretVars: { [environmentSecretKey]: "process" },
+      })
+      await writeFile(
+        join(dir, "01-source.yml"),
+        "name: Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: body.id\n",
+      )
+      await writeFile(
+        join(dir, "02-failure.yml"),
+        `name: Failure\nmethod: GET\nurl: $BASE_URL/users/$user_id\nheaders:\n  X-Secret: $${environmentSecretKey}\n`,
+      )
+      await writeFile(
+        join(dir, "03-skipped.yml"),
+        "name: Skipped\nmethod: GET\nurl: https://example.com/skipped\n",
+      )
+      setSecretBackendForTests({
+        get: async ({ name }) => {
+          if (name.includes(":tls:")) return tlsPassphrase
+          if (name.endsWith("username")) return proxyUsername
+          return proxyPassword
+        },
+        set: async () => {},
+        delete: async () => false,
+      })
+      executor.send = async (request) => {
+        const network = [
+          {
+            timeMs: 1,
+            type: "request" as const,
+            message: `${environmentSecret} ${proxyUsername} ${proxyPassword} ${tlsPassphrase}`,
+          },
+        ]
+        if (request.id === "01-source") {
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"id":42}',
+            timeMs: 1,
+            network,
+          }
+        }
+        throw Object.assign(
+          new Error(`transport failed: ${environmentSecret}`),
+          { network },
+        )
+      }
+
+      const details: RequestRunDetail[] = []
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        undefined,
+        undefined,
+        true,
+        (detail) => details.push(detail),
+      )
+
+      expect(details.map((detail) => detail.requestId)).toEqual([
+        "01-source",
+        "02-failure",
+      ])
+      expect(details[1]?.entry.request.url).toBe("https://example.com/users/42")
+      expect(details[1]?.entry.request.headers["X-Secret"]?.value).toBe(
+        "[REDACTED]",
+      )
+      expect(JSON.stringify(details)).not.toMatch(
+        /runner-environment-secret|runner-proxy-user|runner-proxy-password|runner-tls-passphrase/,
+      )
+      expect(details[1]?.entry.error?.message).toBe(
+        "transport failed: [REDACTED]",
+      )
+      expect(details[0]?.entry.network?.[0]?.message).toBe(
+        "[REDACTED] [REDACTED] [REDACTED] [REDACTED]",
+      )
+      expect(result.skipped).toEqual([
+        { id: "03-skipped", reason: "fail-fast" },
+      ])
+      expect(result.results).toHaveLength(2)
+      expect(result.results[0]).not.toHaveProperty("entry")
+      expect(result.results[0]).not.toHaveProperty("detail")
+      expect(JSON.stringify(result)).not.toMatch(/"entry"|"detail"/)
+      expect(existsSync(join(dir, ".timeline"))).toBe(false)
+    } finally {
+      executor.send = send
+      if (originalValue === undefined) delete process.env[environmentSecretKey]
+      else process.env[environmentSecretKey] = originalValue
+    }
+  })
+
+  it("includes folder overrides in collection details", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await mkdir(join(dir, "api"))
+    await writeFile(
+      join(dir, "api", "folder.yml"),
+      "headers:\n  X-Folder: inherited\nauth:\n  type: bearer\n  token: folder-token\n",
+    )
+    await writeFile(
+      join(dir, "api", "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\nauth:\n  type: inherit\n",
+    )
+    const send = executor.send
+    try {
+      executor.send = async () => ({
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      })
+      const details: RequestRunDetail[] = []
+
+      await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        undefined,
+        undefined,
+        false,
+        (detail) => details.push(detail),
+      )
+
+      expect(details[0]?.entry.request.headers["X-Folder"]).toEqual({
+        value: "inherited",
+        enabled: true,
+      })
+      expect(details[0]?.entry.request.auth).toEqual({
+        type: "bearer",
+        token: "[REDACTED]",
+      })
     } finally {
       executor.send = send
     }

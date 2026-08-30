@@ -81,7 +81,7 @@ import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
-import { buildTimelineEntry } from "./timeline/formatTimeline"
+import { buildTimelineEntry } from "../timelineEntry"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
@@ -782,11 +782,52 @@ export function AppInner({
   })
   const { activeOverlay } = overlays
   openTagEditorRef.current = (index, value) =>
-    overlays.setTagEditPending({ index, value })
+    overlays.setTagEditPending({ kind: "request", index, value })
+
+  const handleOpenRunnerTagFilter = useCallback(
+    (filter: "include" | "exclude") => {
+      if (runnerRef.current.phase === "running") return
+      overlays.setTagEditPending({
+        kind: "runner-filter",
+        filter,
+        value:
+          filter === "include"
+            ? runnerRef.current.includeTag
+            : runnerRef.current.excludeTag,
+      })
+    },
+    [overlays.setTagEditPending],
+  )
 
   useEffect(() => {
     if (overlays.aboutVisible) triggerAboutUpdateCheck()
   }, [overlays.aboutVisible, triggerAboutUpdateCheck])
+  const handleOpenRunnerResultDetail = useCallback(
+    (index = runnerRef.current.resultIndex) => {
+      const row = runnerRef.current.resultRows[index]
+      if (!row || row.kind !== "result") return
+      const detail = runnerRef.current.resultDetails.get(row.id)
+      const request = runnerRef.current.requests.find(
+        (candidate) => candidate.id === row.id,
+      )
+      if (!detail || !request) return
+      overlays.setRunnerDetail({
+        entry: detail.entry,
+        execution: {
+          ...(row.result.assertions
+            ? { assertions: row.result.assertions }
+            : {}),
+          ...(row.result.captures ? { captures: row.result.captures } : {}),
+        },
+        request: {
+          assertions: request.assertions,
+          captures: request.captures,
+        },
+        warnings: row.result.warnings,
+      })
+    },
+    [overlays.setRunnerDetail],
+  )
   useEffect(() => {
     if (!overlays.commandPaletteVisible) setPaletteTarget(null)
   }, [overlays.commandPaletteVisible])
@@ -1170,7 +1211,8 @@ export function AppInner({
       runnerRef,
       detailScrollRef: runnerDetailScrollRef,
       close: closeRunner,
-      openRequestTab: handleOpenRunnerRequestTab,
+      openTagFilter: handleOpenRunnerTagFilter,
+      openResultDetail: handleOpenRunnerResultDetail,
     },
   })
 
@@ -1403,13 +1445,25 @@ export function AppInner({
     onNewFolderConfirm: handleNewFolderConfirm,
     onTagConfirm: (tag) => {
       const pending = overlays.tagEditPending
+      if (!pending) return
+      if (pending.kind === "runner-filter") {
+        runnerRef.current.setTagFilter(pending.filter, tag)
+        overlays.setTagEditPending(null)
+        return
+      }
       const current = draftRef.current.draft
-      if (!pending || !current) return
+      if (!current) return
       const tags = [...(current.tags ?? [])]
       if (pending.index < tags.length) tags[pending.index] = tag
       else if (pending.index === tags.length) tags.push(tag)
       else return
       draftRef.current.setTags(tags)
+      overlays.setTagEditPending(null)
+    },
+    onTagClear: () => {
+      const pending = overlays.tagEditPending
+      if (pending?.kind !== "runner-filter") return
+      runnerRef.current.setTagFilter(pending.filter, "")
       overlays.setTagEditPending(null)
     },
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
@@ -1690,7 +1744,8 @@ export function AppInner({
             hasUnsavedChanges={hasUnsavedChanges}
             detailScrollRef={runnerDetailScrollRef}
             onPaneFocus={setFocus}
-            onEditRequestTab={handleOpenRunnerRequestTab}
+            onEditTagFilter={handleOpenRunnerTagFilter}
+            onOpenResultDetail={handleOpenRunnerResultDetail}
           />
         ) : view === "settings" ? (
           <SettingsView
@@ -1773,6 +1828,7 @@ export function AppInner({
           collection={collection}
           requests={requests}
           onFindRequest={findRequest}
+          onEditRunnerRequestTab={handleOpenRunnerRequestTab}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
           collectionSettingsByPath={collectionSettingsByPath}

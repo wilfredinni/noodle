@@ -223,18 +223,26 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.view === "runner") {
-    if (ctx.runnerPhase === "running") {
-      return [{ key: "", word: "run in progress" }]
-    }
+    if (ctx.runnerPhase === "running") return []
     if (ctx.focus === "runner-options") {
       return [
         { key: "↑/↓", word: "select" },
-        { key: "Enter", word: "edit/run", command: "runner.activate" },
+        { key: "Enter", word: "activate", command: "runner.activate" },
+        { key: "r", word: "run", command: "runner.run" },
         { key: "Tab", word: "requests", command: "runner.focus-next" },
         { key: "Esc", word: "close", command: "runner.escape" },
       ]
     }
     if (ctx.focus === "runner-requests") {
+      if (ctx.runnerPhase === "results") {
+        return [
+          { key: "↑/↓", word: "select" },
+          { key: "Enter", word: "open", command: "runner.activate" },
+          { key: "←", word: "select", command: "runner.configure" },
+          { key: "Tab", word: "options", command: "runner.focus-next" },
+          { key: "Esc", word: "close", command: "runner.escape" },
+        ]
+      }
       return [
         { key: "↑/↓", word: "select" },
         { key: "Space", word: "toggle", command: "runner.toggle" },
@@ -242,20 +250,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         { key: "Esc", word: "close", command: "runner.escape" },
       ]
     }
-    if (ctx.focus === "runner-results") {
-      return [
-        { key: "↑/↓", word: "select" },
-        { key: "Enter", word: "details", command: "runner.activate" },
-        { key: "←", word: "configure", command: "runner.configure" },
-        { key: "Esc", word: "close", command: "runner.escape" },
-      ]
-    }
-    return [
-      { key: "PgUp/PgDn", word: "scroll" },
-      { key: "a/c", word: "edit assert/capture" },
-      { key: "Tab", word: "results", command: "runner.focus-next" },
-      { key: "Esc", word: "close", command: "runner.escape" },
-    ]
+    return []
   }
 
   if (ctx.focus === "sidebar") {

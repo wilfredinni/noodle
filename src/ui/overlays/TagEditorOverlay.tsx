@@ -19,7 +19,9 @@ export interface TagEditorOverlayHandle {
 interface TagEditorOverlayProps {
   visible: boolean
   initialValue: string
+  title?: string
   onConfirm?: () => void
+  onClear?: () => void
   onClose?: () => void
 }
 
@@ -27,7 +29,7 @@ export const TagEditorOverlay = forwardRef<
   TagEditorOverlayHandle,
   TagEditorOverlayProps
 >(function TagEditorOverlay(
-  { visible, initialValue, onConfirm, onClose },
+  { visible, initialValue, title, onConfirm, onClear, onClose },
   ref,
 ) {
   const theme = useTheme()
@@ -64,7 +66,9 @@ export const TagEditorOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>{initialValue ? "Edit Tag" : "Add Tag"}</text>
+        <text fg={theme.text}>
+          {title ?? (initialValue ? "Edit Tag" : "Add Tag")}
+        </text>
         <EscapeClose onClose={() => onClose?.()} />
       </box>
 
@@ -98,6 +102,9 @@ export const TagEditorOverlay = forwardRef<
           paddingX: 2,
         }}
       >
+        {onClear ? (
+          <ActionButton shortcut="^D" label="clear" onAction={onClear} />
+        ) : null}
         <ActionButton
           shortcut="^S"
           label="save"

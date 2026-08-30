@@ -30,6 +30,7 @@ describe("ActionButton", () => {
     const shortcut = () => spans().find((span) => span.text.includes("enter"))
     const label = () => spans().find((span) => span.text.includes("Save"))
 
+    expect(action.width).toBe("enter Save".length + 2)
     expect(shortcut()?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(true)
     expect(label()?.fg.equals(RGBA.fromHex(theme.textMuted))).toBe(true)
 
@@ -41,5 +42,26 @@ describe("ActionButton", () => {
     const hoverColor = RGBA.fromHex(contrastOnSecondary(theme))
     expect(shortcut()?.fg.equals(hoverColor)).toBe(true)
     expect(label()?.fg.equals(hoverColor)).toBe(true)
+  })
+
+  it("includes a left-positioned gap in its natural width", async () => {
+    const { renderOnce, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <ActionButton
+          id="action-button"
+          label="Save"
+          shortcut="s"
+          gap={2}
+          onAction={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 30, height: 3 },
+    )
+    await renderOnce()
+
+    const action = renderer.root.findDescendantById(
+      "action-button",
+    ) as BoxRenderable
+    expect(action.width).toBe("s Save".length + 2 + 2)
   })
 })

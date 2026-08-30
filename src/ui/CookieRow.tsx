@@ -60,8 +60,11 @@ export function CookieRow({
   id,
   kindLabel,
   kindColor,
+  kindWidth = 10,
+  method,
   name,
   value,
+  trailingValue,
   nameWidth,
   selected,
   expanded,
@@ -71,14 +74,18 @@ export function CookieRow({
   details,
   onSelect,
   onToggleExpanded,
+  onActivate,
   onHover,
   onPaneFocus,
 }: {
   id: string
   kindLabel: string
   kindColor: string
+  kindWidth?: number
+  method?: { label: string; color: string; width: number }
   name: string
   value: string
+  trailingValue?: { label: string; width: number }
   nameWidth: number
   selected: boolean
   expanded: boolean
@@ -87,14 +94,22 @@ export function CookieRow({
   valueColor?: string
   details?: CookieRowDetail[]
   onSelect: () => void
-  onToggleExpanded: () => void
+  onToggleExpanded?: () => void
+  onActivate?: () => void
   onHover: (hovered: boolean) => void
   onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const displayValue = deleted ? "Deleted" : value || "(empty)"
   const rowValueColor = valueColor ?? theme.textMuted
-  const chevron = expanded ? "▾" : "▸"
+  const activate = onActivate ?? onToggleExpanded
+  const chevron = onActivate
+    ? "⏎"
+    : onToggleExpanded
+      ? expanded
+        ? "▾"
+        : "▸"
+      : ""
   const detailLabelWidth = details
     ? cookieNameWidth(details.map(({ label }) => ({ name: label })))
     : 0
@@ -104,6 +119,8 @@ export function CookieRow({
       id={id}
       style={{
         flexDirection: "column",
+        flexGrow: 1,
+        minWidth: 0,
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor:
@@ -113,21 +130,28 @@ export function CookieRow({
         if (event.button !== MouseButton.LEFT) return
         onPaneFocus?.()
         onSelect()
-        onToggleExpanded()
+        activate?.()
         event.stopPropagation()
       }}
       onMouseOver={() => onHover(true)}
       onMouseOut={() => onHover(false)}
     >
-      <box style={{ flexDirection: "row", minWidth: 0 }}>
+      <box style={{ flexDirection: "row", flexGrow: 1, minWidth: 0 }}>
         <box style={{ width: COOKIE_CHEVRON_WIDTH, flexShrink: 0 }}>
           <text fg={selected ? theme.text : theme.textMuted}>{chevron}</text>
         </box>
-        <box style={{ width: 10, flexShrink: 0 }}>
+        <box style={{ width: kindWidth, flexShrink: 0 }}>
           <text fg={kindColor} wrapMode="none">
             {kindLabel}
           </text>
         </box>
+        {method ? (
+          <box style={{ width: method.width, flexShrink: 0 }}>
+            <text fg={method.color} wrapMode="none">
+              {method.label}
+            </text>
+          </box>
+        ) : null}
         <box
           style={{
             width: nameWidth,
@@ -147,6 +171,20 @@ export function CookieRow({
         >
           {displayValue}
         </text>
+        {trailingValue ? (
+          <box
+            style={{
+              flexDirection: "row",
+              width: trailingValue.width,
+              flexShrink: 0,
+              justifyContent: "flex-end",
+            }}
+          >
+            <text fg={rowValueColor} wrapMode="none">
+              {trailingValue.label}
+            </text>
+          </box>
+        ) : null}
       </box>
       {expanded && details ? (
         details.map(({ label, value: detailValue }) => {

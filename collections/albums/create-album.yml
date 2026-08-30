@@ -9,7 +9,7 @@ headers:
 body: |-
   {
     "title": "my album",
-    "userId": "1",
+    "userId": 1,
     "test": "$base_url"
   }
 body_type: json

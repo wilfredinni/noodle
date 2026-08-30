@@ -70,6 +70,37 @@ function renderHook(
 }
 
 describe("useCollectionRunner", () => {
+  it("navigates only interactive Runner options", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    expect(harness.get().optionIndex).toBe(0)
+    await act(async () => harness.get().optionUp())
+    expect(harness.get().optionIndex).toBe(0)
+    await act(async () => harness.get().optionLast())
+    expect(harness.get().optionIndex).toBe(4)
+    expect(harness.get().failFast).toBe(false)
+    await act(async () => harness.get().toggleFailFast())
+    expect(harness.get().failFast).toBe(true)
+    await act(async () => harness.get().optionDown())
+    expect(harness.get().optionIndex).toBe(4)
+    await act(async () => harness.get().optionFirst())
+    expect(harness.get().optionIndex).toBe(0)
+  })
+
+  it("keeps Run visible but blocked while a select is open", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    expect(harness.get().runAvailable).toBe(true)
+    expect(harness.get().canRun).toBe(true)
+    await act(async () => harness.get().setSelectOpen(true))
+    expect(harness.get().runAvailable).toBe(true)
+    expect(harness.get().canRun).toBe(false)
+  })
+
   it("initializes a folder scope with every request selected in collection order", async () => {
     const harness = renderHook({ folderPath: "admin" })
     const render = await harness.render
@@ -79,7 +110,31 @@ describe("useCollectionRunner", () => {
       "admin/first",
       "admin/second",
     ])
+    expect(harness.get().requestTags.get("admin/first")).toEqual([
+      "smoke",
+      "destructive",
+    ])
     expect([...harness.get().selectedIds]).toEqual([
+      "admin/first",
+      "admin/second",
+    ])
+  })
+
+  it("navigates folder rows and toggles the focused folder", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    await act(async () => harness.get().requestDown())
+    await render.renderOnce()
+    expect(harness.get().requestRowIndex).toBe(1)
+
+    await act(async () => harness.get().toggleSelected())
+    expect([...harness.get().selectedIds]).toEqual(["root"])
+
+    await act(async () => harness.get().toggleSelected())
+    expect([...harness.get().selectedIds]).toEqual([
+      "root",
       "admin/first",
       "admin/second",
     ])
@@ -90,12 +145,8 @@ describe("useCollectionRunner", () => {
     const render = await harness.render
     await render.renderOnce()
     await act(async () => {
-      harness.get().setOptionIndex(2)
-      harness.get().beginOptionEdit("include")
-      harness.get().setEditValue("smoke")
+      harness.get().setTagFilter("include", "smoke")
     })
-    await render.renderOnce()
-    await act(async () => harness.get().commitOptionEdit())
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual([
       "root",
@@ -104,11 +155,8 @@ describe("useCollectionRunner", () => {
     ])
 
     await act(async () => {
-      harness.get().beginOptionEdit("exclude")
-      harness.get().setEditValue("destructive")
+      harness.get().setTagFilter("exclude", "destructive")
     })
-    await render.renderOnce()
-    await act(async () => harness.get().commitOptionEdit())
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual(["root"])
   })
@@ -121,6 +169,20 @@ describe("useCollectionRunner", () => {
       args = received
       received[2]?.(0, 1)
       received[2]?.(1, 1)
+      received[10]?.({
+        requestId: "root",
+        entry: {
+          timestamp: 1,
+          request: {
+            id: "root",
+            name: "root",
+            method: "GET",
+            url: "https://example.com/root",
+            headers: {},
+            params: [],
+          },
+        },
+      })
       return {
         results: [
           {
@@ -156,6 +218,7 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     await act(async () => {
       harness.get().setEnvironmentName("staging")
+      harness.get().setTagFilter("include", "smoke")
       harness.get().toggleFailFast()
     })
     await render.renderOnce()
@@ -163,7 +226,9 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     expect(args?.[1]).toBe("staging")
     expect(args?.[6]).toEqual(["root", "admin/first", "admin/second"])
+    expect(args?.[7]).toBe("smoke")
     expect(args?.[9]).toBe(true)
+    expect(harness.get().includeTag).toBe("smoke")
     expect(harness.get().progress).toEqual({ completed: 1, total: 1 })
     expect(harness.get().resultRows.map((row) => row.id)).toEqual([
       "root",
@@ -171,6 +236,9 @@ describe("useCollectionRunner", () => {
       "admin/second",
     ])
     expect(harness.get().phase).toBe("results")
+    expect(harness.get().resultDetails.get("root")?.entry.request.url).toBe(
+      "https://example.com/root",
+    )
   })
 
   it("blocks Run while workspace drafts are dirty", async () => {
@@ -187,24 +255,23 @@ describe("useCollectionRunner", () => {
     expect(calls).toBe(0)
   })
 
-  it("does not run with an uncommitted tag filter", async () => {
-    let calls = 0
-    const runCollection = (async () => {
-      calls++
-      throw new Error("must not run")
-    }) as typeof collectionRun
-    const harness = renderHook({ runCollection })
+  it("updates Run availability from the confirmed tag filter", async () => {
+    const harness = renderHook()
     const render = await harness.render
     await render.renderOnce()
+
     await act(async () => {
-      harness.get().beginOptionEdit("include")
-      harness.get().setEditValue("smoke")
+      harness.get().setTagFilter("include", "missing")
     })
     await render.renderOnce()
-
     expect(harness.get().canRun).toBe(false)
-    await harness.get().run()
-    expect(calls).toBe(0)
+    expect(harness.get().includeTag).toBe("missing")
+
+    await act(async () => {
+      harness.get().setTagFilter("include", "smoke")
+    })
+    await render.renderOnce()
+    expect(harness.get().canRun).toBe(true)
   })
 
   it("starts only one run when Run is activated twice before rendering", async () => {

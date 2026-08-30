@@ -18,7 +18,6 @@ import type { Keybinds } from "../keybind"
 import type { ResponseQueryController } from "../responseQuery"
 import type { SendState } from "../sendState"
 import type { UseCollectionRunnerResult } from "../../hooks/useCollectionRunner"
-import type { FieldKind } from "../editMode"
 import type { ScrollBoxRenderable } from "@opentui/core"
 
 export interface AppKeymapRuntime {
@@ -139,7 +138,8 @@ export interface AppKeymapRunner {
   runnerRef: RefObject<UseCollectionRunnerResult>
   detailScrollRef: RefObject<ScrollBoxRenderable | null>
   close: () => void
-  openRequestTab: (requestId: string, tab: FieldKind) => void
+  openTagFilter: (filter: "include" | "exclude") => void
+  openResultDetail: (index?: number) => void
 }
 
 export interface UseAppKeymapArgs {

@@ -53,6 +53,63 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("does not show status text while the runner is executing", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "runner", runnerPhase: "running" }))
+        .footer,
+    ).toEqual([])
+  })
+
+  it("shows the Runner option edit and run shortcuts", () => {
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "runner",
+          focus: "runner-options",
+          runnerPhase: "configure",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("↑/↓", "select"),
+      seg("Enter", "activate", "runner.activate"),
+      seg("r", "run", "runner.run"),
+      seg("Tab", "requests", "runner.focus-next"),
+      seg("Esc", "close", "runner.escape"),
+    ])
+  })
+
+  it("shows the active Select or Results tab actions in Requests", () => {
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "runner",
+          focus: "runner-requests",
+          runnerPhase: "configure",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("↑/↓", "select"),
+      seg("Space", "toggle", "runner.toggle"),
+      seg("Tab", "options", "runner.focus-next"),
+      seg("Esc", "close", "runner.escape"),
+    ])
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "runner",
+          focus: "runner-requests",
+          runnerPhase: "results",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("↑/↓", "select"),
+      seg("Enter", "open", "runner.activate"),
+      seg("←", "select", "runner.configure"),
+      seg("Tab", "options", "runner.focus-next"),
+      seg("Esc", "close", "runner.escape"),
+    ])
+  })
+
   it("uses contextual settings hints", () => {
     expect(
       getKeybindingHints(ctx({ view: "settings", focus: "settings-sidebar" }))

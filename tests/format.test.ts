@@ -5,6 +5,7 @@ import {
   formatStatusLine,
   formatHeaders,
   formatBody,
+  truncateToWidth,
 } from "../src/ui/format"
 import { opencodeTheme, catppuccinTheme } from "../src/ui/theme"
 import type { Theme } from "../src/ui/theme"
@@ -76,6 +77,12 @@ describe("formatStatusLine", () => {
     expect(
       formatStatusLine(makeRes({ status: 200, statusText: "OK", timeMs: 1.5 })),
     ).toBe("HTTP 200 OK · 2ms")
+  })
+})
+
+describe("truncateToWidth", () => {
+  it("can clip without an ellipsis", () => {
+    expect(truncateToWidth("abcdefgh", 4, false)).toBe("abcd")
   })
 })
 

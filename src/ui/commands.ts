@@ -441,7 +441,7 @@ export function buildCommandPaletteCommands(
   const workspaceCommands: CommandItem[] = [
     {
       id: "collection.runner",
-      label: paletteTarget === "folder" ? "Run Folder…" : "Run Collection…",
+      label: paletteTarget === "folder" ? "Run Folder" : "Run Collection",
       section: paletteTarget === "folder" ? "Folder" : "Workspace",
       run: () => {
         const folderPath =
