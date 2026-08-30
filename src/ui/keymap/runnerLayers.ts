@@ -1,4 +1,5 @@
 import type { UseBindingsLayer } from "@opentui/keymap/react"
+import { RUNNER_RUN_OPTION_INDEX } from "../../hooks/useCollectionRunner"
 import type { AppKeymapContext } from "./types"
 
 export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
@@ -70,6 +71,11 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
             if (state().optionIndex === 1) runner.openTagFilter("include")
             else if (state().optionIndex === 2) runner.openTagFilter("exclude")
             else if (state().optionIndex === 3) state().toggleFailFast()
+            else if (
+              state().optionIndex === RUNNER_RUN_OPTION_INDEX &&
+              state().canRun
+            )
+              void state().run()
           } else if (focus() === "runner-requests") {
             if (state().phase === "results") {
               const row = state().resultRows[state().resultIndex]

@@ -227,7 +227,8 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.focus === "runner-options") {
       return [
         { key: "↑/↓", word: "select" },
-        { key: "Enter", word: "edit/run", command: "runner.activate" },
+        { key: "Enter", word: "activate", command: "runner.activate" },
+        { key: "r", word: "run", command: "runner.run" },
         { key: "Tab", word: "requests", command: "runner.focus-next" },
         { key: "Esc", word: "close", command: "runner.escape" },
       ]

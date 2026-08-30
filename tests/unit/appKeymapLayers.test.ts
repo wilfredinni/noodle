@@ -386,6 +386,11 @@ describe("app keymap layers", () => {
     host.press("return")
     context.runner.runnerRef.current.optionIndex = 3
     host.press("return")
+    context.runner.runnerRef.current.optionIndex = 4
+    host.press("return")
+    context.runner.runnerRef.current.canRun = false
+    host.press("return")
+    context.runner.runnerRef.current.canRun = true
     host.press("r")
     host.press("space")
     host.press("tab")
@@ -394,8 +399,8 @@ describe("app keymap layers", () => {
     expect(calls.runnerOptionFirst).toBe(1)
     expect(calls.runnerOptionLast).toBe(1)
     expect(calls.runnerTagFilterOpen).toEqual(["include", "exclude"])
-    expect(calls.runnerFailFast).toBe(2)
-    expect(calls.runnerRun).toBe(1)
+    expect(calls.runnerFailFast).toBe(1)
+    expect(calls.runnerRun).toBe(2)
     expect(calls.focus).toBe("runner-requests")
     expect(calls.runnerClose).toBe(1)
 

@@ -160,6 +160,7 @@ describe("CollectionRunnerView", () => {
     }) as typeof collectionRun
     function Harness() {
       const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      const [focus, setFocus] = useState<Focus>("runner-requests")
       const runner = useCollectionRunner({
         collection: multiRequestCollection,
         collectionDir: "/tmp/collection",
@@ -183,10 +184,13 @@ describe("CollectionRunnerView", () => {
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CollectionRunnerView
               runner={runner}
-              focus="runner-requests"
+              focus={focus}
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
-              onPaneFocus={() => paneFocusCalls++}
+              onPaneFocus={(nextFocus) => {
+                paneFocusCalls++
+                setFocus(nextFocus)
+              }}
               onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
@@ -273,9 +277,7 @@ describe("CollectionRunnerView", () => {
       height: runningButton.height,
     }).toEqual(runButtonGeometry)
     expect(
-      runningButton.backgroundColor.equals(
-        RGBA.fromHex(THEMES[0]!.backgroundElement),
-      ),
+      runningButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)
     await act(async () => {
       await render.mockMouse.click(
@@ -291,7 +293,7 @@ describe("CollectionRunnerView", () => {
       await Promise.resolve()
     })
     await render.renderOnce()
-    expect(current!.optionIndex).toBe(0)
+    expect(current!.optionIndex).toBe(4)
     const completedButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -412,15 +414,20 @@ describe("CollectionRunnerView", () => {
       "Run every request in the collection or selected folder.",
     )
     expect(frame).toContain("Select the environment used for this run.")
-    await act(async () => current!.setOptionIndex(3))
+    await act(async () => current!.setOptionIndex(4))
     await render.renderOnce()
     await render.renderOnce()
     const scrolled = render.captureCharFrame()
     const failFast = render.renderer.root.findDescendantById("runner-option-3")!
-    const runButton =
-      render.renderer.root.findDescendantById("runner-run-button")!
+    const runButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
     expect(runButton.screenY).toBeGreaterThan(failFast.screenY)
     expect(runButton.width).toBe("r Run 0 requests".length + 2)
+    expect(current!.optionIndex).toBe(4)
+    expect(
+      runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
+    ).toBe(true)
     expect(scrolled).toContain("Exclude tag")
     expect(scrolled).toContain("Fail fast")
     expect(scrolled).toContain("Any")
@@ -565,6 +572,12 @@ describe("CollectionRunnerView", () => {
     await act(async () => host.press("escape"))
     await render.renderOnce()
     expect(current!.selectOpen).toBe(false)
+    await act(async () => current!.optionLast())
+    await render.renderOnce()
+    expect(current!.optionIndex).toBe(4)
+    expect(
+      runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
+    ).toBe(true)
     cleanup()
   })
 

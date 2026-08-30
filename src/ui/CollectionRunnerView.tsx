@@ -20,6 +20,7 @@ import type {
   RunnerResultRow,
   UseCollectionRunnerResult,
 } from "../hooks/useCollectionRunner"
+import { RUNNER_RUN_OPTION_INDEX } from "../hooks/useCollectionRunner"
 import type { CollectionItem, Request } from "../schema"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
@@ -176,11 +177,11 @@ export function CollectionRunnerView({
   }, [runner.phase])
 
   useEffect(() => {
-    if (runner.optionIndex < OPTION_LABELS.length) {
-      optionScrollRef.current?.scrollChildIntoView(
-        `runner-option-${runner.optionIndex}`,
-      )
-    }
+    optionScrollRef.current?.scrollChildIntoView(
+      runner.optionIndex === RUNNER_RUN_OPTION_INDEX
+        ? "runner-run-button"
+        : `runner-option-${runner.optionIndex}`,
+    )
   }, [runner.optionIndex])
   useEffect(() => {
     requestScrollRef.current?.scrollChildIntoView(
@@ -289,6 +290,8 @@ export function CollectionRunnerView({
       ),
     ) + 2
   const running = runner.phase === "running"
+  const runFocused =
+    focus === "runner-options" && runner.optionIndex === RUNNER_RUN_OPTION_INDEX
   const currentRequest = Math.min(
     runner.progress.completed + 1,
     runner.progress.total,
@@ -506,6 +509,8 @@ export function CollectionRunnerView({
                 id="runner-run-button"
                 shortcut={running ? SPINNER_FRAMES[spinnerIndex] : "r"}
                 minWidth={runButtonMinWidth}
+                focused={runFocused}
+                highlightWhenDisabled
                 label={
                   running
                     ? `Running ${currentRequest}/${runner.progress.total}`
@@ -514,6 +519,7 @@ export function CollectionRunnerView({
                 disabled={!runner.runAvailable && !running}
                 onAction={() => {
                   if (running) return
+                  runner.setOptionIndex(RUNNER_RUN_OPTION_INDEX)
                   onPaneFocus("runner-options")
                   void runner.run()
                 }}

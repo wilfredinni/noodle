@@ -84,7 +84,8 @@ export interface UseCollectionRunnerResult {
   run: () => Promise<void>
 }
 
-const OPTION_COUNT = 4
+export const RUNNER_RUN_OPTION_INDEX = 4
+const OPTION_COUNT = RUNNER_RUN_OPTION_INDEX + 1
 
 type RunnerNavigationRow =
   | { kind: "folder"; path: string }
