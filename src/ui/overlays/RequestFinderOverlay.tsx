@@ -74,25 +74,33 @@ export function RequestFinderOverlay({
 
       if (item.type === "request") {
         const tags = item.tags.map((tag) => `#${tag}`).join(" ")
-        const rightText = tags ? `${tags} ${item.folderPath}` : item.folderPath
         return (
-          <box flexDirection="row" flexGrow={1}>
-            <text
-              fg={
-                highlighted
-                  ? "#333333"
-                  : methodColor(item.request.method, theme)
-              }
-            >
-              {item.request.method.padEnd(8)}
-            </text>
-            <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
-              {truncate(item.name, 28)}
-            </text>
-            <box flexGrow={1} />
-            <text fg={mutedFg} wrapMode="none">
-              {truncate(rightText, tags ? 24 : 20)}
-            </text>
+          <box flexDirection="column" flexGrow={1}>
+            <box flexDirection="row">
+              <text
+                fg={
+                  highlighted
+                    ? "#333333"
+                    : methodColor(item.request.method, theme)
+                }
+              >
+                {item.request.method.padEnd(8)}
+              </text>
+              <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
+                {truncate(item.name, 28)}
+              </text>
+              <box flexGrow={1} />
+              <text fg={mutedFg} wrapMode="none">
+                {truncate(item.folderPath, 20)}
+              </text>
+            </box>
+            {tags && (
+              <box paddingLeft={8}>
+                <text fg={mutedFg} wrapMode="none">
+                  {truncate(tags, 48)}
+                </text>
+              </box>
+            )}
           </box>
         )
       }

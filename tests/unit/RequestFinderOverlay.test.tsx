@@ -41,7 +41,7 @@ const requests = [
 ]
 
 describe("RequestFinderOverlay", () => {
-  it("renders a compact request row and selects the highlighted request", async () => {
+  it("renders tags on a second line and selects the highlighted request", async () => {
     const { keymap, host, cleanup } = setup()
     let selected = ""
     const { renderOnce, captureCharFrame } = await testRender(
@@ -49,7 +49,12 @@ describe("RequestFinderOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <RequestFinderOverlay
             visible
-            requests={requests}
+            requests={[
+              {
+                ...requests[0]!,
+                tags: ["users", "smoke"],
+              },
+            ]}
             activeEnv={{
               name: "dev",
               vars: { API_HOST: "dev.api.example.com" },
@@ -69,6 +74,10 @@ describe("RequestFinderOverlay", () => {
     expect(frame).toContain("GET")
     expect(frame).toContain("Get User")
     expect(frame).toContain("users")
+    const lines = frame.split("\n")
+    const requestLine = lines.findIndex((line) => line.includes("Get User"))
+    expect(lines[requestLine]).not.toContain("#users")
+    expect(lines[requestLine + 1]).toContain("#users #smoke")
     expect(frame).not.toContain("$API_HOST")
     expect(frame).not.toContain("dev.api.example.com")
     host.press("return")
