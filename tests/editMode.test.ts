@@ -643,6 +643,18 @@ describe("toggleSubfield", () => {
     expect(toggleSubfield(editing).cursor.subfield).toBe("value")
   })
 
+  it("cycles key → value → persist for captures", () => {
+    const counts = { ...c(0, 0), captures: 1 }
+    let state = enterEditBrowse(inactive, counts, "captures")
+    state = beginEditing(state)
+    expect(state.cursor.subfield).toBe("key")
+    state = toggleSubfield(state)
+    expect(state.cursor.subfield).toBe("value")
+    state = toggleSubfield(state)
+    expect(state.cursor.subfield).toBe("persist")
+    expect(toggleSubfield(state).cursor.subfield).toBe("key")
+  })
+
   it("no-op when not in edit mode", () => {
     const browsing = enterEditBrowse(inactive, c(2, 0))
     expect(toggleSubfield(browsing)).toBe(browsing)

@@ -119,26 +119,33 @@ success, `1` after any completed request failure, and `2` for a pre-run
 configuration failure. JSON includes every executed result, fail-fast skips,
 failure categories, and the aggregate run summary.
 
-Collection runs can pass response values forward without writing them to an
-environment file:
+Captures can pass response values forward during a collection run or persist
+them after an individual manual send or `request run`:
 
 ```yaml
 capture:
-  user_id: body.id
-  request_id: headers.x-request-id
-  optional_trace: { value: headers.x-trace, enabled: false }
+  user_id:
+    value: body.id
+  access_token:
+    value: body.access_token
+    persist: secret
+  optional_trace:
+    value: headers.x-trace
+    enabled: false
 ```
 
-Enabled captures keep the string shorthand. Assertions accept the same optional
-`enabled: false` field on each list item; omitted `enabled` means enabled.
+Every capture requires `value`, accepts optional `persist: secret` or
+`persist: environment`, and accepts optional `enabled: false`. Omitted
+`persist` means transient and omitted `enabled` means enabled.
 
 Later requests use the same `$variable` syntax, such as
-`url: $base_url/users/$user_id`. Captures exist only for that run, override
-same-named environment values, and disappear when the command ends. A manual
-TUI send uses a fresh scope, so its captures are inspectable in Results but do
-not affect a later manual send. The collection Runner shares captured values
-only across requests in its current run. Timeline history stores redacted
-assertion results, never capture results or RunScope values.
+`url: $base_url/users/$user_id`. Transient captures override same-named
+environment values and disappear when the run ends. On a manual TUI send or
+CLI `request run`, persisted captures update the active or selected environment
+after successful extraction, even if HTTP status or a later assertion fails.
+Collection Runner and CLI `collection run` always keep captures transient.
+Secret capture values are fully redacted from capture results. Timeline history
+stores redacted assertion results, never capture results or RunScope values.
 
 ## Bring your existing work
 

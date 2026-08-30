@@ -39,10 +39,10 @@ interface Props {
   onActivateRow?: (
     row: number,
     addingRow: boolean,
-    subfield?: FieldSubfield,
+    subfield?: Exclude<FieldSubfield, "persist">,
   ) => void
   onToggleRow?: (row: number) => void
-  onSubfieldFocus?: (subfield: FieldSubfield) => void
+  onSubfieldFocus?: (subfield: Exclude<FieldSubfield, "persist">) => void
   onSelectOpenChange?: (open: boolean) => void
   interactive?: boolean
 }
@@ -117,7 +117,7 @@ export function AssertTab({
           ? editOperator
           : (assertion?.operator ?? "equals")
         const showExpected = assertionOperatorRequiresValue(operator)
-        const activate = (subfield: FieldSubfield) => {
+        const activate = (subfield: Exclude<FieldSubfield, "persist">) => {
           if (!interactive || editing) {
             onSubfieldFocus?.(subfield)
             return

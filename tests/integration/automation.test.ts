@@ -541,11 +541,11 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "01-source.yml"),
-      "name: Source\nmethod: GET\nurl: https://example.com/source\ntags: [smoke]\ncapture:\n  user_id: body.id\n",
+      "name: Source\nmethod: GET\nurl: https://example.com/source\ntags: [smoke]\ncapture:\n  user_id: { value: body.id }\n",
     )
     await writeFile(
       join(dir, "02-filtered.yml"),
-      "name: Filtered\nmethod: GET\nurl: https://example.com/filtered\ntags: [users]\ncapture:\n  user_id: body.id\n",
+      "name: Filtered\nmethod: GET\nurl: https://example.com/filtered\ntags: [users]\ncapture:\n  user_id: { value: body.id }\n",
     )
     await writeFile(
       join(dir, "03-use.yml"),
@@ -595,7 +595,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "01-response.yml"),
-      "name: Response failures\nmethod: GET\nurl: https://example.com/response\ncapture:\n  id: body.missing\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n",
+      "name: Response failures\nmethod: GET\nurl: https://example.com/response\ncapture:\n  id: { value: body.missing }\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n",
     )
     await writeFile(
       join(dir, "02-execution.yml"),
@@ -823,7 +823,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body.user.id\n  request_id: headers.x-request-id\n  explicit_null: body.nothing\n",
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: { value: body.user.id }\n  request_id: { value: headers.x-request-id }\n  explicit_null: { value: body.nothing }\n",
     )
     const send = executor.send
     executor.send = async () => ({
@@ -864,11 +864,246 @@ describe("automation services", () => {
     }
   })
 
+  it("persists plaintext captures for request run before HTTP and assertion failures", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: {},
+      disabledVars: { token: "old" },
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  token: { value: body.token, persist: environment }\n  metadata: { value: body.metadata, persist: environment }\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 500,
+      statusText: "Error",
+      headers: {},
+      body: '{"token":"new","metadata":{"ok":true}}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.failed).toBe(true)
+      expect(result.result.response?.status).toBe(500)
+      expect(result.result.failureCategories).toEqual(["http", "assertion"])
+      expect(result.result.captures?.results).toMatchObject([
+        { variable: "token", success: true, persisted: "environment" },
+        { variable: "metadata", success: true, persisted: "environment" },
+      ])
+      expect(
+        await env.loadEnvironment(join(dir, ".environments"), "development"),
+      ).toMatchObject({
+        vars: { token: "new", metadata: '{"ok":true}' },
+        disabledVars: undefined,
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("persists prototype-like capture names as environment variables", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: {},
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  __proto__: { value: body.token, persist: environment }\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"token":"persisted"}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.result.captures?.results[0]).toMatchObject({
+        variable: "__proto__",
+        success: true,
+        persisted: "environment",
+      })
+      const loaded = await env.loadEnvironment(
+        join(dir, ".environments"),
+        "development",
+      )
+      expect(Object.hasOwn(loaded.vars, "__proto__")).toBe(true)
+      expect(loaded.vars.__proto__).toBe("persisted")
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("persists secret captures without exposing their value", async () => {
+    const stored = new Map<string, string>()
+    setSecretBackendForTests({
+      async get({ service, name }) {
+        return stored.get(`${service}:${name}`) ?? null
+      },
+      async set({ service, name, value }) {
+        stored.set(`${service}:${name}`, value)
+      },
+      async delete({ service, name }) {
+        return stored.delete(`${service}:${name}`)
+      },
+    })
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: { access_token: "old-plaintext" },
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  access_token: { value: body.access_token, persist: secret }\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"access_token":"vault-value"}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.result.captures?.results[0]).toMatchObject({
+        success: true,
+        value: "[REDACTED]",
+        persisted: "secret",
+      })
+      const environmentFile = await readFile(
+        join(dir, ".environments", "development.env"),
+        "utf8",
+      )
+      expect(environmentFile).toContain("# @secret access_token")
+      expect(environmentFile).not.toContain("vault-value")
+      expect(
+        (await env.loadEnvironment(join(dir, ".environments"), "development"))
+          .vars.access_token,
+      ).toBe("vault-value")
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("preserves the response when capture persistence has no environment", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  token: { value: body.token, persist: environment }\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"token":"value"}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.failed).toBe(true)
+      expect(result.result.response?.body).toBe('{"token":"value"}')
+      expect(result.result.failureCategories).toEqual(["capture"])
+      expect(result.result.captures?.results[0]).toMatchObject({
+        success: false,
+        failureReason: "persistence_error",
+        message: "no active environment",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("continues capture persistence after vault and environment write failures", async () => {
+    setSecretBackendForTests({
+      async get() {
+        return null
+      },
+      async set({ value }) {
+        throw new Error(`vault rejected ${value}`)
+      },
+      async delete() {
+        return false
+      },
+    })
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: {},
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  disk_fail: { value: body.disk, persist: environment }\n  vault_fail: { value: body.vault, persist: secret }\n  good: { value: body.good, persist: environment }\n",
+    )
+    const send = executor.send
+    const saveEnvironment = env.saveEnvironment
+    env.saveEnvironment = async (environmentDir, environment) => {
+      if (Object.hasOwn(environment.vars, "disk_fail")) {
+        throw new Error("disk full")
+      }
+      await saveEnvironment(environmentDir, environment)
+    }
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"disk":"a","vault":"brand-new-token","good":[1,true]}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.result.failureCategories).toEqual(["capture"])
+      expect(result.result.captures?.results).toMatchObject([
+        {
+          variable: "disk_fail",
+          success: false,
+          failureReason: "persistence_error",
+          message: "disk full",
+        },
+        {
+          variable: "vault_fail",
+          success: false,
+          failureReason: "persistence_error",
+        },
+        { variable: "good", success: true, persisted: "environment" },
+      ])
+      expect(
+        await env.loadEnvironment(join(dir, ".environments"), "development"),
+      ).toMatchObject({ vars: { good: "[1,true]" } })
+      const vaultResult = result.result.captures?.results[1]
+      expect(vaultResult?.success).toBe(false)
+      if (!vaultResult || vaultResult.success) throw new Error("narrow")
+      expect(vaultResult.message).toContain("vault rejected [REDACTED]")
+      expect(vaultResult.message).not.toContain("brand-new-token")
+    } finally {
+      executor.send = send
+      env.saveEnvironment = saveEnvironment
+    }
+  })
+
   it("rejects invalid capture expressions before sending", async () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body..id\n",
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: { value: body..id }\n",
     )
     const send = executor.send
     let sends = 0
@@ -896,7 +1131,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body.id\n",
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: { value: body.id }\n",
     )
     const send = executor.send
     executor.send = async () => {
@@ -927,11 +1162,11 @@ describe("automation services", () => {
     const before = await readFile(environmentFile, "utf8")
     await writeFile(
       join(dir, "01-source.yml"),
-      "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: body.user.id\n",
+      "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: { value: body.user.id }\n",
     )
     await writeFile(
       join(dir, "02-middle.yml"),
-      "name: 2 Middle\nmethod: GET\nurl: $BASE_URL/users/$user_id\ncapture:\n  next_id: headers.x-next-id\n",
+      "name: 2 Middle\nmethod: GET\nurl: $BASE_URL/users/$user_id\ncapture:\n  next_id: { value: headers.x-next-id }\n",
     )
     await writeFile(
       join(dir, "03-last.yml"),
@@ -1017,7 +1252,7 @@ describe("automation services", () => {
       })
       await writeFile(
         join(dir, "01-source.yml"),
-        "name: Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: body.id\n",
+        "name: Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: { value: body.id }\n",
       )
       await writeFile(
         join(dir, "02-failure.yml"),
@@ -1160,11 +1395,11 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "01-seed.yml"),
-      "name: 1 Seed\nmethod: GET\nurl: https://example.com/seed\ncapture:\n  id: body.id\n",
+      "name: 1 Seed\nmethod: GET\nurl: https://example.com/seed\ncapture:\n  id: { value: body.id }\n",
     )
     await writeFile(
       join(dir, "02-recapture.yml"),
-      "name: 2 Recapture\nmethod: GET\nurl: https://example.com/recapture\ncapture:\n  id: body.missing\n  next_id: body.next\n",
+      "name: 2 Recapture\nmethod: GET\nurl: https://example.com/recapture\ncapture:\n  id: { value: body.missing }\n  next_id: { value: body.next }\n",
     )
     await writeFile(
       join(dir, "03-use.yml"),
@@ -1204,7 +1439,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "source.yml"),
-      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  error_id: body.id\n",
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  error_id: { value: body.id }\n",
     )
     await writeFile(
       join(dir, "use.yml"),
@@ -1238,7 +1473,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "source.yml"),
-      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: body.id\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n",
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: { value: body.id }\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n",
     )
     await writeFile(
       join(dir, "use.yml"),
@@ -1272,7 +1507,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "source.yml"),
-      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: body.id\n",
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: { value: body.id }\n",
     )
     await writeFile(
       join(dir, "use.yml"),
@@ -1316,7 +1551,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\ncapture:\n  id: body.id\n",
+      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\ncapture:\n  id: { value: body.id }\n",
     )
     const send = executor.send
     let sends = 0
@@ -1354,7 +1589,7 @@ describe("automation services", () => {
       })
       await writeFile(
         join(dir, "source.yml"),
-        "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  captured: body.token\n",
+        "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  captured: { value: body.token, persist: secret }\n",
       )
       await writeFile(
         join(dir, "use.yml"),
@@ -1369,17 +1604,23 @@ describe("automation services", () => {
           status: 200,
           statusText: "OK",
           headers: {},
-          body: '{"token":"capture-secret"}',
+          body: '{"token":"brand-new-token"}',
           timeMs: 1,
         }
       }
 
+      const environmentFile = join(dir, ".environments", "development.env")
+      const before = await readFile(environmentFile, "utf8")
       const result = await collectionRun(dir)
-      expect(rawCapturedValue).toBe("capture-secret")
+      expect(rawCapturedValue).toBe("brand-new-token")
       expect(result.results[0]).toMatchObject({
-        response: { body: '{"token":"capture-secret"}' },
+        response: { body: '{"token":"brand-new-token"}' },
         captures: { results: [{ success: true, value: "[REDACTED]" }] },
       })
+      expect(result.results[0]?.captures?.results[0]).not.toHaveProperty(
+        "persisted",
+      )
+      expect(await readFile(environmentFile, "utf8")).toBe(before)
       expect(result.results[1]?.url).toBe("https://example.com/[REDACTED]")
     } finally {
       executor.send = send
@@ -1424,7 +1665,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  id: { value: body.id, enabled: false }\nassert:\n  - expression: body.missing\n    operator: exists\n    enabled: false\n",
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  id: { value: body.id, persist: secret, enabled: false }\nassert:\n  - expression: body.missing\n    operator: exists\n    enabled: false\n",
     )
     const send = executor.send
     executor.send = async () => ({

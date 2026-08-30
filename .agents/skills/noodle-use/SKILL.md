@@ -38,12 +38,17 @@ Use a top-level `capture` mapping to pass response values to later requests in o
 
 ```yaml
 capture:
-  user_id: body.id
-  request_id: headers.x-request-id
-  optional_trace: { value: headers.x-trace, enabled: false }
+  user_id:
+    value: body.id
+  access_token:
+    value: body.access_token
+    persist: secret
+  optional_trace:
+    value: headers.x-trace
+    enabled: false
 ```
 
-Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. The string form is enabled; use `{ value: ..., enabled: false }` to retain a validated capture without evaluating it. Assertions also accept per-row `enabled: false`. Disabled declarations produce no results, failures, summary counts, timeline outcomes, or RunScope mutations. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. Human users edit assertions and captures in separate TUI tabs, with request tags in Settings. Each manual TUI send evaluates declarations with a fresh RunScope, keeps Results available, marks the tab when assertion or capture outcomes exist, and never carries captured values into a later manual send. Run Collection in the command palette opens a transient selector and result inspector backed by the same collection-run semantics.
+Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before assertions. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status or a later assertion fails. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

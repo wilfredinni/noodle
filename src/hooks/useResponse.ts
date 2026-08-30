@@ -25,6 +25,8 @@ import {
 } from "../executionResults"
 import { RunScope } from "../runScope"
 import { substitute } from "../requests/substitute"
+import { persistResponseCaptures } from "../app/services"
+import type { CaptureResult } from "../runScope"
 
 type CachedResult =
   | {
@@ -68,6 +70,7 @@ export function useResponse(
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar | null,
   collectionDir?: string,
+  onEnvironmentPersisted?: () => Promise<void>,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -114,6 +117,7 @@ export function useResponse(
         tlsPolicy,
         cookies,
         collectionDir,
+        onEnvironmentPersisted,
       )
       return startSend(prev, req)
     })
@@ -126,6 +130,7 @@ export function useResponse(
     tlsPolicy,
     cookies,
     collectionDir,
+    onEnvironmentPersisted,
   ])
 
   const cancelSend = useCallback(() => {
@@ -151,6 +156,7 @@ async function runSend(
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar | null,
   collectionDir?: string,
+  onEnvironmentPersisted?: () => Promise<void>,
 ): Promise<void> {
   const runScope = new RunScope()
   try {
@@ -174,12 +180,30 @@ async function runSend(
     })
     const runEnvironment = runScope.environment(env)
     const effectiveRequest = substitute(req, runEnvironment)
-    const execution = evaluateResponseExecution(
+    let rawCaptureResults: CaptureResult[] = []
+    let execution = evaluateResponseExecution(
       effectiveRequest,
       res,
       runScope,
       executionSecretValues([env, runEnvironment], proxyPolicy, tlsPolicy),
+      (results) => {
+        rawCaptureResults = results
+      },
     )
+    execution = await persistResponseCaptures(
+      effectiveRequest,
+      rawCaptureResults,
+      execution,
+      env?.name,
+      collectionDir,
+    )
+    if (
+      execution.captures?.results.some(
+        (capture) => capture.success && capture.persisted,
+      )
+    ) {
+      await onEnvironmentPersisted?.()
+    }
     const result = { status: "done" as const, response: res, execution }
     cacheRef.current.set(req.id, result)
     setState((prev) => finishSend(prev, req, res, execution))

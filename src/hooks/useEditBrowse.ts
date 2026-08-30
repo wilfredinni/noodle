@@ -9,6 +9,7 @@ import {
 import type {
   AssertionOperator,
   BodyType,
+  CapturePersistence,
   Request,
   ResponseAssertion,
 } from "../schema"
@@ -97,11 +98,19 @@ function assertionEditValues(
 function captureEditValues(
   request: Request | null,
   row: number,
-): { key: string; value: string } {
+): {
+  key: string
+  value: string
+  persist: CapturePersistence | "transient"
+} {
   const capture = Object.entries(request?.captures ?? {})[row]
   return capture
-    ? { key: capture[0], value: capture[1].value }
-    : { key: "", value: "" }
+    ? {
+        key: capture[0],
+        value: capture[1].value,
+        persist: capture[1].persist ?? "transient",
+      }
+    : { key: "", value: "", persist: "transient" }
 }
 
 function currentValueFor(
@@ -251,6 +260,8 @@ export interface UseEditBrowseResult {
   setEditKey: (v: string) => void
   editOperator: AssertionOperator
   setEditOperator: (operator: AssertionOperator) => void
+  editCapturePersistence: CapturePersistence | "transient"
+  setEditCapturePersistence: (persist: CapturePersistence | "transient") => void
   editError: string | null
   isActive: boolean
   activeTab: FieldKind
@@ -303,6 +314,9 @@ export function useEditBrowse(
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
   const [editOperator, setEditOperator] = useState<AssertionOperator>("equals")
+  const [editCapturePersistence, setEditCapturePersistence] = useState<
+    CapturePersistence | "transient"
+  >("transient")
   const [editError, setEditError] = useState<string | null>(null)
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(
     options?.initialTab ?? "headers",
@@ -324,6 +338,11 @@ export function useEditBrowse(
   useLayoutEffect(() => {
     editOperatorRef.current = editOperator
   }, [editOperator])
+
+  const editCapturePersistenceRef = useRef(editCapturePersistence)
+  useLayoutEffect(() => {
+    editCapturePersistenceRef.current = editCapturePersistence
+  }, [editCapturePersistence])
 
   const onTabChangeRef = useRef(options?.onTabChange)
   onTabChangeRef.current = options?.onTabChange
@@ -415,6 +434,7 @@ export function useEditBrowse(
         const values = captureEditValues(currentDraft, row)
         setEditKey(values.key)
         setEditValue(values.value)
+        setEditCapturePersistence(values.persist)
       } else if (
         field === "body" &&
         (currentDraft?.bodyType === "multipart" ||
@@ -516,6 +536,7 @@ export function useEditBrowse(
       const values = captureEditValues(currentDraft, browsed.cursor.row)
       setEditKey(values.key)
       setEditValue(values.value)
+      setEditCapturePersistence(values.persist)
       setEditState(beginEditing(browsed))
       return
     }
@@ -759,6 +780,7 @@ export function useEditBrowse(
       const values = captureEditValues(currentDraft, row)
       setEditKey(values.key)
       setEditValue(values.value)
+      setEditCapturePersistence(values.persist)
       setEditState((prev) => beginEditing(prev))
       return
     }
@@ -868,6 +890,9 @@ export function useEditBrowse(
           value,
           enabled:
             replacedIndex >= 0 ? entries[replacedIndex]![1].enabled : true,
+          ...(editCapturePersistenceRef.current !== "transient"
+            ? { persist: editCapturePersistenceRef.current }
+            : {}),
         }
         if (replacedIndex >= 0) entries[replacedIndex] = [key, capture]
         else entries.push([key, capture])
@@ -1010,13 +1035,7 @@ export function useEditBrowse(
         return toggleSubfield(prev)
       }
       if (prev.cursor.field === "captures") {
-        return {
-          ...prev,
-          cursor: {
-            ...prev.cursor,
-            subfield: prev.cursor.subfield === "key" ? "value" : "key",
-          },
-        }
+        return toggleSubfield(prev)
       }
       if (prev.cursor.field !== "assertions") return toggleSubfield(prev)
       const subfield = prev.cursor.subfield ?? "key"
@@ -1171,6 +1190,8 @@ export function useEditBrowse(
       setEditKey,
       editOperator,
       setEditOperator,
+      editCapturePersistence,
+      setEditCapturePersistence,
       editError,
       isActive: editState.mode !== "inactive",
       activeTab,
@@ -1207,6 +1228,7 @@ export function useEditBrowse(
       editValue,
       editKey,
       editOperator,
+      editCapturePersistence,
       editError,
       activeTab,
       enterBrowse,

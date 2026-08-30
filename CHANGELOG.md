@@ -11,6 +11,7 @@ All notable changes to Noodle are documented in this file.
 - Evaluate captures and assertions on every manual send with a fresh RunScope, keep Results available, and mark the tab when a send has assertion or capture outcomes.
 - Add a transient collection Runner with request selection, local environment and tag filters, fail-fast execution, progress, and detailed in-memory results.
 - Show effective request and inherited folder tags in request search, and persist redacted assertion status and details in response timeline history.
+- Add strict object-only capture declarations with optional per-capture secret or plaintext environment persistence for manual TUI sends and CLI `request run`, while keeping collection runs transient.
 
 ### 🔧 Refactors
 
@@ -19,10 +20,12 @@ All notable changes to Noodle are documented in this file.
 ### 🔒 Security
 
 - Keep capture results and RunScope values out of timeline history while recursively redacting known secrets from manual execution results and persisted assertion metadata.
+- Fully redact `persist: secret` capture values from every result and reject CR, LF, and NUL values in the shared plaintext environment writer.
 
 ### 📚 Documentation
 
 - Document Assert, Capture, Results, and collection Runner workflows in the README, in-app help and tips, and the bundled `noodle-use` skill.
+- Document uniform capture objects, individual-run persistence, partial failures, and collection-run isolation.
 
 ## [0.8.2] - 2026-08-27
 

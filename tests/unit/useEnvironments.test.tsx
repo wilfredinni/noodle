@@ -143,6 +143,30 @@ describe("useEnvironments", () => {
     await waitUntil(() => state?.activeEnv?.name === "development")
   })
 
+  it("ignores a stale reload after the active environment changes", async () => {
+    let state: UseEnvironmentsResult | undefined
+    const { renderOnce } = await testRender(
+      <Harness
+        dir={dir}
+        onChange={() => {}}
+        onState={(next) => {
+          state = next
+        }}
+      />,
+      { width: 80, height: 4 },
+    )
+
+    await renderOnce()
+    await waitUntil(() => state?.activeEnv?.name === "development")
+    const staleReload = state!.reloadActiveEnv
+    act(() => state!.select("production"))
+    await staleReload()
+    await waitUntil(() => state?.activeEnv?.name === "production")
+
+    expect(state?.activeName).toBe("production")
+    expect(state?.activeEnv?.vars.HOST).toBe("prod")
+  })
+
   it("preserves the active environment by name when the list changes", async () => {
     const changes: Array<string | null> = []
     let state: UseEnvironmentsResult | undefined

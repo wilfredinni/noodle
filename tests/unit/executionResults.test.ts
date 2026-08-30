@@ -39,6 +39,30 @@ describe("response execution results", () => {
     expect(results.assertions?.results[0]?.passed).toBe(true)
   })
 
+  it("fully redacts declared secret captures while retaining raw scope values", () => {
+    const scope = new RunScope()
+    const results = evaluateResponseExecution(
+      {
+        captures: {
+          token: {
+            value: "body.token",
+            enabled: true,
+            persist: "secret",
+          },
+        },
+      },
+      response,
+      scope,
+    )
+
+    expect(scope.get("token")).toBe("secret")
+    expect(scope.secretValues()).toEqual(["secret"])
+    expect(results.captures?.results[0]).toMatchObject({
+      success: true,
+      value: "[REDACTED]",
+    })
+  })
+
   it("marks declared results unevaluated before a response exists", () => {
     const request = {
       captures: { id: { value: "body.id", enabled: true } },

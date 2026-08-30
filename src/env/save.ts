@@ -25,6 +25,15 @@ export async function saveEnvironment(
 
   const lines: string[] = []
 
+  for (const value of [
+    ...Object.values(env.vars),
+    ...Object.values(env.disabledVars ?? {}),
+  ]) {
+    if (/[\r\n\0]/.test(value)) {
+      throw new Error("env.save: values must not contain CR, LF, or NUL")
+    }
+  }
+
   if (env.color) {
     lines.push(`_color=${env.color}`)
   }

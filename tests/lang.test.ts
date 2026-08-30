@@ -1149,15 +1149,24 @@ describe("lang.parseRequest: response captures", () => {
   it("parses and canonically round-trips a capture mapping", () => {
     const request = lang.parseRequest(
       "captures",
-      `${prefix}capture:\n  user_id: body.user.id\n  request_id: headers.x-request-id\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n`,
+      `${prefix}capture:\n  user_id: { value: body.user.id, persist: environment }\n  request_id:\n    value: headers.x-request-id\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n`,
     )
 
     expect(request.captures).toEqual({
-      user_id: { value: "body.user.id", enabled: true },
+      user_id: {
+        value: "body.user.id",
+        enabled: true,
+        persist: "environment",
+      },
       request_id: { value: "headers.x-request-id", enabled: true },
     })
     const serialized = lang.serializeRequest(request)
-    expect(serialized).toContain("  user_id: body.user.id\n")
+    expect(serialized).toContain(
+      "  user_id:\n    value: body.user.id\n    persist: environment\n",
+    )
+    expect(serialized).toContain(
+      "  request_id:\n    value: headers.x-request-id\n",
+    )
     expect(serialized).not.toContain("enabled: true")
     expect(serialized.indexOf("capture:")).toBeLessThan(
       serialized.indexOf("assert:"),
@@ -1175,15 +1184,19 @@ describe("lang.parseRequest: response captures", () => {
 
   it("rejects invalid names, values, and expressions", () => {
     expect(() =>
-      lang.parseRequest("captures", `${prefix}capture:\n  user-id: body.id\n`),
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  user-id: { value: body.id }\n`,
+      ),
     ).toThrow('lang.parseRequest: invalid capture variable "user-id"')
     expect(() =>
       lang.parseRequest("captures", `${prefix}capture:\n  user_id: 42\n`),
-    ).toThrow(
-      "lang.parseRequest: capture.user_id must be a string or {value, enabled} object",
-    )
+    ).toThrow("lang.parseRequest: capture.user_id must be an object")
     expect(() =>
-      lang.parseRequest("captures", `${prefix}capture:\n  user_id: body..id\n`),
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  user_id: { value: body..id }\n`,
+      ),
     ).toThrow(
       'lang.parseRequest: capture.user_id: Invalid response expression "body..id"',
     )
@@ -1193,7 +1206,7 @@ describe("lang.parseRequest: response captures", () => {
     expect(() =>
       lang.parseRequest(
         "captures",
-        `${prefix}capture:\n  user_id: body.id\n  user_id: body.other_id\n`,
+        `${prefix}capture:\n  user_id: { value: body.id }\n  user_id: { value: body.other_id }\n`,
       ),
     ).toThrow("duplicated mapping key")
   })
@@ -1201,7 +1214,7 @@ describe("lang.parseRequest: response captures", () => {
   it("preserves capture names that shadow object prototype properties", () => {
     const request = lang.parseRequest(
       "captures",
-      `${prefix}capture:\n  __proto__: body.meta\n`,
+      `${prefix}capture:\n  __proto__: { value: body.meta }\n`,
     )
 
     expect(Object.hasOwn(request.captures!, "__proto__")).toBe(true)
@@ -1209,24 +1222,31 @@ describe("lang.parseRequest: response captures", () => {
       value: "body.meta",
       enabled: true,
     })
-    expect(lang.serializeRequest(request)).toContain("__proto__: body.meta")
+    expect(lang.serializeRequest(request)).toContain(
+      "__proto__:\n    value: body.meta",
+    )
   })
 
   it("persists disabled captures canonically and normalizes enabled objects", () => {
     const request = lang.parseRequest(
       "captures",
-      `${prefix}capture:\n  disabled: { value: body.disabled, enabled: false }\n  enabled:\n    value: body.enabled\n    enabled: true\n`,
+      `${prefix}capture:\n  disabled: { value: body.disabled, persist: secret, enabled: false }\n  enabled:\n    value: body.enabled\n    enabled: true\n`,
     )
 
     expect(request.captures).toEqual({
-      disabled: { value: "body.disabled", enabled: false },
+      disabled: {
+        value: "body.disabled",
+        enabled: false,
+        persist: "secret",
+      },
       enabled: { value: "body.enabled", enabled: true },
     })
     const serialized = lang.serializeRequest(request)
     expect(serialized).toContain(
-      "disabled: { value: body.disabled, enabled: false }",
+      "  disabled:\n    value: body.disabled\n    persist: secret\n    enabled: false\n",
     )
-    expect(serialized).toContain("enabled: body.enabled")
+    expect(serialized).toContain("  enabled:\n    value: body.enabled\n")
+    expect(serialized).not.toContain("enabled: true")
     expect(lang.parseRequest("captures", serialized).captures).toEqual(
       request.captures,
     )
@@ -1245,6 +1265,14 @@ describe("lang.parseRequest: response captures", () => {
         `${prefix}capture:\n  token: { value: body.token, enabled: false, extra: true }\n`,
       ),
     ).toThrow('lang.parseRequest: unknown capture.token field "extra"')
+    expect(() =>
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  token: { value: body.token, persist: vault }\n`,
+      ),
+    ).toThrow(
+      'lang.parseRequest: capture.token.persist must be "secret" or "environment"',
+    )
     expect(() =>
       lang.parseRequest(
         "captures",

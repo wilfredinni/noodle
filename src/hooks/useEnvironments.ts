@@ -35,6 +35,8 @@ export function useEnvironments(
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
+  const activeNameRef = useRef(activeName)
+  activeNameRef.current = activeName
 
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
@@ -63,6 +65,7 @@ export function useEnvironments(
   const select = useCallback(
     (name: string) => {
       if (!envList.includes(name)) return
+      activeNameRef.current = name
       genRef.current += 1
       const gen = genRef.current
       setError(null)
@@ -92,6 +95,7 @@ export function useEnvironments(
     if (fallback !== undefined) {
       select(fallback)
     } else if (activeName !== null) {
+      activeNameRef.current = null
       genRef.current += 1
       setActiveName(null)
       setActiveEnv(null)
@@ -114,16 +118,21 @@ export function useEnvironments(
   )
 
   const reloadActiveEnv = useCallback(async () => {
-    if (activeName === null || !envList.includes(activeName)) return
+    if (
+      activeName === null ||
+      activeNameRef.current !== activeName ||
+      !envList.includes(activeName)
+    )
+      return
     genRef.current += 1
     const gen = genRef.current
     try {
       const loaded = await env.loadEnvironment(dir, activeName)
-      if (gen !== genRef.current) return
+      if (gen !== genRef.current || activeNameRef.current !== activeName) return
       setActiveEnv(loaded)
       setError(null)
     } catch (e: unknown) {
-      if (gen !== genRef.current) return
+      if (gen !== genRef.current || activeNameRef.current !== activeName) return
       const err = e instanceof Error ? e : new Error(String(e))
       setError(err)
       setActiveEnv(null)

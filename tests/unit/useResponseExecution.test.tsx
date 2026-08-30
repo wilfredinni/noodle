@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { act, useEffect, useState } from "react"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createTestRender } from "../testRender"
 import { useResponse } from "../../src/hooks/useResponse"
 import { executor } from "../../src/requests"
 import type { Request } from "../../src/schema"
 import type { SendState } from "../../src/ui/sendState"
+import { env } from "../../src/env"
 
 const testRender = createTestRender()
 
@@ -129,6 +133,101 @@ describe("useResponse execution results", () => {
       })
     } finally {
       executor.send = originalSend
+    }
+  })
+
+  it("persists manual captures and reloads the environment before completion", async () => {
+    const collectionDir = await mkdtemp(
+      join(tmpdir(), "noodle-manual-capture-"),
+    )
+    const environmentDir = join(collectionDir, ".environments")
+    await writeFile(
+      join(collectionDir, "settings.yml"),
+      "environment: development\n",
+    )
+    await env.saveEnvironment(environmentDir, {
+      name: "development",
+      vars: {},
+    })
+    const activeEnvironment = await env.loadEnvironment(
+      environmentDir,
+      "development",
+    )
+    const originalSend = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"token":"persisted"}',
+      timeMs: 1,
+    })
+    const observed: {
+      final?: SendState
+      reloaded?: string
+      reloadedBeforeComplete?: string
+    } = {}
+    let resolveComplete: (() => void) | undefined
+    const complete = new Promise<void>((resolve) => {
+      resolveComplete = resolve
+    })
+
+    function Harness() {
+      const response = useResponse(
+        request({
+          captures: {
+            token: {
+              value: "body.token",
+              enabled: true,
+              persist: "environment",
+            },
+          },
+        }),
+        activeEnvironment,
+        (_request, result) => {
+          if (result.status === "done") {
+            observed.reloadedBeforeComplete = observed.reloaded
+            resolveComplete?.()
+          }
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        collectionDir,
+        async () => {
+          observed.reloaded = (
+            await env.loadEnvironment(environmentDir, "development")
+          ).vars.token
+        },
+      )
+      useEffect(() => {
+        if (response.state.status === "idle") response.trySend()
+        else if (response.state.status === "done")
+          observed.final = response.state
+      }, [response])
+      return null
+    }
+
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      await act(async () => {
+        await complete
+        await render.flush()
+      })
+      expect(observed.reloaded).toBe("persisted")
+      expect(observed.reloadedBeforeComplete).toBe("persisted")
+      expect(observed.final?.status).toBe("done")
+      if (observed.final?.status !== "done") throw new Error("narrow")
+      expect(observed.final.execution?.captures?.results[0]).toMatchObject({
+        success: true,
+        persisted: "environment",
+      })
+    } finally {
+      executor.send = originalSend
+      await rm(collectionDir, { recursive: true, force: true })
     }
   })
 })

@@ -86,6 +86,14 @@ export interface KvEntry {
   enabled: boolean
 }
 
+export type CapturePersistence = "secret" | "environment"
+
+export interface CaptureEntry {
+  value: string
+  enabled: boolean
+  persist?: CapturePersistence
+}
+
 export interface ParamEntry {
   name: string
   value: string
@@ -262,7 +270,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
-  captures?: Record<string, KvEntry>
+  captures?: Record<string, CaptureEntry>
   assertions?: ResponseAssertion[]
 }
 

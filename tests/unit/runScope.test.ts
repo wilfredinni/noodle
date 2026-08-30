@@ -174,6 +174,15 @@ describe("RunScope", () => {
     expect(scope.get("id")).toBe(2)
   })
 
+  it("tracks normalized secret values until a non-secret capture replaces them", () => {
+    const scope = new RunScope()
+    scope.set("token", { value: "secret" }, true)
+    expect(scope.secretValues()).toEqual(['{"value":"secret"}'])
+
+    scope.set("token", "public")
+    expect(scope.secretValues()).toEqual([])
+  })
+
   it("creates a transient environment without a selected environment", () => {
     expect(new RunScope().environment()).toEqual({ name: "run", vars: {} })
   })

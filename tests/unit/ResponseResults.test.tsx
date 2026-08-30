@@ -41,6 +41,7 @@ describe("ResponseResults", () => {
                         success: true,
                         type: "string",
                         value: "[REDACTED]",
+                        persisted: "secret",
                       },
                     ],
                   },
@@ -81,6 +82,7 @@ describe("ResponseResults", () => {
     await act(async () => renderOnce())
     const expandedCapture = captureCharFrame()
     expect(expandedCapture).toMatch(/Type\s+string/)
+    expect(expandedCapture).toMatch(/Persisted\s+secret/)
     expect(expandedCapture).toMatch(/Value\s+\[REDACTED\]/)
 
     await act(async () => host.press("return"))

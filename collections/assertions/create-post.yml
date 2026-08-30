@@ -20,9 +20,12 @@ body: |-
   }
 body_type: json
 capture:
-  created_post_id: body.id
-  created_user_id: body.userId
-  response_content_type: headers.content-type
+  created_post_id:
+    value: body.id
+  created_user_id:
+    value: body.userId
+  response_content_type:
+    value: headers.content-type
 assert:
   - expression: status
     operator: equals

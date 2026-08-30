@@ -54,7 +54,7 @@ function formatCaptures(result: RequestRunResult): string[] {
     `  Captures: ${captured} captured, ${failed} failed`,
     ...result.captures.results.map(
       (capture) =>
-        `    ${capture.success ? color("✓", "green") : color("✗", "red")} $${capture.variable} <- ${capture.expression}${capture.success ? "" : `: ${capture.message}`}`,
+        `    ${capture.success ? color("✓", "green") : color("✗", "red")} $${capture.variable} <- ${capture.expression}${capture.success ? (capture.persisted ? ` (${capture.persisted})` : "") : `: ${capture.message}`}`,
     ),
   ]
 }

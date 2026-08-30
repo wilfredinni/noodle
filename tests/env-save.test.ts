@@ -64,6 +64,21 @@ describe("saveEnvironment", () => {
     ).rejects.toThrow('env.save: unknown color "nonexistent"')
   })
 
+  it("rejects CR, LF, and NUL in plaintext values", async () => {
+    for (const value of ["line\rbreak", "line\nbreak", "nul\0byte"]) {
+      await expect(
+        env.saveEnvironment(dir, { name: "test", vars: { value } }),
+      ).rejects.toThrow("env.save: values must not contain CR, LF, or NUL")
+      await expect(
+        env.saveEnvironment(dir, {
+          name: "test",
+          vars: {},
+          disabledVars: { value },
+        }),
+      ).rejects.toThrow("env.save: values must not contain CR, LF, or NUL")
+    }
+  })
+
   it("rejects the reserved _color secret key", async () => {
     await expect(
       env.saveEnvironment(dir, {
