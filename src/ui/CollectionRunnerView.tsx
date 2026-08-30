@@ -35,6 +35,8 @@ import { ActionButton } from "./ActionButton"
 import { Badge } from "./Badge"
 import { SettingsField } from "./settings/SettingsField"
 
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
 const OPTION_LABELS = [
   "Environment",
   "Include tag",
@@ -158,6 +160,15 @@ export function CollectionRunnerView({
   )
   const previousPhaseRef = useRef<typeof runner.phase | null>(null)
   const [splitRatio, setSplitRatio] = useState(0.5)
+  const [spinnerIndex, setSpinnerIndex] = useState(0)
+
+  useEffect(() => {
+    if (runner.phase !== "running") return
+    const id = setInterval(() => {
+      setSpinnerIndex((index) => (index + 1) % SPINNER_FRAMES.length)
+    }, 80)
+    return () => clearInterval(id)
+  }, [runner.phase])
 
   useEffect(() => {
     if (runner.optionIndex < OPTION_LABELS.length) {
@@ -210,13 +221,22 @@ export function CollectionRunnerView({
     ),
   )
   const resultNameWidth = Math.max(0, resultNameAvailable - resultValueWidth)
+  const maximumRequestCount = runner.requests.length
   const runButtonMinWidth =
     Math.max(
       stringWidth("r Run 0 requests"),
       stringWidth(
-        `r Run ${runner.requests.length} request${runner.requests.length === 1 ? "" : "s"}`,
+        `r Run ${maximumRequestCount} request${maximumRequestCount === 1 ? "" : "s"}`,
+      ),
+      stringWidth(
+        `${SPINNER_FRAMES[0]} Running ${maximumRequestCount}/${maximumRequestCount}`,
       ),
     ) + 2
+  const running = runner.phase === "running"
+  const currentRequest = Math.min(
+    runner.progress.completed + 1,
+    runner.progress.total,
+  )
   const paneStyle = {
     flexDirection: "column" as const,
     flexGrow: 1,
@@ -428,11 +448,16 @@ export function CollectionRunnerView({
               })}
               <ActionButton
                 id="runner-run-button"
-                shortcut="r"
+                shortcut={running ? SPINNER_FRAMES[spinnerIndex] : "r"}
                 minWidth={runButtonMinWidth}
-                label={`Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`}
-                disabled={!runner.runAvailable && runner.phase !== "running"}
+                label={
+                  running
+                    ? `Running ${currentRequest}/${runner.progress.total}`
+                    : `Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`
+                }
+                disabled={!runner.runAvailable && !running}
                 onAction={() => {
+                  if (running) return
                   onPaneFocus("runner-options")
                   void runner.run()
                 }}

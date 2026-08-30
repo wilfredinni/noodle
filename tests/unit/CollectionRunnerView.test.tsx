@@ -107,7 +107,11 @@ describe("CollectionRunnerView", () => {
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
     let finishRun: (() => void) | null = null
-    const runCollection = (async () => {
+    let reportProgress: Parameters<typeof collectionRun>[2]
+    let paneFocusCalls = 0
+    const runCollection = (async (
+      ...args: Parameters<typeof collectionRun>
+    ) => {
       const results = multiRequestCollection.items.map((item) => {
         if (item.type !== "request") throw new Error("expected request")
         const { data } = item
@@ -126,6 +130,8 @@ describe("CollectionRunnerView", () => {
           },
         }
       })
+      reportProgress = args[2]
+      reportProgress?.(0, results.length)
       await new Promise<void>((resolve) => {
         finishRun = resolve
       })
@@ -175,7 +181,7 @@ describe("CollectionRunnerView", () => {
               focus="runner-requests"
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
-              onPaneFocus={() => {}}
+              onPaneFocus={() => paneFocusCalls++}
               onEditTagFilter={() => {}}
               onOpenResultDetail={() => {}}
             />
@@ -220,6 +226,7 @@ describe("CollectionRunnerView", () => {
       x: runButton.screenX,
       y: runButton.screenY,
       width: runButton.width,
+      height: runButton.height,
     }
     expect(runButton.width).toBe("r Run 3 requests".length + 2)
     expect(
@@ -227,18 +234,28 @@ describe("CollectionRunnerView", () => {
         RGBA.fromHex(THEMES[0]!.backgroundElement),
       ),
     ).toBe(true)
-    await act(async () => {
-      await render.mockMouse.click(
-        runButton.screenX + 1,
-        runButton.screenY,
-        MouseButtons.LEFT,
-      )
-      await render.mockMouse.moveTo(0, 0)
-      await Promise.resolve()
-    })
-    await render.renderOnce()
+    const originalSetInterval = globalThis.setInterval
+    globalThis.setInterval = (() => 0) as unknown as typeof setInterval
+    try {
+      await act(async () => {
+        await render.mockMouse.click(
+          runButton.screenX + 1,
+          runButton.screenY,
+          MouseButtons.LEFT,
+        )
+        await render.mockMouse.moveTo(0, 0)
+        await Promise.resolve()
+      })
+      await render.renderOnce()
+    } finally {
+      globalThis.setInterval = originalSetInterval
+    }
     expect(current!.phase).toBe("running")
-    expect(render.captureCharFrame()).toContain("r Run 3 requests")
+    expect(render.captureCharFrame()).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Running 1\/3/)
+    expect(render.captureCharFrame()).not.toContain("r Run 3 requests")
+    await act(async () => reportProgress?.(1, 3))
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("Running 2/3")
     const runningButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -247,7 +264,22 @@ describe("CollectionRunnerView", () => {
       x: runningButton.screenX,
       y: runningButton.screenY,
       width: runningButton.width,
+      height: runningButton.height,
     }).toEqual(runButtonGeometry)
+    expect(
+      runningButton.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
+    ).toBe(true)
+    await act(async () => {
+      await render.mockMouse.click(
+        runningButton.screenX + 1,
+        runningButton.screenY,
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.moveTo(0, 0)
+    })
+    expect(paneFocusCalls).toBe(1)
     await act(async () => {
       finishRun?.()
       await Promise.resolve()
@@ -262,6 +294,7 @@ describe("CollectionRunnerView", () => {
       x: completedButton.screenX,
       y: completedButton.screenY,
       width: completedButton.width,
+      height: completedButton.height,
     }).toEqual(runButtonGeometry)
     const resultFrame = render.captureCharFrame()
     expect(resultFrame).toContain("PASS  3/3 requests · 1ms")
