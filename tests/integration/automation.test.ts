@@ -1107,6 +1107,55 @@ describe("automation services", () => {
     }
   })
 
+  it("includes folder overrides in collection details", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await mkdir(join(dir, "api"))
+    await writeFile(
+      join(dir, "api", "folder.yml"),
+      "headers:\n  X-Folder: inherited\nauth:\n  type: bearer\n  token: folder-token\n",
+    )
+    await writeFile(
+      join(dir, "api", "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\nauth:\n  type: inherit\n",
+    )
+    const send = executor.send
+    try {
+      executor.send = async () => ({
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      })
+      const details: RequestRunDetail[] = []
+
+      await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        undefined,
+        undefined,
+        false,
+        (detail) => details.push(detail),
+      )
+
+      expect(details[0]?.entry.request.headers["X-Folder"]).toEqual({
+        value: "inherited",
+        enabled: true,
+      })
+      expect(details[0]?.entry.request.auth).toEqual({
+        type: "bearer",
+        token: "[REDACTED]",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("keeps successful captures when another capture fails and continues", async () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(

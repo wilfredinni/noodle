@@ -49,7 +49,12 @@ In split-footer mode, `renderer.width` and `renderer.height` describe the footer
 
 ## Writing to scrollback
 
-The renderer also supplies structured scrollback writers and surfaces. Use the canonical [custom renderables guide](/docs/extend/custom-renderables) for off-screen rendering and the [Buffer API](/docs/reference/buffer-api) for buffer ownership.
+In split-footer mode with `externalOutputMode: "capture-stdout"`, use `writeToScrollback()` for a one-shot
+`ScrollbackSnapshot`. Its writer receives a `ScrollbackRenderContext` and returns the root renderable to commit above
+the footer.
+
+For incremental output, `createScrollbackSurface()` returns a `ScrollbackSurface`. Add renderables to `surface.root`,
+call `render()` or `settle()`, commit a rendered range with `commitRows()`, and call `destroy()` when finished.
 
 ## Custom streams
 

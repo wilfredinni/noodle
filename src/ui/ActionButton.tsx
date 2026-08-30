@@ -41,7 +41,7 @@ export function ActionButton({
   const naturalWidth =
     paddingX * 2 +
     stringWidth(label) +
-    (shortcut ? stringWidth(shortcut) + 1 : 0)
+    (shortcut ? stringWidth(shortcut) + 1 + gap : 0)
   const shortcutColor = disabled
     ? theme.border
     : hovered

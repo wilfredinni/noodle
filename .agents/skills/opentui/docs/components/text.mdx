@@ -155,7 +155,9 @@ const nonSelectable = new TextRenderable(renderer, {
 ## Example: status bar
 
 ```typescript
-import { TextRenderable, BoxRenderable, t, bold, fg } from "@opentui/core"
+import { TextRenderable, BoxRenderable, createCliRenderer, t, bold, fg } from "@opentui/core"
+
+const renderer = await createCliRenderer()
 
 const statusBar = new BoxRenderable(renderer, {
   position: "absolute",

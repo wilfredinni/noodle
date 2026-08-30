@@ -24,6 +24,7 @@ import {
 import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
+import { mergeFolderOverrides } from "../requests/mergeFolderOverrides"
 import type { SubstitutedRequest } from "../requests/substitute"
 import { withDefaultHttpsScheme } from "../requests/url"
 import {
@@ -725,8 +726,9 @@ async function runRequest(
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   let detailRequest = request
   try {
-    const effective = substitute(request, effectiveEnvironment)
-    detailRequest = timelineRequest(request, effective)
+    const merged = mergeFolderOverrides(request, collection, request.id)
+    const effective = substitute(merged, effectiveEnvironment)
+    detailRequest = timelineRequest(merged, effective)
     const response = await executor.send(request, {
       environment: effectiveEnvironment,
       collection,
