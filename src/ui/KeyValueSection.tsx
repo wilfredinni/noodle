@@ -13,7 +13,7 @@ import { VarInput } from "./VarInput"
 import { Select } from "./Select"
 
 const CAPTURE_PERSISTENCE_ITEMS = [
-  { id: "transient", label: "Transient" },
+  { id: "transient", label: "Run only" },
   { id: "secret", label: "Secret" },
   { id: "environment", label: "Environment" },
 ]
