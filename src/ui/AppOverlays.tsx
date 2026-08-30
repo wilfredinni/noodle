@@ -112,6 +112,7 @@ interface AppOverlaysProps {
     cancel: () => void
     clear: () => void
   }
+  tagSuggestions: readonly string[]
   updateFlow: UpdateFlowState
   envColors: Record<string, string | undefined>
   onLoadTimelineBody: (
@@ -180,6 +181,7 @@ export function AppOverlays({
   cloneRequestActions,
   newFolderActions,
   tagEditorActions,
+  tagSuggestions,
   updateFlow,
   envColors,
   onLoadTimelineBody,
@@ -525,6 +527,7 @@ export function AppOverlays({
           visible
           ref={tagEditorRef}
           initialValue={tagEditPending.value}
+          suggestions={tagSuggestions}
           title={
             tagEditPending.kind === "runner-filter"
               ? tagEditPending.filter === "include"
@@ -535,6 +538,11 @@ export function AppOverlays({
           onConfirm={tagEditorActions.confirm}
           onClear={
             tagEditPending.kind === "runner-filter" && tagEditPending.value
+              ? tagEditorActions.clear
+              : undefined
+          }
+          onDelete={
+            tagEditPending.kind === "request" && tagEditPending.value
               ? tagEditorActions.clear
               : undefined
           }

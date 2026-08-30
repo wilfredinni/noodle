@@ -9,6 +9,8 @@ import {
   useState,
 } from "react"
 import {
+  BoxRenderable,
+  CliRenderEvents,
   InputRenderable,
   MouseButton,
   ScrollBoxRenderable,
@@ -105,6 +107,7 @@ export interface VarInputProps {
   paddingX?: number
   style?: VarInputStyle
   variableNames?: Iterable<string>
+  variableAware?: boolean
   pathParams?: ParamEntry[]
   pathCompletion?: PathCompletionOptions
   completionValues?: readonly string[]
@@ -128,6 +131,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       paddingX,
       style,
       variableNames,
+      variableAware = true,
       pathParams,
       pathCompletion,
       completionValues,
@@ -150,6 +154,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return editable && !editable.isDestroyed ? editable : null
     }, [])
     const suggestionNames = useMemo(() => {
+      if (!variableAware) return []
       if (variableNames != null) return [...variableNames]
       return [
         ...new Set([
@@ -157,7 +162,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           ...Object.keys(env?.secretVars ?? {}),
         ]),
       ]
-    }, [variableNames, env?.vars, env?.secretVars])
+    }, [variableAware, variableNames, env?.vars, env?.secretVars])
 
     const inputFocused = isFocused ?? true
 
@@ -166,14 +171,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         getEditor: getEditable,
         variableNames: suggestionNames,
         value,
-        isEditing: isEditing && inputFocused,
+        isEditing: variableAware && isEditing && inputFocused,
       })
 
     const applyHighlights = useCallback(() => {
+      if (!variableAware) return
       const editable = getEditable()
       if (editable)
         highlightVariables(editable, editable.plainText, theme, env, pathParams)
-    }, [env, getEditable, theme, pathParams])
+    }, [env, getEditable, pathParams, theme, variableAware])
 
     const handlePathChange = useCallback(
       (nextValue: string) => {
@@ -552,34 +558,60 @@ function CompletionPopup({
     x: number
     y: number
   } | null>(null)
+  const popupRef = useRef<BoxRenderable | null>(null)
+  const anchorReadyRef = useRef(getEditable() !== null)
 
   useEffect(() => {
-    const editable = getEditable()
-    if (!isEditing || !editable) {
-      setCompletionAnchor((current) => (current === null ? current : null))
-      return
+    const readAnchor = () => {
+      const editable = getEditable()
+      if (!isEditing || !editable) return null
+      const cursor = editable.visualCursor
+      const visibleCount = Math.max(
+        message ? 1 : 0,
+        Math.min(items.length, MAX_COMPLETION_VISIBLE),
+      )
+      const menuHeight = visibleCount + 2
+      const menuWidth = 18
+      const rawX = editable.screenX + cursor.visualCol
+      const rawY = editable.screenY + cursor.visualRow + 1
+      return {
+        x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
+        y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
+      }
     }
-    const cursor = editable.visualCursor
-    const visibleCount = Math.max(
-      message ? 1 : 0,
-      Math.min(items.length, MAX_COMPLETION_VISIBLE),
-    )
-    const menuHeight = visibleCount + 2
-    const menuWidth = 18
-    const rawX = editable.x + cursor.visualCol
-    const rawY = editable.y + cursor.visualRow + 1
-    const next = {
-      x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
-      y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
+    const updateAnchor = () => {
+      const next = readAnchor()
+      setCompletionAnchor((current) =>
+        current?.x === next?.x && current?.y === next?.y ? current : next,
+      )
     }
-    setCompletionAnchor((current) =>
-      current?.x === next.x && current?.y === next.y ? current : next,
-    )
+    updateAnchor()
+    const revealAfterAnchor = () => {
+      const popup = popupRef.current
+      if (popup) popup.visible = true
+    }
+    const syncAfterLayout = () => {
+      const next = readAnchor()
+      const popup = popupRef.current
+      if (!next || !popup) return
+      popup.left = next.x
+      popup.top = next.y
+      if (!anchorReadyRef.current) {
+        anchorReadyRef.current = true
+        renderer.once(CliRenderEvents.FRAME, revealAfterAnchor)
+      }
+    }
+    renderer.once(CliRenderEvents.FRAME, syncAfterLayout)
+    return () => {
+      renderer.off(CliRenderEvents.FRAME, syncAfterLayout)
+      renderer.off(CliRenderEvents.FRAME, revealAfterAnchor)
+    }
   }, [
     getEditable,
     isEditing,
     items.length,
     message,
+    renderer,
     terminalHeight,
     terminalWidth,
     value,
@@ -591,7 +623,9 @@ function CompletionPopup({
 
   return createPortal(
     <box
+      ref={popupRef}
       id={id}
+      visible={anchorReadyRef.current}
       style={{
         position: "absolute",
         top: completionAnchor.y,

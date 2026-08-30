@@ -2,13 +2,14 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react"
-import { type InputRenderable } from "@opentui/core"
 import { isValidTag } from "../../tags"
 import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
+import { VarInput, type VarInputHandle } from "../VarInput"
 import { EscapeClose } from "./EscapeClose"
 import { Overlay } from "./Overlay"
 
@@ -19,9 +20,11 @@ export interface TagEditorOverlayHandle {
 interface TagEditorOverlayProps {
   visible: boolean
   initialValue: string
+  suggestions: readonly string[]
   title?: string
   onConfirm?: () => void
   onClear?: () => void
+  onDelete?: () => void
   onClose?: () => void
 }
 
@@ -29,13 +32,26 @@ export const TagEditorOverlay = forwardRef<
   TagEditorOverlayHandle,
   TagEditorOverlayProps
 >(function TagEditorOverlay(
-  { visible, initialValue, title, onConfirm, onClear, onClose },
+  {
+    visible,
+    initialValue,
+    suggestions,
+    title,
+    onConfirm,
+    onClear,
+    onDelete,
+    onClose,
+  },
   ref,
 ) {
   const theme = useTheme()
   const [value, setValue] = useState(initialValue)
   const [errorText, setErrorText] = useState<string | null>(null)
-  const inputRef = useRef<InputRenderable | null>(null)
+  const inputRef = useRef<VarInputHandle | null>(null)
+  const completionValues = useMemo(
+    () => [...new Set(suggestions)].sort(),
+    [suggestions],
+  )
 
   useEffect(() => {
     if (visible) {
@@ -74,17 +90,18 @@ export const TagEditorOverlay = forwardRef<
 
       <box style={{ paddingX: 2, flexDirection: "column", paddingBottom: 1 }}>
         <text fg={theme.textMuted}>Tag</text>
-        <input
+        <VarInput
           ref={inputRef}
           value={value}
+          env={null}
+          isEditing
+          variableAware={false}
+          completionValues={completionValues}
           placeholder="e.g. smoke"
-          onInput={setValue}
-          focused
+          onChange={setValue}
           backgroundColor={theme.backgroundElement}
           focusedBackgroundColor={theme.borderSubtle}
-          textColor={theme.text}
-          cursorColor={theme.primary}
-          placeholderColor={theme.textMuted}
+          baseColor={theme.text}
         />
       </box>
 
@@ -110,11 +127,15 @@ export const TagEditorOverlay = forwardRef<
           label="save"
           onAction={() => onConfirm?.()}
         />
-        <ActionButton
-          shortcut="esc"
-          label="close"
-          onAction={() => onClose?.()}
-        />
+        {onDelete ? (
+          <ActionButton shortcut="^D" label="delete" onAction={onDelete} />
+        ) : (
+          <ActionButton
+            shortcut="esc"
+            label="close"
+            onAction={() => onClose?.()}
+          />
+        )}
       </box>
     </Overlay>
   )

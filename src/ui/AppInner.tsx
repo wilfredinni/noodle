@@ -121,6 +121,7 @@ import {
 } from "./collectionImport"
 import { extractFileErrors } from "../filestore/load"
 import type { ExternalEditor, ExternalEditorId } from "../externalEditor"
+import { effectiveRequestTags } from "../tags"
 
 export function AppInner({
   appConfigDir,
@@ -784,6 +785,22 @@ export function AppInner({
   const { activeOverlay } = overlays
   openTagEditorRef.current = (index, value) =>
     overlays.setTagEditPending({ kind: "request", index, value })
+
+  const tagSuggestions = useMemo(() => {
+    const groups =
+      overlays.tagEditPending?.kind === "runner-filter"
+        ? [...runner.requestTags.values()]
+        : [
+            ...effectiveRequestTags(items).values(),
+            ...(draft.draft?.tags ? [draft.draft.tags] : []),
+          ]
+    return groups.flatMap((tags) => [...tags])
+  }, [
+    draft.draft?.tags,
+    items,
+    overlays.tagEditPending?.kind,
+    runner.requestTags,
+  ])
 
   const handleOpenRunnerTagFilter = useCallback(
     (filter: "include" | "exclude") => {
@@ -1463,8 +1480,17 @@ export function AppInner({
     },
     onTagClear: () => {
       const pending = overlays.tagEditPending
-      if (pending?.kind !== "runner-filter") return
-      runnerRef.current.setTagFilter(pending.filter, "")
+      if (!pending) return
+      if (pending.kind === "runner-filter") {
+        runnerRef.current.setTagFilter(pending.filter, "")
+        overlays.setTagEditPending(null)
+        return
+      }
+      const current = draftRef.current.draft
+      if (!current || pending.index >= (current.tags?.length ?? 0)) return
+      const tags = [...(current.tags ?? [])]
+      tags.splice(pending.index, 1)
+      draftRef.current.setTags(tags)
       overlays.setTagEditPending(null)
     },
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
@@ -1865,6 +1891,7 @@ export function AppInner({
           cloneRequestActions={overlayActions.cloneRequest}
           newFolderActions={overlayActions.newFolder}
           tagEditorActions={overlayActions.tagEditor}
+          tagSuggestions={tagSuggestions}
           updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}

@@ -180,11 +180,7 @@ export function useOverlayIntercepts(opts: {
     handleRef: overlays.tagEditorRef,
     onConfirm: opts.onTagConfirm,
     onCancel: () => overlays.setTagEditPending(null),
-    onClear:
-      overlays.tagEditPending?.kind === "runner-filter" &&
-      overlays.tagEditPending.value
-        ? opts.onTagClear
-        : undefined,
+    onClear: overlays.tagEditPending?.value ? opts.onTagClear : undefined,
   })
 
   useEnvEditorIntercept(opts)
