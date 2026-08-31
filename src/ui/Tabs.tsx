@@ -7,6 +7,10 @@ export type TabDef = {
   id: string
   label: string
   jumpHint?: string
+  indicator?: {
+    symbol: string
+    color: string
+  }
 }
 
 export function Tabs({
@@ -136,7 +140,9 @@ export function Tabs({
                     />
                   ) : null}
                   <box style={{ paddingLeft: 1, paddingRight: 2 }}>
-                    <text opacity={0}>{tab.label}</text>
+                    <text opacity={0}>
+                      {`${tab.label}${tab.indicator ? ` ${tab.indicator.symbol}` : ""}`}
+                    </text>
                   </box>
                 </box>
               ))}
@@ -227,6 +233,11 @@ export function Tabs({
                       }
                     >
                       {tab.label}
+                      {tab.indicator ? (
+                        <span fg={tab.indicator.color}>
+                          {` ${tab.indicator.symbol}`}
+                        </span>
+                      ) : null}
                     </text>
                   </box>
                   <box

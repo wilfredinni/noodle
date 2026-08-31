@@ -15,7 +15,7 @@ const TIPS = [
   "toggle header or param on/off with {Space} in browse mode",
   "revert a field to its saved value with {^D}",
   "edit assertions in {Assert}, captures in {Capture}, and tags in {Settings}",
-  "response {Results} gains {•} after assertion or capture evaluation",
+  "response {Results} shows {✓}/{✗}/{–} for passed, failed, or unevaluated outcomes",
   "revert all fields to their saved values with {^R}",
   "edit request details with {^E}",
   "change the color theme with {^T}",
