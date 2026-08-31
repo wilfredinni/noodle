@@ -175,8 +175,11 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       })
 
     const applyHighlights = useCallback(() => {
-      if (!variableAware) return
       const editable = getEditable()
+      if (!variableAware) {
+        editable?.clearAllHighlights()
+        return
+      }
       if (editable)
         highlightVariables(editable, editable.plainText, theme, env, pathParams)
     }, [env, getEditable, pathParams, theme, variableAware])
