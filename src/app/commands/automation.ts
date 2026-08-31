@@ -1,4 +1,5 @@
 import { defineCommand } from "citty"
+import { parseArgs } from "node:util"
 import { emitCommand } from "../commandResult"
 import {
   createRunProgressReporter,
@@ -252,11 +253,11 @@ const collection = defineCommand({
         env: { type: "string", alias: "e" },
         tag: {
           type: "string",
-          description: "Run requests with this effective tag",
+          description: "Require this tag (repeatable; all must match)",
         },
         "exclude-tag": {
           type: "string",
-          description: "Exclude requests with this effective tag",
+          description: "Exclude this tag (repeatable; any match excludes)",
         },
         "fail-fast": {
           type: "boolean",
@@ -267,8 +268,17 @@ const collection = defineCommand({
         insecure: { type: "boolean", default: false },
         json: jsonArg,
       },
-      run: ({ args }) =>
-        emitCommand(
+      run: ({ args, rawArgs }) => {
+        const { values } = parseArgs({
+          args: rawArgs,
+          options: {
+            tag: { type: "string", multiple: true },
+            "exclude-tag": { type: "string", multiple: true },
+          },
+          allowPositionals: true,
+          strict: false,
+        })
+        return emitCommand(
           args.json,
           async () => {
             const progress = args.json ? undefined : createRunProgressReporter()
@@ -281,8 +291,8 @@ const collection = defineCommand({
                 takeSystemProxyFromEnv(),
                 args.insecure,
                 args._.slice(1),
-                args.tag,
-                args["exclude-tag"],
+                (values.tag ?? []) as string[],
+                (values["exclude-tag"] ?? []) as string[],
                 args["fail-fast"],
               )
               return {
@@ -300,7 +310,8 @@ const collection = defineCommand({
             }
           },
           formatCollectionRun,
-        ),
+        )
+      },
     }),
   },
 })

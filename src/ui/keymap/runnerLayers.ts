@@ -68,8 +68,10 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
           if (state().phase === "running") return
           if (state().selectOpen) return
           if (focus() === "runner-options") {
-            if (state().optionIndex === 1) runner.openTagFilter("include")
-            else if (state().optionIndex === 2) runner.openTagFilter("exclude")
+            if (state().optionIndex === 1)
+              runner.openTagFilter("include", state().includeTagIndex)
+            else if (state().optionIndex === 2)
+              runner.openTagFilter("exclude", state().excludeTagIndex)
             else if (state().optionIndex === 3) state().toggleFailFast()
             else if (
               state().optionIndex === RUNNER_RUN_OPTION_INDEX &&
@@ -86,17 +88,20 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         },
       },
       {
-        name: "runner.clear-tag-filter",
+        name: "runner.delete-tag-filter",
         enabled: () =>
           unlocked() &&
           focus() === "runner-options" &&
-          ((state().optionIndex === 1 && state().includeTag !== "") ||
-            (state().optionIndex === 2 && state().excludeTag !== "")),
-        run: () =>
-          state().setTagFilter(
-            state().optionIndex === 1 ? "include" : "exclude",
-            "",
-          ),
+          ((state().optionIndex === 1 &&
+            state().includeTagIndex < state().includeTags.length) ||
+            (state().optionIndex === 2 &&
+              state().excludeTagIndex < state().excludeTags.length)),
+        run: () => {
+          if (state().optionIndex === 1)
+            state().deleteTagFilter("include", state().includeTagIndex)
+          else if (state().optionIndex === 2)
+            state().deleteTagFilter("exclude", state().excludeTagIndex)
+        },
       },
       {
         name: "runner.toggle",
@@ -126,25 +131,33 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
         },
       },
       {
-        name: "runner.configure",
+        name: "runner.left",
         enabled: () =>
           unlocked() &&
-          focus() === "runner-requests" &&
-          state().result !== null,
+          ((focus() === "runner-options" &&
+            (state().optionIndex === 1 || state().optionIndex === 2)) ||
+            (focus() === "runner-requests" && state().result !== null)),
         run: () => {
-          state().showConfigure()
-          global.setFocus("runner-requests")
+          if (focus() === "runner-options") state().tagPrevious()
+          else {
+            state().showConfigure()
+            global.setFocus("runner-requests")
+          }
         },
       },
       {
-        name: "runner.results",
+        name: "runner.right",
         enabled: () =>
           unlocked() &&
-          focus() === "runner-requests" &&
-          state().result !== null,
+          ((focus() === "runner-options" &&
+            (state().optionIndex === 1 || state().optionIndex === 2)) ||
+            (focus() === "runner-requests" && state().result !== null)),
         run: () => {
-          state().showResults()
-          global.setFocus("runner-requests")
+          if (focus() === "runner-options") state().tagNext()
+          else {
+            state().showResults()
+            global.setFocus("runner-requests")
+          }
         },
       },
       {
@@ -185,11 +198,11 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       { key: "r", cmd: "runner.run" },
       { key: "return", cmd: "runner.activate" },
       { key: "space", cmd: "runner.toggle" },
-      { key: keybinds.browse_delete, cmd: "runner.clear-tag-filter" },
+      { key: keybinds.browse_delete, cmd: "runner.delete-tag-filter" },
       { key: "pageup", cmd: "runner.page-up" },
       { key: "pagedown", cmd: "runner.page-down" },
-      { key: "left", cmd: "runner.configure" },
-      { key: "right", cmd: "runner.results" },
+      { key: "left", cmd: "runner.left" },
+      { key: "right", cmd: "runner.right" },
       { key: "tab", cmd: "runner.focus-next" },
       { key: "shift+tab", cmd: "runner.focus-prev" },
       { key: "escape", cmd: "runner.escape" },

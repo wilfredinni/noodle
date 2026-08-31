@@ -40,15 +40,15 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 
 const OPTION_LABELS = [
   "Environment",
-  "Include tag",
-  "Exclude tag",
+  "Include tags",
+  "Exclude tags",
   "Fail fast",
 ] as const
 
 const OPTION_DESCRIPTIONS = [
   "Select the environment used for this run.",
-  "Only run requests with this tag.",
-  "Skip requests with this tag.",
+  "Only run requests with every included tag.",
+  "Skip requests with any excluded tag.",
   "Stop running after the first failed request.",
 ] as const
 
@@ -150,7 +150,7 @@ export function CollectionRunnerView({
   hasUnsavedChanges: boolean
   detailScrollRef: RefObject<ScrollBoxRenderable | null>
   onPaneFocus: (focus: Focus) => void
-  onEditTagFilter: (filter: "include" | "exclude") => void
+  onEditTagFilter: (filter: "include" | "exclude", index: number) => void
   onOpenResultDetail: (index: number) => void
 }) {
   const theme = useTheme()
@@ -449,13 +449,14 @@ export function CollectionRunnerView({
                     title={label}
                     description={OPTION_DESCRIPTIONS[index]}
                     active={active}
+                    alignItems={
+                      index === 1 || index === 2 ? "flex-start" : "center"
+                    }
                     onMouseDown={() => {
                       if (configurationLocked) return
                       onPaneFocus("runner-options")
                       runner.setOptionIndex(index)
-                      if (index === 1) onEditTagFilter("include")
-                      else if (index === 2) onEditTagFilter("exclude")
-                      else if (index === 3) runner.toggleFailFast()
+                      if (index === 3) runner.toggleFailFast()
                     }}
                   >
                     {index === 0 ? (
@@ -485,19 +486,66 @@ export function CollectionRunnerView({
                             ? "runner-include-tag-value"
                             : "runner-exclude-tag-value"
                         }
+                        style={{
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          gap: 0,
+                          flexGrow: 1,
+                          minWidth: 0,
+                        }}
                       >
-                        <Badge
-                          bg={active ? theme.primary : theme.backgroundElement}
-                          fg={active ? theme.backgroundPanel : theme.textMuted}
-                        >
-                          {index === 1
-                            ? runner.includeTag
-                              ? `#${runner.includeTag}`
-                              : "Any"
-                            : runner.excludeTag
-                              ? `#${runner.excludeTag}`
-                              : "Any"}
-                        </Badge>
+                        {[
+                          ...(index === 1
+                            ? runner.includeTags
+                            : runner.excludeTags),
+                          null,
+                        ].map((tag, tagIndex) => {
+                          const filter = index === 1 ? "include" : "exclude"
+                          const tagActive =
+                            active &&
+                            tagIndex ===
+                              (index === 1
+                                ? runner.includeTagIndex
+                                : runner.excludeTagIndex)
+                          return (
+                            <box
+                              key={`${filter}-${tag ?? "add"}-${tagIndex}`}
+                              id={`runner-${filter}-tag-${tagIndex}`}
+                              style={{
+                                flexDirection: "column",
+                                minHeight: 1,
+                                marginRight: 1,
+                              }}
+                              onMouseDown={(event) => {
+                                if (
+                                  event.button !== MouseButton.LEFT ||
+                                  configurationLocked
+                                )
+                                  return
+                                onPaneFocus("runner-options")
+                                runner.setOptionIndex(index)
+                                runner.setTagFilterIndex(filter, tagIndex)
+                                onEditTagFilter(filter, tagIndex)
+                                event.stopPropagation()
+                              }}
+                            >
+                              <Badge
+                                bg={
+                                  tagActive
+                                    ? theme.primary
+                                    : theme.backgroundElement
+                                }
+                                fg={
+                                  tagActive
+                                    ? theme.backgroundPanel
+                                    : theme.textMuted
+                                }
+                              >
+                                {tag === null ? "+ Add tag" : `#${tag}`}
+                              </Badge>
+                            </box>
+                          )
+                        })}
                       </box>
                     ) : (
                       <Checkbox checked={runner.failFast} theme={theme} />

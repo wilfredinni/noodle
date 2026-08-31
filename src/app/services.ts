@@ -160,46 +160,43 @@ function requestsForTargets(
 function filterRequests(
   items: CollectionItem[],
   requests: Request[],
-  tag?: string,
-  excludeTag?: string,
+  includeTags: readonly string[],
+  excludeTags: readonly string[],
 ): Request[] {
-  for (const [name, value] of [
-    ["--tag", tag],
-    ["--exclude-tag", excludeTag],
+  const includes = [...new Set(includeTags)]
+  const excludes = [...new Set(excludeTags)]
+  for (const [name, values] of [
+    ["--tag", includes],
+    ["--exclude-tag", excludes],
   ] as const) {
-    if (value !== undefined && !isValidTag(value)) {
+    if (values.some((value) => !isValidTag(value)))
       throw new Error(`${name} must be a non-empty trimmed string`)
-    }
   }
 
   const tags = effectiveRequestTags(items)
   const filtered = requests.filter((request) => {
     const effective = tags.get(request.id) ?? new Set<string>()
     return (
-      (!tag || effective.has(tag)) &&
-      (!excludeTag || !effective.has(excludeTag))
+      includes.every((tag) => effective.has(tag)) &&
+      !excludes.some((tag) => effective.has(tag))
     )
   })
-  if (
-    (tag !== undefined || excludeTag !== undefined) &&
-    filtered.length === 0
-  ) {
+  if ((includes.length > 0 || excludes.length > 0) && filtered.length === 0)
     throw new Error("no requests match the tag filters")
-  }
   return filtered
 }
 
 export function selectCollectionRunRequests(
   items: CollectionItem[],
   targets: string[] = [],
-  tag?: string,
-  excludeTag?: string,
+  includeTags: readonly string[] = [],
+  excludeTags: readonly string[] = [],
 ): Request[] {
   return filterRequests(
     items,
     requestsForTargets(items, targets),
-    tag,
-    excludeTag,
+    includeTags,
+    excludeTags,
   )
 }
 export type CollectionTreeItem =
@@ -910,8 +907,8 @@ export async function collectionRun(
   systemProxy?: SystemProxySettings,
   insecure = false,
   targets: string[] = [],
-  tag?: string,
-  excludeTag?: string,
+  includeTags: readonly string[] = [],
+  excludeTags: readonly string[] = [],
   failFast = false,
   onDetail?: RunDetail,
 ): Promise<CollectionRunResult> {
@@ -931,8 +928,8 @@ export async function collectionRun(
     requests = selectCollectionRunRequests(
       collection.items,
       targets,
-      tag,
-      excludeTag,
+      includeTags,
+      excludeTags,
     )
     selected = requests.length
     settings = await loadSettings(dir)

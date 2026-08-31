@@ -247,7 +247,52 @@ describe("CLI integration", () => {
     expect(out).toContain("Request IDs or folder paths ending in /")
     expect(out).toContain("--tag=<tag>")
     expect(out).toContain("--exclude-tag=<exclude_tag>")
+    expect(out).toContain("repeatable; all must match")
+    expect(out).toContain("repeatable; any match excludes")
     expect(out).toContain("--fail-fast")
+  })
+
+  it("accepts repeated tag filters in space and equals forms", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-tags-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      for (const [id, tags] of [
+        ["match", "smoke, api"],
+        ["missing-api", "smoke"],
+        ["excluded", "smoke, api, destructive"],
+      ]) {
+        await writeFile(
+          join(dir, `${id}.yml`),
+          `name: ${id}\nmethod: GET\nurl: https://example.com/$MISSING\ntags: [${tags}]\n`,
+        )
+      }
+      const proc = Bun.spawnSync(
+        [
+          "bun",
+          CLI,
+          "collection",
+          "run",
+          dir,
+          "--tag",
+          "smoke",
+          "--tag=api",
+          "--exclude-tag=destructive",
+          "--exclude-tag",
+          "slow",
+          "--json",
+        ],
+        { env: { ...process.env, HOME: join(dir, "home") } },
+      )
+      expect(proc.exitCode).toBe(1)
+      expect(JSON.parse(proc.stdout.toString())).toMatchObject({
+        data: {
+          results: [{ id: "match" }],
+          summary: { selected: 1, executed: 1 },
+        },
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 
   it("runs a folder target with JSON output", async () => {

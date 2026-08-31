@@ -297,17 +297,18 @@ describe("AppOverlays routing", () => {
     cleanup()
   })
 
-  it("labels Runner filters contextually and offers clear only when set", async () => {
+  it("labels Runner filters contextually and offers delete only when set", async () => {
     const existing = await renderOverlays({
       activeOverlay: "tag-editor",
       tagEditPending: {
         kind: "runner-filter",
         filter: "include",
+        index: 0,
         value: "smoke",
       },
     })
     expect(existing.frame).toContain("Include Tag")
-    expect(existing.frame).toContain("^D clear")
+    expect(existing.frame).toContain("^D delete")
     existing.cleanup()
 
     const empty = await renderOverlays(
@@ -316,13 +317,14 @@ describe("AppOverlays routing", () => {
         tagEditPending: {
           kind: "runner-filter",
           filter: "exclude",
+          index: 0,
           value: "",
         },
       },
       { tagSuggestions: ["users", "smoke", "users"] },
     )
     expect(empty.frame).toContain("Exclude Tag")
-    expect(empty.frame).not.toContain("clear")
+    expect(empty.frame).not.toContain("delete")
     expect(empty.frame.indexOf("smoke")).toBeLessThan(
       empty.frame.indexOf("users"),
     )

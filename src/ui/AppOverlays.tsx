@@ -536,16 +536,7 @@ export function AppOverlays({
               : undefined
           }
           onConfirm={tagEditorActions.confirm}
-          onClear={
-            tagEditPending.kind === "runner-filter" && tagEditPending.value
-              ? tagEditorActions.clear
-              : undefined
-          }
-          onDelete={
-            tagEditPending.kind === "request" && tagEditPending.value
-              ? tagEditorActions.clear
-              : undefined
-          }
+          onDelete={tagEditPending.value ? tagEditorActions.clear : undefined}
           onClose={tagEditorActions.cancel}
         />
       )}

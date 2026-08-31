@@ -803,15 +803,17 @@ export function AppInner({
   ])
 
   const handleOpenRunnerTagFilter = useCallback(
-    (filter: "include" | "exclude") => {
+    (filter: "include" | "exclude", index: number) => {
       if (runnerRef.current.phase === "running") return
+      const tags =
+        filter === "include"
+          ? runnerRef.current.includeTags
+          : runnerRef.current.excludeTags
       overlays.setTagEditPending({
         kind: "runner-filter",
         filter,
-        value:
-          filter === "include"
-            ? runnerRef.current.includeTag
-            : runnerRef.current.excludeTag,
+        index,
+        value: tags[index] ?? "",
       })
     },
     [overlays.setTagEditPending],
@@ -1465,7 +1467,7 @@ export function AppInner({
       const pending = overlays.tagEditPending
       if (!pending) return
       if (pending.kind === "runner-filter") {
-        runnerRef.current.setTagFilter(pending.filter, tag)
+        runnerRef.current.setTagFilter(pending.filter, pending.index, tag)
         overlays.setTagEditPending(null)
         return
       }
@@ -1482,7 +1484,7 @@ export function AppInner({
       const pending = overlays.tagEditPending
       if (!pending) return
       if (pending.kind === "runner-filter") {
-        runnerRef.current.setTagFilter(pending.filter, "")
+        runnerRef.current.deleteTagFilter(pending.filter, pending.index)
         overlays.setTagEditPending(null)
         return
       }

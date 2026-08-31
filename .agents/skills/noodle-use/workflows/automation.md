@@ -23,7 +23,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Delete a local vault value without removing its declaration | `noodle secret delete <key> --env <name> --collection <dir> --json` |
 | Inspect collection cookies and storage health | `noodle cookie list --collection <dir> --json` |
 | Clear cookies or recover unreadable cookie storage | `noodle cookie clear --collection <dir> --json` |
-| Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>] [--exclude-tag <tag>] [--fail-fast] ... --json` |
+| Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] ... --json` |
 
 ## Rules
 
@@ -33,7 +33,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `collection format` rewrites every request file with canonical YAML and pretty-prints valid JSON bodies. It leaves invalid JSON body text unchanged. Obtain user authorization before running it because it modifies collection files.
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
 - `collection run <dir> [<target>...]` accepts bare request IDs and folder paths ending in `/`. Folders include nested requests. Overlapping targets run once in collection order; omit targets to run the whole collection.
-- `--tag <tag>` requires the effective request tag, while `--exclude-tag <tag>` removes matching requests and wins when both filters match. Targets resolve first, then include and exclude filters run before environment, proxy, TLS, cookie, or request setup. Tag values and YAML tags are case-sensitive.
+- Each repeated `--tag <tag>` requires that effective request tag, so Include tags use AND matching. Each repeated `--exclude-tag <tag>` removes matching requests, so Exclude tags use OR matching and win when both filters match. Targets resolve first, then include and exclude filters run before environment, proxy, TLS, cookie, or request setup. Tag values and YAML tags are case-sensitive; duplicate filters have no additional effect.
 - Request tags combine with all ancestor folder tags. Duplicates have no additional effect, tags cannot be removed downstream, and root `folder.yml` remains ignored. A tag-filtered selection with no requests is a configuration failure. An empty collection or explicitly selected empty folder still succeeds when no tag filter is present.
 - `--fail-fast` stops after the first failed request. Read executed requests from ordered `data.results` and the remaining selected IDs from ordered `data.skipped` entries with `reason: "fail-fast"`. Filtered requests appear in neither array and cannot change RunScope captures.
 - Every request result has `failureCategories` in fixed order. Categories are `configuration`, `execution`, `transport`, `http`, `capture`, and `assertion`; response-based `http`, `capture`, and `assertion` failures may coexist. Collection results include `failed`, optional configuration `failure`, and `summary` counts for selection, execution, skips, request outcomes, assertions, captures, duration, and unique failure categories.

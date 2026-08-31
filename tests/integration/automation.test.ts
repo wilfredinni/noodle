@@ -404,7 +404,7 @@ describe("automation services", () => {
         undefined,
         false,
         [],
-        "smoke",
+        ["smoke", "smoke"],
       )
       expect(include.results.map((result) => result.id)).toEqual([
         "admin/drop",
@@ -422,11 +422,10 @@ describe("automation services", () => {
         undefined,
         false,
         [],
-        undefined,
-        "destructive",
+        [],
+        ["destructive", "users"],
       )
       expect(exclude.results.map((result) => result.id)).toEqual([
-        "users/list",
         "root",
         "untagged",
       ])
@@ -439,12 +438,11 @@ describe("automation services", () => {
         undefined,
         false,
         [],
-        "smoke",
-        "destructive",
+        ["smoke", "users"],
+        ["destructive"],
       )
       expect(combined.results.map((result) => result.id)).toEqual([
         "users/list",
-        "root",
       ])
       expect(combined.skipped).toEqual([])
 
@@ -456,8 +454,8 @@ describe("automation services", () => {
         undefined,
         false,
         ["users/"],
-        "smoke",
-        "destructive",
+        ["smoke", "users"],
+        ["destructive"],
       )
       expect(targeted.results.map((result) => result.id)).toEqual([
         "users/list",
@@ -467,8 +465,8 @@ describe("automation services", () => {
         selectCollectionRunRequests(
           loaded.items,
           ["users/"],
-          "smoke",
-          "destructive",
+          ["smoke", "users", "smoke"],
+          ["destructive", "destructive"],
         ).map((request) => request.id),
       ).toEqual(targeted.results.map((result) => result.id))
     } finally {
@@ -501,7 +499,7 @@ describe("automation services", () => {
           undefined,
           false,
           ["missing"],
-          "Smoke",
+          ["Smoke"],
         ),
       ).toMatchObject({
         failure: { message: 'collection target not found: "missing"' },
@@ -514,7 +512,7 @@ describe("automation services", () => {
         undefined,
         false,
         [],
-        "Smoke",
+        ["Smoke"],
       )
       expect(result).toMatchObject({
         failed: true,
@@ -572,7 +570,7 @@ describe("automation services", () => {
         undefined,
         false,
         [],
-        "smoke",
+        ["smoke"],
       )
       expect(sent).toEqual(["01-source", "03-use"])
       expect(result.results.map((item) => item.url)).toEqual([

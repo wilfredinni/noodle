@@ -72,11 +72,16 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     runnerOptionIndex: -1,
     runnerConfigure: 0,
     runnerResults: 0,
+    runnerTagPrevious: 0,
+    runnerTagNext: 0,
     runnerResultOpen: 0,
-    runnerTagFilterOpen: [] as Array<"include" | "exclude">,
-    runnerTagFilterSet: [] as Array<{
+    runnerTagFilterOpen: [] as Array<{
       filter: "include" | "exclude"
-      value: string
+      index: number
+    }>,
+    runnerTagFilterDelete: [] as Array<{
+      filter: "include" | "exclude"
+      index: number
     }>,
     cookieDelete: [] as Array<{
       kind: string
@@ -180,8 +185,10 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         resultDetails: new Map(),
         canRun: true,
         optionIndex: 0,
-        includeTag: "",
-        excludeTag: "",
+        includeTags: [] as string[],
+        excludeTags: [] as string[],
+        includeTagIndex: 0,
+        excludeTagIndex: 0,
         setOptionIndex: (index: number) => {
           calls.runnerOptionIndex = index
         },
@@ -189,8 +196,10 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         optionDown: () => calls.runnerOptionDown++,
         optionFirst: () => calls.runnerOptionFirst++,
         optionLast: () => calls.runnerOptionLast++,
-        setTagFilter: (filter: "include" | "exclude", value: string) =>
-          calls.runnerTagFilterSet.push({ filter, value }),
+        deleteTagFilter: (filter: "include" | "exclude", index: number) =>
+          calls.runnerTagFilterDelete.push({ filter, index }),
+        tagPrevious: () => calls.runnerTagPrevious++,
+        tagNext: () => calls.runnerTagNext++,
         toggleFailFast: () => calls.runnerFailFast++,
         resultUp: () => {},
         resultDown: () => {},
@@ -202,8 +211,8 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     },
     detailScrollRef: { current: null },
     close: () => calls.runnerClose++,
-    openTagFilter: (filter: "include" | "exclude") =>
-      calls.runnerTagFilterOpen.push(filter),
+    openTagFilter: (filter: "include" | "exclude", index: number) =>
+      calls.runnerTagFilterOpen.push({ filter, index }),
     openResultDetail: () => calls.runnerResultOpen++,
   }
   const context = {
@@ -398,14 +407,20 @@ describe("app keymap layers", () => {
     expect(calls.runnerOptionDown).toBe(1)
     expect(calls.runnerOptionFirst).toBe(1)
     expect(calls.runnerOptionLast).toBe(1)
-    expect(calls.runnerTagFilterOpen).toEqual(["include", "exclude"])
+    expect(calls.runnerTagFilterOpen).toEqual([
+      { filter: "include", index: 0 },
+      { filter: "exclude", index: 0 },
+    ])
     expect(calls.runnerFailFast).toBe(1)
     expect(calls.runnerRun).toBe(2)
     expect(calls.focus).toBe("runner-requests")
     expect(calls.runnerClose).toBe(1)
 
     context.runner.runnerRef.current.phase = "running"
+    context.runner.runnerRef.current.optionIndex = 1
+    host.press("return")
     host.press("escape")
+    expect(calls.runnerTagFilterOpen).toHaveLength(2)
     expect(calls.runnerClose).toBe(1)
 
     disposers.forEach((dispose) => dispose())
@@ -505,6 +520,8 @@ describe("app keymap layers", () => {
     expect(calls.runnerFailFast).toBe(0)
     expect(calls.runnerConfigure).toBe(0)
     expect(calls.runnerResults).toBe(0)
+    expect(calls.runnerTagPrevious).toBe(1)
+    expect(calls.runnerTagNext).toBe(1)
 
     host.press("tab")
     expect(calls.focus).toBe("runner-requests")
@@ -537,29 +554,31 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("clears only the selected Runner tag filter with Ctrl+D", () => {
+  it("deletes only the active Runner tag with Ctrl+D", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "runner")
     keymap.setData("app.focus", "runner-options")
     context.global.viewRef.current = "runner"
     context.global.focusRef.current = "runner-options"
-    context.runner.runnerRef.current.includeTag = "smoke"
-    context.runner.runnerRef.current.excludeTag = "slow"
+    context.runner.runnerRef.current.includeTags = ["smoke", "api"]
+    context.runner.runnerRef.current.excludeTags = ["slow"]
+    context.runner.runnerRef.current.includeTagIndex = 1
+    context.runner.runnerRef.current.excludeTagIndex = 0
     const disposers = register(context)
 
     context.runner.runnerRef.current.optionIndex = 1
     host.press("d", { ctrl: true })
     context.runner.runnerRef.current.optionIndex = 2
     host.press("d", { ctrl: true })
-    expect(calls.runnerTagFilterSet).toEqual([
-      { filter: "include", value: "" },
-      { filter: "exclude", value: "" },
+    expect(calls.runnerTagFilterDelete).toEqual([
+      { filter: "include", index: 1 },
+      { filter: "exclude", index: 0 },
     ])
 
     keymap.setData("app.overlay", "tag-editor")
     host.press("d", { ctrl: true })
-    expect(calls.runnerTagFilterSet).toHaveLength(2)
+    expect(calls.runnerTagFilterDelete).toHaveLength(2)
 
     disposers.forEach((dispose) => dispose())
     cleanup()
