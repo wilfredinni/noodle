@@ -13,6 +13,7 @@ import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
 
 export type RunnerPhase = "configure" | "running" | "results"
+export type RunnerTagFilter = "include" | "exclude"
 export type RunnerResultRow =
   | { kind: "result"; id: string; result: RequestRunResult }
   | { kind: "skipped"; id: string; reason: "fail-fast" }
@@ -42,8 +43,10 @@ export interface UseCollectionRunnerResult {
   previewError: string | null
   environmentName: string | null
   environmentNames: string[]
-  includeTag: string
-  excludeTag: string
+  includeTags: string[]
+  excludeTags: string[]
+  includeTagIndex: number
+  excludeTagIndex: number
   failFast: boolean
   optionIndex: number
   requestIndex: number
@@ -58,7 +61,9 @@ export interface UseCollectionRunnerResult {
   runAvailable: boolean
   canRun: boolean
   setEnvironmentName: (name: string | null) => void
-  setTagFilter: (filter: "include" | "exclude", tag: string) => void
+  setTagFilter: (filter: RunnerTagFilter, index: number, tag: string) => void
+  deleteTagFilter: (filter: RunnerTagFilter, index: number) => void
+  setTagFilterIndex: (filter: RunnerTagFilter, index: number) => void
   setSelectOpen: (open: boolean) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
@@ -68,6 +73,8 @@ export interface UseCollectionRunnerResult {
   optionDown: () => void
   optionFirst: () => void
   optionLast: () => void
+  tagPrevious: () => void
+  tagNext: () => void
   requestUp: () => void
   requestDown: () => void
   requestFirst: () => void
@@ -145,8 +152,10 @@ export function useCollectionRunner({
   const [phase, setPhase] = useState<RunnerPhase>("configure")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [environmentName, setEnvironmentName] = useState<string | null>(null)
-  const [includeTag, setIncludeTag] = useState("")
-  const [excludeTag, setExcludeTag] = useState("")
+  const [includeTags, setIncludeTags] = useState<string[]>([])
+  const [excludeTags, setExcludeTags] = useState<string[]>([])
+  const [includeTagIndex, setIncludeTagIndex] = useState(0)
+  const [excludeTagIndex, setExcludeTagIndex] = useState(0)
   const [failFast, setFailFast] = useState(false)
   const [optionIndex, setOptionIndexState] = useState(0)
   const [selectOpen, setSelectOpen] = useState(false)
@@ -174,21 +183,62 @@ export function useCollectionRunner({
     },
     [phase, selectOpen],
   )
-  const setTagFilter = useCallback(
-    (filter: "include" | "exclude", tag: string) => {
+  const setTagFilterIndex = useCallback(
+    (filter: RunnerTagFilter, index: number) => {
       if (phase === "running") return
-      if (filter === "include") setIncludeTag(tag)
-      else setExcludeTag(tag)
+      const limit =
+        filter === "include" ? includeTags.length : excludeTags.length
+      const next = Math.max(0, Math.min(limit, index))
+      if (filter === "include") setIncludeTagIndex(next)
+      else setExcludeTagIndex(next)
     },
-    [phase],
+    [excludeTags.length, includeTags.length, phase],
+  )
+  const setTagFilter = useCallback(
+    (filter: RunnerTagFilter, index: number, tag: string) => {
+      if (phase === "running") return
+      const current = filter === "include" ? includeTags : excludeTags
+      if (index < 0 || index > current.length) return
+      const next = [...current]
+      if (index === next.length) next.push(tag)
+      else next[index] = tag
+      const unique = [...new Set(next)]
+      if (filter === "include") {
+        setIncludeTags(unique)
+        setIncludeTagIndex(unique.indexOf(tag))
+      } else {
+        setExcludeTags(unique)
+        setExcludeTagIndex(unique.indexOf(tag))
+      }
+    },
+    [excludeTags, includeTags, phase],
+  )
+  const deleteTagFilter = useCallback(
+    (filter: RunnerTagFilter, index: number) => {
+      if (phase === "running") return
+      const current = filter === "include" ? includeTags : excludeTags
+      if (index < 0 || index >= current.length) return
+      const next = current.filter((_, currentIndex) => currentIndex !== index)
+      const nextIndex = next.length === 0 ? 0 : Math.min(index, next.length - 1)
+      if (filter === "include") {
+        setIncludeTags(next)
+        setIncludeTagIndex(nextIndex)
+      } else {
+        setExcludeTags(next)
+        setExcludeTagIndex(nextIndex)
+      }
+    },
+    [excludeTags, includeTags, phase],
   )
 
   useEffect(() => {
     setPhase("configure")
     setSelectedIds(new Set(requests.map((request) => request.id)))
     setEnvironmentName(activeEnvironment)
-    setIncludeTag("")
-    setExcludeTag("")
+    setIncludeTags([])
+    setExcludeTags([])
+    setIncludeTagIndex(0)
+    setExcludeTagIndex(0)
     setFailFast(false)
     setOptionIndexState(0)
     setSelectOpen(false)
@@ -218,8 +268,8 @@ export function useCollectionRunner({
       const selected = selectCollectionRunRequests(
         collection.items,
         selectedRequestIds,
-        includeTag || undefined,
-        excludeTag || undefined,
+        includeTags,
+        excludeTags,
       )
       return {
         ids: new Set(selected.map((request) => request.id)),
@@ -231,7 +281,7 @@ export function useCollectionRunner({
         error: error instanceof Error ? error.message : String(error),
       }
     }
-  }, [collection, excludeTag, includeTag, selectedRequestIds])
+  }, [collection, excludeTags, includeTags, selectedRequestIds])
 
   const resultRows = useMemo(() => {
     if (!result) return []
@@ -261,6 +311,22 @@ export function useCollectionRunner({
     () => setOptionIndex(OPTION_COUNT - 1),
     [setOptionIndex],
   )
+  const moveTag = useCallback(
+    (direction: -1 | 1) => {
+      if (phase === "running" || selectOpen) return
+      if (optionIndex === 1)
+        setIncludeTagIndex((index) =>
+          Math.max(0, Math.min(includeTags.length, index + direction)),
+        )
+      else if (optionIndex === 2)
+        setExcludeTagIndex((index) =>
+          Math.max(0, Math.min(excludeTags.length, index + direction)),
+        )
+    },
+    [excludeTags.length, includeTags.length, optionIndex, phase, selectOpen],
+  )
+  const tagPrevious = useCallback(() => moveTag(-1), [moveTag])
+  const tagNext = useCallback(() => moveTag(1), [moveTag])
   const requestUp = useCallback(
     () =>
       setRequestRowIndex((index) =>
@@ -379,8 +445,8 @@ export function useCollectionRunner({
       nextRequests = selectCollectionRunRequests(
         collection.items,
         selectedRequestIds,
-        includeTag || undefined,
-        excludeTag || undefined,
+        includeTags,
+        excludeTags,
       )
     } catch {
       return
@@ -405,8 +471,8 @@ export function useCollectionRunner({
         systemProxy,
         insecure,
         selectedRequestIds,
-        includeTag || undefined,
-        excludeTag || undefined,
+        includeTags,
+        excludeTags,
         failFast,
         (detail) => nextDetails.set(detail.requestId, detail),
       )
@@ -423,10 +489,10 @@ export function useCollectionRunner({
     collection,
     collectionDir,
     environmentName,
-    excludeTag,
+    excludeTags,
     failFast,
     hasUnsavedChanges,
-    includeTag,
+    includeTags,
     insecure,
     noProxy,
     phase,
@@ -447,8 +513,10 @@ export function useCollectionRunner({
     previewError: preview.error,
     environmentName,
     environmentNames,
-    includeTag,
-    excludeTag,
+    includeTags,
+    excludeTags,
+    includeTagIndex,
+    excludeTagIndex,
     failFast,
     optionIndex,
     requestIndex,
@@ -464,6 +532,8 @@ export function useCollectionRunner({
     canRun,
     setEnvironmentName,
     setTagFilter,
+    deleteTagFilter,
+    setTagFilterIndex,
     setSelectOpen,
     setOptionIndex,
     setRequestIndex,
@@ -473,6 +543,8 @@ export function useCollectionRunner({
     optionDown,
     optionFirst,
     optionLast,
+    tagPrevious,
+    tagNext,
     requestUp,
     requestDown,
     requestFirst,

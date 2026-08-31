@@ -220,14 +220,14 @@ describe("CollectionRunnerView", () => {
     expect(requestRows[2]).toContain("#a-very-long-regression-tag")
     expect(requestRows.join("\n")).not.toContain("…")
     const tagColumn = requestRows[0]!.indexOf("#smoke")
-    await act(async () => current!.setTagFilter("include", "s"))
+    await act(async () => current!.setTagFilter("include", 0, "s"))
     await render.renderOnce()
     const filteredRows = render
       .captureCharFrame()
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
-    await act(async () => current!.setTagFilter("include", ""))
+    await act(async () => current!.deleteTagFilter("include", 0))
     await render.renderOnce()
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
@@ -263,6 +263,8 @@ describe("CollectionRunnerView", () => {
     expect(current!.phase).toBe("running")
     expect(render.captureCharFrame()).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Running 1\/3/)
     expect(render.captureCharFrame()).not.toContain("r Run 3 requests")
+    await act(async () => current!.setTagFilter("include", 0, "smoke"))
+    expect(current!.includeTags).toEqual([])
     await act(async () => reportProgress?.(1, 3))
     await render.renderOnce()
     expect(render.captureCharFrame()).toContain("Running 2/3")
@@ -396,6 +398,10 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 80, height: 24 })
     await render.renderOnce()
     const frame = render.captureCharFrame()
+    const initialRunButton = render.renderer.root.findDescendantById(
+      "runner-run-button",
+    ) as BoxRenderable
+    const initialRunButtonWidth = initialRunButton.width
     for (const label of ["Scope", "Environment", "Health"]) {
       expect(frame).toContain(label)
     }
@@ -414,6 +420,21 @@ describe("CollectionRunnerView", () => {
       "Run every request in the collection or selected folder.",
     )
     expect(frame).toContain("Select the environment used for this run.")
+    await act(async () =>
+      current!.setTagFilter("include", 0, "a-very-long-regression-tag"),
+    )
+    await render.renderOnce()
+    await act(async () =>
+      current!.setTagFilter("include", 1, "another-very-long-runner-tag"),
+    )
+    await render.renderOnce()
+    const firstTag = render.renderer.root.findDescendantById(
+      "runner-include-tag-0",
+    )!
+    const secondTag = render.renderer.root.findDescendantById(
+      "runner-include-tag-1",
+    )!
+    expect(secondTag.screenY).toBeGreaterThan(firstTag.screenY)
     await act(async () => current!.setOptionIndex(4))
     await render.renderOnce()
     await render.renderOnce()
@@ -424,13 +445,14 @@ describe("CollectionRunnerView", () => {
     ) as BoxRenderable
     expect(runButton.screenY).toBeGreaterThan(failFast.screenY)
     expect(runButton.width).toBe("r Run 0 requests".length + 2)
+    expect(runButton.width).toBe(initialRunButtonWidth)
     expect(current!.optionIndex).toBe(4)
     expect(
       runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)
-    expect(scrolled).toContain("Exclude tag")
+    expect(scrolled).toContain("Exclude tags")
     expect(scrolled).toContain("Fail fast")
-    expect(scrolled).toContain("Any")
+    expect(scrolled).toContain("+ Add tag")
     expect(
       render.renderer.root.findDescendantById("runner-include-tag-input"),
     ).toBeUndefined()
@@ -441,7 +463,7 @@ describe("CollectionRunnerView", () => {
   it("switches between every Runner option by keyboard and mouse", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let current: UseCollectionRunnerResult | null = null
-    const opened: Array<"include" | "exclude"> = []
+    const opened: Array<["include" | "exclude", number]> = []
     function Harness() {
       const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
       const runner = useCollectionRunner({
@@ -466,7 +488,7 @@ describe("CollectionRunnerView", () => {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={() => {}}
-              onEditTagFilter={(filter) => opened.push(filter)}
+              onEditTagFilter={(filter, index) => opened.push([filter, index])}
               onOpenResultDetail={() => {}}
             />
           </ThemeProvider>
@@ -491,9 +513,26 @@ describe("CollectionRunnerView", () => {
       })
     }
 
+    const clickTag = async (filter: "include" | "exclude", index: number) => {
+      const tag = render.renderer.root.findDescendantById(
+        `runner-${filter}-tag-${index}`,
+      )!
+      await act(async () => {
+        await render.mockMouse.click(
+          tag.screenX + 1,
+          tag.screenY,
+          MouseButtons.LEFT,
+        )
+        await render.renderOnce()
+        await render.mockMouse.moveTo(0, 0)
+      })
+    }
+
     await clickOption(1)
     expect(current!.optionIndex).toBe(1)
-    expect(opened).toEqual(["include"])
+    expect(opened).toEqual([])
+    await clickTag("include", 0)
+    expect(opened).toEqual([["include", 0]])
     expect(
       render.renderer.root.findDescendantById("runner-include-tag-input"),
     ).toBeUndefined()
@@ -510,16 +549,19 @@ describe("CollectionRunnerView", () => {
         RGBA.fromHex(THEMES[0]!.backgroundElement),
       ),
     ).toBe(true)
-    await act(async () => current!.setTagFilter("include", "smoke"))
+    await act(async () => current!.setTagFilter("include", 0, "smoke"))
     await render.renderOnce()
-    expect(current!.includeTag).toBe("smoke")
+    expect(current!.includeTags).toEqual(["smoke"])
     expect(render.captureCharFrame()).toContain("#smoke")
+    await clickTag("include", 0)
+    expect(opened.at(-1)).toEqual(["include", 0])
     await clickOption(2)
     expect(current!.optionIndex).toBe(2)
-    expect(opened.at(-1)).toBe("exclude")
-    await act(async () => current!.setTagFilter("exclude", "destructive"))
+    await clickTag("exclude", 0)
+    expect(opened.at(-1)).toEqual(["exclude", 0])
+    await act(async () => current!.setTagFilter("exclude", 0, "destructive"))
     await render.renderOnce()
-    expect(current!.excludeTag).toBe("destructive")
+    expect(current!.excludeTags).toEqual(["destructive"])
 
     const environment = render.renderer.root.findDescendantById(
       "runner-option-0",
@@ -536,7 +578,7 @@ describe("CollectionRunnerView", () => {
       await render.mockMouse.moveTo(0, 0)
     })
     expect(current!.selectOpen).toBe(true)
-    expect(current!.excludeTag).toBe("destructive")
+    expect(current!.excludeTags).toEqual(["destructive"])
     const openSelectButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -554,8 +596,8 @@ describe("CollectionRunnerView", () => {
     expect(current!.failFast).toBe(true)
 
     await act(async () => {
-      current!.setTagFilter("include", "")
-      current!.setTagFilter("exclude", "")
+      current!.deleteTagFilter("include", 0)
+      current!.deleteTagFilter("exclude", 0)
       current!.setOptionIndex(0)
     })
     await render.renderOnce()

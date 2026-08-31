@@ -304,6 +304,66 @@ describe("VarInput — edit mode (isEditing=true)", () => {
     expect(variable!.fg.equals(hexToRgba(theme.error))).toBe(true)
   })
 
+  it("can disable variable highlighting for plain values", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="$tag"
+          env={null}
+          isEditing
+          isFocused
+          variableAware={false}
+          onChange={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const value = spans.find((span) => span.text.includes("$tag"))
+    expect(value).toBeDefined()
+    expect(value!.fg.equals(hexToRgba(theme.text))).toBe(true)
+  })
+
+  it("clears existing highlights when variable awareness is disabled", async () => {
+    let setVariableAware: ((value: boolean) => void) | undefined
+    function Harness() {
+      const [variableAware, setAware] = useState(true)
+      setVariableAware = setAware
+      return (
+        <VarInput
+          value="$host"
+          env={env({ host: "localhost" })}
+          isEditing
+          isFocused
+          variableAware={variableAware}
+          onChange={() => {}}
+        />
+      )
+    }
+
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness />
+      </ThemeProvider>,
+      { width: 80, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    let value = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("$host"))
+    expect(value?.fg.equals(hexToRgba(theme.primary))).toBe(true)
+
+    act(() => setVariableAware?.(false))
+    await renderOnce()
+    value = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("$host"))
+    expect(value?.fg.equals(hexToRgba(theme.text))).toBe(true)
+  })
+
   it("renders input element with value", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

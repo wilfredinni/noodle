@@ -100,16 +100,17 @@ noodle request run users/get --collection ./my-api --env staging
 noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 noodle collection run ./my-api auth/ health users/get --json
-noodle collection run ./my-api --tag smoke --exclude-tag destructive --json
+noodle collection run ./my-api --tag smoke --tag api --exclude-tag destructive --json
 noodle agent install
 ```
 
 Commands support structured JSON output for scripts, CI, and agent workflows.
 Requests and non-root folders can declare case-sensitive `tags`. Folder tags
 apply to every descendant request, so `collection run --tag smoke` can execute a
-dynamic suite without a second collection format. Include and exclude filters
-compose, with exclusion winning, and `--fail-fast` records the remaining
-selected request IDs as skipped.
+dynamic suite without a second collection format. Repeat `--tag` to require
+every Include tag and repeat `--exclude-tag` to remove requests matching any
+Exclude tag. Exclusion wins, and `--fail-fast` records the remaining selected
+request IDs as skipped.
 
 Request YAML can also declare response assertions for status, timing, headers,
 and JSON body paths. Edit them in the TUI Assert tab or as YAML. Manual

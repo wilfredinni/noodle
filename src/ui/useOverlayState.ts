@@ -24,6 +24,7 @@ export type TagEditPending =
   | {
       kind: "runner-filter"
       filter: "include" | "exclude"
+      index: number
       value: string
     }
 

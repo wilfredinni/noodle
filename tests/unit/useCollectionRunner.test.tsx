@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import {
   useCollectionRunner,
@@ -47,7 +47,11 @@ function renderHook(
   options: Partial<Parameters<typeof useCollectionRunner>[0]> = {},
 ) {
   let runner: UseCollectionRunnerResult | null = null
+  let resetRunner = () => {}
+  const { resetKey: initialResetKey = 1, ...rest } = options
   function Harness() {
+    const [resetKey, setResetKey] = useState(initialResetKey)
+    resetRunner = () => setResetKey((key) => key + 1)
     runner = useCollectionRunner({
       collection,
       collectionDir: "/tmp/runner",
@@ -58,14 +62,15 @@ function renderHook(
       noProxy: false,
       systemProxy: { bypass: [] },
       insecure: false,
-      resetKey: 1,
-      ...options,
+      resetKey,
+      ...rest,
     })
     return null
   }
   return {
     render: testRender(<Harness />, { width: 20, height: 4 }),
     get: () => runner!,
+    reset: () => resetRunner(),
   }
 }
 
@@ -140,12 +145,12 @@ describe("useCollectionRunner", () => {
     ])
   })
 
-  it("previews inherited filters with exclusion precedence", async () => {
+  it("previews inherited filters with AND matching and exclusion precedence", async () => {
     const harness = renderHook()
     const render = await harness.render
     await render.renderOnce()
     await act(async () => {
-      harness.get().setTagFilter("include", "smoke")
+      harness.get().setTagFilter("include", 0, "smoke")
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual([
@@ -155,10 +160,53 @@ describe("useCollectionRunner", () => {
     ])
 
     await act(async () => {
-      harness.get().setTagFilter("exclude", "destructive")
+      harness.get().setTagFilter("include", 1, "safe")
+    })
+    await render.renderOnce()
+    expect([...harness.get().matchedIds]).toEqual(["admin/second"])
+
+    await act(async () => {
+      harness.get().deleteTagFilter("include", 1)
+      harness.get().setTagFilter("exclude", 0, "destructive")
     })
     await render.renderOnce()
     expect([...harness.get().matchedIds]).toEqual(["root"])
+  })
+
+  it("navigates, deduplicates, deletes, and resets transient tag filters", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    await act(async () => {
+      harness.get().setTagFilter("include", 0, "smoke")
+    })
+    await render.renderOnce()
+    await act(async () => harness.get().setTagFilter("include", 1, "safe"))
+    await render.renderOnce()
+    expect(harness.get().includeTags).toEqual(["smoke", "safe"])
+    expect(harness.get().includeTagIndex).toBe(1)
+
+    await act(async () => {
+      harness.get().setTagFilter("include", 2, "smoke")
+      harness.get().setOptionIndex(1)
+    })
+    await render.renderOnce()
+    expect(harness.get().includeTags).toEqual(["smoke", "safe"])
+    expect(harness.get().includeTagIndex).toBe(0)
+
+    await act(async () => harness.get().tagNext())
+    expect(harness.get().includeTagIndex).toBe(1)
+    await act(async () => harness.get().deleteTagFilter("include", 1))
+    expect(harness.get().includeTags).toEqual(["smoke"])
+    expect(harness.get().includeTagIndex).toBe(0)
+
+    await act(async () => harness.reset())
+    await render.renderOnce()
+    expect(harness.get().includeTags).toEqual([])
+    expect(harness.get().excludeTags).toEqual([])
+    expect(harness.get().includeTagIndex).toBe(0)
+    expect(harness.get().excludeTagIndex).toBe(0)
   })
 
   it("keeps environment local and routes selection, filters, progress, and fail-fast through collectionRun", async () => {
@@ -218,17 +266,21 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
     await act(async () => {
       harness.get().setEnvironmentName("staging")
-      harness.get().setTagFilter("include", "smoke")
+      harness.get().setTagFilter("include", 0, "smoke")
+      harness.get().setTagFilter("exclude", 0, "slow")
       harness.get().toggleFailFast()
     })
+    await render.renderOnce()
+    await act(async () => harness.get().setTagFilter("exclude", 1, "flaky"))
     await render.renderOnce()
     await act(async () => await harness.get().run())
     await render.renderOnce()
     expect(args?.[1]).toBe("staging")
     expect(args?.[6]).toEqual(["root", "admin/first", "admin/second"])
-    expect(args?.[7]).toBe("smoke")
+    expect(args?.[7]).toEqual(["smoke"])
+    expect(args?.[8]).toEqual(["slow", "flaky"])
     expect(args?.[9]).toBe(true)
-    expect(harness.get().includeTag).toBe("smoke")
+    expect(harness.get().includeTags).toEqual(["smoke"])
     expect(harness.get().progress).toEqual({ completed: 1, total: 1 })
     expect(harness.get().resultRows.map((row) => row.id)).toEqual([
       "root",
@@ -261,14 +313,14 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
 
     await act(async () => {
-      harness.get().setTagFilter("include", "missing")
+      harness.get().setTagFilter("include", 0, "missing")
     })
     await render.renderOnce()
     expect(harness.get().canRun).toBe(false)
-    expect(harness.get().includeTag).toBe("missing")
+    expect(harness.get().includeTags).toEqual(["missing"])
 
     await act(async () => {
-      harness.get().setTagFilter("include", "smoke")
+      harness.get().setTagFilter("include", 0, "smoke")
     })
     await render.renderOnce()
     expect(harness.get().canRun).toBe(true)

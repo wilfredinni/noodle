@@ -78,6 +78,7 @@ function baseProps() {
     cloneRequestActions: actions,
     newFolderActions: actions,
     tagEditorActions: actions,
+    tagSuggestions: [],
     updateFlow: { phase: "idle" as const },
     envColors: {},
     onLoadTimelineBody: async () => "",
@@ -286,29 +287,48 @@ describe("AppOverlays routing", () => {
     })
   }
 
-  it("labels Runner filters contextually and offers clear only when set", async () => {
+  it("replaces the footer close action with delete when editing a request tag", async () => {
+    const { frame, cleanup } = await renderOverlays({
+      activeOverlay: "tag-editor",
+      tagEditPending: { kind: "request", index: 0, value: "smoke" },
+    })
+    expect(frame).toContain("^D delete")
+    expect(frame).not.toContain("esc close")
+    cleanup()
+  })
+
+  it("labels Runner filters contextually and offers delete only when set", async () => {
     const existing = await renderOverlays({
       activeOverlay: "tag-editor",
       tagEditPending: {
         kind: "runner-filter",
         filter: "include",
+        index: 0,
         value: "smoke",
       },
     })
     expect(existing.frame).toContain("Include Tag")
-    expect(existing.frame).toContain("^D clear")
+    expect(existing.frame).toContain("^D delete")
     existing.cleanup()
 
-    const empty = await renderOverlays({
-      activeOverlay: "tag-editor",
-      tagEditPending: {
-        kind: "runner-filter",
-        filter: "exclude",
-        value: "",
+    const empty = await renderOverlays(
+      {
+        activeOverlay: "tag-editor",
+        tagEditPending: {
+          kind: "runner-filter",
+          filter: "exclude",
+          index: 0,
+          value: "",
+        },
       },
-    })
+      { tagSuggestions: ["users", "smoke", "users"] },
+    )
     expect(empty.frame).toContain("Exclude Tag")
-    expect(empty.frame).not.toContain("clear")
+    expect(empty.frame).not.toContain("delete")
+    expect(empty.frame.indexOf("smoke")).toBeLessThan(
+      empty.frame.indexOf("users"),
+    )
+    expect(empty.frame.match(/users/g)).toHaveLength(1)
     empty.cleanup()
   })
 
