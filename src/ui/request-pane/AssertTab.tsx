@@ -1,21 +1,15 @@
 import { MouseButton } from "@opentui/core"
 import { Fragment, useState } from "react"
-import type {
-  AssertionOperator,
-  Environment,
-  Request,
-  Response,
-} from "../../schema"
+import type { AssertionOperator, Environment, Request } from "../../schema"
 import {
   ASSERTION_OPERATORS,
   assertionOperatorRequiresValue,
 } from "../../assertions"
-import { responseExpressionSuggestions } from "../../response"
 import type { EditState, FieldSubfield } from "../editMode"
 import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
-import { VarInput } from "../VarInput"
+import { VarInput, type ValueCompletion } from "../VarInput"
 
 const OPERATOR_ITEMS = ASSERTION_OPERATORS.map((value) => ({
   id: value,
@@ -26,7 +20,7 @@ const OPERATOR_WIDTH =
 
 interface Props {
   request: Request
-  response?: Response
+  completionValues?: readonly ValueCompletion[]
   editState: EditState
   editKey: string
   editValue: string
@@ -49,7 +43,7 @@ interface Props {
 
 export function AssertTab({
   request,
-  response,
+  completionValues,
   editState,
   editKey,
   editValue,
@@ -66,7 +60,6 @@ export function AssertTab({
   interactive = true,
 }: Props) {
   const theme = useTheme()
-  const suggestions = responseExpressionSuggestions(response)
   const assertions = request.assertions ?? []
   const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
 
@@ -192,7 +185,7 @@ export function AssertTab({
                   isFocused={editState.cursor.subfield === "key"}
                   onChange={setEditKey}
                   onFocus={() => onSubfieldFocus?.("key")}
-                  completionValues={suggestions}
+                  completionValues={completionValues}
                   baseColor={
                     dimmed || (addingRow && !selected)
                       ? theme.textMuted

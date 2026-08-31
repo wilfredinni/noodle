@@ -93,6 +93,8 @@ export interface VarInputHandle {
   focus: () => void
 }
 
+export type ValueCompletion = string | { value: string; label: string }
+
 export interface VarInputProps {
   value: string
   env: Environment | null
@@ -110,7 +112,7 @@ export interface VarInputProps {
   variableAware?: boolean
   pathParams?: ParamEntry[]
   pathCompletion?: PathCompletionOptions
-  completionValues?: readonly string[]
+  completionValues?: readonly ValueCompletion[]
   stopMousePropagation?: boolean
   onFocus?: () => void
 }
@@ -270,9 +272,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (!completionValues) return []
       const prefix = value.toLowerCase()
       return completionValues
+        .map((suggestion) =>
+          typeof suggestion === "string"
+            ? { value: suggestion, label: suggestion }
+            : suggestion,
+        )
         .filter(
           (suggestion) =>
-            suggestion !== value && suggestion.toLowerCase().startsWith(prefix),
+            suggestion.value !== value &&
+            suggestion.value.toLowerCase().startsWith(prefix),
         )
         .slice(0, MAX_COMPLETION_VISIBLE)
     }, [completionValues, value])
@@ -282,9 +290,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         const editable = getEditable()
         const suggestion = valueSuggestions[index]
         if (!editable?.focused || !suggestion) return false
-        editable.replaceText(suggestion)
-        editable.cursorOffset = suggestion.length
-        onChange?.(suggestion)
+        editable.replaceText(suggestion.value)
+        editable.cursorOffset = suggestion.value.length
+        onChange?.(suggestion.value)
         setCompletionDismissed(true)
         return true
       },
@@ -403,8 +411,8 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       <CompletionPopup
         id="value-completion-menu"
         items={valueSuggestions.map((suggestion) => ({
-          key: suggestion,
-          label: suggestion,
+          key: suggestion.value,
+          label: suggestion.label,
         }))}
         completionIndex={completionIndex}
         isEditing={isEditing && inputFocused}

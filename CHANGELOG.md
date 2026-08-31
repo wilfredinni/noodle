@@ -6,7 +6,7 @@ All notable changes to Noodle are documented in this file.
 
 ### ✨ Features
 
-- Split request authoring into focused Assert and Capture tabs, keep tags in Settings, and preserve shared validation and response-aware expression completion.
+- Split request authoring into focused Assert and Capture tabs, keep tags in Settings, preserve shared validation, and complete response expressions from the current response or latest retained timeline response.
 - Add persistent per-row Assert and Capture checkboxes, with disabled declarations retained in YAML and excluded from evaluation and results.
 - Evaluate captures and assertions on every manual send with a fresh RunScope, keep Results available, and mark the tab when a send has assertion or capture outcomes.
 - Add a transient collection Runner with request selection, local environment and tag filters, fail-fast execution, progress, and detailed in-memory results.

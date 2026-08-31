@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import {
+  createResponseExpressionCompleter,
   createResponseResolver,
   parseResponseExpression,
-  responseExpressionSuggestions,
 } from "../../src/response"
 import type { Response } from "../../src/schema"
 
@@ -22,19 +22,71 @@ function response(overrides: Partial<Response> = {}): Response {
 }
 
 describe("response expressions", () => {
-  it("suggests grammar roots and current response fields", () => {
-    expect(responseExpressionSuggestions(response())).toEqual(
+  it("suggests static roots and one response segment at a time", () => {
+    const complete = createResponseExpressionCompleter(response())
+
+    expect(complete("").map(({ value }) => value)).toEqual([
+      "status",
+      "body",
+      "body.",
+      "headers.",
+      "response.time",
+    ])
+    expect(complete("headers.")).toEqual([
+      { value: "headers.", label: "headers." },
+      { value: "headers.Content-Type", label: "Content-Type" },
+      { value: "headers.X-Trace", label: "X-Trace" },
+    ])
+    expect(complete("body.")).toEqual([
+      { value: "body.", label: "body." },
+      { value: "body.id", label: "id" },
+      { value: "body.user", label: "user" },
+      { value: "body.users", label: "users" },
+    ])
+    expect(complete("body.user.")).toEqual([
+      { value: "body.user.profile", label: "profile" },
+    ])
+    expect(complete("body.user.profile.")).toEqual([
+      { value: "body.user.profile.name", label: "name" },
+    ])
+    expect(complete("body.users[")).toEqual([
+      { value: "body.users[0]", label: "[0]" },
+    ])
+    expect(complete("body.users[0].")).toEqual([
+      { value: "body.users[0].id", label: "id" },
+    ])
+    expect(complete("body.us").map(({ value }) => value)).toEqual([
+      "body.user",
+      "body.users",
+    ])
+  })
+
+  it("keeps usable suggestions when response fields cannot be completed", () => {
+    const complete = createResponseExpressionCompleter(
+      response({
+        headers: { "X-Trace": "abc", "not valid": "ignored" },
+        body: '{"valid":1,"not valid":2}',
+      }),
+    )
+
+    expect(complete("headers.")).toEqual([
+      { value: "headers.", label: "headers." },
+      { value: "headers.X-Trace", label: "X-Trace" },
+    ])
+    expect(complete("body.")).toEqual([
+      { value: "body.", label: "body." },
+      { value: "body.valid", label: "valid" },
+    ])
+
+    const invalidJson = createResponseExpressionCompleter(
+      response({ body: "{" }),
+    )
+    expect(invalidJson("headers.")).toEqual(
       expect.arrayContaining([
-        "status",
-        "body.",
-        "headers.Content-Type",
-        "headers.X-Trace",
-        "response.time",
-        "body.id",
-        "body.user",
-        "body.users",
+        { value: "headers.Content-Type", label: "Content-Type" },
       ]),
     )
+    expect(invalidJson("body.")).toEqual([{ value: "body.", label: "body." }])
   })
 
   it("parses the supported grammar", () => {

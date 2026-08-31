@@ -27,11 +27,11 @@ import { SettingsSection } from "./request-pane/RequestSettingsTab"
 import { syncPathParamsWithUrl } from "./urlParams"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
 import { AssertTab } from "./request-pane/AssertTab"
-import { responseExpressionSuggestions } from "../response"
+import { createResponseExpressionCompleter } from "../response"
 
 interface Props {
   request: Request | null
-  response?: Response
+  response?: Pick<Response, "headers"> & { body?: string }
   visible?: boolean
   error?: Error | null
   editState: EditState
@@ -137,6 +137,10 @@ export function RequestPane({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const keymap = useKeymap()
+  const completeResponseExpression = useMemo(
+    () => createResponseExpressionCompleter(response),
+    [response],
+  )
   const isTextBody =
     activeTab === "body" &&
     (request?.bodyType === undefined ||
@@ -521,7 +525,7 @@ export function RequestPane({
                   {activeTab === "assertions" && (
                     <AssertTab
                       request={request}
-                      response={response}
+                      completionValues={completeResponseExpression(editKey)}
                       editState={editState}
                       editKey={editKey}
                       editValue={editValue}
@@ -574,7 +578,7 @@ export function RequestPane({
                       setEditCapturePersistence={setEditCapturePersistence}
                       theme={theme}
                       activeEnv={activeEnv}
-                      completionValues={responseExpressionSuggestions(response)}
+                      completionValues={completeResponseExpression(editValue)}
                       editError={editError}
                       onActivateRow={
                         onFieldActivate
