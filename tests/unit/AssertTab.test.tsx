@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { RGBA, type BoxRenderable } from "@opentui/core"
+import { RGBA, ScrollBoxRenderable, type BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { act, useState } from "react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -224,8 +224,9 @@ describe("AssertTab", () => {
   })
 
   it("uses the normal select surface and opens with one mouse click", async () => {
-    const { keymap, cleanup } = setup()
+    const { keymap, host, cleanup } = setup()
     function Harness() {
+      const [operator, setOperator] = useState<AssertionOperator>("exists")
       const [editState, setEditState] = useState<EditState>({
         mode: "inactive",
         cursor: { field: "assertions", row: 0, addingRow: false },
@@ -243,11 +244,11 @@ describe("AssertTab", () => {
               editState={editState}
               editKey="body.id"
               editValue=""
-              editOperator="exists"
+              editOperator={operator}
               editError={null}
               setEditKey={() => {}}
               setEditValue={() => {}}
-              setEditOperator={() => {}}
+              setEditOperator={setOperator}
               onActivateRow={(row, addingRow, subfield) => {
                 setEditState({
                   mode: "editing",
@@ -283,8 +284,40 @@ describe("AssertTab", () => {
           trigger.y,
           MouseButtons.LEFT,
         )
+        await render.renderOnce()
       })
-      await render.renderOnce()
+      await act(async () => render.renderOnce())
+
+      const dropdown = render.renderer.root.getChildren().at(-1)
+      const scrollbox = dropdown?.getChildren()[0]
+      expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+      const operatorScrollbox = scrollbox as ScrollBoxRenderable
+      expect(operatorScrollbox.height).toBe(10)
+      expect(operatorScrollbox.verticalScrollBar.visible).toBe(true)
+      expect(
+        operatorScrollbox.verticalScrollBar.slider.backgroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.background),
+        ),
+      ).toBe(true)
+      expect(
+        operatorScrollbox.verticalScrollBar.slider.foregroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.borderActive),
+        ),
+      ).toBe(true)
+      expect(render.captureCharFrame()).not.toContain("notEquals")
+
+      await act(async () => {
+        for (let i = 0; i < 10; i++) host.press("down")
+        await render.renderOnce()
+      })
+      await act(async () => render.renderOnce())
+      expect(operatorScrollbox.scrollTop).toBeGreaterThan(0)
+      expect(render.captureCharFrame()).toContain("notEquals")
+
+      await act(async () => {
+        host.press("return")
+        await render.renderOnce()
+      })
       expect(render.captureCharFrame()).toContain("notEquals")
     } finally {
       cleanup()

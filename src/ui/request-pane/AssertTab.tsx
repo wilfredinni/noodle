@@ -228,6 +228,8 @@ export function AssertTab({
                   interactive={interactive}
                   triggerColor={dimmed ? theme.textMuted : undefined}
                   width={OPERATOR_WIDTH}
+                  maxDropdownHeight={10}
+                  showDropdownScrollbar
                 />
               </box>
               <box
