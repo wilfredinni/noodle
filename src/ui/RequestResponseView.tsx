@@ -104,7 +104,9 @@ export function RequestResponseView({
   const expressionResponse =
     responseState.status === "done"
       ? responseState.response
-      : timelineEntries.find((entry) => entry.response)?.response
+      : timelineEntries.find(
+          (entry) => entry.response && entry.request.id === draft.draft?.id,
+        )?.response
 
   const requestPane = (
     <RequestPane

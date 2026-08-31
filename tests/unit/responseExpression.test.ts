@@ -37,6 +37,11 @@ describe("response expressions", () => {
       { value: "headers.Content-Type", label: "Content-Type" },
       { value: "headers.X-Trace", label: "X-Trace" },
     ])
+    expect(complete("Headers.")).toEqual([
+      { value: "headers.", label: "headers." },
+      { value: "headers.Content-Type", label: "Content-Type" },
+      { value: "headers.X-Trace", label: "X-Trace" },
+    ])
     expect(complete("body.")).toEqual([
       { value: "body.", label: "body." },
       { value: "body.id", label: "id" },

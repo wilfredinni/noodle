@@ -86,14 +86,21 @@ describe("ResponsePane status text truncation and layout tests", () => {
       {
         timestamp: 3,
         request: {
-          id: "request",
-          name: "Request",
+          id: "previous",
+          name: "Previous",
           method: "GET" as const,
           url: "https://example.com",
           headers: {},
           params: [],
         },
-        error: { message: "newer failed request" },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"previousField":1}',
+          timeMs: 3,
+          size: 19,
+        },
       },
       {
         timestamp: 2,
@@ -157,6 +164,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
               ...draft,
               draft: {
                 ...draft.draft,
+                id: "request",
                 assertions: [
                   { expression: "body.", operator: "exists" as const },
                 ],
@@ -199,6 +207,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
     await render.renderOnce()
     await act(async () => render.renderOnce())
     expect(render.captureCharFrame()).toContain("newestField")
+    expect(render.captureCharFrame()).not.toContain("previousField")
     expect(render.captureCharFrame()).not.toContain("olderField")
 
     await act(async () => showCurrentResponse())

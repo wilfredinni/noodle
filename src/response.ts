@@ -70,7 +70,9 @@ export function createResponseExpressionCompleter(
 
   return (prefix) => {
     const suggestions = [...staticSuggestions]
-    if (prefix.startsWith("headers.")) suggestions.push(...headerSuggestions)
+    if (prefix.toLowerCase().startsWith("headers.")) {
+      suggestions.push(...headerSuggestions)
+    }
     if (parsedBody?.kind !== "success") {
       return matchingSuggestions(suggestions, prefix)
     }
