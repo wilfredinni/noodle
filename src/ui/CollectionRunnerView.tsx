@@ -621,7 +621,7 @@ export function CollectionRunnerView({
                   {runnerRows.map((row, rowIndex) => {
                     if (row.kind === "folder") {
                       const selectedCount = row.requestIds.filter((id) =>
-                        runner.selectedIds.has(id),
+                        runner.matchedIds.has(id),
                       ).length
                       const selected =
                         row.requestIds.length > 0 &&
@@ -722,7 +722,7 @@ export function CollectionRunnerView({
                         }}
                       >
                         <box style={{ width: 4, flexShrink: 0 }}>
-                          <Checkbox checked={selected} theme={theme} />
+                          <Checkbox checked={matched} theme={theme} />
                         </box>
                         <text
                           fg={methodColor(request.method, theme)}

@@ -173,6 +173,34 @@ describe("useCollectionRunner", () => {
     expect([...harness.get().matchedIds]).toEqual(["root"])
   })
 
+  it("preserves manual selection and limits toggles to tag-eligible requests", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    await act(async () => harness.get().toggleSelected(0))
+    await act(async () => {
+      harness.get().setTagFilter("include", 0, "safe")
+    })
+    await render.renderOnce()
+    expect([...harness.get().matchedIds]).toEqual(["admin/second"])
+
+    await act(async () => harness.get().toggleSelected(1))
+    expect([...harness.get().selectedIds]).toEqual([
+      "admin/first",
+      "admin/second",
+    ])
+
+    await act(async () => harness.get().toggleFolder("admin"))
+    expect([...harness.get().selectedIds]).toEqual(["admin/first"])
+    await render.renderOnce()
+    expect(harness.get().previewError).toBe("no requests match the tag filters")
+
+    await act(async () => harness.get().deleteTagFilter("include", 0))
+    await render.renderOnce()
+    expect([...harness.get().matchedIds]).toEqual(["admin/first"])
+  })
+
   it("navigates, deduplicates, deletes, and resets transient tag filters", async () => {
     const harness = renderHook()
     const render = await harness.render

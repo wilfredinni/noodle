@@ -81,6 +81,7 @@ const folderCollection: Collection = {
               headers: {},
               params: [],
               timeout: 0,
+              tags: ["smoke"],
             },
           },
           {
@@ -220,15 +221,37 @@ describe("CollectionRunnerView", () => {
     expect(requestRows[2]).toContain("#a-very-long-regression-tag")
     expect(requestRows.join("\n")).not.toContain("…")
     const tagColumn = requestRows[0]!.indexOf("#smoke")
-    await act(async () => current!.setTagFilter("include", 0, "s"))
+    await act(async () => current!.setTagFilter("include", 0, "smoke"))
     await render.renderOnce()
     const filteredRows = render
       .captureCharFrame()
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
+    expect(filteredRows[0]).toContain("[x]")
+    expect(filteredRows[1]).toContain("[ ]")
+    expect(filteredRows[2]).toContain("[x]")
     expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
-    await act(async () => current!.deleteTagFilter("include", 0))
+    await act(async () =>
+      current!.setTagFilter("exclude", 0, "a-very-long-regression-tag"),
+    )
     await render.renderOnce()
+    const excludedRows = render
+      .captureCharFrame()
+      .split("\n")
+      .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
+    expect(excludedRows[0]).toContain("[x]")
+    expect(excludedRows[1]).toContain("[ ]")
+    expect(excludedRows[2]).toContain("[ ]")
+    await act(async () => {
+      current!.deleteTagFilter("include", 0)
+      current!.deleteTagFilter("exclude", 0)
+    })
+    await render.renderOnce()
+    const restoredRows = render
+      .captureCharFrame()
+      .split("\n")
+      .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
+    expect(restoredRows.every((row) => row.includes("[x]"))).toBe(true)
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -666,6 +689,13 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 120, height: 24 })
     await render.renderOnce()
     const folderRow = render.renderer.root.findDescendantById("runner-row-0")!
+    expect(render.captureCharFrame()).toContain("[x] FOLDER Albums")
+
+    await act(async () => current!.setTagFilter("include", 0, "smoke"))
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("[-] FOLDER Albums")
+    await act(async () => current!.deleteTagFilter("include", 0))
+    await render.renderOnce()
     expect(render.captureCharFrame()).toContain("[x] FOLDER Albums")
 
     await act(async () =>

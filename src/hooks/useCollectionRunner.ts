@@ -260,6 +260,24 @@ export function useCollectionRunner({
     [requests, selectedIds],
   )
 
+  const eligibleIds = useMemo(() => {
+    if (!collection || requests.length === 0) {
+      return new Set<string>()
+    }
+    try {
+      return new Set(
+        selectCollectionRunRequests(
+          collection.items,
+          requests.map((request) => request.id),
+          includeTags,
+          excludeTags,
+        ).map((request) => request.id),
+      )
+    } catch {
+      return new Set<string>()
+    }
+  }, [collection, excludeTags, includeTags, requests])
+
   const preview = useMemo(() => {
     if (!collection || selectedRequestIds.length === 0) {
       return { ids: new Set<string>(), error: null }
@@ -365,7 +383,10 @@ export function useCollectionRunner({
     (path: string) => {
       if (phase === "running") return
       const ids = requests
-        .filter((request) => request.id.startsWith(`${path}/`))
+        .filter(
+          (request) =>
+            request.id.startsWith(`${path}/`) && eligibleIds.has(request.id),
+        )
         .map((request) => request.id)
       if (ids.length === 0) return
       setSelectedIds((current) => {
@@ -378,7 +399,7 @@ export function useCollectionRunner({
         return next
       })
     },
-    [phase, requests],
+    [eligibleIds, phase, requests],
   )
   const setRequestIndex = useCallback(
     (index: number) => {
@@ -401,7 +422,7 @@ export function useCollectionRunner({
         index = row?.kind === "request" ? row.index : requestIndex
       }
       const id = requests[index]?.id
-      if (!id || phase === "running") return
+      if (!id || phase === "running" || !eligibleIds.has(id)) return
       setSelectedIds((current) => {
         const next = new Set(current)
         if (next.has(id)) next.delete(id)
@@ -412,6 +433,7 @@ export function useCollectionRunner({
     [
       navigationRows,
       phase,
+      eligibleIds,
       requestIndex,
       requestRowIndex,
       requests,
