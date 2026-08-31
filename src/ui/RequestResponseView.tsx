@@ -101,13 +101,18 @@ export function RequestResponseView({
   const responseVisible = expanded !== "request"
   const localSplitContainerRef = useRef<BoxRenderable | null>(null)
   const activeSplitContainerRef = splitContainerRef ?? localSplitContainerRef
+  const expressionResponse =
+    responseState.status === "done" &&
+    responseState.requestId === draft.draft?.id
+      ? responseState.response
+      : timelineEntries.find(
+          (entry) => entry.response && entry.request.id === draft.draft?.id,
+        )?.response
 
   const requestPane = (
     <RequestPane
       request={draft.draft}
-      response={
-        responseState.status === "done" ? responseState.response : undefined
-      }
+      response={expressionResponse}
       visible={requestVisible}
       error={error}
       editState={eb.editState}

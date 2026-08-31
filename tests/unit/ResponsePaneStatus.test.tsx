@@ -16,6 +16,7 @@ import {
   getAvailableTargets,
   computeRequestTabLabels,
 } from "../../src/ui/useJumpMode"
+import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 
 const testRender = createTestRender()
 
@@ -57,6 +58,184 @@ describe("ResponsePane status text truncation and layout tests", () => {
     }
     return { keymap, draft, eb }
   }
+
+  it("prefers the current response, then the newest timeline response", async () => {
+    const { keymap, draft } = createTestProps()
+    const eb = {
+      editState: {
+        mode: "editing" as const,
+        cursor: {
+          field: "assertions" as const,
+          row: 0,
+          addingRow: false,
+          subfield: "key" as const,
+        },
+        editingRow: 0,
+      },
+      editKey: "body.",
+      editValue: "",
+      editOperator: "exists" as const,
+      editError: null,
+      setEditKey: () => {},
+      setEditValue: () => {},
+      setEditOperator: () => {},
+      activeTab: "assertions" as const,
+      focusSubfield: () => {},
+    }
+    const timelineEntries = [
+      {
+        timestamp: 3,
+        request: {
+          id: "previous",
+          name: "Previous",
+          method: "GET" as const,
+          url: "https://example.com",
+          headers: {},
+          params: [],
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"previousField":1}',
+          timeMs: 3,
+          size: 19,
+        },
+      },
+      {
+        timestamp: 2,
+        request: {
+          id: "request",
+          name: "Request",
+          method: "GET" as const,
+          url: "https://example.com",
+          headers: {},
+          params: [],
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"newestField":1}',
+          timeMs: 2,
+          size: 17,
+        },
+      },
+      {
+        timestamp: 1,
+        request: {
+          id: "request",
+          name: "Request",
+          method: "GET" as const,
+          url: "https://example.com",
+          headers: {},
+          params: [],
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"olderField":1}',
+          timeMs: 1,
+          size: 16,
+        },
+      },
+    ]
+    let showStaleResponse = () => {}
+    let showCurrentResponse = () => {}
+    function Harness() {
+      const [responseState, setResponseState] = useState<SendState>({
+        status: "idle",
+      })
+      showStaleResponse = () =>
+        setResponseState({
+          status: "done",
+          requestId: "previous",
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"staleField":1}',
+            timeMs: 1,
+          },
+        })
+      showCurrentResponse = () =>
+        setResponseState({
+          status: "done",
+          requestId: "request",
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"currentField":1}',
+            timeMs: 1,
+          },
+        })
+      return (
+        <RequestResponseView
+          draft={
+            {
+              ...draft,
+              draft: {
+                ...draft.draft,
+                id: "request",
+                assertions: [
+                  { expression: "body.", operator: "exists" as const },
+                ],
+              },
+            } as unknown as Parameters<typeof RequestResponseView>[0]["draft"]
+          }
+          eb={eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]}
+          error={null}
+          focus="request"
+          layout="stacked"
+          expanded="request"
+          activeEnv={null}
+          responseState={responseState}
+          timelineEntries={timelineEntries}
+          onResponseTabChange={() => {}}
+          setSelectOpen={() => {}}
+          urlbarSubFocus="text"
+          urlbarInteractive
+        />
+      )
+    }
+
+    const render = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap.keymap as unknown as Parameters<
+            typeof KeymapProvider
+          >[0]["keymap"]
+        }
+      >
+        <VariableCompletionInterceptor />
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 60, height: 14 }}>
+            <Harness />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 14 },
+    )
+    await render.renderOnce()
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("newestField")
+    expect(render.captureCharFrame()).not.toContain("previousField")
+    expect(render.captureCharFrame()).not.toContain("olderField")
+
+    await act(async () => showStaleResponse())
+    await render.renderOnce()
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("newestField")
+    expect(render.captureCharFrame()).not.toContain("staleField")
+
+    await act(async () => showCurrentResponse())
+    await render.renderOnce()
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("currentField")
+    expect(render.captureCharFrame()).not.toContain("newestField")
+  })
 
   it("uses XML highlighting for XML response content types", async () => {
     const { keymap, draft, eb } = createTestProps()

@@ -539,6 +539,7 @@ export function AppInner({
     isCollection ? collectionDir : undefined,
     selectedRequest?.id,
     timelineMaxEntries,
+    eb.activeTab === "assertions" || eb.activeTab === "captures",
   )
   const timelineAppendRef = useRef(timeline.appendEntry)
   timelineAppendRef.current = timeline.appendEntry

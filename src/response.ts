@@ -21,6 +21,15 @@ export type ResponseExpressionResult =
 
 export type ResponseResolver = (expression: string) => ResponseExpressionResult
 
+export interface ResponseExpressionSuggestion {
+  value: string
+  label: string
+}
+
+export type ResponseExpressionCompleter = (
+  prefix: string,
+) => ResponseExpressionSuggestion[]
+
 const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
 const PROPERTY_RE = /^[A-Za-z_][A-Za-z0-9_-]*/
 
@@ -35,46 +44,77 @@ export function parseResponseBody(body: string): ParsedResponseBody {
   }
 }
 
-export function responseExpressionSuggestions(
-  response?: Pick<Response, "headers" | "body">,
-): string[] {
-  const suggestions = new Set([
+export function createResponseExpressionCompleter(
+  response?: Pick<Response, "headers"> & { body?: string },
+): ResponseExpressionCompleter {
+  const staticSuggestions = [
     "status",
     "body",
     "body.",
     "headers.",
     "response.time",
-  ])
-  if (!response) return [...suggestions]
-
-  for (const name of Object.keys(response.headers)) {
-    const expression = `headers.${name}`
-    try {
-      parseResponseExpression(expression)
-      suggestions.add(expression)
-    } catch {
-      // Ignore invalid server-provided header names.
-    }
-  }
-
-  const parsed = parseResponseBody(response.body)
-  if (
-    parsed.kind === "success" &&
-    parsed.value !== null &&
-    typeof parsed.value === "object" &&
-    !Array.isArray(parsed.value)
-  ) {
-    for (const key of Object.keys(parsed.value)) {
-      const expression = `body.${key}`
+  ].map((value) => ({ value, label: value }))
+  const headerSuggestions = Object.keys(response?.headers ?? {}).flatMap(
+    (name) => {
+      const value = `headers.${name}`
       try {
-        parseResponseExpression(expression)
-        suggestions.add(expression)
+        parseResponseExpression(value)
+        return [{ value, label: name }]
       } catch {
-        // Only parser-supported top-level keys are useful completions.
+        return []
+      }
+    },
+  )
+  const body = response?.body
+  const parsedBody = body ? parseResponseBody(body) : undefined
+
+  return (prefix) => {
+    const suggestions = [...staticSuggestions]
+    if (prefix.toLowerCase().startsWith("headers.")) {
+      suggestions.push(...headerSuggestions)
+    }
+    if (parsedBody?.kind !== "success") {
+      return matchingSuggestions(suggestions, prefix)
+    }
+
+    const indexMatch = /^(.*)\[(\d*)$/.exec(prefix)
+    const propertyMatch = /^(.*)\.([A-Za-z0-9_-]*)$/.exec(prefix)
+    const parentExpression = indexMatch?.[1] ?? propertyMatch?.[1]
+    if (!parentExpression) return matchingSuggestions(suggestions, prefix)
+
+    let parent: ResponseExpression
+    try {
+      parent = parseResponseExpression(parentExpression)
+    } catch {
+      return matchingSuggestions(suggestions, prefix)
+    }
+    if (parent.kind !== "body") {
+      return matchingSuggestions(suggestions, prefix)
+    }
+
+    const value = bodyPathValue(parsedBody.value, parent.path)
+    const candidates = Array.isArray(value)
+      ? value.map((_, index) => ({
+          value: `${parentExpression}[${index}]`,
+          label: `[${index}]`,
+        }))
+      : value !== null && typeof value === "object"
+        ? Object.keys(value).map((key) => ({
+            value: `${parentExpression}.${key}`,
+            label: key,
+          }))
+        : []
+
+    for (const candidate of candidates) {
+      try {
+        parseResponseExpression(candidate.value)
+        suggestions.push(candidate)
+      } catch {
+        // Ignore JSON keys that response expressions cannot address.
       }
     }
+    return matchingSuggestions(suggestions, prefix)
   }
-  return [...suggestions]
 }
 
 export function parseResponseExpression(
@@ -182,4 +222,36 @@ export function createResponseResolver(
 
 function invalidExpression(expression: string): Error {
   return new Error(`Invalid response expression "${expression}"`)
+}
+
+function bodyPathValue(value: unknown, path: ResponsePathPart[]): unknown {
+  for (const part of path) {
+    if (part.kind === "index") {
+      if (!Array.isArray(value) || !Object.hasOwn(value, part.index)) {
+        return undefined
+      }
+      value = value[part.index]
+      continue
+    }
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      !Object.hasOwn(value, part.name)
+    ) {
+      return undefined
+    }
+    value = (value as Record<string, unknown>)[part.name]
+  }
+  return value
+}
+
+function matchingSuggestions(
+  suggestions: ResponseExpressionSuggestion[],
+  prefix: string,
+): ResponseExpressionSuggestion[] {
+  const normalized = prefix.toLowerCase()
+  return suggestions.filter(({ value }) =>
+    value.toLowerCase().startsWith(normalized),
+  )
 }

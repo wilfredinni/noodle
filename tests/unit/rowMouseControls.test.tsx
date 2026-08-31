@@ -14,8 +14,16 @@ import { initialEditState } from "../../src/ui/editMode"
 import { KeyValueSection } from "../../src/ui/KeyValueSection"
 import { FormEditor } from "../../src/ui/FormEditor"
 import { setupKeymap } from "./_helpers"
+import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
+import { createResponseExpressionCompleter } from "../../src/response"
 
 const testRender = createTestRender()
+
+function findTextPosition(frame: string, text: string) {
+  const rows = frame.split("\n")
+  const y = rows.findIndex((row) => row.includes(text))
+  return { x: rows[y]!.indexOf(text), y }
+}
 
 describe("request row mouse controls", () => {
   it("activates and toggles key/value rows independently", async () => {
@@ -176,6 +184,71 @@ describe("request row mouse controls", () => {
     expect(frame).toContain("Run only")
     expect(frame.split("\n").every((line) => line.length <= 44)).toBe(true)
     cleanup()
+  })
+
+  it("accepts a concise capture expression completion by mouse", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const complete = createResponseExpressionCompleter({
+      headers: {},
+      body: '{"payload":{"sessionKey":"abc"}}',
+    })
+    let selected = ""
+    function Harness() {
+      const [expression, setExpression] = useState("body.payload.")
+      selected = expression
+      return (
+        <KeyValueSection
+          kind="captures"
+          entries={[
+            {
+              key: "captured",
+              value: { value: "body.payload.sessionKey", enabled: true },
+            },
+          ]}
+          editState={{
+            mode: "editing",
+            cursor: {
+              field: "captures",
+              row: 0,
+              addingRow: false,
+              subfield: "value",
+            },
+            editingRow: 0,
+          }}
+          editKey="captured"
+          editValue={expression}
+          setEditKey={() => {}}
+          setEditValue={setExpression}
+          completionValues={complete(expression)}
+          theme={THEMES[0]!}
+        />
+      )
+    }
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <VariableCompletionInterceptor />
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={48} height={8}>
+              <Harness />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 48, height: 8 },
+      )
+      await render.renderOnce()
+      await act(async () => render.renderOnce())
+      const frame = render.captureCharFrame()
+      expect(frame).toContain("sessionKey")
+      const position = findTextPosition(frame, "sessionKey")
+      await act(async () => {
+        await render.mockMouse.click(position.x, position.y, MouseButtons.LEFT)
+      })
+      await render.renderOnce()
+      expect(selected).toBe("body.payload.sessionKey")
+    } finally {
+      cleanup()
+    }
   })
 
   it("changes capture persistence with the focused Select", async () => {

@@ -4,7 +4,12 @@ import type { ResponseExecutionResults } from "../executionResults"
 export type SendState =
   | { status: "idle" }
   | { status: "sending"; request: Request; network: NetworkEvent[] }
-  | { status: "done"; response: Response; execution?: ResponseExecutionResults }
+  | {
+      status: "done"
+      requestId?: string
+      response: Response
+      execution?: ResponseExecutionResults
+    }
   | {
       status: "error"
       request: Request
@@ -19,11 +24,11 @@ export function startSend(state: SendState, req: Request): SendState {
 
 export function finishSend(
   _state: SendState,
-  _req: Request,
+  req: Request,
   res: Response,
   execution?: ResponseExecutionResults,
 ): SendState {
-  return { status: "done", response: res, execution }
+  return { status: "done", requestId: req.id, response: res, execution }
 }
 
 export function failSend(

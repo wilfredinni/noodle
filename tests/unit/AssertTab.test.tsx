@@ -14,6 +14,7 @@ import { AssertTab } from "../../src/ui/request-pane/AssertTab"
 import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 import type { AssertionOperator, Request } from "../../src/schema"
 import type { EditState } from "../../src/ui/editMode"
+import { createResponseExpressionCompleter } from "../../src/response"
 
 const testRender = createTestRender()
 const request: Request = {
@@ -426,52 +427,60 @@ describe("AssertTab", () => {
     }
   })
 
-  it("offers response-expression completion at narrow widths", async () => {
-    const { keymap, cleanup } = setup()
-    const render = await testRender(
-      <KeymapProvider
-        keymap={
-          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-        }
-      >
-        <VariableCompletionInterceptor />
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <AssertTab
-            request={request}
-            response={{
-              status: 200,
-              statusText: "OK",
-              headers: { "x-request-id": "123" },
-              body: '{"id":42}',
-              timeMs: 4,
-            }}
-            editState={{
-              mode: "editing",
-              cursor: {
-                field: "assertions",
-                row: 0,
-                addingRow: false,
-                subfield: "key",
-              },
-              editingRow: 0,
-            }}
-            editKey="bo"
-            editValue="42"
-            editOperator="equals"
-            editError={null}
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            setEditOperator={() => {}}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 40, height: 12 },
-    )
-    await render.renderOnce()
-    expect(
-      render.renderer.root.findDescendantById("value-completion-menu"),
-    ).not.toBeNull()
-    cleanup()
+  it("shows a concise expression label and accepts its full value", async () => {
+    const { keymap, host, cleanup } = setup()
+    const complete = createResponseExpressionCompleter({
+      headers: {},
+      body: '{"user":{"profile":{"name":"Noodle"}}}',
+    })
+    let selected = ""
+    function Harness() {
+      const [key, setKey] = useState("body.user.")
+      selected = key
+      return (
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <VariableCompletionInterceptor />
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <AssertTab
+              request={request}
+              completionValues={complete(key)}
+              editState={{
+                mode: "editing",
+                cursor: {
+                  field: "assertions",
+                  row: 0,
+                  addingRow: false,
+                  subfield: "key",
+                },
+                editingRow: 0,
+              }}
+              editKey={key}
+              editValue="42"
+              editOperator="equals"
+              editError={null}
+              setEditKey={setKey}
+              setEditValue={() => {}}
+              setEditOperator={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    try {
+      const render = await testRender(<Harness />, { width: 40, height: 12 })
+      await render.renderOnce()
+      await act(async () => render.renderOnce())
+      expect(render.captureCharFrame()).toContain("profile")
+      await act(async () => host.press("return"))
+      await render.renderOnce()
+      expect(selected).toBe("body.user.profile")
+    } finally {
+      cleanup()
+    }
   })
 
   it("renders shared validation errors inline", async () => {

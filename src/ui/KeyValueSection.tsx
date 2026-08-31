@@ -9,7 +9,7 @@ import { Fragment, useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
-import { VarInput } from "./VarInput"
+import { VarInput, type ValueCompletion } from "./VarInput"
 import { Select } from "./Select"
 
 const CAPTURE_PERSISTENCE_ITEMS = [
@@ -33,7 +33,7 @@ export interface KeyValueSectionProps {
   ) => void
   theme: Theme
   activeEnv?: Environment | null
-  completionValues?: readonly string[]
+  completionValues?: readonly ValueCompletion[]
   editError?: string | null
   onActivateRow?: (
     row: number,

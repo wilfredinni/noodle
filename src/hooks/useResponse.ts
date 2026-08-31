@@ -31,6 +31,7 @@ import type { CaptureResult } from "../runScope"
 type CachedResult =
   | {
       status: "done"
+      requestId: string
       response: Response
       execution?: ResponseExecutionResults
     }
@@ -205,7 +206,7 @@ async function runSend(
       await onEnvironmentPersisted?.().catch(() => {})
     }
     const result = { status: "done" as const, response: res, execution }
-    cacheRef.current.set(req.id, result)
+    cacheRef.current.set(req.id, { ...result, requestId: req.id })
     setState((prev) => finishSend(prev, req, res, execution))
     onCompleteRef.current?.(req, result)
   } catch (e) {
