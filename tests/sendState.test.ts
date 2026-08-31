@@ -87,6 +87,7 @@ describe("finishSend", () => {
     const next = finishSend(sending, makeReq(), res)
     expect(next.status).toBe("done")
     if (next.status !== "done") throw new Error("narrow")
+    expect(next.requestId).toBe("x")
     expect(next.response.status).toBe(201)
     expect(next.response.statusText).toBe("Created")
   })

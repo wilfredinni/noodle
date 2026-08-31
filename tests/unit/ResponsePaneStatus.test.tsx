@@ -141,14 +141,28 @@ describe("ResponsePane status text truncation and layout tests", () => {
         },
       },
     ]
+    let showStaleResponse = () => {}
     let showCurrentResponse = () => {}
     function Harness() {
       const [responseState, setResponseState] = useState<SendState>({
         status: "idle",
       })
+      showStaleResponse = () =>
+        setResponseState({
+          status: "done",
+          requestId: "previous",
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"staleField":1}',
+            timeMs: 1,
+          },
+        })
       showCurrentResponse = () =>
         setResponseState({
           status: "done",
+          requestId: "request",
           response: {
             status: 200,
             statusText: "OK",
@@ -209,6 +223,12 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(render.captureCharFrame()).toContain("newestField")
     expect(render.captureCharFrame()).not.toContain("previousField")
     expect(render.captureCharFrame()).not.toContain("olderField")
+
+    await act(async () => showStaleResponse())
+    await render.renderOnce()
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("newestField")
+    expect(render.captureCharFrame()).not.toContain("staleField")
 
     await act(async () => showCurrentResponse())
     await render.renderOnce()

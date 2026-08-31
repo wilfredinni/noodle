@@ -102,7 +102,8 @@ export function RequestResponseView({
   const localSplitContainerRef = useRef<BoxRenderable | null>(null)
   const activeSplitContainerRef = splitContainerRef ?? localSplitContainerRef
   const expressionResponse =
-    responseState.status === "done"
+    responseState.status === "done" &&
+    responseState.requestId === draft.draft?.id
       ? responseState.response
       : timelineEntries.find(
           (entry) => entry.response && entry.request.id === draft.draft?.id,
