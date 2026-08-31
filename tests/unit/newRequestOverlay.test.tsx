@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act, createRef } from "react"
-import { RGBA } from "@opentui/core"
+import { RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -298,6 +298,48 @@ describe("NewRequestOverlay mode prop", () => {
     expect(frame).toContain("Get Users")
     cleanup()
   })
+
+  for (const mode of ["create", "edit"] as const) {
+    it(`scrolls the folder selector in ${mode} mode`, async () => {
+      const { keymap, host, cleanup } = setupKeymap()
+      try {
+        const folderPaths = Array.from({ length: 18 }, (_, index) => ({
+          id: `folder-${index}`,
+          label: `folder-${index}`,
+        }))
+        const render = await testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <NewRequestOverlay
+                visible
+                mode={mode}
+                folderPaths={folderPaths}
+                initialFolderPath="folder-17"
+              />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 80, height: 24 },
+        )
+        await render.renderOnce()
+
+        act(() => host.press("return"))
+        await render.renderOnce()
+        await render.renderOnce()
+
+        const dropdown = render.renderer.root.getChildren().at(-1)
+        const scrollbox = dropdown?.getChildren()[0]
+        expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+        expect(dropdown?.width).toBe(52)
+        expect((scrollbox as ScrollBoxRenderable).height).toBe(10)
+        expect(
+          (scrollbox as ScrollBoxRenderable).verticalScrollBar.visible,
+        ).toBe(true)
+        expect((scrollbox as ScrollBoxRenderable).scrollTop).toBeGreaterThan(0)
+      } finally {
+        cleanup()
+      }
+    })
+  }
 
   it("shows the contextual folder in create mode", async () => {
     const { keymap, cleanup } = setupKeymap()

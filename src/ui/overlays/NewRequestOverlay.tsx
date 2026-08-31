@@ -191,6 +191,9 @@ export const NewRequestOverlay = forwardRef<
               onOpenChange={setFolderSelectOpen}
               onActivate={() => setFocus("folder")}
               triggerPriority={110}
+              width={52}
+              maxDropdownHeight={10}
+              showDropdownScrollbar
             />
           </box>
         )}
