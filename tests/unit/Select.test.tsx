@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
 import { createTestRender } from "../testRender"
+import { ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -96,6 +97,82 @@ describe("Select", () => {
     await renderOnce()
     expect(open).toBe(true)
     cleanup()
+  })
+
+  for (const [name, maxHeight, height, showScrollbar, visible] of [
+    ["shows the scrollbar when items overflow", 2, 2, true, true],
+    ["hides the scrollbar when items fit", 4, 3, true, false],
+    ["keeps the scrollbar hidden when items overflow", 2, 2, false, false],
+  ] as const) {
+    it(`${name} an explicit max height`, async () => {
+      const { keymap, host, cleanup } = setupKeymap()
+      try {
+        const render = await testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <Select
+                items={testItems}
+                focused
+                maxDropdownHeight={maxHeight}
+                showDropdownScrollbar={showScrollbar}
+              />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 40, height: 10 },
+        )
+        await render.renderOnce()
+
+        act(() => host.press("return"))
+        await render.renderOnce()
+        await render.renderOnce()
+
+        const dropdown = render.renderer.root.getChildren().at(-1)
+        const scrollbox = dropdown?.getChildren()[0]
+        expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+        expect((scrollbox as ScrollBoxRenderable).height).toBe(height)
+        expect(
+          (scrollbox as ScrollBoxRenderable).verticalScrollBar.visible,
+        ).toBe(visible)
+      } finally {
+        cleanup()
+      }
+    })
+  }
+
+  it("opens with the selected item scrolled into view", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    try {
+      const items = Array.from({ length: 18 }, (_, index) => ({
+        id: `item-${index}`,
+        label: `Item ${index}`,
+      }))
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Select
+              items={items}
+              value="item-15"
+              focused
+              maxDropdownHeight={10}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 40, height: 20 },
+      )
+      await render.renderOnce()
+
+      act(() => host.press("return"))
+      await render.renderOnce()
+      await render.renderOnce()
+
+      const dropdown = render.renderer.root.getChildren().at(-1)
+      const scrollbox = dropdown?.getChildren()[0]
+      expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+      expect((scrollbox as ScrollBoxRenderable).scrollTop).toBeGreaterThan(0)
+      expect(render.captureCharFrame().match(/Item 15/g)).toHaveLength(2)
+    } finally {
+      cleanup()
+    }
   })
 
   it("opens and selects with left clicks", async () => {

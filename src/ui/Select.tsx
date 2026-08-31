@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, isValidElement } from "react"
 import type { ReactNode } from "react"
 import {
+  CliRenderEvents,
   MouseButton,
   TextAttributes,
   type ScrollBoxRenderable,
@@ -30,6 +31,7 @@ export interface SelectProps {
   placeholder?: string
   width?: number
   maxDropdownHeight?: number
+  showDropdownScrollbar?: boolean
   dropdownAlign?: "left" | "right"
   badge?: boolean
   fitContent?: boolean
@@ -49,6 +51,7 @@ export function Select({
   placeholder = "Select...",
   width,
   maxDropdownHeight = 16,
+  showDropdownScrollbar = false,
   dropdownAlign = "left",
   badge = false,
   fitContent = false,
@@ -90,12 +93,19 @@ export function Select({
   }, [open, safeInitialIndex])
 
   useEffect(() => {
-    if (open) {
+    if (!open) return
+    const scrollHighlightedIntoView = () => {
       const idx = Math.min(highlightIndex, Math.max(0, items.length - 1))
       const id = items[idx]?.id
       if (id) scrollRef.current?.scrollChildIntoView(`${uid}${id}`)
     }
-  }, [highlightIndex, open, items])
+
+    scrollHighlightedIntoView()
+    renderer.once(CliRenderEvents.FRAME, scrollHighlightedIntoView)
+    return () => {
+      renderer.off(CliRenderEvents.FRAME, scrollHighlightedIntoView)
+    }
+  }, [highlightIndex, open, items, renderer, uid])
 
   useEffect(() => {
     if (open || !focused || !interactive) return
@@ -301,7 +311,17 @@ export function Select({
                 ref={ref}
                 scrollY
                 maxHeight={dropdownMaxHeight}
-                scrollbarOptions={{ visible: false }}
+                horizontalScrollbarOptions={{ visible: false }}
+                verticalScrollbarOptions={
+                  showDropdownScrollbar
+                    ? {
+                        trackOptions: {
+                          backgroundColor: theme.background,
+                          foregroundColor: theme.borderActive,
+                        },
+                      }
+                    : { visible: false }
+                }
               >
                 <box style={{ flexDirection: "column" }}>
                   {items.map((item, i) => {
