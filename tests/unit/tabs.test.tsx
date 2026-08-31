@@ -31,6 +31,33 @@ describe("Tabs", () => {
     expect(frame).toContain("Tab C")
   })
 
+  it("renders a tab indicator with its own color", async () => {
+    const { renderOnce, captureCharFrame, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Tabs
+          tabs={[
+            {
+              id: "a",
+              label: "Tab A",
+              indicator: { symbol: "✓", color: THEMES[0]!.success },
+            },
+          ]}
+          activeId="a"
+        >
+          <text>content</text>
+        </Tabs>
+      </ThemeProvider>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Tab A ✓")
+    const indicator = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.trim() === "✓")
+    expect(indicator?.fg.equals(RGBA.fromHex(THEMES[0]!.success))).toBe(true)
+  })
+
   it("renders content for the active tab", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <Tabs

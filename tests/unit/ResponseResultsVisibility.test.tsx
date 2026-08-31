@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { extend } from "@opentui/react"
+import { RGBA } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { createTestRender } from "../testRender"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { ResponsePane, hasResponseResults } from "../../src/ui/ResponsePane"
 import {
   CodeEditorRenderable,
@@ -78,6 +79,7 @@ describe("response Results", () => {
     const frame = render.captureCharFrame()
     expect(frame).toContain("Results")
     expect(frame).not.toContain("Results •")
+    expect(frame).not.toMatch(/Results [✓✗–]/)
     expect(frame).toContain("No execution results.")
     expect(changes).toEqual([])
     cleanup()
@@ -124,31 +126,100 @@ describe("response Results", () => {
     cleanup()
   })
 
-  it("places populated Results last with the request-tab value indicator", async () => {
-    const { keymap, cleanup } = createTestKeymap()
-    keymap.setData("app.overlay", "none")
-    const render = await testRender(
-      <KeymapProvider
-        keymap={
-          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-        }
-      >
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ResponsePane
-            state={{
-              status: "done",
-              response,
-              execution: { assertions: { evaluated: true, results: [] } },
-            }}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 100, height: 14 },
-    )
-    await render.renderOnce()
-    const frame = render.captureCharFrame()
-    expect(frame).toContain("Results •")
-    expect(frame.indexOf("Results •")).toBeGreaterThan(frame.indexOf("Cookies"))
-    cleanup()
+  it("places themed Results status indicators last", async () => {
+    const cases: { state: SendState; symbol: string; color: string }[] = [
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            assertions: {
+              evaluated: true,
+              results: [
+                {
+                  expression: "status",
+                  operator: "equals",
+                  expected: 200,
+                  actual: 200,
+                  passed: true,
+                  message: "Expected values to be equal",
+                },
+              ],
+            },
+          },
+        },
+        symbol: "✓",
+        color: THEMES[0]!.success,
+      },
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            captures: {
+              evaluated: true,
+              results: [
+                {
+                  variable: "token",
+                  expression: "body.missing",
+                  success: false,
+                  failureReason: "missing",
+                  message: 'Expression "body.missing" is missing',
+                },
+              ],
+            },
+          },
+        },
+        symbol: "✗",
+        color: THEMES[0]!.error,
+      },
+      {
+        state: {
+          status: "error",
+          request: {
+            id: "request",
+            name: "Request",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+            timeout: 0,
+          },
+          error: new Error("before response"),
+          execution: { assertions: { evaluated: false, results: [] } },
+        },
+        symbol: "–",
+        color: THEMES[0]!.warning,
+      },
+    ]
+
+    for (const { state, symbol, color } of cases) {
+      const { keymap, cleanup } = createTestKeymap()
+      keymap.setData("app.overlay", "none")
+      const render = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <ResponsePane state={state} />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 14 },
+      )
+      await render.renderOnce()
+      const frame = render.captureCharFrame()
+      expect(frame).toContain(`Results ${symbol}`)
+      expect(frame.indexOf(`Results ${symbol}`)).toBeGreaterThan(
+        frame.indexOf("Cookies"),
+      )
+      const indicator = render
+        .captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .find((span) => span.text.trim() === symbol)
+      expect(indicator?.fg.equals(RGBA.fromHex(color))).toBe(true)
+      cleanup()
+    }
   })
 })

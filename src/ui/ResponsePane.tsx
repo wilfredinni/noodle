@@ -44,6 +44,7 @@ import { ResponseResults } from "./ResponseResults"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
+const RESULTS_SYMBOLS = { success: "✓", error: "✗", warning: "–" } as const
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
   { id: "headers", label: "Headers" },
@@ -53,11 +54,28 @@ const TAB_DEFS: TabDef[] = [
   { id: "results", label: "Results" },
 ]
 
+function responseResultsStatus(
+  state: SendState,
+): keyof typeof RESULTS_SYMBOLS | null {
+  if (state.status !== "done" && state.status !== "error") return null
+  const assertions = state.execution?.assertions
+  const captures = state.execution?.captures
+  if (!assertions && !captures) return null
+  if (
+    (assertions?.evaluated &&
+      assertions.results.some((result) => !result.passed)) ||
+    (captures?.evaluated && captures.results.some((result) => !result.success))
+  ) {
+    return "error"
+  }
+  if (assertions?.evaluated === false || captures?.evaluated === false) {
+    return "warning"
+  }
+  return "success"
+}
+
 export function hasResponseResults(state: SendState): boolean {
-  return (
-    (state.status === "done" || state.status === "error") &&
-    Boolean(state.execution?.assertions || state.execution?.captures)
-  )
+  return responseResultsStatus(state) !== null
 }
 
 function isDeletedCookie(cookie: ResponseCookie): boolean {
@@ -121,14 +139,20 @@ export function ResponsePane({
   const [activeTab, setActiveTab] = useState<ResponseTabKind>(
     initialTab ?? "body",
   )
-  const hasResults = hasResponseResults(state)
+  const resultsStatus = responseResultsStatus(state)
   const tabs = useMemo(() => {
     return TAB_DEFS.map((tab) => ({
       ...tab,
-      label: tab.id === "results" && hasResults ? "Results •" : tab.label,
+      indicator:
+        tab.id === "results" && resultsStatus
+          ? {
+              symbol: RESULTS_SYMBOLS[resultsStatus],
+              color: theme[resultsStatus],
+            }
+          : undefined,
       jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
     }))
-  }, [hasResults, jumpMode])
+  }, [jumpMode, resultsStatus, theme])
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
