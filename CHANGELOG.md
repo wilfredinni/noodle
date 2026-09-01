@@ -4,28 +4,41 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-31
+
+![Noodle Assert and Results tabs with ten passing assertions](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/assertions.png)
+
+Noodle 0.8.3 brings response assertions, captures, and collection execution into the TUI. Requests now have dedicated Assert and Capture authoring, manual sends show Results and can persist captures, and the collection Runner provides a transient workspace for selecting and inspecting ordered runs. The release also sharpens tag filtering, response-expression completion, and several response and overlay interactions.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-3-the-workflow-comes-together/)
+
 ### ✨ Features
 
-- Split request authoring into focused Assert and Capture tabs, keep tags in Settings, preserve shared validation, and complete response expressions from the current response or latest retained timeline response.
-- Add persistent per-row Assert and Capture checkboxes, with disabled declarations retained in YAML and excluded from evaluation and results.
-- Evaluate captures and assertions on every manual send with a fresh RunScope, keep Results available, and show theme-colored success, failure, or unevaluated status on the tab.
-- Add a transient collection Runner with request selection, local environment and tag filters, fail-fast execution, progress, and detailed in-memory results.
-- Show effective request and inherited folder tags in request search, and persist redacted assertion status and details in response timeline history.
-- Add strict object-only capture declarations with optional per-capture secret or plaintext environment persistence for manual TUI sends and CLI `request run`, while keeping collection runs transient.
+- Split request authoring into focused Assert and Capture tabs, keep tags in Settings, and complete response expressions from the current response or latest retained timeline response.
+- Add per-row Assert and Capture checkboxes. Disabled declarations remain in YAML but produce no evaluation, result, summary, timeline outcome, RunScope mutation, or persisted value.
+- Evaluate enabled captures and assertions on every manual send with a fresh RunScope. Results remains the final response tab and shows a theme-colored success, failure, or unevaluated symbol when outcomes exist.
+- Add a transient collection Runner with request and folder selection, local environment and tag filters, fail-fast execution, progress, resizable panes, and expandable ordered results.
+- Require uniform capture objects with `value`, optional `enabled`, and optional `persist`. Manual sends and CLI `request run` can persist captures to plaintext or secret environment values, while collection runs and the TUI Runner remain transient.
+- Support repeated `--tag` filters with AND matching and repeated `--exclude-tag` filters with OR matching. Request search and tag editors now surface effective tags and suggestions.
+
+### 🐞 Fixes
+
+- Apply folder overrides to collection-run requests and keep Runner selection, folder toggles, and result rows aligned with active tag filters.
+- Match header response expressions case-insensitively, prevent stale responses from appearing after request changes, and preserve plain-string and structured result formatting.
+- Keep environment refresh failures non-fatal, give overlays priority over underlying panes, and add bounded scrolling to long Select and new-request folder menus.
+- Fully redact secret-persisted captures and reject CR, LF, and NUL values in the shared plaintext environment writer.
 
 ### 🔧 Refactors
 
-- Share assertion operator metadata, capture variable validation, effective-tag inheritance, request selection, and capture-before-assertion execution orchestration between the TUI and automation commands.
-
-### 🔒 Security
-
-- Keep capture results and RunScope values out of timeline history while recursively redacting known secrets from manual execution results and persisted assertion metadata.
-- Fully redact `persist: secret` capture values from every result and reject CR, LF, and NUL values in the shared plaintext environment writer.
+- Share assertion metadata, capture validation, effective-tag inheritance, request selection, response-expression resolution, and capture-before-assertion execution between the TUI and automation commands.
+- Reuse the same expandable Results rows across manual sends, timeline details, and the collection Runner while keeping capture results and RunScope values out of timeline history.
 
 ### 📚 Documentation
 
-- Document Assert, Capture, Results, and collection Runner workflows in the README, in-app help and tips, and the bundled `noodle-use` skill.
-- Document uniform capture objects, individual-run persistence, partial failures, and collection-run isolation.
+- Document Assert, Capture, Results, the collection Runner, uniform capture objects, persistence, and repeated tag filters across the README, `AGENTS.md`, in-app tips, and documentation site.
+- Update `noodle-dev` with manual response execution, capture persistence, repeated tag-filter semantics, and Runner architecture.
+- Update `noodle-use` with object-only captures, per-row enablement, individual-run persistence, collection-run isolation, repeated tag filters, and redaction guidance.
+- Refresh `opentui` from its canonical documentation structure with current package, component, testing, extension, integration, and deployment routes.
 
 ## [0.8.2] - 2026-08-27
 

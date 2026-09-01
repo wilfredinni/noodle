@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (2913 across 189 files)
+bun test                              # all tests (3067 across 202 files)
 bun test tests/lang.test.ts           # single file
 bun run audit                         # fail on vulnerable dependencies
 bun run lint                          # oxlint
@@ -27,7 +27,7 @@ noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
 noodle agent install [--json] [--force]
 noodle workspace list [--json]
-noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>] [--exclude-tag <tag>] [--fail-fast] [--noproxy] [--insecure] [--json]
+noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--noproxy] [--insecure] [--json]
 noodle collection <create|init|list|inspect|format|audit> ... [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
 noodle cookie <list|clear> --collection <dir> [--json]
@@ -40,9 +40,9 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. It preserves unmanaged targets by default and reports every conflict; `--force` deliberately replaces all reported paths with backup-backed rollback if any target fails. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
-- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--tag] [--exclude-tag] [--fail-fast] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed HTTP responses, failed captures, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. Request and non-root folder tags form case-sensitive dynamic suites; exclusion wins, and fail-fast records later selected requests as skipped. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
+- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--tag]... [--exclude-tag]... [--fail-fast] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed HTTP responses, failed captures, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. Request and non-root folder tags form case-sensitive dynamic suites; repeated include tags all must match, any repeated exclude tag removes a request, exclusion wins, and fail-fast records later selected requests as skipped. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
-- **Run-scoped variables**: Every `request run` gets an isolated `RunScope`; every `collection run` shares one scope across its ordered requests. Resolved environment and secret values load first, then successful captures override the same names, with the latest successful capture winning. Failed captures leave prior values unchanged. Scope values never modify collection or environment files and disappear when the command returns.
+- **Run-scoped variables**: Every manual TUI send and `request run` gets an isolated `RunScope`; every `collection run` shares one scope across its ordered requests. Resolved environment and secret values load first, then successful captures override the same names, with the latest successful capture winning. Failed captures leave prior values unchanged. Transient values disappear when the call returns. Manual sends and `request run` may persist captures declared with `persist`; collection runs and the TUI Runner ignore persistence.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
 - `--help`, `--version` auto-generated by citty
 
@@ -60,9 +60,12 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 
 ```
 src/
-├── assertions.ts  # Declarative response assertion evaluation for automation runs
+├── assertions.ts  # Declarative response assertion evaluation
+├── executionResults.ts # Shared capture-before-assertion response execution
 ├── response.ts    # Shared response expression parser and resolver
 ├── runScope.ts    # Transient capture values and capture result evaluation
+├── tags.ts        # Tag validation and effective inheritance
+├── timelineEntry.ts # Shared redacted timeline entry construction
 ├── schema/        # Types: Method, Auth, Request, Collection, Response, Environment, ParamEntry, FormEntry, KvEntry
 ├── lang/          # YAML request language: parse + serialize
 │   ├── auth.ts     # Shared strict auth parsing and serialization
@@ -81,7 +84,7 @@ src/
 │   ├── useCollection.ts, useTreeNavigation.ts, useSidebarSelection.ts
 │   ├── useRequestDraft.ts, useFolderDraft.ts
 │   ├── useEditBrowse.ts, useFolderEditBrowse.ts
-│   ├── useResponse.ts, useEnvironments.ts, useEnvironmentEditor.ts
+│   ├── useResponse.ts, useCollectionRunner.ts, useEnvironments.ts, useEnvironmentEditor.ts
 │   ├── useConfig.ts
 │   └── useKeymap.ts
 ├── converters/
@@ -107,15 +110,17 @@ src/
     │   ├── CookieJarSidebar.tsx # Domain list with cookie counts
     │   └── CookieJarPane.tsx  # Cookie table for the selected domain
     ├── Sidebar.tsx          # Tree sidebar: requests, folders, dirty indicators, method badges
-    ├── RequestPane.tsx      # Full request detail + inline editing (6 tabs, including path params)
-    ├── ResponsePane.tsx     # Foldable response body + headers, network trace, timeline
+    ├── RequestPane.tsx      # Full request detail + inline editing (8 tabs)
+    ├── ResponsePane.tsx     # Response body, headers, trace, timeline, cookies, Results
+    ├── ResponseResults.tsx  # Shared expandable assertion/capture results
+    ├── CollectionRunnerView.tsx # Transient collection-run configuration and results
     ├── FolderPane.tsx       # Folder editor: meta, headers, auth overrides, activity
     ├── FolderMetaTab.tsx    # Folder name/seq editing
     ├── FolderActivityTab.tsx # Per-request activity stats in folder
     ├── UrlBar.tsx           # URL editing bar with env substitution
     ├── VarInput.tsx         # Variable-aware input/textarea with completion popup
     ├── VarText.tsx          # Variable-highlighted read-only text rendering
-    ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params)
+    ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params/captures)
     ├── AuthEditor.tsx       # Auth type selector + rows for all supported auth schemes
     ├── authRows.ts          # Auth field metadata shared by request and folder editors
     ├── FormEditor.tsx       # Multipart/urlencoded form editor with text/file toggle
@@ -130,6 +135,7 @@ src/
     │   ├── HelpOverlay.tsx             # F1 keybinding cheatsheet overlay
     │   ├── ConfirmOverlay.tsx          # Yes/No confirmation dialog
     │   ├── NewRequestOverlay.tsx, CloneRequestOverlay.tsx, NewFolderOverlay.tsx
+    │   ├── TagEditorOverlay.tsx       # Request and Runner tag editing
     │   └── Overlay.tsx                 # Generic overlay (modal) container
     ├── [editor]
     │   ├── CodeEditor.ts              # CodeEditorRenderable class (tree-sitter highlight, folding, validation)
@@ -155,7 +161,7 @@ src/
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder
     │   ├── useJumpMode.ts              # Jump mode hook (leader-key focus jumps)
-    │   ├── useAppKeymap.ts             # All keymap layers (16 layers)
+    │   ├── useAppKeymap.ts             # All keymap layers (17 layers)
     │   ├── focus.ts                    # Focus type, cycleFocus, toggleExpand
     │   ├── commands.ts                 # buildCommandPaletteCommands
     │   ├── commandActions.ts           # All command action implementations
@@ -204,8 +210,8 @@ tests/integration/ # Integration tests
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`. Optional `sendCookies: false` disables the collection cookie jar for that request (serialized only when set; parsed strictly like `followRedirects`/`maxRedirects`).
-- **Response assertions**: Optional request `assert` blocks are evaluated by non-interactive `request run` and `collection run`. Expressions address `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` paths. Failed assertions make the run fail; assertion expected values support recursive environment substitution, and secret expected values are redacted from results.
-- **Response captures**: Optional request `capture` mappings bind response expressions to RunScope variable names during non-interactive runs. Captures and assertions share `createResponseResolver()`. Successful captures commit before assertions, including on HTTP error responses; missing or invalid traversal results fail the capture without creating or replacing a variable. Capture failures fail the request but collection execution continues. TUI sends preserve declarations but do not evaluate them.
+- **Response assertions**: Optional request `assert` blocks are evaluated by manual TUI sends, `request run`, and `collection run`. Each row accepts optional `enabled: false`; disabled rows remain validated and editable but produce no outcomes. Expressions address `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` paths. Failed assertions make automation runs fail; assertion expected values support recursive environment substitution, and secret expected values are redacted from results.
+- **Response captures**: Optional request `capture` mappings bind response expressions to RunScope variable names. Every entry is an object with required `value`, optional `enabled: false`, and optional `persist: secret|environment`; scalar shorthand is invalid. Captures and assertions share `createResponseResolver()`. Successful captures commit before assertions, including on HTTP error responses; missing or invalid traversal results fail without creating or replacing a variable. Manual sends and `request run` honor persistence, while `collection run` and the TUI Runner keep captures transient. Secret-persisted capture values are fully redacted.
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Request bodies** support `none`, `json`, `xml`, `multipart`, `urlencoded`, and `binary`. XML bodies use the code editor, default to `application/xml` when no enabled Content-Type exists, and are sent unchanged after variable substitution.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
@@ -266,7 +272,7 @@ command_palette: ctrl+p
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
 
-The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, **Generate Code**, **Install Noodle skill**, direct application and collection Settings categories, and actions to open the active collection or Noodle settings directory in a detected external editor. For an effective OAuth 2.0 request it also provides actions to fetch or authorize, copy, and clear the current token. Code generation supports choosing a language and library, and can optionally interpolate the active environment, but is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests. Save pending changes before importing into the current collection.
+The command palette also provides **Run Collection** or **Run Folder**, **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, **Generate Code**, **Install Noodle skill**, direct application and collection Settings categories, and actions to open the active collection or Noodle settings directory in a detected external editor. For an effective OAuth 2.0 request it also provides actions to fetch or authorize, copy, and clear the current token. Code generation supports choosing a language and library, and can optionally interpolate the active environment, but is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests. Save pending changes before importing into the current collection.
 
 ### Jump mode (leader-key focus jumps)
 Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable element; press a letter to focus that element, or `Esc` to cancel. Non-matching keys are swallowed (mode stays active).
@@ -281,12 +287,15 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `x` | Request Path tab |
 | `b` | Request Body tab |
 | `a` | Request Auth tab / Folder Auth tab |
+| `v` | Request Assert tab |
+| `c` | Request Capture tab |
 | `t` | Request Settings tab |
 | `r` | Response Body tab |
 | `e` | Response Headers tab |
 | `n` | Response Network tab |
 | `l` | Response Timeline tab |
 | `k` | Response Cookies tab |
+| `i` | Response Results tab |
 | `y` | Folder Activity tab |
 
 When a folder is selected, the folder targets replace the request and response
@@ -323,7 +332,7 @@ In the cookie jar, only these cookie jar targets are available:
 | `Home` / `End` | Jump to first / last field |
 | `Return` | Enter edit mode |
 | `Escape` | Exit browse mode |
-| `Space` | Toggle header/param enabled/disabled |
+| `Space` | Toggle header/param/assertion/capture enabled/disabled |
 | `Ctrl+T` | Toggle form entry text/file (browse context) |
 | `Ctrl+D` | Revert current field |
 | `Ctrl+R` | Revert all fields |
@@ -361,6 +370,18 @@ In the cookie jar, only these cookie jar targets are available:
 | `s` | Toggle secure storage for the selected variable (browse mode) |
 | `r` | Reveal or mask the selected secret (browse mode) |
 
+### Collection Runner mode
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `Shift+Tab` | Move between options and requests |
+| `↑/↓` | Select an option, request, folder, or result row |
+| `Space` | Toggle the selected request or folder |
+| `Enter` | Activate an option or expand a result row |
+| `r` | Start the configured run from options |
+| `←` | Return from results to configuration |
+| `Esc` | Close the Runner |
+
 ### Cookie jar mode
 
 | Key | Action |
@@ -381,12 +402,14 @@ The cookie jar is opened from the command palette (**Cookies**). It captures `Se
 
 ## Focus model
 
-4 pane cycles controlled by the active view (main, folder, env editor, cookie jar):
+Pane cycles are controlled by the active view:
 
 - **Main view:** `sidebar → urlbar → request → response` (4 panes). Tab/Shift+Tab wraps. URL bar has method and URL sub-focuses; Tab moves between them while focused.
 - **Folder view:** `sidebar → folder` (2 panes, when a folder is the selected item).
 - **Env editor:** `env-sidebar → env-header → env-vars` (3 panes).
 - **Cookie jar:** `cookie-sidebar → cookie-list` (2 panes).
+- **Settings:** `settings-sidebar → settings-content` (2 panes).
+- **Collection Runner:** `runner-options → runner-requests` (2 panes).
 
 Active pane gets cyan border + `▸` prefix. Global keys work regardless of focus. Context-dependent bindings (`Ctrl+S`, `Ctrl+N`, `Ctrl+K`, `Ctrl+W`, `Ctrl+T`) dispatch to the appropriate action based on which pane is focused. Skips hidden panes when expanded mode (F2) collapses request or response.
 

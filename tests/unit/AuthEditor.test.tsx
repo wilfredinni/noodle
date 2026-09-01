@@ -69,7 +69,7 @@ describe("AuthEditor", () => {
     expect(frame).toContain("Public identifier for the OAuth client.")
     expect(frame).toContain("Algorithm used to sign the request.")
     expect(frame).toContain("RSA private key used for RSA signatures.")
-    expect(frame).toContain("Legacy grant")
+    expect(frame).toMatch(/Legacy\s+grant/)
     expect(frame).toContain("OAuth flow used to obtain the access token.")
     expect(frame).toContain("Resource-owner username for the password grant.")
     expect(frame).toContain("Endpoint used to exchange credentials")
