@@ -203,6 +203,14 @@ export function CollectionRunnerView({
     runner.requests.map((request, index) => [request.id, index]),
   )
   const runnerRows = flattenRunnerRows(runner.items, requestIndexById)
+  const resultIndexById = new Map(
+    runner.resultRows.map((row, index) => [row.id, index]),
+  )
+  const resultRunnerRows = runnerRows.filter((row) =>
+    row.kind === "folder"
+      ? row.requestIds.some((id) => resultIndexById.has(id))
+      : resultIndexById.has(row.request.id),
+  )
   const requestBaseLabelWidth = Math.max(0, requestContentWidth - 11)
   const requestTagLabels = runner.requests.map((request) =>
     requestTagLabel(runner.requestTags.get(request.id) ?? []),
@@ -241,6 +249,9 @@ export function CollectionRunnerView({
   const resultKindWidth =
     Math.max(
       0,
+      resultRunnerRows.some((row) => row.kind === "folder")
+        ? stringWidth("FOLDER")
+        : 0,
       ...runner.resultRows.map((row) => stringWidth(resultKindLabel(row))),
     ) + 1
   const resultMethodWidth =
@@ -269,7 +280,11 @@ export function CollectionRunnerView({
   const resultValueWidth = Math.min(resultNameAvailable, resultStatusWidth + 1)
   const resultPreferredNameWidth = Math.max(
     0,
-    ...runner.resultRows.map((row) => stringWidth(row.id)),
+    ...resultRunnerRows.flatMap((row) =>
+      row.kind === "request"
+        ? [stringWidth(row.request.name) + row.depth * 2]
+        : [],
+    ),
   )
   const resultNameWidth = Math.min(
     resultPreferredNameWidth,
@@ -816,7 +831,34 @@ export function CollectionRunnerView({
                       ))}
                     </>
                   ) : null}
-                  {runner.resultRows.map((row, index) => {
+                  {resultRunnerRows.map((runnerRow) => {
+                    if (runnerRow.kind === "folder") {
+                      return (
+                        <box
+                          key={`folder-${runnerRow.path}`}
+                          id={`runner-result-folder-${runnerRow.path}`}
+                          style={{
+                            flexDirection: "row",
+                            height: 1,
+                            minWidth: 0,
+                            paddingLeft: runnerRow.depth * 2,
+                            paddingRight: 1,
+                          }}
+                        >
+                          <text fg={theme.textMuted} wrapMode="none">
+                            {"FOLDER".padEnd(7)}
+                          </text>
+                          <text fg={theme.text} wrapMode="none" truncate>
+                            {runnerRow.name}
+                          </text>
+                        </box>
+                      )
+                    }
+
+                    const index = resultIndexById.get(runnerRow.request.id)
+                    if (index === undefined) return null
+                    const row = runner.resultRows[index]
+                    if (!row) return null
                     const active = runner.resultIndex === index
                     const timing = resultTimingLabel(row)
                     const canOpen =
@@ -828,7 +870,13 @@ export function CollectionRunnerView({
                           ? theme.success
                           : theme.error
                     return (
-                      <box key={row.id} style={{ flexDirection: "column" }}>
+                      <box
+                        key={row.id}
+                        style={{
+                          flexDirection: "column",
+                          paddingLeft: runnerRow.depth * 2,
+                        }}
+                      >
                         <CookieRow
                           id={`runner-result-${index}`}
                           kindLabel={resultKindLabel(row)}
@@ -842,7 +890,7 @@ export function CollectionRunnerView({
                                 : theme.textMuted,
                             width: resultMethodWidth,
                           }}
-                          name={row.id}
+                          name={runnerRow.request.name}
                           value={` ${resultStatusLabel(row)}`}
                           trailingValue={
                             timing
@@ -852,7 +900,10 @@ export function CollectionRunnerView({
                                 }
                               : undefined
                           }
-                          nameWidth={resultNameWidth}
+                          nameWidth={Math.max(
+                            0,
+                            resultNameWidth - runnerRow.depth * 2,
+                          )}
                           selected={active}
                           expanded={false}
                           hovered={false}

@@ -854,20 +854,38 @@ describe("CollectionRunnerView", () => {
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
     const opened: number[] = []
+    const healthItem = collection.items[0]!
+    if (healthItem.type !== "request") throw new Error("expected request")
     const resultCollection: Collection = {
       ...collection,
       items: [
-        ...collection.items,
         {
-          type: "request",
+          type: "folder",
           data: {
-            id: "skipped",
-            name: "Skipped",
-            method: "GET",
-            url: "https://example.com/skipped",
-            headers: {},
-            params: [],
-            timeout: 0,
+            id: "status",
+            name: "Status",
+            path: "status",
+            children: [
+              {
+                ...healthItem,
+                data: {
+                  ...healthItem.data,
+                  id: "status/health",
+                },
+              },
+              {
+                type: "request",
+                data: {
+                  id: "status/skipped",
+                  name: "Skipped",
+                  method: "GET",
+                  url: "https://example.com/skipped",
+                  headers: {},
+                  params: [],
+                  timeout: 0,
+                },
+              },
+            ],
           },
         },
       ],
@@ -876,11 +894,11 @@ describe("CollectionRunnerView", () => {
       ...args: Parameters<typeof collectionRun>
     ) => {
       args[10]?.({
-        requestId: "health",
+        requestId: "status/health",
         entry: {
           timestamp: 1,
           request: {
-            id: "health",
+            id: "status/health",
             name: "Health",
             method: "GET",
             url: "https://example.com/health",
@@ -900,7 +918,7 @@ describe("CollectionRunnerView", () => {
       return {
         results: [
           {
-            id: "health",
+            id: "status/health",
             method: "GET" as const,
             url: "https://example.com/health",
             ok: true,
@@ -939,7 +957,7 @@ describe("CollectionRunnerView", () => {
             },
           },
         ],
-        skipped: [{ id: "skipped", reason: "fail-fast" as const }],
+        skipped: [{ id: "status/skipped", reason: "fail-fast" as const }],
         failed: false,
         summary: {
           selected: 2,
@@ -1002,7 +1020,15 @@ describe("CollectionRunnerView", () => {
     expect(frame).toContain(
       "1 assertion passed · no capture failures · 1 skipped",
     )
-    expect(frame).toMatch(/PASS\s+GET\s+health\s+200 OK\s+7ms/)
+    expect(frame).toMatch(/PASS\s+GET\s+Health\s+200 OK\s+7ms/)
+    const folderLine = frame
+      .split("\n")
+      .find((line) => line.includes("FOLDER"))!
+    const requestLine = frame
+      .split("\n")
+      .find((line) => line.includes("Health"))!
+    expect(folderLine).toContain("FOLDER Status")
+    expect(requestLine.indexOf("⏎")).toBe(folderLine.indexOf("FOLDER") + 3)
     expect(frame).toContain("⏎")
     expect(
       frame.split("\n").find((line) => line.includes("SKIPPED")),
@@ -1011,6 +1037,11 @@ describe("CollectionRunnerView", () => {
 
     const resultRow =
       render.renderer.root.findDescendantById("runner-result-0")!
+    const folderRow = render.renderer.root.findDescendantById(
+      "runner-result-folder-status",
+    )!
+    expect(folderLine.indexOf("FOLDER")).toBe(folderRow.screenX)
+    expect(resultRow.screenX).toBe(folderRow.screenX + 2)
     const resultLine = resultRow.getChildren()[0] as BoxRenderable
     const resultName = resultLine.getChildren()[3] as BoxRenderable
     const initialResultRowWidth = resultRow.width
