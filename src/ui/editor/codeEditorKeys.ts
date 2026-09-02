@@ -18,7 +18,7 @@ const CLOSE_TO_OPEN: Record<string, string> = {
   ">": "<",
 }
 
-export type EditorCommand = "toggle-fold" | "fold-all" | "unfold-all"
+export type EditorCommand = "toggle-fold"
 
 export function normalizeEditorKey(key: KeyEvent): KeyEvent {
   if (key.name !== "return" || !key.shift) return key
@@ -28,23 +28,6 @@ export function normalizeEditorKey(key: KeyEvent): KeyEvent {
 export function getEditorCommand(key: KeyEvent): EditorCommand | null {
   if (key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
     if (key.name === "g" && !key.shift) return "toggle-fold"
-  }
-
-  if (!key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
-    if (key.name === "f5") return "fold-all"
-    if (key.name === "f6") return "unfold-all"
-  }
-
-  if (
-    key.ctrl &&
-    key.shift &&
-    !key.meta &&
-    !key.option &&
-    !key.super &&
-    !key.hyper
-  ) {
-    if (key.name === "[") return "fold-all"
-    if (key.name === "]") return "unfold-all"
   }
 
   return null

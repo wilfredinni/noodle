@@ -134,6 +134,19 @@ export const Definitions = {
     "Workspace",
     ["main", "request-browse", "request-edit"],
   ),
+  runner_open: keybind("f5", "Open collection Runner", false, "Workspace", [
+    "main",
+  ]),
+  editor_fold_all: keybind("", "Fold all regions", false, "Workspace", [
+    "main",
+    "request-edit",
+    "folder",
+  ]),
+  editor_unfold_all: keybind("", "Unfold all regions", false, "Workspace", [
+    "main",
+    "request-edit",
+    "folder",
+  ]),
   response_copy_body: keybind(
     "ctrl+b",
     "Copy response body",
@@ -257,6 +270,9 @@ export const CommandMap = {
   request_save: "request.save",
   layout_toggle: "layout.toggle",
   pane_expand: "request.expand-toggle",
+  runner_open: "collection.runner",
+  editor_fold_all: "editor.fold-all",
+  editor_unfold_all: "editor.unfold-all",
   response_copy_body: "response.copy-body",
   response_query: "response.query",
   request_edit: "request.edit-enter",
@@ -409,11 +425,7 @@ export function keyEventToBinding(
     event.shift ? "shift" : null,
   ].filter((value): value is string => value !== null)
   const binding = [...modifiers, name].join("+")
-  if (
-    ["ctrl+c", "ctrl+g", "ctrl+shift+z", "shift+return", "f5", "f6"].includes(
-      binding,
-    )
-  ) {
+  if (["ctrl+c", "ctrl+g", "ctrl+shift+z", "shift+return"].includes(binding)) {
     return null
   }
   return binding

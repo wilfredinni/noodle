@@ -793,7 +793,7 @@ describe("SettingsView", () => {
     await renderOnce()
 
     await act(async () => host.press("return"))
-    await act(async () => host.press("f5"))
+    await act(async () => host.press("g", { ctrl: true }))
     await renderOnce()
 
     expect(captureCharFrame()).toContain("That key cannot be assigned")

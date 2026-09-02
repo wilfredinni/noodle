@@ -1231,6 +1231,7 @@ export function AppInner({
     runner: {
       runnerRef,
       detailScrollRef: runnerDetailScrollRef,
+      open: handleOpenRunner,
       close: closeRunner,
       openTagFilter: handleOpenRunnerTagFilter,
       openResultDetail: handleOpenRunnerResultDetail,

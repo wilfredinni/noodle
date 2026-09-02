@@ -202,7 +202,7 @@ body_type: json`
     )
   })
 
-  it("uses f5 to fold all and f6 to unfold all", async () => {
+  it("folds and unfolds all regions", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{
   "first": 1,
@@ -235,13 +235,11 @@ body_type: json`
     expect(editor).toBeDefined()
     computeFolds(editor!)
 
-    const folded = editor!.handleKeyPress(keyEvent("f5"))
-    expect(folded).toBe(true)
+    editor!.foldAll()
     await renderOnce()
     expect(editor!.lineCount).toBeLessThan(originalLineCount)
 
-    const unfolded = editor!.handleKeyPress(keyEvent("f6"))
-    expect(unfolded).toBe(true)
+    editor!.unfoldAll()
     await renderOnce()
     expect(editor!.lineCount).toBe(originalLineCount)
     expect(editor!.plainText).toBe(content)
@@ -1475,10 +1473,10 @@ describe("CodeEditorRenderable read-only mode", () => {
 
     expect(readonly.handleKeyPress(keyEvent("right"))).toBe(true)
     expect(readonly.logicalCursor.col).toBeGreaterThan(cursorBefore)
-    expect(readonly.handleKeyPress(keyEvent("f5"))).toBe(true)
+    readonly.foldAll()
     await renderOnce()
     expect(readonly.lineCount).toBeLessThan(content.split("\n").length)
-    expect(readonly.handleKeyPress(keyEvent("f6"))).toBe(true)
+    readonly.unfoldAll()
     await renderOnce()
     expect(readonly.plainText).toBe(content)
 

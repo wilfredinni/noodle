@@ -12,6 +12,7 @@ import {
   undoAll,
 } from "../commandActions"
 import type { AppKeymapContext } from "./types"
+import { CodeEditorRenderable } from "../editor/CodeEditor"
 
 export function createGlobalLayers(
   context: AppKeymapContext,
@@ -39,6 +40,10 @@ export function createGlobalLayers(
   const isRunnerRunning = () =>
     global.viewRef.current === "runner" &&
     runner.runnerRef.current.phase === "running"
+  const focusedCodeEditor = () => {
+    const focused = context.renderer.currentFocusedRenderable
+    return focused instanceof CodeEditorRenderable ? focused : null
+  }
   const shortcutEnabled = (binding: string, enabled = true) => {
     if (isRunnerRunning()) return false
     if (!enabled || !isTextInputActive()) return enabled
@@ -200,6 +205,35 @@ export function createGlobalLayers(
         },
       },
       {
+        name: "collection.runner",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.runner_open,
+            global.modeRef.current === "collection" &&
+              global.viewRef.current === "main" &&
+              keymap.getData("app.overlay") === "none",
+          ),
+        run: () => runner.open(null),
+      },
+      {
+        name: "editor.fold-all",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.editor_fold_all,
+            keybinds.editor_fold_all !== "" && focusedCodeEditor() !== null,
+          ),
+        run: () => focusedCodeEditor()?.foldAll(),
+      },
+      {
+        name: "editor.unfold-all",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.editor_unfold_all,
+            keybinds.editor_unfold_all !== "" && focusedCodeEditor() !== null,
+          ),
+        run: () => focusedCodeEditor()?.unfoldAll(),
+      },
+      {
         name: "response.copy-body",
         enabled: () =>
           shortcutEnabled(
@@ -349,6 +383,13 @@ export function createGlobalLayers(
       { key: keybinds.help_toggle, cmd: "app.help" },
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
+      { key: keybinds.runner_open, cmd: "collection.runner" },
+      ...(keybinds.editor_fold_all
+        ? [{ key: keybinds.editor_fold_all, cmd: "editor.fold-all" }]
+        : []),
+      ...(keybinds.editor_unfold_all
+        ? [{ key: keybinds.editor_unfold_all, cmd: "editor.unfold-all" }]
+        : []),
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.response_query, cmd: "response.query" },
       { key: keybinds.theme_picker, cmd: "app.theme" },

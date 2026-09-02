@@ -16,6 +16,7 @@ import { createAppKeymapLayers } from "../../src/ui/keymap/layers"
 import type { AppKeymapContext } from "../../src/ui/keymap/types"
 import { useAppKeymap } from "../../src/ui/useAppKeymap"
 import { createTestRender } from "../testRender"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 
 const testRender = createTestRender()
 
@@ -64,6 +65,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     cookieExpand: 0,
     cookieEdit: 0,
     runnerClose: 0,
+    runnerOpen: [] as Array<string | null>,
     runnerFailFast: 0,
     runnerRun: 0,
     runnerOptionFirst: 0,
@@ -210,6 +212,10 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       },
     },
     detailScrollRef: { current: null },
+    open: (scope: string | null) => {
+      calls.runnerOpen.push(scope)
+      return true
+    },
     close: () => calls.runnerClose++,
     openTagFilter: (filter: "include" | "exclude", index: number) =>
       calls.runnerTagFilterOpen.push({ filter, index }),
@@ -806,15 +812,61 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("uses the configured collection Runner shortcut instead of f5", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.keybinds = { ...context.keybinds, runner_open: "f7" }
+    const disposers = register(context)
+
+    host.press("f5")
+    expect(calls.runnerOpen).toEqual([])
+    host.press("f7")
+    expect(calls.runnerOpen).toEqual([null])
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("uses configured bulk-fold shortcuts for a focused code editor", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    let folded = 0
+    let unfolded = 0
+    const editor = Object.create(
+      CodeEditorRenderable.prototype,
+    ) as CodeEditorRenderable
+    editor.foldAll = () => folded++
+    editor.unfoldAll = () => unfolded++
+    Object.defineProperty(context.renderer, "currentFocusedRenderable", {
+      value: editor,
+    })
+    context.keybinds = {
+      ...context.keybinds,
+      editor_fold_all: "f8",
+      editor_unfold_all: "f9",
+    }
+    const disposers = register(context)
+
+    host.press("f5")
+    host.press("f8")
+    host.press("f9")
+
+    expect(folded).toBe(1)
+    expect(unfolded).toBe(1)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("dispatches a live settings shortcut override instead of the old key", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
-    context.keybinds = { ...context.keybinds, settings_open: "f5" }
+    context.keybinds = { ...context.keybinds, settings_open: "f7" }
     const disposers = register(context)
 
     host.press("f4")
     expect(calls.settingsOpened).toBe(false)
-    host.press("f5")
+    host.press("f7")
     expect(calls.settingsOpened).toBe(true)
 
     disposers.forEach((dispose) => dispose())
@@ -847,13 +899,13 @@ describe("app keymap layers", () => {
     calls.settingsOpened = false
 
     await act(() => {
-      updateKeybinds!({ ...context.keybinds, settings_open: "f5" })
+      updateKeybinds!({ ...context.keybinds, settings_open: "f7" })
     })
     await render.renderOnce()
 
     host.press("f4")
     expect(calls.settingsOpened).toBe(false)
-    host.press("f5")
+    host.press("f7")
     expect(calls.settingsOpened).toBe(true)
 
     cleanup()

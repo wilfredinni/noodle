@@ -360,6 +360,7 @@ describe("buildCommandPaletteCommands", () => {
       (command) => command.id === "collection.runner",
     )
     expect(collectionCommand?.label).toBe("Run Collection")
+    expect(collectionCommand?.keybinding).toBe("f5")
     expect(collectionCommand?.run()).toBe(true)
 
     ctx.paletteTarget = "folder"

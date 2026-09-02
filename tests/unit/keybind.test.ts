@@ -87,6 +87,16 @@ describe("bindingDefaults", () => {
     expect(bindingDefaults().settings_open).toBe("f4")
     expect(CommandMap.settings_open).toBe("app.settings-open")
   })
+
+  it("opens the Runner with f5 and leaves bulk folding unbound", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.runner_open).toBe("f5")
+    expect(defaults.editor_fold_all).toBe("")
+    expect(defaults.editor_unfold_all).toBe("")
+    expect(CommandMap.runner_open).toBe("collection.runner")
+    expect(CommandMap.editor_fold_all).toBe("editor.fold-all")
+    expect(CommandMap.editor_unfold_all).toBe("editor.unfold-all")
+  })
 })
 
 describe("shortcut editing", () => {
@@ -120,7 +130,7 @@ describe("shortcut editing", () => {
     expect(keyEventToBinding(event("x", { super: true }))).toBeNull()
     expect(keyEventToBinding(event("c", { ctrl: true }))).toBeNull()
     expect(keyEventToBinding(event("g", { ctrl: true }))).toBeNull()
-    expect(keyEventToBinding(event("f5"))).toBeNull()
+    expect(keyEventToBinding(event("f5"))).toBe("f5")
     expect(keyEventToBinding(event("escape"))).toBeNull()
     expect(keyEventToBinding(event("unknown-key"))).toBeNull()
   })
@@ -134,6 +144,9 @@ describe("shortcut editing", () => {
     expect(findKeybindConflict("env_save", "s", keybinds)).toBe("env_secret")
     expect(findKeybindConflict("browse_delete", "r", keybinds)).toBe(
       "env_reveal",
+    )
+    expect(findKeybindConflict("editor_fold_all", "f5", keybinds)).toBe(
+      "runner_open",
     )
   })
 
