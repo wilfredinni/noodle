@@ -128,10 +128,10 @@ export function ResponseResults({
   ])
   const assertionNameWidth = Math.max(
     9,
-    cookieNameWidth(
-      assertionResults.map((result) => ({ name: result.expression })),
-    ),
+    ...assertionResults.map((result) => result.expression.length + 1),
   )
+  const assertionOperatorWidth =
+    Math.max(0, ...assertionResults.map((result) => result.operator.length)) + 1
   const captureNameWidth = cookieNameWidth(
     captureResults.map((result) => ({ name: result.variable })),
   )
@@ -197,7 +197,8 @@ export function ResponseResults({
                     kindLabel={result.passed ? "PASS" : "FAIL"}
                     kindColor={result.passed ? theme.success : theme.error}
                     name={result.expression}
-                    value={result.operator}
+                    value={` ${result.operator}`}
+                    valueWidth={assertionOperatorWidth}
                     nameWidth={assertionNameWidth}
                     selected={selectedRowIdx === index}
                     expanded={expandedRow === id}

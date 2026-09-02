@@ -64,6 +64,7 @@ export function CookieRow({
   method,
   name,
   value,
+  valueWidth,
   trailingValue,
   nameWidth,
   selected,
@@ -85,6 +86,7 @@ export function CookieRow({
   method?: { label: string; color: string; width: number }
   name: string
   value: string
+  valueWidth?: number
   trailingValue?: { label: string; width: number }
   nameWidth: number
   selected: boolean
@@ -155,7 +157,9 @@ export function CookieRow({
         <box
           style={{
             width: nameWidth,
-            flexShrink: 0,
+            flexGrow: 0,
+            flexShrink: valueWidth === undefined ? 0 : 1,
+            minWidth: valueWidth === undefined ? undefined : 0,
             overflow: "hidden",
           }}
         >
@@ -167,7 +171,11 @@ export function CookieRow({
           fg={rowValueColor}
           wrapMode="none"
           truncate
-          style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+          style={
+            valueWidth === undefined
+              ? { flexGrow: 1, flexShrink: 1, minWidth: 0 }
+              : { width: valueWidth, flexShrink: 0 }
+          }
         >
           {displayValue}
         </text>

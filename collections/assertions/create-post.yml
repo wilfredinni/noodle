@@ -30,7 +30,7 @@ assert:
   - expression: status
     operator: equals
     value: 201
-  - expression: headers.Content-Type
+  - expression: headers.content-type
     operator: contains
     value: application/json
   - expression: body

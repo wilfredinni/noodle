@@ -131,6 +131,58 @@ describe("ResponseResults", () => {
     expect(lines[actualIndex + 3]).toContain('"userId": 1')
   })
 
+  it("uses available row width for assertion expressions", async () => {
+    const { keymap } = setupKeymap()
+    const { renderOnce, captureCharFrame, resize } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              assertions: {
+                evaluated: true,
+                results: [
+                  {
+                    expression: "body.consentimientoCliente",
+                    operator: "exists",
+                    actual: true,
+                    passed: true,
+                    message: "Assertion passed",
+                  },
+                  {
+                    expression: "body.id",
+                    operator: "equals",
+                    expected: 1,
+                    actual: 2,
+                    passed: false,
+                    message: "Expected values to be equal",
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 6 },
+    )
+    await renderOnce()
+
+    const lines = captureCharFrame().split("\n")
+    const row = lines.find((line) => line.includes("PASS"))
+    const shortRow = lines.find((line) => line.includes("FAIL"))
+    expect(row).toMatch(/body\.consentimientoCliente {2}exists/)
+    expect(row?.indexOf("exists")).toBe(shortRow?.indexOf("equals"))
+
+    await act(async () => {
+      resize(44, 6)
+      await renderOnce()
+    })
+    const narrowRow = captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("PASS"))
+    expect(narrowRow).toMatch(/body\..* exists/)
+    expect(narrowRow).not.toContain("body.consentimientoCliente")
+  })
+
   it("renders declarations in the not-evaluated state", async () => {
     const { keymap } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
