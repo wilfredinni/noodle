@@ -378,6 +378,10 @@ describe("buildCommandPaletteCommands", () => {
     expect(
       openCollectionRunner(
         "admin",
+        () => {
+          calls.push("commit")
+          return true
+        },
         (scope) => calls.push(`reset:${scope}`),
         (view) => calls.push(`view:${view}`),
         (focus) => calls.push(`focus:${focus}`),
@@ -394,6 +398,7 @@ describe("buildCommandPaletteCommands", () => {
       ),
     ).toBe(true)
     expect(calls).toEqual([
+      "commit",
       "reset:admin",
       "view:runner",
       "focus:runner-options",
@@ -402,6 +407,21 @@ describe("buildCommandPaletteCommands", () => {
       "focus:request",
       "tab:assertions",
     ])
+  })
+
+  it("does not open the Runner when a pending request edit cannot commit", () => {
+    const calls: string[] = []
+
+    expect(
+      openCollectionRunner(
+        null,
+        () => false,
+        (scope) => calls.push(`reset:${scope}`),
+        (view) => calls.push(`view:${view}`),
+        (focus) => calls.push(`focus:${focus}`),
+      ),
+    ).toBe(false)
+    expect(calls).toEqual([])
   })
 
   it("shows only environment commands for an environment context menu", () => {
