@@ -223,19 +223,9 @@ export function CollectionRunnerView({
         : [],
     ),
   )
-  const filteredColumnWidth = runner.requests.some(
-    (request) =>
-      runner.selectedIds.has(request.id) && !runner.matchedIds.has(request.id),
-  )
-    ? stringWidth(" filtered")
-    : 0
-  const requestColumnsWidth = Math.max(
-    0,
-    requestBaseLabelWidth - filteredColumnWidth,
-  )
   const requestLabelWidth = Math.min(
     requestNamePreferredWidth,
-    requestColumnsWidth,
+    requestBaseLabelWidth,
   )
   const requestTagColumnWidth = Math.min(
     Math.max(
@@ -244,7 +234,7 @@ export function CollectionRunnerView({
         label ? stringWidth(` ${label}`) : 0,
       ),
     ),
-    Math.max(0, requestColumnsWidth - requestLabelWidth),
+    Math.max(0, requestBaseLabelWidth - requestLabelWidth),
   )
   const resultKindWidth =
     Math.max(
@@ -699,9 +689,7 @@ export function CollectionRunnerView({
                     }
 
                     const { request, index } = row
-                    const selected = runner.selectedIds.has(request.id)
                     const matched = runner.matchedIds.has(request.id)
-                    const filteredLabel = selected && !matched ? "filtered" : ""
                     const tagsLabel = requestTagLabel(
                       runner.requestTags.get(request.id) ?? [],
                     )
@@ -769,18 +757,6 @@ export function CollectionRunnerView({
                                   false,
                                 )
                               : ""}
-                          </text>
-                        ) : null}
-                        {filteredColumnWidth > 0 ? (
-                          <text
-                            fg={theme.textMuted}
-                            style={{
-                              width: filteredColumnWidth,
-                              flexShrink: 0,
-                            }}
-                            wrapMode="none"
-                          >
-                            {filteredLabel ? ` ${filteredLabel}` : ""}
                           </text>
                         ) : null}
                       </box>

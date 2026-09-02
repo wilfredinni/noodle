@@ -230,6 +230,7 @@ describe("CollectionRunnerView", () => {
     expect(filteredRows[0]).toContain("[x]")
     expect(filteredRows[1]).toContain("[ ]")
     expect(filteredRows[2]).toContain("[x]")
+    expect(filteredRows.join("\n")).not.toContain("filtered")
     expect(filteredRows[0]!.indexOf("#smoke")).toBe(tagColumn)
     await act(async () =>
       current!.setTagFilter("exclude", 0, "a-very-long-regression-tag"),
