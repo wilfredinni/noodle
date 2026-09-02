@@ -58,13 +58,18 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^t")
   })
 
-  it("CODE EDITOR section shows ^g, f5, and f6", () => {
+  it("leaves bulk folding out of help until configured", () => {
     const sections = getHelpSections(defaults)
     const editor = sections.find((s) => s.title === "Code Editor")!
     const keys = editor.keys.map((k) => k.key)
-    expect(keys).toContain("^g")
-    expect(keys).toContain("f5")
-    expect(keys).toContain("f6")
+    expect(keys).toEqual(["^g"])
+
+    const configured = getHelpSections({
+      ...defaults,
+      editor_fold_all: "f8",
+      editor_unfold_all: "f9",
+    }).find((s) => s.title === "Code Editor")!
+    expect(configured.keys.map((key) => key.key)).toEqual(["^g", "f8", "f9"])
   })
 
   it("ACTIONS section shows ^return / ^j, ^s, ^n, ^k, ^w, ^shift+p, ^l", () => {
@@ -80,6 +85,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^l")
     expect(keys).toContain("e")
     expect(keys).toContain("f3")
+    expect(keys).toContain("f5")
     expect(act.keys).toContainEqual({
       key: "e",
       description: "Open environment picker",

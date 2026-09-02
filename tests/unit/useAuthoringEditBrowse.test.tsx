@@ -16,7 +16,48 @@ const request: Request = {
   timeout: 0,
 }
 
-describe("useEditBrowse assertion, capture, and tag rows", () => {
+describe("useEditBrowse authored rows", () => {
+  it("commits a path value when its read-only key buffer is cleared", async () => {
+    const result: { value?: Request["pathParams"] } = {}
+    let committed: boolean | undefined
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        url: "https://example.com/users/:id",
+        pathParams: [{ name: "id", value: "42", enabled: true }],
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("pathParams", 0)
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditKey("")
+          editor.setEditValue("99")
+          setStep(3)
+        } else if (
+          step === 3 &&
+          editor.editKey === "" &&
+          editor.editValue === "99"
+        ) {
+          committed = editor.commitEdit()
+          setStep(4)
+        } else if (step === 4 && editor.editState.mode === "browsing") {
+          result.value = draft.draft?.pathParams
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(committed).toBe(true)
+    expect(result.value).toEqual([{ name: "id", value: "99", enabled: true }])
+  })
+
   it("adds a structured assertion and parses its expected value", async () => {
     const result: { value?: Request["assertions"] } = {}
     function Harness() {

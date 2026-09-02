@@ -443,6 +443,7 @@ export function buildCommandPaletteCommands(
       id: "collection.runner",
       label: paletteTarget === "folder" ? "Run Folder" : "Run Collection",
       section: paletteTarget === "folder" ? "Folder" : "Workspace",
+      keybinding: displayKey(keybinds.runner_open),
       run: () => {
         const folderPath =
           paletteTarget === "folder" ? c.focusedFolderPathRef.current : null

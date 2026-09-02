@@ -995,11 +995,14 @@ export function useEditBrowse(
         )
       }
     } else if (field === "pathParams") {
-      const key = editKeyRef.current.trim()
+      const current = draftRef.current
+      const key = syncPathParamsWithUrl(
+        current?.pathParams ?? [],
+        current?.url ?? "",
+      )[state.cursor.row]?.name
       const value = editValueRef.current.trim()
-      if (key !== "" && !addingRow) {
-        draftMutators.setPathParamRow(state.cursor.row, key, value)
-      }
+      if (!key || addingRow) return false
+      draftMutators.setPathParamRow(state.cursor.row, key, value)
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()

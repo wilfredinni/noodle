@@ -24,12 +24,10 @@ function key(name: string, modifiers: Partial<KeyEvent> = {}): KeyEvent {
 }
 
 describe("codeEditorKeys", () => {
-  it("classifies fold shortcuts without matching modified function keys", () => {
+  it("keeps only toggle-fold as a fixed editor shortcut", () => {
     expect(getEditorCommand(key("g", { ctrl: true }))).toBe("toggle-fold")
-    expect(getEditorCommand(key("f5"))).toBe("fold-all")
-    expect(getEditorCommand(key("]", { ctrl: true, shift: true }))).toBe(
-      "unfold-all",
-    )
+    expect(getEditorCommand(key("f5"))).toBeNull()
+    expect(getEditorCommand(key("]", { ctrl: true, shift: true }))).toBeNull()
     expect(getEditorCommand(key("f5", { ctrl: true }))).toBeNull()
   })
 

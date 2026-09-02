@@ -1050,11 +1050,11 @@ describe("ResponsePane scrollbox", () => {
     expect(deletedLine).toContain("Deleted")
   })
 
-  it("folds the response body from the keyboard", async () => {
+  it("toggles response body folding from the keyboard", async () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
       await testRender(
         <KeymapProvider keymap={keymap}>
           <ResponsePane
@@ -1081,11 +1081,14 @@ describe("ResponsePane scrollbox", () => {
     await editor.refreshHighlights()
     expect(editor.getFoldSigns().has(0)).toBe(true)
 
-    await act(async () => mockInput.pressKey("F5"))
+    expect(editor.handleKeyPress(keyEvent("f5"))).toBe(false)
+    expect(editor.lineCount).toBe(7)
+
+    expect(editor.handleKeyPress(keyEvent("g", { ctrl: true }))).toBe(true)
     await renderOnce()
     expect(editor.lineCount).toBeLessThan(7)
 
-    await act(async () => mockInput.pressKey("F6"))
+    expect(editor.handleKeyPress(keyEvent("g", { ctrl: true }))).toBe(true)
     await renderOnce()
     expect(editor.lineCount).toBe(7)
 

@@ -728,15 +728,26 @@ export function AppInner({
   }, [])
   const handleOpenRunner = useCallback(
     (scope: string | null) => {
-      runnerReturnFocusRef.current = settingsReturnFocus(
-        viewRef.current,
-        focusRef.current,
+      const opened = openCollectionRunner(
+        scope,
+        () => {
+          if (eb.commitEdit() === false) return false
+          folderEb.commitEdit()
+          envEditor.commitEdit()
+          runnerReturnFocusRef.current = settingsReturnFocus(
+            viewRef.current,
+            focusRef.current,
+          )
+          return true
+        },
+        resetRunner,
+        setView,
+        setFocus,
       )
-      const opened = openCollectionRunner(scope, resetRunner, setView, setFocus)
-      setJumpMode(false)
+      if (opened) setJumpMode(false)
       return opened
     },
-    [resetRunner],
+    [eb.commitEdit, envEditor.commitEdit, folderEb.commitEdit, resetRunner],
   )
   const closeRunner = useCallback(() => {
     if (runnerRef.current.phase === "running") return
@@ -1231,6 +1242,7 @@ export function AppInner({
     runner: {
       runnerRef,
       detailScrollRef: runnerDetailScrollRef,
+      open: handleOpenRunner,
       close: closeRunner,
       openTagFilter: handleOpenRunnerTagFilter,
       openResultDetail: handleOpenRunnerResultDetail,

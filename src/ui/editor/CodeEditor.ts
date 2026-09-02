@@ -492,14 +492,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.toggleFold(this.logicalCursor.row)
       return true
     }
-    if (command === "fold-all") {
-      this.foldAll()
-      return true
-    }
-    if (command === "unfold-all") {
-      this.unfoldAll()
-      return true
-    }
     if (this._readOnly) {
       const isSelectionNavigation =
         key.shift &&

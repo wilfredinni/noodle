@@ -60,8 +60,22 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       title: "Code Editor",
       keys: [
         { key: "^g", description: "Toggle fold at cursor" },
-        { key: "f5", description: "Fold all" },
-        { key: "f6", description: "Unfold all" },
+        ...(keybinds.editor_fold_all
+          ? [
+              {
+                key: displayKey(keybinds.editor_fold_all),
+                description: "Fold all",
+              },
+            ]
+          : []),
+        ...(keybinds.editor_unfold_all
+          ? [
+              {
+                key: displayKey(keybinds.editor_unfold_all),
+                description: "Unfold all",
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -103,6 +117,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         {
           key: displayKey(keybinds.pane_expand),
           description: "Expand/collapse focused pane",
+        },
+        {
+          key: displayKey(keybinds.runner_open),
+          description: "Open collection Runner",
         },
         {
           key: displayKey(keybinds.folder_new),

@@ -330,10 +330,12 @@ export function openCookieJar(
 
 export function openCollectionRunner(
   scope: string | null,
+  commitPendingEdits: () => boolean,
   reset: (scope: string | null) => void,
   setView: (view: AppView) => void,
   setFocus: (focus: Focus) => void,
 ): boolean {
+  if (!commitPendingEdits()) return false
   reset(scope)
   setView("runner")
   setFocus("runner-options")
