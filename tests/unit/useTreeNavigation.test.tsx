@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { act, useEffect, useState, type ReactNode } from "react"
+import {
+  act,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { setupKeymap } from "./_helpers"
@@ -39,6 +45,7 @@ interface Props {
   initialSelectedId?: string
   initialItems: CollectionItem[]
   onStateChange?: (state: string) => void
+  onSelectionRefChange?: (selectedId: string, refId: string) => void
   afterMount?: (
     setSelectedId: (id: string) => void,
     setItems: (items: CollectionItem[]) => void,
@@ -53,6 +60,7 @@ function Harness({
   initialSelectedId,
   initialItems,
   onStateChange,
+  onSelectionRefChange,
   afterMount,
 }: Props): ReactNode {
   const [items, setItems] = useState(initialItems)
@@ -83,6 +91,10 @@ function Harness({
       `${selectedId ?? ""}|${cursorIndex}|${focusedFolderPath ?? "request"}`,
     )
   }, [cursorIndex, focusedFolderPath, onStateChange, selectedId])
+
+  useLayoutEffect(() => {
+    onSelectionRefChange?.(selectedId ?? "", selectedIdRef.current ?? "")
+  }, [onSelectionRefChange, selectedId, selectedIdRef])
 
   return <text>{`s:${selectedId ?? ""}|c:${cursorIndex}`}</text>
 }
@@ -271,8 +283,12 @@ describe("useTreeNavigation", () => {
   })
 
   it("does not expose a folder cursor while replacing a deleted request", async () => {
-    const initialItems = [req("root"), fld("users", [req("users/second")])]
-    const nextItems = [req("root"), fld("users", [])]
+    const initialItems = [
+      req("first"),
+      req("deleted"),
+      fld("users", [req("users/remaining")]),
+    ]
+    const nextItems = [req("first"), fld("users", [req("users/remaining")])]
     const states: string[] = []
     let replaceItems: ((items: CollectionItem[]) => void) | undefined
     let reveal: ((id: string) => void) | undefined
@@ -294,14 +310,47 @@ describe("useTreeNavigation", () => {
     )
 
     await view.renderOnce()
-    await act(async () => reveal?.("users/second"))
+    await act(async () => reveal?.("deleted"))
     await view.renderOnce()
-    expect(view.captureCharFrame()).toContain("s:users/second|c:2")
+    expect(view.captureCharFrame()).toContain("s:deleted|c:1")
 
     states.length = 0
     await act(async () => replaceItems?.(nextItems))
     await view.renderOnce()
 
-    expect(states).toEqual(["root|0|request"])
+    expect(states).toEqual(["first|0|request"])
+  })
+
+  it("reveals a hidden fallback with its selection ref synchronized", async () => {
+    const initialItems = [
+      req("deleted"),
+      fld("users", [req("users/remaining")]),
+    ]
+    const nextItems = [fld("users", [req("users/remaining")])]
+    const states: string[] = []
+    const refStates: string[] = []
+    let replaceItems: ((items: CollectionItem[]) => void) | undefined
+
+    const view = await render(
+      <Harness
+        initialItems={initialItems}
+        onStateChange={(state) => states.push(state)}
+        onSelectionRefChange={(selectedId, refId) =>
+          refStates.push(`${selectedId}|${refId}`)
+        }
+        afterMount={(_setSelectedId, setItems) => {
+          replaceItems = setItems
+        }}
+      />,
+    )
+
+    await view.renderOnce()
+    states.length = 0
+    refStates.length = 0
+    await act(async () => replaceItems?.(nextItems))
+    await view.renderOnce()
+
+    expect(states).toEqual(["users/remaining|1|request"])
+    expect(refStates).toEqual(["users/remaining|users/remaining"])
   })
 })
