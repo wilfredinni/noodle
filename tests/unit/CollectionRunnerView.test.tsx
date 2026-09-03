@@ -422,6 +422,11 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 80, height: 24 })
     await render.renderOnce()
     const frame = render.captureCharFrame()
+    expect(frame).toContain("Runner")
+    expect(frame).not.toContain("Options")
+    expect(frame.replace(/\s+/g, " ")).toContain(
+      "Configure and run requests from your collection.",
+    )
     const initialRunButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable

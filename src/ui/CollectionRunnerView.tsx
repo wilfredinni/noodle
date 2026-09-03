@@ -417,8 +417,8 @@ export function CollectionRunnerView({
         }}
       >
         <Frame
-          title="Options"
-          titleAlignment="right"
+          title="Runner"
+          titleAlignment="left"
           border={[...FullBorder.border]}
           customBorderChars={FullBorder.customBorderChars}
           borderColor={
@@ -438,6 +438,9 @@ export function CollectionRunnerView({
             }}
           >
             <box style={{ flexDirection: "column", gap: 1 }}>
+              <text fg={theme.textMuted} wrapMode="word">
+                Configure and run requests from your collection.
+              </text>
               <box style={{ flexDirection: "column" }}>
                 <text fg={theme.text}>{`Scope: ${runner.scopeLabel}`}</text>
                 <text fg={theme.textMuted} wrapMode="word">
@@ -594,7 +597,7 @@ export function CollectionRunnerView({
         {splitHandle}
         <Frame
           title="Requests"
-          titleAlignment="right"
+          titleAlignment="left"
           border={[...FullBorder.border]}
           customBorderChars={FullBorder.customBorderChars}
           borderColor={
