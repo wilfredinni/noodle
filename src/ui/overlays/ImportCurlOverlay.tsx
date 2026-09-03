@@ -92,7 +92,13 @@ export const ImportCurlOverlay = forwardRef<
   }))
 
   return (
-    <Overlay visible={visible} width={58} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={58}
+      padding={1}
+      gap={1}
+      onClose={() => onClose?.()}
+    >
       <box
         style={{
           flexDirection: "row",

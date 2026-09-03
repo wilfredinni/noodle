@@ -73,7 +73,13 @@ export const TagEditorOverlay = forwardRef<
   }))
 
   return (
-    <Overlay visible={visible} width={50} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={50}
+      padding={1}
+      gap={1}
+      onClose={() => onClose?.()}
+    >
       <box
         style={{
           flexDirection: "row",

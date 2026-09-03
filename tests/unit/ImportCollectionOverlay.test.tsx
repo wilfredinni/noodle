@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
   ImportCollectionOverlay,
@@ -86,6 +87,7 @@ describe("ImportCollectionOverlay", () => {
   it("renders pending state and external errors inline", async () => {
     const { keymap, cleanup } = setupKeymap()
     const ref = createRef<ImportCollectionOverlayHandle>()
+    let closeCount = 0
     const render = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -94,6 +96,7 @@ describe("ImportCollectionOverlay", () => {
             pending
             ref={ref}
             initialParentDir="/collections"
+            onClose={() => closeCount++}
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -105,6 +108,10 @@ describe("ImportCollectionOverlay", () => {
     const frame = render.captureCharFrame()
     expect(frame).toContain("importing...")
     expect(frame).toContain("import target already exists")
+    await act(async () => {
+      await render.mockMouse.click(0, 0, MouseButtons.LEFT)
+    })
+    expect(closeCount).toBe(0)
     act(() => render.renderer.destroy())
     cleanup()
   })

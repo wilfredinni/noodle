@@ -147,7 +147,14 @@ export function CodeGeneratorOverlay({
   if (!visible) return null
 
   return (
-    <Overlay visible width={90} gap={1} padding={1} overflow="hidden">
+    <Overlay
+      visible
+      width={90}
+      gap={1}
+      padding={1}
+      overflow="hidden"
+      onClose={onClose}
+    >
       <box
         paddingLeft={4}
         paddingRight={4}

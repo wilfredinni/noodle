@@ -153,7 +153,13 @@ export const NewRequestOverlay = forwardRef<
   }, [focus])
 
   return (
-    <Overlay visible={visible} width={58} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={58}
+      padding={1}
+      gap={1}
+      onClose={() => onClose?.()}
+    >
       {/* Title bar */}
       <box
         style={{
