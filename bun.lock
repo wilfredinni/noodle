@@ -33,6 +33,7 @@
     },
   },
   "patchedDependencies": {
+    "httpsnippet@3.0.10": "patches/httpsnippet@3.0.10.patch",
     "postman-collection@5.3.1": "patches/postman-collection@5.3.1.patch",
   },
   "overrides": {

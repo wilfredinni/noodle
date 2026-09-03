@@ -1,0 +1,13 @@
+diff --git a/dist/httpsnippet.js b/dist/httpsnippet.js
+--- a/dist/httpsnippet.js
++++ b/dist/httpsnippet.js
+@@ -217,7 +217,8 @@ var HTTPSnippet = /** @class */ (function () {
+             }
+             // create allHeaders object
+             var allHeaders = __assign(__assign({}, request.allHeaders), request.headersObj);
+-            var urlWithParsedQuery = (0, url_1.parse)(request.url, true, true); //?
++            var parsedUrl = new url_1.URL(request.url);
++            var urlWithParsedQuery = __assign(__assign((0, url_1.urlToHttpOptions)(parsedUrl), { host: parsedUrl.host, port: parsedUrl.port || null, slashes: true }), { query: (0, querystring_1.parse)(parsedUrl.search.slice(1)) });
+             // query string key/value pairs in with literal querystrings containd within the url
+             request.queryObj = __assign(__assign({}, request.queryObj), urlWithParsedQuery.query); //?
+             // reset uriObj values for a clean url
