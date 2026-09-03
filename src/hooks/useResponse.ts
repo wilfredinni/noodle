@@ -99,7 +99,9 @@ export function useResponse(
   }, [selectedRequest?.id])
 
   const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   const trySend = useCallback(() => {
     const req = selectedRequest

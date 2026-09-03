@@ -537,35 +537,33 @@ export function AppInner({
     timelineMaxEntries,
     eb.activeTab === "assertions" || eb.activeTab === "captures",
   )
-  const timelineAppendRef = useRef(timeline.appendEntry)
-  timelineAppendRef.current = timeline.appendEntry
-
-  const onCompleteRef = useRef(
+  const handleResponseComplete = useCallback(
     (
-      _req: NoodleRequest,
-      _result: SendCompleteResult,
-      _dispatchEnvironment?: Environment,
-    ) => {},
+      req: NoodleRequest,
+      result: SendCompleteResult,
+      dispatchEnvironment?: Environment,
+    ) => {
+      timeline.appendEntry(
+        buildTimelineEntry(
+          req,
+          result,
+          dispatchEnvironment?.name,
+          dispatchEnvironment,
+          [
+            ...Object.values(appProxyCredentials),
+            ...Object.values(collectionProxyCredentials),
+            ...Object.values(tlsPassphrases),
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      )
+    },
+    [
+      appProxyCredentials,
+      collectionProxyCredentials,
+      timeline.appendEntry,
+      tlsPassphrases,
+    ],
   )
-  onCompleteRef.current = (
-    req: NoodleRequest,
-    result: SendCompleteResult,
-    dispatchEnvironment?: Environment,
-  ) => {
-    timelineAppendRef.current(
-      buildTimelineEntry(
-        req,
-        result,
-        dispatchEnvironment?.name,
-        dispatchEnvironment,
-        [
-          ...Object.values(appProxyCredentials),
-          ...Object.values(collectionProxyCredentials),
-          ...Object.values(tlsPassphrases),
-        ].filter((value): value is string => Boolean(value)),
-      ),
-    )
-  }
 
   const proxyPolicy = useMemo(
     () =>
@@ -628,7 +626,7 @@ export function AppInner({
   } = useResponse(
     draft.draft,
     envState.activeEnv,
-    onCompleteRef.current,
+    handleResponseComplete,
     collection ?? undefined,
     draft.draft?.id,
     proxyPolicy,

@@ -237,6 +237,7 @@ export function App({
   const [envColors, setEnvColors] = useState<
     Record<string, string | undefined>
   >({})
+  const envRefreshGenerationRef = useRef(0)
 
   useEffect(() => {
     if (initialSettingsSecretError) {
@@ -308,10 +309,11 @@ export function App({
   )
 
   useEffect(() => {
+    const generation = ++envRefreshGenerationRef.current
     if (mode !== "collection") return
     let cancelled = false
     listEnvironmentsWithColors(activeEnvironmentsDir).then((items) => {
-      if (cancelled) return
+      if (cancelled || generation !== envRefreshGenerationRef.current) return
       setEnvNames(items.map((item) => item.name))
       const colors: Record<string, string | undefined> = {}
       for (const item of items) colors[item.name] = item.color
@@ -832,8 +834,10 @@ export function App({
   const handleEnvListChanged = useCallback(
     async (nextNames?: string[]) => {
       if (mode !== "collection") return
+      const generation = ++envRefreshGenerationRef.current
       if (nextNames) setEnvNames(nextNames)
       const items = await listEnvironmentsWithColors(activeEnvironmentsDir)
+      if (generation !== envRefreshGenerationRef.current) return
       setEnvNames(items.map((i) => i.name))
       const colors: Record<string, string | undefined> = {}
       for (const item of items) colors[item.name] = item.color
