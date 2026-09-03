@@ -9,12 +9,13 @@ import type {
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
-import { slugify, METHOD_UPPER } from "../shared"
+import { slugify, METHOD_UPPER, setOwn } from "../shared"
 import {
   openApiPathTemplateToColon,
   URL_PATH_TOKEN_RE,
 } from "../../requests/pathParams"
 import { defaultOAuth2Auth } from "../../auth/defaults"
+import { variableReferences } from "../../variableReference"
 
 export { slugify, METHOD_UPPER }
 
@@ -542,80 +543,64 @@ export function mapCollection(n: Normalized): ImportResult {
   }
 
   const envVarsFound = new Set<string>()
+  const collectVars = (...values: (string | undefined)[]) => {
+    for (const value of values) {
+      if (!value) continue
+      for (const reference of variableReferences(value)) {
+        envVarsFound.add(reference.name)
+      }
+    }
+  }
   for (const r of requests) {
-    const mUrl = r.url.match(/\$(\w+)/g)
-    if (mUrl) for (const v of mUrl) envVarsFound.add(v.slice(1))
+    collectVars(r.url)
     for (const [, kv] of Object.entries(r.headers)) {
-      const m = kv.value.match(/\$(\w+)/)
-      if (m) envVarsFound.add(m[1])
+      collectVars(kv.value)
     }
     for (const entry of r.params) {
-      const m = entry.value.match(/\$(\w+)/)
-      if (m) envVarsFound.add(m[1])
+      collectVars(entry.value)
     }
     if (r.pathParams) {
       for (const entry of r.pathParams) {
-        const mPath = entry.value.match(/\$(\w+)/g)
-        if (mPath) for (const v of mPath) envVarsFound.add(v.slice(1))
+        collectVars(entry.value)
       }
     }
-    if (r.body) {
-      const mBody = r.body.match(/\$(\w+)/g)
-      if (mBody) for (const v of mBody) envVarsFound.add(v.slice(1))
-    }
+    collectVars(r.body)
     if (r.formData) {
       for (const fe of r.formData) {
-        const m = fe.value.match(/\$(\w+)/)
-        if (m) envVarsFound.add(m[1])
+        collectVars(fe.value)
       }
     }
     const a = r.auth
     if (!a) continue
     if (a.type === "bearer") {
-      const m = a.token.match(/\$(\w+)/)
-      if (m) envVarsFound.add(m[1])
+      collectVars(a.token)
     }
     if (a.type === "basic") {
-      const mu = a.user.match(/\$(\w+)/)
-      if (mu) envVarsFound.add(mu[1])
-      const mp = a.pass.match(/\$(\w+)/)
-      if (mp) envVarsFound.add(mp[1])
+      collectVars(a.user, a.pass)
     }
     if (a.type === "ntlm") {
-      for (const value of [a.username, a.password, a.domain, a.workstation]) {
-        const matches = value.matchAll(/\$(\w+)/g)
-        for (const match of matches) envVarsFound.add(match[1]!)
-      }
+      collectVars(a.username, a.password, a.domain, a.workstation)
     }
     if (a.type === "api_key") {
-      const m = a.value.match(/\$(\w+)/)
-      if (m) envVarsFound.add(m[1])
+      collectVars(a.value)
     }
     if (a.type === "oauth1") {
-      for (const value of [
+      collectVars(
         a.consumer_key,
         a.consumer_secret,
         a.access_token,
         a.access_token_secret,
         a.private_key,
-      ]) {
-        for (const match of value.matchAll(/\$(\w+)/g)) {
-          envVarsFound.add(match[1]!)
-        }
-      }
+      )
     }
     if (a.type === "oauth2") {
-      for (const value of [
+      collectVars(
         a.client_id,
         a.client_secret,
         a.username,
         a.password,
         a.client_assertion_key,
-      ]) {
-        for (const match of value.matchAll(/\$(\w+)/g)) {
-          envVarsFound.add(match[1]!)
-        }
-      }
+      )
     }
   }
 
@@ -635,25 +620,25 @@ export function mapCollection(n: Normalized): ImportResult {
 
       const urlVarMatches = srvUrl.matchAll(/\{(\w+)\}/g)
       for (const match of urlVarMatches) {
-        vars[match[1]] = ""
+        setOwn(vars, match[1]!, "")
       }
 
       const srvVariables = server.variables
       if (isMapping(srvVariables)) {
         for (const [varName, varDef] of Object.entries(srvVariables)) {
           if (isMapping(varDef) && varDef.default !== undefined) {
-            vars[varName] = String(varDef.default)
+            setOwn(vars, varName, String(varDef.default))
           }
         }
       }
 
       if (srvUrl) {
         if (Object.keys(vars).length === 0) {
-          vars["base_url"] = srvUrl
+          setOwn(vars, "base_url", srvUrl)
         }
         for (const varName of envVarsFound) {
-          if (!(varName in vars)) {
-            vars[varName] = ""
+          if (!Object.hasOwn(vars, varName)) {
+            setOwn(vars, varName, "")
           }
         }
         environments.push({ name: envName, vars })

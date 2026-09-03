@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { env } from "../src/env"
@@ -57,5 +57,17 @@ describe("cloneEnvironment", () => {
     await expect(
       env.cloneEnvironment(dir, "nonexistent", "target"),
     ).rejects.toThrow("env.load: environment file not found")
+  })
+
+  it("does not overwrite an existing destination", async () => {
+    await env.saveEnvironment(dir, {
+      name: "copy",
+      vars: { existing: "keep" },
+    })
+    const before = await readFile(join(dir, "copy.env"), "utf8")
+    await expect(env.cloneEnvironment(dir, "original", "copy")).rejects.toThrow(
+      /already exists/,
+    )
+    expect(await readFile(join(dir, "copy.env"), "utf8")).toBe(before)
   })
 })

@@ -56,6 +56,17 @@ describe("requestFinder", () => {
       }),
     ).toBe("https://example.com/$TOKEN/visible")
   })
+  it("does not resolve escaped URL variables", () => {
+    expect(
+      resolveFinderUrl("https://example.com/$$HOST/$$$PUBLIC", {
+        name: "dev",
+        vars: { HOST: "hidden", PUBLIC: "visible" },
+      }),
+    ).toBe("https://example.com/$HOST/$visible")
+    expect(resolveFinderUrl("https://example.com/$$HOST", null)).toBe(
+      "https://example.com/$HOST",
+    )
+  })
   it("shows all requests for an empty query and derives folders", () => {
     const items = requestFinderItems(requests)
     expect(searchRequests(items, "")).toHaveLength(3)

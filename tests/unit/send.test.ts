@@ -40,6 +40,38 @@ function proxyUrl(proxy: BunFetchRequestInit["proxy"]): string | undefined {
   return proxy.url.toString()
 }
 
+describe("send — environment substitution", () => {
+  it("rejects unresolved variables before fetch without an environment", async () => {
+    const originalFetch = globalThis.fetch
+    const fetchMock = mock(async () => new Response("ok"))
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+    try {
+      await expect(
+        send(
+          makeReq({
+            headers: { "X-Token": { value: "$TOKEN", enabled: true } },
+          }),
+        ),
+      ).rejects.toThrow('unresolved variable "TOKEN"')
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("still sends variable-free requests without an environment", async () => {
+    const originalFetch = globalThis.fetch
+    const fetchMock = mock(async () => new Response("ok"))
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+    try {
+      await send(makeReq())
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
 describe("send — param deduplication", () => {
   it("params block replaces inline URL value for same key", async () => {
     let captured: string | undefined

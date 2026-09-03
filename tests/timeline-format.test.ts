@@ -1122,6 +1122,34 @@ describe("buildTimelineEntry", () => {
     })
   })
 
+  it("resolves timeline variables with literal-dollar escaping", () => {
+    const req: Request = {
+      id: "escaped",
+      name: "Escaped",
+      method: "GET",
+      url: "https://example.com/$$HOST/$$$PATH/$",
+      headers: {},
+      params: [],
+      timeout: 0,
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          timeMs: 1,
+        },
+      },
+      "dev",
+      { name: "dev", vars: { HOST: "wrong", PATH: "value" } },
+    )
+    expect(entry.request.url).toBe("https://example.com/$HOST/$value/$")
+  })
+
   it("builds error entry", () => {
     const req = {
       id: "req-2",

@@ -829,14 +829,18 @@ export function App({
     [activeCollectionDir, mode, settingsPersistence],
   )
 
-  const handleEnvListChanged = useCallback(async () => {
-    if (mode !== "collection") return
-    const items = await listEnvironmentsWithColors(activeEnvironmentsDir)
-    setEnvNames(items.map((i) => i.name))
-    const colors: Record<string, string | undefined> = {}
-    for (const item of items) colors[item.name] = item.color
-    setEnvColors(colors)
-  }, [activeEnvironmentsDir, mode])
+  const handleEnvListChanged = useCallback(
+    async (nextNames?: string[]) => {
+      if (mode !== "collection") return
+      if (nextNames) setEnvNames(nextNames)
+      const items = await listEnvironmentsWithColors(activeEnvironmentsDir)
+      setEnvNames(items.map((i) => i.name))
+      const colors: Record<string, string | undefined> = {}
+      for (const item of items) colors[item.name] = item.color
+      setEnvColors(colors)
+    },
+    [activeEnvironmentsDir, mode],
+  )
 
   const handleEnvChange = useCallback(
     (name: string | null) => {

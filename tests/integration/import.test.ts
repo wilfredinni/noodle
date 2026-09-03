@@ -383,6 +383,95 @@ describe("import — integration", () => {
     expect(existsSync(join(collectionDir, "get-health.yml"))).toBe(false)
   })
 
+  it("rejects unsupported Postman variables before writing either destination", async () => {
+    const specDir = tempDir()
+    const specPath = join(specDir, "dynamic.json")
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        info: {
+          name: "Dynamic Import",
+          schema:
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        item: [
+          {
+            name: "Dynamic",
+            request: {
+              method: "GET",
+              url: "https://example.com/{{$randomUUID}}",
+            },
+          },
+        ],
+      }),
+    )
+    const { runImport } = await import("../../src/app/import")
+
+    const currentDir = tempDir()
+    const existingPath = join(currentDir, "existing.yml")
+    await writeFile(existingPath, "keep\n")
+    await expect(
+      runImport({
+        source: specPath,
+        format: "postman",
+        destination: { kind: "current", collectionDir: currentDir },
+      }),
+    ).rejects.toThrow('unsupported variable "{{$randomUUID}}"')
+    expect(readFileSync(existingPath, "utf8")).toBe("keep\n")
+    expect(existsSync(join(currentDir, "get-dynamic.yml"))).toBe(false)
+
+    const parentDir = tempDir()
+    await expect(
+      runImport({
+        source: specPath,
+        format: "postman",
+        destination: { kind: "new", parentDir },
+      }),
+    ).rejects.toThrow('unsupported variable "{{$randomUUID}}"')
+    expect(existsSync(join(parentDir, "dynamic-import"))).toBe(false)
+  })
+
+  it("validates imported environment keys before writing requests", async () => {
+    const collectionDir = tempDir()
+    const specPath = join(tempDir(), "invalid-environment.json")
+    await writeFile(specPath, "{}")
+    const { registerImporter } = await import("../../src/converters")
+    registerImporter({
+      type: "invalid-environment-test",
+      detect: () => false,
+      import: () => ({
+        collection: {
+          id: "invalid-environment",
+          name: "Invalid Environment",
+          items: [
+            {
+              type: "request",
+              data: {
+                id: "get-ping",
+                name: "Ping",
+                method: "GET",
+                url: "https://example.com",
+                timeout: 0,
+                headers: {},
+                params: [],
+              },
+            },
+          ],
+        },
+        environments: [{ name: "default", vars: { "bad-key": "value" } }],
+      }),
+    })
+    const { runImport } = await import("../../src/app/import")
+    await expect(
+      runImport({
+        source: specPath,
+        format: "invalid-environment-test",
+        destination: { kind: "current", collectionDir },
+      }),
+    ).rejects.toThrow('invalid variable key "bad-key"')
+    expect(existsSync(join(collectionDir, "get-ping.yml"))).toBe(false)
+  })
+
   it("creates a marked new collection and rejects an existing target", async () => {
     const parentDir = tempDir()
     const specDir = tempDir()

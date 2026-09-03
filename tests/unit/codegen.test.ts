@@ -421,6 +421,21 @@ describe("generateCode", () => {
     expect(generated.code).not.toContain("secret")
     expect(generated.code).toContain("visible")
   })
+  it("does not interpolate escaped literals", () => {
+    const generated = generateCode(
+      makeRequest({ url: "https://example.com/$$LITERAL/$$$REAL" }),
+      CODE_TARGETS[0]!,
+      undefined,
+      {
+        name: "dev",
+        vars: { LITERAL: "wrong", REAL: "right" },
+      },
+      true,
+    )
+    expect(generated.code).toContain("$LITERAL")
+    expect(generated.code).not.toContain("wrong")
+    expect(generated.code).toContain("$right")
+  })
   it("generates a cURL snippet", () => {
     const result = generateCode(makeRequest(), curlTarget())
     expect(result.code).toContain("curl")

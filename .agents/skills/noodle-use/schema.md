@@ -445,6 +445,8 @@ api_key=
 - `# KEY=value`: commented out = disabled variable. Noodle skips these.
 - `# @secret KEY` followed immediately by a blank `KEY=`: enabled secure value. The value resolves from `process.env.KEY` first, then the OS credential vault.
 - `# @secret KEY` followed by `# KEY=`: disabled secure declaration. Secret placeholders must stay blank.
+- Public, disabled, and secret keys must match `^\w+$`; `_color` is reserved.
+- Values preserve everything after the first `=` exactly, including trailing spaces.
 
 ## Collection settings (`settings.yml`)
 
@@ -492,6 +494,8 @@ runs. A missing or empty file uses defaults.
 ## Variable substitution rules
 
 - Syntax: `$VARNAME` (dollar sign + word characters)
+- Escape: `$$` emits one literal dollar, so `$$NAME` emits literal `$NAME` and
+  `$$$NAME` emits `$` followed by the resolved value of `NAME`
 - Applied to: `url`; enabled header values; enabled `params` names and values;
   `path_params` names and values; `body`; enabled `form_data` names and values;
   `file_path`; supported auth credential, endpoint, identifier, key, path, and

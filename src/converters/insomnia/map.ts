@@ -8,7 +8,7 @@ import type {
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
-import { METHOD_UPPER, slugify } from "../shared"
+import { METHOD_UPPER, setOwn, slugify } from "../shared"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
 
 type RawResource = Record<string, unknown>
@@ -278,7 +278,7 @@ function mapEnvironmentVars(
     if (!data) continue
     for (const [key, value] of Object.entries(data)) {
       const serialized = envValue(value)
-      if (serialized !== undefined) vars[key] = serialized
+      if (serialized !== undefined) setOwn(vars, key, serialized)
     }
   }
   return vars

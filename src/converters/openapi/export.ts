@@ -9,6 +9,10 @@ import type {
 import { parseJsonPreservingNumbers } from "../../lang/formatJson"
 import { mergeFolderOverrides } from "../../requests/mergeFolderOverrides"
 import { withDefaultHttpsScheme } from "../../requests/url"
+import {
+  replaceVariableReferences,
+  variableReferences,
+} from "../../variableReference"
 
 type OpenApiObject = Record<string, unknown>
 
@@ -32,16 +36,12 @@ export interface OpenApiExportOptions {
   servers?: OpenApiObject[]
 }
 
-const SERVER_VAR_RE = /\$(\w+)/g
 const PATH_PARAM_RE = /:([\w-]+)(?=\/|\.|$)/g
-const BASE_VAR_URL_RE = /^(\$\w+)(\/[^?#]*)?(\?[^#]*)?(?:#.*)?$/
-const SCHEME_VAR_RE = /^(\$\w+):\/\//
-const PORT_VAR_RE = /:(\$\w+)(?=\/|[?#]|$)/g
 const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
 
 interface ParseableUrl {
   value: string
-  restore(value: string): string
+  restore(value: string, preserveEscapes?: boolean): string
 }
 
 function collectRequests(
@@ -57,7 +57,7 @@ function collectRequests(
 
 function serverFor(url: string): OpenApiObject {
   const names = new Set<string>()
-  const template = url.replace(SERVER_VAR_RE, (_, name: string) => {
+  const template = replaceVariableReferences(url, (name) => {
     names.add(name)
     return `{${name}}`
   })
@@ -80,10 +80,11 @@ function makeParseableUrl(url: string, relative = false): ParseableUrl {
   let value = url
   let schemeVariable: string | undefined
   if (!relative) {
-    value = value.replace(SCHEME_VAR_RE, (_, variable: string) => {
-      schemeVariable = variable
-      return "https://"
-    })
+    const scheme = variableReferences(value)[0]
+    if (scheme?.start === 0 && value.slice(scheme.end).startsWith("://")) {
+      schemeVariable = `$${scheme.name}`
+      value = `https${value.slice(scheme.end)}`
+    }
     if (!schemeVariable) value = withDefaultHttpsScheme(value)
   }
 
@@ -106,35 +107,52 @@ function makeParseableUrl(url: string, relative = false): ParseableUrl {
     return marker
   }
 
-  value = value.replace(
-    PORT_VAR_RE,
-    (_, variable: string) => `:${portMarker(variable)}`,
-  )
-  value = value.replace(SERVER_VAR_RE, (_, variable: string) =>
-    textMarker(`$${variable}`),
+  value = replaceVariableReferences(
+    value,
+    (name, reference) =>
+      value[reference.start - 1] === ":" &&
+      (reference.end === value.length || "/?#".includes(value[reference.end]!))
+        ? portMarker(`$${name}`)
+        : textMarker(`$${name}`),
+    () => textMarker("$$"),
   )
 
   return {
     value,
-    restore(parsed: string): string {
+    restore(parsed: string, preserveEscapes = false): string {
       let restored = parsed
       for (const [marker, variable] of replacements) {
-        restored = restored.replaceAll(marker, variable)
+        restored = restored.replaceAll(marker, () => variable)
       }
-      return schemeVariable
+      restored = schemeVariable
         ? restored.replace(/^https:/, `${schemeVariable}:`)
         : restored
+      return preserveEscapes
+        ? restored
+        : replaceVariableReferences(restored, (name) => `$${name}`)
     },
   }
 }
 
 function requestLocation(request: Request): RequestLocation {
-  const dynamicBase = request.url.match(BASE_VAR_URL_RE)
-  if (dynamicBase) {
+  const base = variableReferences(request.url)[0]
+  const baseSuffix =
+    base?.start === 0
+      ? request.url.slice(base.end).match(/^(\/[^?#]*)?(\?[^#]*)?(?:#.*)?$/)
+      : null
+  if (base && baseSuffix) {
+    const path = replaceVariableReferences(
+      baseSuffix[1] || "/",
+      (name) => `$${name}`,
+    )
+    const query = replaceVariableReferences(
+      baseSuffix[2] || "",
+      (name) => `$${name}`,
+    )
     return {
-      path: dynamicBase[2] || "/",
-      query: queryEntries(dynamicBase[3] || ""),
-      server: serverFor(dynamicBase[1]),
+      path,
+      query: queryEntries(query),
+      server: serverFor(request.url.slice(0, base.end)),
     }
   }
 
@@ -162,7 +180,7 @@ function requestLocation(request: Request): RequestLocation {
   return {
     path: template.restore(parsed.pathname) || "/",
     query: queryEntries(template.restore(parsed.search)),
-    server: serverFor(template.restore(parsed.origin)),
+    server: serverFor(template.restore(parsed.origin, true)),
   }
 }
 

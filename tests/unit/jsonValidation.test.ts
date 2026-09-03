@@ -72,6 +72,16 @@ describe("validateJsonContent", () => {
     )
   })
 
+  it("validates escaped dollars without resolving them", () => {
+    expect(validateJsonContent('{"value":"$$MISSING"}', env({}))).toBeNull()
+    expect(
+      validateJsonContent('{"value":"$$$VALUE"}', env({ VALUE: "ok" })),
+    ).toBeNull()
+    expect(validateJsonContent('{"value": $$MISSING}', env({}))).toBe(
+      "Invalid JSON: Invalid symbol at line 1, column 11",
+    )
+  })
+
   it("reports a later unresolved variable at its source location", () => {
     const content = '{\n  "id": $ID,\n  "team": $TEAM\n}'
     expect(validateJsonContent(content, env({ ID: "42" }))).toBe(
@@ -146,10 +156,10 @@ describe("validateJsonContent", () => {
     )
   })
 
-  it("falls back to normal JSON validation without an environment", () => {
+  it("validates variables against an empty environment when none is active", () => {
     expect(validateJsonContent('{"id": 42}', null)).toBeNull()
     expect(validateJsonContent('{"id": $ID}', null)).toBe(
-      "Invalid JSON: Invalid symbol at line 1, column 8",
+      'Invalid JSON: unresolved variable "ID" at line 1, column 8',
     )
   })
 })

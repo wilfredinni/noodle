@@ -3,6 +3,7 @@ import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { env } from "../src/env"
+import type { Environment } from "../src/schema"
 
 let dir: string
 
@@ -87,5 +88,31 @@ describe("saveEnvironment", () => {
         secretVars: { _color: "missing" },
       }),
     ).rejects.toThrow('env.save: invalid secret key "_color"')
+  })
+
+  it("validates active, disabled, and secret keys with the same grammar", async () => {
+    for (const environment of [
+      { name: "test", vars: { "bad-key": "value" } },
+      { name: "test", vars: {}, disabledVars: { "bad-key": "value" } },
+      { name: "test", vars: {}, secretVars: { "bad-key": "missing" } },
+      { name: "test", vars: { _color: "value" } },
+      { name: "test", vars: {}, disabledVars: { _color: "value" } },
+    ] as Environment[]) {
+      await expect(env.saveEnvironment(dir, environment)).rejects.toThrow(
+        /env\.save: invalid/,
+      )
+    }
+  })
+
+  it("creates exclusively without changing an existing target", async () => {
+    await env.saveEnvironment(dir, { name: "test", vars: { value: "old" } })
+    await expect(
+      env.saveEnvironment(
+        dir,
+        { name: "test", vars: { value: "new" } },
+        { mode: "create" },
+      ),
+    ).rejects.toMatchObject({ code: "EEXIST" })
+    expect(await readFile(join(dir, "test.env"), "utf8")).toContain("value=old")
   })
 })

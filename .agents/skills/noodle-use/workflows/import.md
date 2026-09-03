@@ -123,6 +123,10 @@ Postman imports map:
 - Collection variables → environment file
 - Raw XML bodies → `body_type: xml` (from the raw language or XML Content-Type)
 
+Only `{{WORD}}` Postman variables are supported. Dynamic generators such as
+`{{$randomUUID}}` and dotted or hyphenated placeholders are rejected before
+any collection files are written.
+
 Postman collection-level auth is not preserved as an effective Noodle override.
 A request without its own auth may import as `type: inherit`, but a root
 `folder.yml` cannot satisfy that inheritance. When the source relies on

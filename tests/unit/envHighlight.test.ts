@@ -110,6 +110,13 @@ describe("splitEnvVars", () => {
     const result = splitEnvVars("$port8080", env({ port8080: "8080" }))
     expect(result).toEqual([{ text: "$port8080", isVar: true, exists: true }])
   })
+
+  it("leaves escaped literals plain and highlights the reference after $$$", () => {
+    expect(splitEnvVars("$$host $$$real", env({ real: "yes" }))).toEqual([
+      { text: "$$host $$", isVar: false, exists: false },
+      { text: "$real", isVar: true, exists: true },
+    ])
+  })
 })
 
 describe("splitUrlPathVars", () => {

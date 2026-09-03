@@ -6,9 +6,10 @@ import { join } from "node:path"
 import { createTestRender } from "../testRender"
 import { useResponse } from "../../src/hooks/useResponse"
 import { executor } from "../../src/requests"
-import type { Request } from "../../src/schema"
+import type { Environment, Request } from "../../src/schema"
 import type { SendState } from "../../src/ui/sendState"
 import { env } from "../../src/env"
+import { buildTimelineEntry } from "../../src/timelineEntry"
 
 const testRender = createTestRender()
 
@@ -26,6 +27,92 @@ function request(over: Partial<Request> = {}): Request {
 }
 
 describe("useResponse execution results", () => {
+  it("reports the environment snapshot captured when the request started", async () => {
+    const originalSend = executor.send
+    let finishSend: (() => void) | undefined
+    executor.send = () =>
+      new Promise((resolve) => {
+        finishSend = () =>
+          resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "ok",
+            timeMs: 1,
+            network: [
+              {
+                timeMs: 0,
+                type: "request",
+                message: "GET https://a.example/secret-a",
+              },
+            ],
+          })
+      })
+    const first: Environment = {
+      name: "a",
+      vars: { HOST: "a.example", TOKEN: "secret-a" },
+      secretVars: { TOKEN: "keychain" },
+    }
+    const second: Environment = {
+      name: "b",
+      vars: { HOST: "b.example", TOKEN: "secret-b" },
+      secretVars: { TOKEN: "keychain" },
+    }
+    let completedWith: Environment | undefined
+    let timelineEntry: ReturnType<typeof buildTimelineEntry> | undefined
+
+    function Harness() {
+      const [environment, setEnvironment] = useState(first)
+      const response = useResponse(
+        request({ url: "https://$HOST/$TOKEN" }),
+        environment,
+        (completedRequest, result, dispatchEnvironment) => {
+          completedWith = dispatchEnvironment
+          timelineEntry = buildTimelineEntry(
+            completedRequest,
+            result,
+            dispatchEnvironment?.name,
+            dispatchEnvironment,
+          )
+        },
+      )
+      const [started, setStarted] = useState(false)
+      useEffect(() => {
+        if (!started && response.state.status === "idle") {
+          response.trySend()
+          setEnvironment(second)
+          setStarted(true)
+        }
+      }, [response, started])
+      return null
+    }
+
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      await act(async () => {
+        await render.renderOnce()
+        finishSend?.()
+        await render.flush()
+      })
+      for (let i = 0; i < 5 && !completedWith; i++) {
+        await act(async () => {
+          await render.renderOnce()
+          await render.flush()
+        })
+      }
+      expect(completedWith).toBe(first)
+      expect(timelineEntry?.envName).toBe("a")
+      expect(timelineEntry?.request.url).toBe("https://a.example/$TOKEN")
+      expect(timelineEntry?.network?.[0]?.message).toBe(
+        "GET https://a.example/[REDACTED]",
+      )
+    } finally {
+      executor.send = originalSend
+    }
+  })
+
   it("evaluates results and uses a fresh RunScope for every manual send", async () => {
     const originalSend = executor.send
     executor.send = async () => ({

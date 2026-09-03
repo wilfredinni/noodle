@@ -113,6 +113,18 @@ describe("automation services", () => {
     expect(await readFile(join(configDir, "config.yml"), "utf8")).toContain(dir)
   })
 
+  it("rejects invalid and reserved environment keys without changing the file", async () => {
+    await collectionInit(dir, join(dir, "config"))
+    const envPath = join(dir, ".environments", "development.env")
+    const before = await readFile(envPath, "utf8")
+    for (const key of ["bad-key", "_color"]) {
+      await expect(
+        environmentSet(key, "value", "development", dir),
+      ).rejects.toThrow(`invalid environment key "${key}"`)
+      expect(await readFile(envPath, "utf8")).toBe(before)
+    }
+  })
+
   it("rejects initializing an existing collection", async () => {
     await writeFile(join(dir, "settings.yml"), "{}\n", "utf8")
     await expect(collectionInit(dir)).rejects.toThrow("already a collection")

@@ -151,9 +151,9 @@ describe("Postman export", () => {
     })
   })
 
-  it("converts Noodle and dynamic templates to Postman syntax", () => {
+  it("converts variables and literal-dollar escapes to Postman syntax", () => {
     expect(toPostmanTpl("$base/$$randomUUID/$user-id")).toBe(
-      "{{base}}/{{$randomUUID}}/{{user}}-id",
+      "{{base}}/$randomUUID/{{user}}-id",
     )
   })
 
@@ -442,7 +442,7 @@ describe("Postman export", () => {
       type: "apikey",
       apikey: [
         { key: "key", value: "{{key}}", type: "string" },
-        { key: "value", value: "{{$randomUUID}}", type: "string" },
+        { key: "value", value: "$randomUUID", type: "string" },
         { key: "in", value: "query", type: "string" },
       ],
     })

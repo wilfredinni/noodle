@@ -63,6 +63,17 @@ describe("loadEnvironment — happy path", () => {
     const result = await env.loadEnvironment(dir, "dev")
     expect(result.vars.host).toBe("value")
   })
+
+  it("preserves values exactly after the first equals sign", async () => {
+    await writeFile(
+      join(dir, "dev.env"),
+      "active=value  \r\n# disabled=old  \r\nempty=\r\n",
+      "utf8",
+    )
+    const result = await env.loadEnvironment(dir, "dev")
+    expect(result.vars).toEqual({ active: "value  ", empty: "" })
+    expect(result.disabledVars).toEqual({ disabled: "old  " })
+  })
 })
 
 describe("loadEnvironment — file errors", () => {
@@ -95,6 +106,15 @@ describe("loadEnvironment — validation", () => {
     await expect(env.loadEnvironment(dir, "a/../b")).rejects.toThrow(
       "env.load: invalid environment name",
     )
+  })
+
+  it("rejects invalid and reserved keys", async () => {
+    for (const line of ["bad-key=value\n", "# bad-key=value\n", "_color=x\n"]) {
+      await writeFile(join(dir, "bad.env"), line, "utf8")
+      await expect(env.loadEnvironment(dir, "bad")).rejects.toThrow(
+        /env\.load: (invalid variable key|unknown _color)/,
+      )
+    }
   })
 })
 

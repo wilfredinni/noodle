@@ -37,6 +37,7 @@ import type {
   CollectionProxySettings,
   CollectionSettings,
   CollectionTlsSettings,
+  Environment,
   ProxyCredentials,
   Request as NoodleRequest,
   Method,
@@ -213,7 +214,7 @@ export function AppInner({
   onExternalEditorChange: (editor: ExternalEditorId) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   onEnvChange: (name: string | null) => void
-  onEnvListChanged: () => Promise<void>
+  onEnvListChanged: (names?: string[]) => Promise<void>
   settingsEnv?: string
   appProxy?: AppProxySettings
   appProxyCredentials: ProxyCredentials
@@ -530,11 +531,6 @@ export function AppInner({
     settingsEnv,
     onEnvChange,
   )
-  const envNameRef = useRef(envState.activeEnv?.name)
-  useEffect(() => {
-    envNameRef.current = envState.activeEnv?.name
-  }, [envState.activeEnv?.name])
-
   const timeline = useTimeline(
     isCollection ? collectionDir : undefined,
     selectedRequest?.id,
@@ -545,15 +541,23 @@ export function AppInner({
   timelineAppendRef.current = timeline.appendEntry
 
   const onCompleteRef = useRef(
-    (_req: NoodleRequest, _result: SendCompleteResult) => {},
+    (
+      _req: NoodleRequest,
+      _result: SendCompleteResult,
+      _dispatchEnvironment?: Environment,
+    ) => {},
   )
-  onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
+  onCompleteRef.current = (
+    req: NoodleRequest,
+    result: SendCompleteResult,
+    dispatchEnvironment?: Environment,
+  ) => {
     timelineAppendRef.current(
       buildTimelineEntry(
         req,
         result,
-        envNameRef.current,
-        envStateRef.current.activeEnv,
+        dispatchEnvironment?.name,
+        dispatchEnvironment,
         [
           ...Object.values(appProxyCredentials),
           ...Object.values(collectionProxyCredentials),
@@ -646,9 +650,9 @@ export function AppInner({
     onEnvsChanged: onEnvListChanged,
     onActiveEnvChanged: (name: string) => {
       if (name === "") {
-        onEnvChange(null)
+        envStateRef.current.clear()
       } else {
-        onEnvChange(name)
+        envStateRef.current.select(name)
       }
     },
     onEnvDataChanged: () => {

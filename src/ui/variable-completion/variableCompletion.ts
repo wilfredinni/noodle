@@ -1,5 +1,6 @@
 import type { Environment } from "../../schema"
 import type { Highlight } from "@opentui/core"
+import { variableReferences } from "../../variableReference"
 
 export interface VariableToken {
   start: number
@@ -22,7 +23,13 @@ export function getVariableToken(
   while (start > 0 && /\w/.test(value[start - 1]!)) start--
   if (start === 0 || value[start - 1] !== "$") return null
 
-  start--
+  const dollar = start - 1
+  let dollarRunStart = dollar
+  while (dollarRunStart > 0 && value[dollarRunStart - 1] === "$") {
+    dollarRunStart--
+  }
+  if ((dollar - dollarRunStart + 1) % 2 === 0) return null
+  start = dollar
   let end = cursor
   while (end < value.length && /\w/.test(value[end]!)) end++
 
@@ -56,11 +63,11 @@ export function getVariableHighlights(
   env: Environment | null,
 ): VariableHighlight[] {
   const highlights: VariableHighlight[] = []
-  for (const match of value.matchAll(/\$(\w+)/g)) {
+  for (const reference of variableReferences(value)) {
     highlights.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      exists: env !== null && Object.hasOwn(env.vars, match[1]!),
+      start: reference.start,
+      end: reference.end,
+      exists: env !== null && Object.hasOwn(env.vars, reference.name),
     })
   }
   return highlights
@@ -73,12 +80,13 @@ export function getEnvVarHighlights(
   missingStyleId: number,
 ): Highlight[] {
   const highlights: Highlight[] = []
-  for (const match of value.matchAll(/\$(\w+)/g)) {
-    const name = match[1]!
+  for (const reference of variableReferences(value)) {
     highlights.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      styleId: Object.hasOwn(env.vars, name) ? resolvedStyleId : missingStyleId,
+      start: reference.start,
+      end: reference.end,
+      styleId: Object.hasOwn(env.vars, reference.name)
+        ? resolvedStyleId
+        : missingStyleId,
       priority: 2,
     })
   }
