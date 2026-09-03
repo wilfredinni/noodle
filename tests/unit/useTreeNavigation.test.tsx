@@ -38,6 +38,7 @@ function fld(path: string, children: CollectionItem[]): CollectionItem {
 interface Props {
   initialSelectedId?: string
   initialItems: CollectionItem[]
+  onStateChange?: (state: string) => void
   afterMount?: (
     setSelectedId: (id: string) => void,
     setItems: (items: CollectionItem[]) => void,
@@ -51,6 +52,7 @@ interface Props {
 function Harness({
   initialSelectedId,
   initialItems,
+  onStateChange,
   afterMount,
 }: Props): ReactNode {
   const [items, setItems] = useState(initialItems)
@@ -62,6 +64,7 @@ function Harness({
     revealRequest,
     revealFolder,
     cursorIndex,
+    focusedFolderPath,
   } = useTreeNavigation(items, () => true, initialSelectedId)
 
   useEffect(() => {
@@ -74,6 +77,12 @@ function Harness({
       selectedIdRef,
     )
   }, [])
+
+  useEffect(() => {
+    onStateChange?.(
+      `${selectedId ?? ""}|${cursorIndex}|${focusedFolderPath ?? "request"}`,
+    )
+  }, [cursorIndex, focusedFolderPath, onStateChange, selectedId])
 
   return <text>{`s:${selectedId ?? ""}|c:${cursorIndex}`}</text>
 }
@@ -259,5 +268,40 @@ describe("useTreeNavigation", () => {
 
     // Cursor position should land on users/admin folder (index 2: root/list=0, users=1, users/admin=2)
     expect(frame).toContain("c:2")
+  })
+
+  it("does not expose a folder cursor while replacing a deleted request", async () => {
+    const initialItems = [req("root"), fld("users", [req("users/second")])]
+    const nextItems = [req("root"), fld("users", [])]
+    const states: string[] = []
+    let replaceItems: ((items: CollectionItem[]) => void) | undefined
+    let reveal: ((id: string) => void) | undefined
+
+    const view = await render(
+      <Harness
+        initialItems={initialItems}
+        onStateChange={(state) => states.push(state)}
+        afterMount={(
+          _setSelectedId,
+          setItems,
+          _expandFolder,
+          revealRequest,
+        ) => {
+          replaceItems = setItems
+          reveal = revealRequest
+        }}
+      />,
+    )
+
+    await view.renderOnce()
+    await act(async () => reveal?.("users/second"))
+    await view.renderOnce()
+    expect(view.captureCharFrame()).toContain("s:users/second|c:2")
+
+    states.length = 0
+    await act(async () => replaceItems?.(nextItems))
+    await view.renderOnce()
+
+    expect(states).toEqual(["root|0|request"])
   })
 })
