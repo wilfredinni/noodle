@@ -835,7 +835,7 @@ describe("CollectionRunnerView", () => {
         MouseButtons.LEFT,
       )
     })
-    await render.renderOnce()
+    await act(async () => render.renderOnce())
     expect(requestName.width).toBe(initialNameWidth)
 
     await act(async () => {
@@ -845,7 +845,7 @@ describe("CollectionRunnerView", () => {
         MouseButtons.LEFT,
       )
     })
-    await render.renderOnce()
+    await act(async () => render.renderOnce())
     handle = render.renderer.root.findDescendantById(
       "runner-resize-handle",
     ) as BoxRenderable
