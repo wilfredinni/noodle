@@ -444,7 +444,12 @@ describe("generateCode", () => {
   })
 
   it("generates code for incomplete scheme-bearing URLs", () => {
-    for (const url of ["http://", "http://:8080"]) {
+    for (const url of [
+      "http://",
+      "http://:8080",
+      "http:///path",
+      "http://user:pass@",
+    ]) {
       const result = generateCode(
         makeRequest({
           method: "GET",
@@ -459,6 +464,26 @@ describe("generateCode", () => {
       )
       expect(result.code).toBe(`curl --request GET \\\n  --url ${url}`)
     }
+  })
+
+  it("preserves sentinel-like text outside an incomplete URL", () => {
+    const sentinelLikeText = "http://noodle-sentinel.invalid/"
+    const result = generateCode(
+      makeRequest({
+        method: "GET",
+        url: "http://",
+        headers: {
+          "X-Sentinel": { value: sentinelLikeText, enabled: true },
+        },
+        params: [],
+        bodyType: "none",
+        body: undefined,
+        auth: { type: "none" },
+      }),
+      curlTarget(),
+    )
+
+    expect(result.code).toContain(`X-Sentinel: ${sentinelLikeText}`)
   })
 
   it("generates code with an XML body", () => {

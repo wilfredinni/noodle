@@ -1,9 +1,9 @@
+import { randomUUID } from "node:crypto"
+
 const VAR_RE = /\$(\w+)/g
-const HOSTLESS_SCHEME_RE = /^(https?:\/\/)(?=[:/?#]|$)/
+const HTTP_AUTHORITY_RE = /^https?:\/\/([^/?#]*)/
 
 const VAR_PREFIX = "noodle-var-"
-const HOST_SENTINEL = "noodle-sentinel.invalid/"
-const SCHEME_SENTINEL = `http://${HOST_SENTINEL}`
 
 export interface VarHasher {
   hashed: string
@@ -11,28 +11,29 @@ export interface VarHasher {
 }
 
 export function hashVars(url: string): VarHasher {
-  let hadScheme = true
+  const schemeSentinel = `http://noodle-sentinel-${randomUUID()}.invalid/`
   let working = url
-  const hostlessScheme = working.match(HOSTLESS_SCHEME_RE)?.[1]
+  let addedSentinel = false
 
-  if (hostlessScheme) {
-    working = `${hostlessScheme}${HOST_SENTINEL}${working.slice(hostlessScheme.length)}`
-  } else if (
-    !working.startsWith("http://") &&
-    !working.startsWith("https://")
-  ) {
-    working = SCHEME_SENTINEL + working
-    hadScheme = false
+  if (!working.startsWith("http://") && !working.startsWith("https://")) {
+    working = schemeSentinel + working
+    addedSentinel = true
   }
 
   let counter = 0
   const map = new Map<number, string>()
-  const hashed = working.replace(VAR_RE, (match) => {
+  let hashed = working.replace(VAR_RE, (match) => {
     const id = counter++
     const placeholder = `${VAR_PREFIX}${id}`
     map.set(id, match)
     return placeholder
   })
+  const authority = hashed.match(HTTP_AUTHORITY_RE)?.[1] ?? ""
+  const host = authority.slice(authority.lastIndexOf("@") + 1)
+  if (!host || host.startsWith(":") || !URL.canParse(hashed)) {
+    hashed = schemeSentinel + hashed
+    addedSentinel = true
+  }
 
   const restore = (input: string): string => {
     let s = input
@@ -42,10 +43,8 @@ export function hashVars(url: string): VarHasher {
         s = s.replaceAll(`${VAR_PREFIX}${i}`, original)
       }
     }
-    if (hostlessScheme) {
-      s = s.replaceAll(`${hostlessScheme}${HOST_SENTINEL}`, hostlessScheme)
-    } else if (!hadScheme) {
-      s = s.replaceAll(SCHEME_SENTINEL, "")
+    if (addedSentinel) {
+      s = s.replace(schemeSentinel, "")
     }
     return s
   }
