@@ -64,7 +64,11 @@ export interface UseResponseResult {
 export function useResponse(
   selectedRequest: Request | null,
   env?: Environment | null,
-  onComplete?: (req: Request, result: SendCompleteResult) => void,
+  onComplete?: (
+    req: Request,
+    result: SendCompleteResult,
+    dispatchEnvironment?: Environment,
+  ) => void,
   collection?: Collection,
   requestPath?: string,
   proxyPolicy?: ProxyPolicy,
@@ -95,7 +99,9 @@ export function useResponse(
   }, [selectedRequest?.id])
 
   const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   const trySend = useCallback(() => {
     const req = selectedRequest
@@ -149,7 +155,12 @@ async function runSend(
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
   onCompleteRef: React.RefObject<
-    ((req: Request, result: SendCompleteResult) => void) | undefined
+    | ((
+        req: Request,
+        result: SendCompleteResult,
+        dispatchEnvironment?: Environment,
+      ) => void)
+    | undefined
   >,
   collection?: Collection,
   requestPath?: string,
@@ -208,7 +219,7 @@ async function runSend(
     const result = { status: "done" as const, response: res, execution }
     cacheRef.current.set(req.id, { ...result, requestId: req.id })
     setState((prev) => finishSend(prev, req, res, execution))
-    onCompleteRef.current?.(req, result)
+    onCompleteRef.current?.(req, result, env)
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       setState({ status: "idle" })
@@ -224,7 +235,7 @@ async function runSend(
     }
     cacheRef.current.set(req.id, result)
     setState((prev) => failSend(prev, req, err, execution))
-    onCompleteRef.current?.(req, result)
+    onCompleteRef.current?.(req, result, env)
   } finally {
     abortRef.current = null
   }

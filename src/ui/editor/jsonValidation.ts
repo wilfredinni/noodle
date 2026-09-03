@@ -1,10 +1,9 @@
 import { parse, ParseErrorCode, type ParseError } from "jsonc-parser"
 import type { Environment } from "../../schema"
-
-const VAR_RE = /\$(\w+)/g
+import { scanVariableReferences } from "../../variableReference"
 
 interface Replacement {
-  name: string
+  name?: string
   value: string
   insideString: boolean
   sourceStart: number
@@ -50,21 +49,18 @@ function substituteVariables(
   let escaped = false
   const replacements: Replacement[] = []
 
-  for (const match of content.matchAll(VAR_RE)) {
-    const sourceStart = match.index
-    const token = match[0]
-    const name = match[1]!
-    if (!Object.hasOwn(env.vars, name)) {
-      return {
-        error: `Invalid JSON: unresolved variable "${name}" at ${sourcePosition(content, sourceStart)}`,
-      }
-    }
-
+  for (const token of scanVariableReferences(content)) {
+    const sourceStart = token.start
     substituted += content.slice(sourceCursor, sourceStart)
     const outputStart = substituted.length
-    const value = env.vars[name]!
+    if (token.kind === "reference" && !Object.hasOwn(env.vars, token.name)) {
+      return {
+        error: `Invalid JSON: unresolved variable "${token.name}" at ${sourcePosition(content, sourceStart)}`,
+      }
+    }
+    const value = token.kind === "escape" ? "$" : env.vars[token.name]!
     substituted += value
-    const sourceEnd = sourceStart + token.length
+    const sourceEnd = token.end
     let replacementInsideString = insideString
     for (; scanCursor < sourceEnd; scanCursor++) {
       if (scanCursor === sourceStart) replacementInsideString = insideString
@@ -74,7 +70,7 @@ function substituteVariables(
       else if (char === '"') insideString = !insideString
     }
     replacements.push({
-      name,
+      name: token.kind === "reference" ? token.name : undefined,
       value,
       insideString: replacementInsideString,
       sourceStart,
@@ -147,10 +143,10 @@ export function validateJsonContent(
 ): string | null {
   if (content.trim() === "") return null
 
-  const substitution =
-    env === null
-      ? { content, replacements: [] }
-      : substituteVariables(content, env)
+  const substitution = substituteVariables(
+    content,
+    env ?? { name: "", vars: {} },
+  )
   if ("error" in substitution) return substitution.error
 
   try {
@@ -165,6 +161,7 @@ export function validateJsonContent(
     const replacementError = substitution.replacements
       .filter(
         (replacement) =>
+          replacement.name !== undefined &&
           !replacement.insideString &&
           replacement.sourceStart <= (mapped?.offset ?? content.length),
       )

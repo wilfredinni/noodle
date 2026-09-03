@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import type { Environment } from "../schema"
 import { VALID_COLORS } from "./constants"
 import { resolveStoredSecret } from "../secrets"
+import { isValidVariableName } from "../variableReference"
 
 export interface LoadEnvironmentOptions {
   resolveSecrets?: boolean
@@ -48,7 +49,8 @@ export async function loadEnvironment(
   let pendingSecret: string | undefined
 
   for (const raw of lines) {
-    const trimmed = raw.trim()
+    const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw
+    const trimmed = line.trim()
     if (trimmed === "") {
       if (pendingSecret) {
         throw new Error(
@@ -78,7 +80,8 @@ export async function loadEnvironment(
       continue
     }
     if (trimmed.startsWith("#")) {
-      const afterHash = trimmed.slice(1).trimStart()
+      const hashIndex = line.indexOf("#")
+      const afterHash = line.slice(hashIndex + 1).trimStart()
       const eq = afterHash.indexOf("=")
       if (eq === -1) {
         if (pendingSecret) {
@@ -90,7 +93,9 @@ export async function loadEnvironment(
       }
       const key = afterHash.slice(0, eq).trimEnd()
       if (key === "") continue
-      if (key === "_color") continue
+      if (key === "_color" || !isValidVariableName(key)) {
+        throw new Error(`env.load: invalid variable key "${key}"`)
+      }
       const value = afterHash.slice(eq + 1)
       if (pendingSecret) {
         if (key !== pendingSecret) {
@@ -115,14 +120,14 @@ export async function loadEnvironment(
       }
       continue
     }
-    const eq = trimmed.indexOf("=")
+    const eq = line.indexOf("=")
     if (eq === -1) {
       throw new Error(
         `env.load: invalid line (expected KEY=value): "${trimmed}"`,
       )
     }
-    const key = trimmed.slice(0, eq).trimEnd()
-    const value = trimmed.slice(eq + 1)
+    const key = line.slice(0, eq).trim()
+    const value = line.slice(eq + 1)
     if (key === "") {
       throw new Error("env.load: var name must not be empty")
     }
@@ -139,6 +144,9 @@ export async function loadEnvironment(
       }
       color = value
       continue
+    }
+    if (!isValidVariableName(key)) {
+      throw new Error(`env.load: invalid variable key "${key}"`)
     }
     if (pendingSecret) {
       if (key !== pendingSecret) {

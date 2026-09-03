@@ -411,7 +411,9 @@ export async function resolveStoredSecret(
   environment: string,
   key: string,
 ): Promise<{ value?: string; status: SecretStatus }> {
-  const processValue = process.env[key]
+  const processValue = Object.hasOwn(process.env, key)
+    ? process.env[key]
+    : undefined
   if (processValue !== undefined) {
     return { value: processValue, status: "process" }
   }

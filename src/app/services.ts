@@ -69,6 +69,7 @@ import {
 } from "../executionResults"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
+import { isValidVariableName } from "../variableReference"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -1230,7 +1231,7 @@ export async function environmentSet(
   name: string,
   collectionDir: string,
 ): Promise<{ environment: string; key: string }> {
-  if (!key.trim() || key.includes("="))
+  if (key === "_color" || !isValidVariableName(key))
     throw new Error(`invalid environment key "${key}"`)
   const collectionRoot = await requireCollectionRoot(collectionDir)
   const dir = join(collectionRoot, ".environments")
@@ -1317,7 +1318,7 @@ export interface SecretListItem {
 }
 
 function validateSecretKey(key: string): void {
-  if (!/^\w+$/.test(key)) {
+  if (key === "_color" || !isValidVariableName(key)) {
     throw new Error(
       `invalid secret key "${key}"; expected letters, numbers, or _`,
     )

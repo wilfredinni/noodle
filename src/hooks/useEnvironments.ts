@@ -12,6 +12,7 @@ export interface UseEnvironmentsResult {
   indicatorLabel: string
   status: EnvStatus
   select: (name: string) => void
+  clear: () => void
   cycle: (delta: number) => void
   reloadActiveEnv: () => Promise<void>
 }
@@ -66,7 +67,6 @@ export function useEnvironments(
 
   const select = useCallback(
     (name: string) => {
-      if (!envList.includes(name)) return
       activeNameRef.current = name
       genRef.current += 1
       const gen = genRef.current
@@ -88,23 +88,25 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, onEnvChange],
+    [dir, onEnvChange],
   )
+
+  const clear = useCallback(() => {
+    activeNameRef.current = null
+    genRef.current += 1
+    setActiveName(null)
+    setActiveEnv(null)
+    setError(null)
+    onEnvChange?.(null)
+  }, [onEnvChange])
 
   useEffect(() => {
     if (activeName !== null && envList.includes(activeName)) return
     const fallback = envList[0]
     if (fallback !== undefined) {
       select(fallback)
-    } else if (activeName !== null) {
-      activeNameRef.current = null
-      genRef.current += 1
-      setActiveName(null)
-      setActiveEnv(null)
-      setError(null)
-      onEnvChange?.(null)
-    }
-  }, [activeName, envList, onEnvChange, select])
+    } else if (activeName !== null) clear()
+  }, [activeName, clear, envList, select])
 
   const cycle = useCallback(
     (delta: number) => {
@@ -120,12 +122,7 @@ export function useEnvironments(
   )
 
   const reloadActiveEnv = useCallback(async () => {
-    if (
-      activeName === null ||
-      activeNameRef.current !== activeName ||
-      !envList.includes(activeName)
-    )
-      return
+    if (activeName === null || activeNameRef.current !== activeName) return
     genRef.current += 1
     const gen = genRef.current
     try {
@@ -139,7 +136,7 @@ export function useEnvironments(
       setError(err)
       setActiveEnv(null)
     }
-  }, [dir, envList, activeName])
+  }, [dir, activeName])
 
   const indicator = useMemo(
     () => envIndicator(envList, activeIndex, activeEnv, error),
@@ -155,6 +152,7 @@ export function useEnvironments(
     indicatorLabel: indicator.label,
     status: indicator.status,
     select,
+    clear,
     cycle,
     reloadActiveEnv,
   }

@@ -557,6 +557,25 @@ describe("exportOpenApi", () => {
     })
   })
 
+  it("exports escaped URL variables as literals", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            url: "https://$$literal.$real.example.com/value",
+          }),
+        },
+      ]),
+    )
+    expect(result.document.servers).toEqual([
+      {
+        url: "https://$literal.{real}.example.com",
+        variables: { real: { default: "" } },
+      },
+    ])
+  })
+
   it("preserves repeated query values and filters protected headers", () => {
     const result = exportOpenApi(
       collection([

@@ -1,8 +1,7 @@
 import type { Environment, KvEntry, Request } from "../schema"
 import { expandUserPath } from "../userPath"
 import { hashVars } from "./variableHash"
-
-const VAR_RE = /\$(\w+)/g
+import { replaceVariableReferences } from "../variableReference"
 
 export interface HarQueryParam {
   name: string
@@ -76,7 +75,7 @@ export function buildHar(
 
 function interpolateRequest(req: Request, env: Environment): Request {
   const resolveVar = (s: string): string => {
-    return s.replace(VAR_RE, (_, name) => {
+    return replaceVariableReferences(s, (name) => {
       if (Object.hasOwn(env.secretVars ?? {}, name)) return `$${name}`
       if (Object.hasOwn(env.vars, name)) return env.vars[name]
       return `$${name}`

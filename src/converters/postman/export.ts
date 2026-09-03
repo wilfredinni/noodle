@@ -9,6 +9,7 @@ import type {
 import { Url as PmUrl } from "postman-collection"
 import { mergeFolderOverrides } from "../../requests/mergeFolderOverrides"
 import { expandUserPath } from "../../userPath"
+import { replaceVariableReferences } from "../../variableReference"
 
 type PostmanObject = Record<string, unknown>
 
@@ -21,9 +22,7 @@ const POSTMAN_SCHEMA =
   "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
 export function toPostmanTpl(value: string): string {
-  return value.replace(/\$\$(\w+)|\$(\w+)/g, (_, dynamic, variable) =>
-    dynamic ? `{{$${dynamic}}}` : `{{${variable}}}`,
-  )
+  return replaceVariableReferences(value, (variable) => `{{${variable}}}`)
 }
 
 function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {

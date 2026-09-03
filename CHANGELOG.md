@@ -4,6 +4,16 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### 🐞 Fixes
+
+- Keep request execution and timeline redaction bound to the environment selected at dispatch, reject unresolved variables before network activity even without an active environment, and keep environment rename, deletion, refresh, and rapid selection state consistent.
+- Prevent new, cloned, or renamed environments from overwriting existing files; validate every environment key with the shared `^\w+$` grammar; preserve own-property names such as `__proto__`; and retain `.env` value content exactly after the first `=`.
+- Treat `$$` as a literal-dollar escape across sending, previews, validation, search, generated code, and OpenAPI/Postman conversion. Existing `$$NAME` content now produces literal `$NAME`; Postman dynamic, dotted, and hyphenated placeholders are rejected before import writes.
+
+### 📚 Documentation
+
+- Document literal-dollar escaping, strict environment keys, exact dotenv value preservation, and supported Postman placeholders in the README and maintained Noodle skills.
+
 ## [0.8.3] - 2026-08-31
 
 ![Noodle Assert and Results tabs with ten passing assertions](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/assertions.png)

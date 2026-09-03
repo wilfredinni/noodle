@@ -6,13 +6,9 @@ import type {
   Request,
   ResponseAssertion,
 } from "../schema"
+import { replaceVariableReferences } from "../variableReference"
 
-const VAR_RE = /\$(\w+)/g
-const VARIABLE_NAME_RE = /^\w+$/
-
-export function isValidVariableName(value: string): boolean {
-  return VARIABLE_NAME_RE.test(value)
-}
+export { isValidVariableName } from "../variableReference"
 
 export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   headers: Record<string, string>
@@ -21,13 +17,13 @@ export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
 
 export function substitute(req: Request, env: Environment): SubstitutedRequest {
   const resolve = (s: string, field: string): string =>
-    s.replace(VAR_RE, (_, name) => {
+    replaceVariableReferences(s, (name) => {
       if (!Object.hasOwn(env.vars, name)) {
         throw new Error(
           `requests.substitute: unresolved variable "${name}" in ${field}`,
         )
       }
-      return env.vars[name]
+      return env.vars[name]!
     })
 
   const headers: Record<string, string> = {}

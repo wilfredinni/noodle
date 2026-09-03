@@ -60,6 +60,18 @@ describe("variable completion", () => {
     ])
   })
 
+  it("ignores escaped literals but finds the reference after $$$", () => {
+    expect(getVariableToken("$$host", 6)).toBeNull()
+    expect(getVariableToken("$$$host", 7)).toEqual({
+      start: 2,
+      end: 7,
+      prefix: "host",
+    })
+    expect(
+      getVariableHighlights("$$host $$$real", env({ real: "yes" })),
+    ).toEqual([{ start: 9, end: 14, exists: true }])
+  })
+
   it("returns null for empty string", () => {
     expect(getVariableToken("", 0)).toBeNull()
   })

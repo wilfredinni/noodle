@@ -87,6 +87,11 @@ Switch between development, staging, and production variables. Secret
 declarations stay in the file while values live in the operating system
 credential vault or process environment.
 
+Variable names use only letters, numbers, and `_`. Reference them as `$NAME`;
+write `$$NAME` when the request must contain the literal text `$NAME`.
+Environment values preserve every character after the first `=`, including
+trailing spaces.
+
 Sensitive values are kept out of environment files, request history, generated
 code, search results, and exports.
 
@@ -152,6 +157,9 @@ stores redacted assertion results, never capture results or RunScope values.
 
 Import OpenAPI 3.0, Swagger 2.0, Postman, or Insomnia collections. Export to
 OpenAPI or Postman when another tool needs the same requests.
+
+Postman imports accept `{{WORD}}` variables. Dynamic generators and dotted or
+hyphenated placeholders are rejected before collection files are written.
 
 ```bash
 noodle import ./specs/api.yaml --output ./collections

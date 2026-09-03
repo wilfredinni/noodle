@@ -1,8 +1,7 @@
 import type { CollectionItem, Environment, Folder, Request } from "../schema"
 import { flattenRequests } from "./tree"
 import { effectiveRequestTags } from "../tags"
-
-const VAR_RE = /\$(\w+)/g
+import { replaceVariableReferences } from "../variableReference"
 
 export type FinderItem =
   | {
@@ -29,10 +28,11 @@ export function resolveFinderUrl(
   url: string,
   activeEnv: Environment | null,
 ): string {
-  if (activeEnv === null) return url
-  return url.replace(VAR_RE, (match, name: string) => {
-    if (Object.hasOwn(activeEnv.secretVars ?? {}, name)) return match
-    return Object.hasOwn(activeEnv.vars, name) ? activeEnv.vars[name]! : match
+  return replaceVariableReferences(url, (name) => {
+    if (Object.hasOwn(activeEnv?.secretVars ?? {}, name)) return `$${name}`
+    return activeEnv !== null && Object.hasOwn(activeEnv.vars, name)
+      ? activeEnv.vars[name]!
+      : `$${name}`
   })
 }
 

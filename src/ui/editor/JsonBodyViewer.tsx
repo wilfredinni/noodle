@@ -13,6 +13,7 @@ import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
 } from "../variable-completion/highlightOffsets"
+import { variableReferences } from "../../variableReference"
 
 const HIGHLIGHT_BATCH_SIZE = 128
 
@@ -155,31 +156,26 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     if (!this._activeEnv) return jobs
 
     const displayOffsets = buildCharToDisplayOffsets(this._body)
-    const varRe = /\$\w+/g
     let tokenIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = varRe.exec(this._body)) !== null) {
+    for (const reference of variableReferences(this._body)) {
       while (
         tokenIndex < tokens.length &&
         tokens[tokenIndex]!.offset + tokens[tokenIndex]!.text.length <=
-          match.index
+          reference.start
       ) {
         tokenIndex++
       }
       const token = tokens[tokenIndex]
-      if (
-        !token ||
-        match.index + match[0].length > token.offset + token.text.length
-      ) {
+      if (!token || reference.end > token.offset + token.text.length) {
         continue
       }
-      const start = charOffsetToDisplayOffset(displayOffsets, match.index)
+      const start = charOffsetToDisplayOffset(displayOffsets, reference.start)
       jobs.push({
         start,
-        end: start + match[0].length,
+        end: start + reference.end - reference.start,
         styleId:
           this._syntaxStyle.getStyleId(
-            Object.hasOwn(this._activeEnv.vars, match[0].slice(1))
+            Object.hasOwn(this._activeEnv.vars, reference.name)
               ? "env.resolved"
               : "env.missing",
           ) ?? 0,

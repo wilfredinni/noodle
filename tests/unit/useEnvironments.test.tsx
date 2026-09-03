@@ -201,4 +201,64 @@ describe("useEnvironments", () => {
     expect(state?.activeIndex).toBe(0)
     expect(changes).toEqual(["production", "development"])
   })
+
+  it("selects a freshly written environment as its list is published", async () => {
+    const changes: Array<string | null> = []
+    let state: UseEnvironmentsResult | undefined
+    let setEnvList: ((names: string[]) => void) | undefined
+    const { renderOnce } = await testRender(
+      <Harness
+        dir={dir}
+        onChange={(name) => changes.push(name)}
+        onState={(next) => {
+          state = next
+        }}
+        onEnvListChange={(setter) => {
+          setEnvList = setter
+        }}
+      />,
+      { width: 80, height: 4 },
+    )
+    await writeFile(join(dir, "renamed.env"), "HOST=renamed\n")
+    await renderOnce()
+    await waitUntil(() => state?.activeEnv?.name === "development")
+
+    act(() => {
+      setEnvList!(["renamed", "production", "broken"])
+      state!.select("renamed")
+    })
+    await waitUntil(() => state?.activeEnv?.name === "renamed")
+    expect(state?.activeEnv?.vars.HOST).toBe("renamed")
+    expect(changes).toEqual(["renamed"])
+  })
+
+  it("clears selection when the final environment is deleted", async () => {
+    const changes: Array<string | null> = []
+    let state: UseEnvironmentsResult | undefined
+    let setEnvList: ((names: string[]) => void) | undefined
+    const { renderOnce } = await testRender(
+      <Harness
+        dir={dir}
+        onChange={(name) => changes.push(name)}
+        onState={(next) => {
+          state = next
+        }}
+        onEnvListChange={(setter) => {
+          setEnvList = setter
+        }}
+      />,
+      { width: 80, height: 4 },
+    )
+    await renderOnce()
+    await waitUntil(() => state?.activeEnv?.name === "development")
+
+    act(() => {
+      setEnvList!([])
+      state!.clear()
+    })
+    await waitUntil(() => state?.activeName === null)
+    expect(state?.activeEnv).toBeNull()
+    expect(state?.activeIndex).toBe(-1)
+    expect(changes).toEqual([null])
+  })
 })

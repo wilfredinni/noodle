@@ -519,6 +519,31 @@ describe("substitute — params", () => {
   })
 })
 
+describe("substitute — variable escaping", () => {
+  it("resolves $NAME once and treats $$ as a literal dollar", () => {
+    const req = makeReq({
+      url: "https://example.com/$NAME/$$NAME/$$$OTHER/$",
+    })
+    expect(
+      substitute(req, {
+        name: "test",
+        vars: { NAME: "$OTHER", OTHER: "resolved" },
+      }).url,
+    ).toBe("https://example.com/$OTHER/$NAME/$resolved/$")
+  })
+
+  it("keeps disabled fields source-identical", () => {
+    const req = makeReq({
+      params: [{ name: "$$NAME", value: "$MISSING", enabled: false }],
+    })
+    expect(substitute(req, { name: "test", vars: {} }).params[0]).toEqual({
+      name: "$$NAME",
+      value: "$MISSING",
+      enabled: false,
+    })
+  })
+})
+
 describe("bodyForSend — bodyType routing", () => {
   it("returns undefined when bodyType is none", async () => {
     const h = new Headers()

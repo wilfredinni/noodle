@@ -37,6 +37,7 @@ import type {
   CollectionProxySettings,
   CollectionSettings,
   CollectionTlsSettings,
+  Environment,
   ProxyCredentials,
   Request as NoodleRequest,
   Method,
@@ -213,7 +214,7 @@ export function AppInner({
   onExternalEditorChange: (editor: ExternalEditorId) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   onEnvChange: (name: string | null) => void
-  onEnvListChanged: () => Promise<void>
+  onEnvListChanged: (names?: string[]) => Promise<void>
   settingsEnv?: string
   appProxy?: AppProxySettings
   appProxyCredentials: ProxyCredentials
@@ -530,38 +531,39 @@ export function AppInner({
     settingsEnv,
     onEnvChange,
   )
-  const envNameRef = useRef(envState.activeEnv?.name)
-  useEffect(() => {
-    envNameRef.current = envState.activeEnv?.name
-  }, [envState.activeEnv?.name])
-
   const timeline = useTimeline(
     isCollection ? collectionDir : undefined,
     selectedRequest?.id,
     timelineMaxEntries,
     eb.activeTab === "assertions" || eb.activeTab === "captures",
   )
-  const timelineAppendRef = useRef(timeline.appendEntry)
-  timelineAppendRef.current = timeline.appendEntry
-
-  const onCompleteRef = useRef(
-    (_req: NoodleRequest, _result: SendCompleteResult) => {},
+  const handleResponseComplete = useCallback(
+    (
+      req: NoodleRequest,
+      result: SendCompleteResult,
+      dispatchEnvironment?: Environment,
+    ) => {
+      timeline.appendEntry(
+        buildTimelineEntry(
+          req,
+          result,
+          dispatchEnvironment?.name,
+          dispatchEnvironment,
+          [
+            ...Object.values(appProxyCredentials),
+            ...Object.values(collectionProxyCredentials),
+            ...Object.values(tlsPassphrases),
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      )
+    },
+    [
+      appProxyCredentials,
+      collectionProxyCredentials,
+      timeline.appendEntry,
+      tlsPassphrases,
+    ],
   )
-  onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
-    timelineAppendRef.current(
-      buildTimelineEntry(
-        req,
-        result,
-        envNameRef.current,
-        envStateRef.current.activeEnv,
-        [
-          ...Object.values(appProxyCredentials),
-          ...Object.values(collectionProxyCredentials),
-          ...Object.values(tlsPassphrases),
-        ].filter((value): value is string => Boolean(value)),
-      ),
-    )
-  }
 
   const proxyPolicy = useMemo(
     () =>
@@ -624,7 +626,7 @@ export function AppInner({
   } = useResponse(
     draft.draft,
     envState.activeEnv,
-    onCompleteRef.current,
+    handleResponseComplete,
     collection ?? undefined,
     draft.draft?.id,
     proxyPolicy,
@@ -646,9 +648,9 @@ export function AppInner({
     onEnvsChanged: onEnvListChanged,
     onActiveEnvChanged: (name: string) => {
       if (name === "") {
-        onEnvChange(null)
+        envStateRef.current.clear()
       } else {
-        onEnvChange(name)
+        envStateRef.current.select(name)
       }
     },
     onEnvDataChanged: () => {

@@ -153,7 +153,7 @@ Per-request response history stored as YAML arrays of `TimelineEntry` objects. R
 
 - **`saveRequest()`**: `validatePathId()` → `mkdir` parent → write `.yml` file. Non-atomic (direct write).
 - **`saveFolder()`**: `validatePathId()` → `mkdir` dir → write `folder.yml`. Non-atomic.
-- **`saveEnvironment()`** (`env/save.ts`): Atomic — writes to `.tmp` then `rename()`.
+- **`saveEnvironment()`** (`env/save.ts`): Atomic replacement writes to `.tmp` then `rename()`; `{ mode: "create" }` links the staged file exclusively so collisions never overwrite the destination.
 - **`saveSettings()`**: Atomic — writes to a temporary file then replaces `settings.yml`.
 - **`deleteFolder()`**: `rm(path, { recursive: true, force: true })` — wipes entire folder including .yml files and subdirs.
 - **Migration** (in `walk()`): If a normal collection `.yml` file lacks `timeout:` field, auto-serializes and writes the request back. Browse mode disables migration and tolerates invalid request YAML.
