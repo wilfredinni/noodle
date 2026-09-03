@@ -141,13 +141,13 @@ describe("Sidebar", () => {
     expect(contextId).toBe("api")
   })
 
-  it("shows more of folder and request names as the sidebar grows", async () => {
+  it("aligns root rows and shows more names as the sidebar grows", async () => {
     const visibleItems = [
       {
         type: "folder" as const,
         id: "folder",
         name: "Long folder name expands",
-        depth: 1,
+        depth: 0,
         expanded: false,
         hasChildren: true,
       },
@@ -155,7 +155,7 @@ describe("Sidebar", () => {
         type: "request" as const,
         id: "request",
         name: "Long request name expands",
-        depth: 1,
+        depth: 0,
         expanded: false,
         hasChildren: false,
         method: "GET",
@@ -164,7 +164,7 @@ describe("Sidebar", () => {
         type: "request" as const,
         id: "emoji",
         name: "A😊BCDEFG",
-        depth: 1,
+        depth: 0,
         expanded: false,
         hasChildren: false,
         method: "GET",
@@ -193,9 +193,13 @@ describe("Sidebar", () => {
     })
     await narrow.renderOnce()
     const narrowFrame = narrow.captureCharFrame()
-    expect(narrowFrame).toContain("Long folder…")
-    expect(narrowFrame).toContain("Long…")
-    expect(narrowFrame).toContain("A😊B…")
+    const narrowLines = narrowFrame.split("\n")
+    const folderLine = narrowLines.find((line) => line.includes("Long folder"))!
+    const requestLine = narrowLines.find((line) => line.includes("Long req"))!
+    expect(requestLine.indexOf("GET")).toBe(folderLine.indexOf("▸"))
+    expect(narrowFrame).toContain("Long folder n…")
+    expect(narrowFrame).toContain("Long req…")
+    expect(narrowFrame).toContain("A😊BCDEFG")
     expect(narrowFrame.match(/●/g)).toHaveLength(3)
 
     const wide = await testRender(renderSidebar(45), {
