@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { createRequire } from "node:module"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { generateCode, findCodeTarget } from "../../src/codegen"
@@ -424,6 +425,22 @@ describe("generateCode", () => {
     const result = generateCode(makeRequest(), curlTarget())
     expect(result.code).toContain("curl")
     expect(result.code.length).toBeGreaterThan(0)
+  })
+
+  it("does not call deprecated url.parse", () => {
+    const nodeUrl = createRequire(import.meta.url)("url") as {
+      parse: typeof import("node:url").parse
+    }
+    const parse = nodeUrl.parse
+    nodeUrl.parse = () => {
+      throw new Error("deprecated url.parse called")
+    }
+
+    try {
+      expect(generateCode(makeRequest(), curlTarget()).code).toContain("curl")
+    } finally {
+      nodeUrl.parse = parse
+    }
   })
 
   it("generates code with an XML body", () => {
