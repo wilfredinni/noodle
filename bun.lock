@@ -32,13 +32,17 @@
       },
     },
   },
+  "patchedDependencies": {
+    "postman-collection@5.3.1": "patches/postman-collection@5.3.1.patch",
+  },
   "overrides": {
+    "@faker-js/faker": "10.5.0",
     "form-data": "^4.0.6",
     "lodash": "^4.17.24",
     "uuid": "^11.1.1",
   },
   "packages": {
-    "@faker-js/faker": ["@faker-js/faker@5.5.3", "", {}, "sha512-R11tGE6yIFwqpaIqcfkcg7AICXzFg14+5h5v0TfF/9+RMDL6jhzCy/pxHVOfbALGdtVYdt6JdR21tuxEgl34dw=="],
+    "@faker-js/faker": ["@faker-js/faker@10.5.0", "", {}, "sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg=="],
 
     "@jsep-plugin/assignment": ["@jsep-plugin/assignment@1.3.0", "", { "peerDependencies": { "jsep": "^0.4.0||^1.0.0" } }, "sha512-VVgV+CXrhbMI3aSusQyclHkenWSAm95WaiKrMxRFam3JSUiIaQjoMIw2sEs/OX4XifnqeQUN4DYbJjlA8EfktQ=="],
 
