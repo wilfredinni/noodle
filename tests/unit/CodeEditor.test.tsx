@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import { act } from "react"
 import { createTestRender } from "../testRender"
 import { extend } from "@opentui/react"
@@ -1658,5 +1658,59 @@ describe("CodeEditorRenderable read-only mode", () => {
     await readonly.refreshHighlights()
     await renderOnce()
     expect(getHighlightCount(readonly)).toBe(0)
+  })
+
+  it("reuses line metadata and displayed text while highlighting", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = [
+      "{",
+      ...Array.from({ length: 2_000 }, (_, i) => `  "item${i}": ${i},`),
+      '  "last": true',
+      "}",
+    ].join("\n")
+    const { renderOnce, resize } = await testRender(
+      <box width="100%" height={8}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    await readonly.refreshHighlights()
+    const initialHighlights = getHighlightCount(readonly)
+    const lineInfo = spyOn(readonly.editorView, "getLogicalLineInfo")
+    const textRange = spyOn(readonly.editBuffer, "getTextRange")
+
+    await readonly.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(0)
+
+    readonly.scrollTo(readonly.totalVirtualLineCount)
+    await readonly.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(0)
+    expect(textRange).toHaveBeenCalledTimes(0)
+    expect(getHighlightCount(readonly)).toBeGreaterThan(initialHighlights)
+
+    resize(40, 8)
+    await renderOnce()
+    await readonly.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(1)
+
+    readonly.value = content.replace('"last"', '"updated"')
+    await readonly.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(2)
+
+    readonly.foldAll()
+    await readonly.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(3)
+    expect(readonly.plainText).toContain('"updated"')
   })
 })
