@@ -1,6 +1,7 @@
 import type {
   Highlight,
   KeyEvent,
+  LineInfo,
   PasteEvent,
   RenderContext,
   RenderableOptions,
@@ -89,7 +90,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _selectionDragAnchor: number | null = null
   private _selectionDragDirection: -1 | 1 = 1
   private _readonlyKeyboardSelectionAnchor: number | null = null
-  private _displayedTextLength = 0
+  private _readonlyLineInfo: LineInfo | null = null
+  private _displayedText = ""
+  private _displayedLineStarts = [0]
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
@@ -110,11 +113,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._readOnly = options.readOnly ?? false
     this._filetype = options.filetype
     this._theme = options.theme
-    this._displayedTextLength = (
-      options.value ??
-      options.initialValue ??
-      ""
-    ).length
+    this.cacheDisplayedText(options.value ?? options.initialValue ?? "")
     this._debounceMs = options.debounceMs ?? 200
     this._onSourceChange = options.onSourceChange
     this._onFoldsChange = options.onFoldsChange
@@ -201,6 +200,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
   override get plainText(): string {
     return this._foldManager.sourceText
   }
+  override get lineInfo(): LineInfo {
+    if (!this._readOnly) return super.lineInfo
+    return (this._readonlyLineInfo ??= super.lineInfo)
+  }
   override get height(): number {
     const height = super.height
     return Math.min(height, this.parent?.height ?? height)
@@ -226,8 +229,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.clearReadonlyHighlights()
     this._readOnly = next
     this._readonlyNeedsFolds = true
+    this.cacheDisplayedText(super.plainText)
     if (next) {
-      this._displayedTextLength = super.plainText.length
       this.scheduleHighlight()
     } else {
       this._validation.refresh(this.plainText)
@@ -459,6 +462,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   protected override onUpdate(deltaTime: number): void {
     super.onUpdate(deltaTime)
     this.refreshSelectionDrag(deltaTime)
+  }
+
+  protected override onResize(width: number, height: number): void {
+    this._readonlyLineInfo = null
+    super.onResize(width, height)
   }
 
   override requestRender(): void {
@@ -700,12 +708,27 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private setDisplayedText(text: string): void {
     this._suppressContentChanged = true
     try {
+      this.cacheDisplayedText(text)
       this.editBuffer.setText(text)
-      this._displayedTextLength = text.length
       this.yogaNode.markDirty()
       this.clearReadonlyHighlights()
     } finally {
       this._suppressContentChanged = false
+    }
+  }
+
+  private cacheDisplayedText(text: string): void {
+    this._readonlyLineInfo = null
+    this._displayedLineStarts = [0]
+    if (!this._readOnly) {
+      this._displayedText = ""
+      return
+    }
+    this._displayedText = text
+    for (let offset = 0; offset < text.length; offset++) {
+      if (text.charCodeAt(offset) === 10) {
+        this._displayedLineStarts.push(offset + 1)
+      }
     }
   }
 
@@ -768,9 +791,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
       return
     }
     if (this._filetype !== "json") return
+    const lineSources = this.lineInfo.lineSources
     const viewportStart = Math.max(0, this.scrollY - 2)
     const viewportEnd = Math.min(
-      this.lineInfo.lineSources.length,
+      lineSources.length,
       this.scrollY + this.viewport.height + 2,
     )
     const lines: number[] = []
@@ -779,7 +803,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       displayLine < viewportEnd;
       displayLine++
     ) {
-      const line = this.lineInfo.lineSources[displayLine]
+      const line = lineSources[displayLine]
       if (line === undefined) continue
       if (this._readonlyHighlightedLines.has(line)) continue
       this._readonlyHighlightedLines.add(line)
@@ -789,13 +813,14 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     this._highlights.prepare()
     for (const line of lines) {
-      const start = this.editBuffer.getLineStartOffset(line)
+      const start = this._displayedLineStarts[line]
+      if (start === undefined) continue
       const end =
-        line + 1 < this.editBuffer.getLineCount()
-          ? this.editBuffer.getLineStartOffset(line + 1) - 1
-          : this._displayedTextLength
-      const text = this.editBuffer.getTextRange(start, end)
-      if (text.length > 100_000) continue
+        line + 1 < this._displayedLineStarts.length
+          ? this._displayedLineStarts[line + 1]! - 1
+          : this._displayedText.length
+      if (end - start > 100_000) continue
+      const text = this._displayedText.slice(start, end)
       for (const token of highlightJsonTokens(text, this._theme)) {
         this.addHighlight(line, {
           start: token.displayOffset,

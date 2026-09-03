@@ -345,6 +345,39 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("reuses line metadata for a 2.5 MB response body", async () => {
+    const item = `{"id":1,"payload":"${"x".repeat(80)}"}`
+    const body = `{"data":[${`${item},`.repeat(26_000)}${item}]}`
+    const { renderer, renderOnce, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+      true,
+      { initialTab: "response" },
+    )
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "timeline-body-editor",
+    ) as CodeEditorRenderable
+    await editor.refreshHighlights()
+    const lineInfo = spyOn(editor.editorView, "getLogicalLineInfo")
+
+    await renderOnce()
+    await editor.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(0)
+    expect(editor.plainText.length).toBeGreaterThan(2.5 * 1024 * 1024)
+    cleanup()
+  })
+
   it("loads a sidecar body before copying or exporting it", async () => {
     const copied: string[] = []
     const exported: string[] = []
