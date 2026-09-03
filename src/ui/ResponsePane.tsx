@@ -147,12 +147,11 @@ export function ResponsePane({
         tab.id === "results" && resultsStatus
           ? {
               symbol: RESULTS_SYMBOLS[resultsStatus],
-              color: theme[resultsStatus],
             }
           : undefined,
       jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
     }))
-  }, [jumpMode, resultsStatus, theme])
+  }, [jumpMode, resultsStatus])
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")

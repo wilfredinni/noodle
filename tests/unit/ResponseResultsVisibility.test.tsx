@@ -126,8 +126,8 @@ describe("response Results", () => {
     cleanup()
   })
 
-  it("places themed Results status indicators last", async () => {
-    const cases: { state: SendState; symbol: string; color: string }[] = [
+  it("places Results status indicators last and matches the tab label color", async () => {
+    const cases: { state: SendState; symbol: string }[] = [
       {
         state: {
           status: "done",
@@ -149,7 +149,6 @@ describe("response Results", () => {
           },
         },
         symbol: "✓",
-        color: THEMES[0]!.success,
       },
       {
         state: {
@@ -171,7 +170,6 @@ describe("response Results", () => {
           },
         },
         symbol: "✗",
-        color: THEMES[0]!.error,
       },
       {
         state: {
@@ -189,11 +187,10 @@ describe("response Results", () => {
           execution: { assertions: { evaluated: false, results: [] } },
         },
         symbol: "–",
-        color: THEMES[0]!.warning,
       },
     ]
 
-    for (const { state, symbol, color } of cases) {
+    for (const { state, symbol } of cases) {
       const { keymap, cleanup } = createTestKeymap()
       keymap.setData("app.overlay", "none")
       const render = await testRender(
@@ -214,11 +211,13 @@ describe("response Results", () => {
       expect(frame.indexOf(`Results ${symbol}`)).toBeGreaterThan(
         frame.indexOf("Cookies"),
       )
-      const indicator = render
-        .captureSpans()
-        .lines.flatMap((line) => line.spans)
-        .find((span) => span.text.trim() === symbol)
-      expect(indicator?.fg.equals(RGBA.fromHex(color))).toBe(true)
+      const spans = render.captureSpans().lines.flatMap((line) => line.spans)
+      const resultsTab = spans.find((span) =>
+        span.text.includes(`Results ${symbol}`),
+      )
+      expect(resultsTab?.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(
+        true,
+      )
       cleanup()
     }
   })

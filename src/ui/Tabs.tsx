@@ -9,7 +9,6 @@ export type TabDef = {
   jumpHint?: string
   indicator?: {
     symbol: string
-    color: string
   }
 }
 
@@ -186,6 +185,11 @@ export function Tabs({
             {tabs.map((tab) => {
               const isActive = tab.id === activeId
               const isHovered = onChange !== undefined && hoveredId === tab.id
+              const tabColor = isActive
+                ? theme.primary
+                : isHovered
+                  ? theme.text
+                  : theme.textMuted
               return (
                 <box
                   id={`tab-${tab.id}`}
@@ -223,20 +227,10 @@ export function Tabs({
                       paddingRight: 2,
                     }}
                   >
-                    <text
-                      fg={
-                        isActive
-                          ? theme.primary
-                          : isHovered
-                            ? theme.text
-                            : theme.textMuted
-                      }
-                    >
+                    <text fg={tabColor}>
                       {tab.label}
                       {tab.indicator ? (
-                        <span fg={tab.indicator.color}>
-                          {` ${tab.indicator.symbol}`}
-                        </span>
+                        <span fg={tabColor}>{` ${tab.indicator.symbol}`}</span>
                       ) : null}
                     </text>
                   </box>
