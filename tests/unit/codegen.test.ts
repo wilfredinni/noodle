@@ -443,6 +443,24 @@ describe("generateCode", () => {
     }
   })
 
+  it("generates code for incomplete scheme-bearing URLs", () => {
+    for (const url of ["http://", "http://:8080"]) {
+      const result = generateCode(
+        makeRequest({
+          method: "GET",
+          url,
+          headers: {},
+          params: [],
+          bodyType: "none",
+          body: undefined,
+          auth: { type: "none" },
+        }),
+        curlTarget(),
+      )
+      expect(result.code).toBe(`curl --request GET \\\n  --url ${url}`)
+    }
+  })
+
   it("generates code with an XML body", () => {
     const result = generateCode(
       makeRequest({ bodyType: "xml", body: "<root><id>$ID</id></root>" }),

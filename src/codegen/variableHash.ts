@@ -1,7 +1,9 @@
 const VAR_RE = /\$(\w+)/g
+const HOSTLESS_SCHEME_RE = /^(https?:\/\/)(?=[:/?#]|$)/
 
 const VAR_PREFIX = "noodle-var-"
-const SCHEME_SENTINEL = "http://noodle-sentinel.invalid/"
+const HOST_SENTINEL = "noodle-sentinel.invalid/"
+const SCHEME_SENTINEL = `http://${HOST_SENTINEL}`
 
 export interface VarHasher {
   hashed: string
@@ -11,8 +13,14 @@ export interface VarHasher {
 export function hashVars(url: string): VarHasher {
   let hadScheme = true
   let working = url
+  const hostlessScheme = working.match(HOSTLESS_SCHEME_RE)?.[1]
 
-  if (!working.startsWith("http://") && !working.startsWith("https://")) {
+  if (hostlessScheme) {
+    working = `${hostlessScheme}${HOST_SENTINEL}${working.slice(hostlessScheme.length)}`
+  } else if (
+    !working.startsWith("http://") &&
+    !working.startsWith("https://")
+  ) {
     working = SCHEME_SENTINEL + working
     hadScheme = false
   }
@@ -34,7 +42,9 @@ export function hashVars(url: string): VarHasher {
         s = s.replaceAll(`${VAR_PREFIX}${i}`, original)
       }
     }
-    if (!hadScheme) {
+    if (hostlessScheme) {
+      s = s.replaceAll(`${hostlessScheme}${HOST_SENTINEL}`, hostlessScheme)
+    } else if (!hadScheme) {
       s = s.replaceAll(SCHEME_SENTINEL, "")
     }
     return s
