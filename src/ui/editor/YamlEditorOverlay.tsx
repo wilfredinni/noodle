@@ -68,7 +68,14 @@ export function YamlEditorOverlay({
   if (!visible) return null
 
   return (
-    <Overlay visible={visible} width={90} padding={1} gap={1} overflow="hidden">
+    <Overlay
+      visible={visible}
+      width={90}
+      padding={1}
+      gap={1}
+      overflow="hidden"
+      onClose={handleClose}
+    >
       <box
         style={{
           flexDirection: "row",

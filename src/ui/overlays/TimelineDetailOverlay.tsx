@@ -337,7 +337,14 @@ export function TimelineDetailOverlay({
   const headerHeight = 5
 
   return (
-    <Overlay visible width={70} height="80%" gap={1} padding={1}>
+    <Overlay
+      visible
+      width={70}
+      height="80%"
+      gap={1}
+      padding={1}
+      onClose={onClose}
+    >
       <box
         style={{
           paddingLeft: 4,

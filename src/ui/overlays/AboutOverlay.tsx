@@ -73,7 +73,7 @@ export function AboutOverlay({
   }
 
   return (
-    <Overlay visible={visible} width={72} gap={1} padding={1}>
+    <Overlay visible={visible} width={72} gap={1} padding={1} onClose={onClose}>
       <box
         style={{
           flexDirection: "row",

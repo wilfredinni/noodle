@@ -195,7 +195,13 @@ export const CookieFormOverlay = forwardRef<
   }
 
   return (
-    <Overlay visible={visible} width={56} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={56}
+      padding={1}
+      gap={1}
+      onClose={() => onClose?.()}
+    >
       <box
         style={{
           flexDirection: "row",

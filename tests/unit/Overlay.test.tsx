@@ -1,11 +1,19 @@
 import { describe, expect, it } from "bun:test"
+import { MouseButtons } from "@opentui/core/testing"
+import { act } from "react"
 import { createTestRender } from "../testRender"
 import { ThemeProvider, opencodeTheme } from "../../src/ui/theme"
 import { Overlay } from "../../src/ui/overlays/Overlay"
 
 const testRender = createTestRender()
 
-function OverlayFrame({ visible }: { visible: boolean }) {
+function OverlayFrame({
+  visible,
+  onClose = () => {},
+}: {
+  visible: boolean
+  onClose?: () => void
+}) {
   return (
     <ThemeProvider activeIndex={0} previewIndex={null}>
       <box
@@ -29,7 +37,7 @@ function OverlayFrame({ visible }: { visible: boolean }) {
         <box style={{ height: 1, backgroundColor: opencodeTheme.primary }}>
           <text>FOOTER</text>
         </box>
-        <Overlay visible={visible} width={20} padding={1}>
+        <Overlay visible={visible} width={20} padding={1} onClose={onClose}>
           <text>MODAL</text>
         </Overlay>
       </box>
@@ -68,5 +76,35 @@ describe("Overlay", () => {
     await renderOnce()
 
     expect(captureCharFrame()).not.toContain("MODAL")
+  })
+
+  it("closes only on left clicks outside the panel", async () => {
+    let closeCount = 0
+    const render = await testRender(
+      <OverlayFrame visible onClose={() => closeCount++} />,
+      { width: 40, height: 10 },
+    )
+
+    try {
+      await render.renderOnce()
+      const backdrop = render.renderer.root
+        .getChildren()
+        .find((child) => child.zIndex === 10000)
+      const panel = backdrop?.getChildren()[0]
+
+      expect(panel).toBeDefined()
+      await act(async () => {
+        await render.mockMouse.click(panel!.x, panel!.y, MouseButtons.LEFT)
+        await render.mockMouse.click(0, 0, MouseButtons.RIGHT)
+      })
+      expect(closeCount).toBe(0)
+
+      await act(async () => {
+        await render.mockMouse.click(0, 0, MouseButtons.LEFT)
+      })
+      expect(closeCount).toBe(1)
+    } finally {
+      act(() => render.renderer.destroy())
+    }
   })
 })

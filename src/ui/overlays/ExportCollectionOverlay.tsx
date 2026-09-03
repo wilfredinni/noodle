@@ -96,7 +96,13 @@ export const ExportCollectionOverlay = forwardRef<
   const displayedError = errorText ?? targetError
 
   return (
-    <Overlay visible={visible} width={68} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={68}
+      padding={1}
+      gap={1}
+      onClose={() => onClose?.()}
+    >
       <box
         style={{
           flexDirection: "row",

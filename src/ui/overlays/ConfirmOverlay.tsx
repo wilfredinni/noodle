@@ -19,7 +19,13 @@ export function ConfirmOverlay({
   const theme = useTheme()
 
   return (
-    <Overlay visible={visible} width={50} gap={1} padding={1}>
+    <Overlay
+      visible={visible}
+      width={50}
+      gap={1}
+      padding={1}
+      onClose={() => onCancel?.()}
+    >
       <box
         style={{
           flexDirection: "row",

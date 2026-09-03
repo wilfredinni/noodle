@@ -275,7 +275,7 @@ export function PickerOverlay<T>({
   )
 
   return (
-    <Overlay visible width={width} gap={1} padding={1}>
+    <Overlay visible width={width} gap={1} padding={1} onClose={onClose}>
       <box paddingLeft={4} paddingRight={4}>
         <box flexDirection="row" justifyContent="space-between">
           <text fg={theme.text}>{title}</text>

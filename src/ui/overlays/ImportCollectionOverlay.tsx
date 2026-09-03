@@ -113,7 +113,13 @@ export const ImportCollectionOverlay = forwardRef<
   }, [focus])
 
   return (
-    <Overlay visible={visible} width={72} padding={1} gap={1}>
+    <Overlay
+      visible={visible}
+      width={72}
+      padding={1}
+      gap={1}
+      onClose={() => !pending && onClose?.()}
+    >
       <box
         style={{
           flexDirection: "row",

@@ -1,4 +1,4 @@
-import { RGBA } from "@opentui/core"
+import { MouseButton, RGBA } from "@opentui/core"
 import { createPortal, useRenderer } from "@opentui/react"
 import type { ReactNode } from "react"
 import { useTheme } from "../theme"
@@ -7,6 +7,7 @@ export interface OverlayProps {
   visible: boolean
   width: number
   children: ReactNode
+  onClose: () => void
   height?: number | `auto` | `${number}%`
   padding?: number
   gap?: number
@@ -17,6 +18,7 @@ export function Overlay({
   visible,
   width,
   children,
+  onClose,
   height,
   padding,
   gap,
@@ -29,6 +31,17 @@ export function Overlay({
 
   return createPortal(
     <box
+      onMouseDown={(event) => {
+        if (
+          event.button !== MouseButton.LEFT ||
+          event.target !== event.currentTarget
+        ) {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+      }}
       style={{
         position: "absolute",
         left: 0,
