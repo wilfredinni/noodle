@@ -990,6 +990,7 @@ export function App({
           )
           return
         }
+        ++envRefreshGenerationRef.current
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
         settingsRef.current = nextSettings
