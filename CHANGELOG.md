@@ -4,15 +4,39 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-04
+
+Noodle 0.8.4 adds paced collection runs in both the CLI and TUI Runner, with F5 opening the Runner directly. Variable substitution and environment files are now stricter and more predictable, while code generation, large-response rendering, modal dismissal, selection, and terminal layouts gain focused reliability improvements.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-4-more-control-less-friction/)
+
+### ✨ Features
+
+- Add `--delay <milliseconds>` to `collection run` and a matching Runner field. The value must be a non-negative safe integer, and Noodle waits only after a completed request when another selected request remains.
+- Open the collection Runner with F5 by default, and make bulk fold and unfold actions optional configurable shortcuts instead of reserving F5 and F6.
+- Close modal overlays with a left click on the backdrop while keeping clicks inside the panel and non-left clicks inert. Pending collection imports remain locked until completion.
+
 ### 🐞 Fixes
 
 - Keep request execution and timeline redaction bound to the environment selected at dispatch, reject unresolved variables before network activity even without an active environment, and keep environment rename, deletion, refresh, and rapid selection state consistent.
 - Prevent new, cloned, or renamed environments from overwriting existing files; validate every environment key with the shared `^\w+$` grammar; preserve own-property names such as `__proto__`; and retain `.env` value content exactly after the first `=`.
 - Treat `$$` as a literal-dollar escape across sending, previews, validation, search, generated code, and OpenAPI/Postman conversion. Existing `$$NAME` content now produces literal `$NAME`; Postman dynamic, dotted, and hyphenated placeholders are rejected before import writes.
+- Preserve the URL bar's editable empty state after clearing its value, so users can keep typing instead of seeing the no-request state. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#204](https://github.com/wilfredinni/noodle/pull/204).
+- Generate client code for incomplete scheme-bearing URLs without corrupting matching user text, and remove deprecated URL parsing from the generation path.
+- Keep Path-tab value commits tied to the URL-derived parameter name, and commit an active request-field edit before opening the Runner.
+- Keep selection on a request after deleting the active request, including when the fallback is inside a collapsed folder.
+- Improve large read-only JSON response and timeline rendering by caching line metadata and avoiding redundant scrollbar updates.
+- Align root sidebar rows while showing more of request names, keep assertion operators and cookie values in stable columns, and remove redundant filtered labels from the Runner.
+
+### 🔧 Refactors
+
+- Centralize variable-reference scanning and one-pass replacement across request execution, validation, previews, search, code generation, and OpenAPI/Postman conversion.
 
 ### 📚 Documentation
 
-- Document literal-dollar escaping, strict environment keys, exact dotenv value preservation, and supported Postman placeholders in the README and maintained Noodle skills.
+- Document paced runs, the F5 Runner shortcut, configurable bulk folding, literal-dollar escaping, strict environment keys, exact dotenv value preservation, and supported Postman placeholders across the README, `AGENTS.md`, in-app tips, and documentation site.
+- Update `noodle-dev` with paced Runner state, the F5 shortcut, configurable bulk folding, the shared variable scanner, strict environment handling, and exclusive environment creation behavior.
+- Update `noodle-use` with paced collection runs, literal-dollar escaping, strict environment files, and supported Postman placeholder rules.
 
 ## [0.8.3] - 2026-08-31
 

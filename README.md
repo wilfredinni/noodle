@@ -73,10 +73,10 @@ the collection Runner, and CLI runs.
 
 In jump mode, `v` opens Assert, `c` opens Capture, and `t` opens Settings.
 
-Run Collection from the command palette opens a transient collection runner for
-choosing requests, environment, tag filters, fail-fast behavior, and an optional
-delay between requests before inspecting ordered results. A folder's context
-palette opens the same runner scoped to that folder.
+Press F5 or choose Run Collection from the command palette to open a transient
+collection runner for choosing requests, environment, tag filters, fail-fast
+behavior, and an optional delay between requests before inspecting ordered
+results. A folder's context palette opens the same runner scoped to that folder.
 
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.

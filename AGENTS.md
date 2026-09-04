@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (3067 across 202 files)
+bun test                              # all tests (3117 across 204 files)
 bun test tests/lang.test.ts           # single file
 bun run audit                         # fail on vulnerable dependencies
 bun run lint                          # oxlint
@@ -27,7 +27,7 @@ noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
 noodle agent install [--json] [--force]
 noodle workspace list [--json]
-noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--noproxy] [--insecure] [--json]
+noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] [--noproxy] [--insecure] [--json]
 noodle collection <create|init|list|inspect|format|audit> ... [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
 noodle cookie <list|clear> --collection <dir> [--json]
@@ -40,7 +40,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. It preserves unmanaged targets by default and reports every conflict; `--force` deliberately replaces all reported paths with backup-backed rollback if any target fails. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
-- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--tag]... [--exclude-tag]... [--fail-fast] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed HTTP responses, failed captures, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. Request and non-root folder tags form case-sensitive dynamic suites; repeated include tags all must match, any repeated exclude tag removes a request, exclusion wins, and fail-fast records later selected requests as skipped. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
+- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--tag]... [--exclude-tag]... [--fail-fast] [--delay <milliseconds>] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed HTTP responses, failed captures, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. Request and non-root folder tags form case-sensitive dynamic suites; repeated include tags all must match, any repeated exclude tag removes a request, exclusion wins, and fail-fast records later selected requests as skipped. `--delay` accepts a non-negative safe integer number of milliseconds and waits only between selected requests. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **Run-scoped variables**: Every manual TUI send and `request run` gets an isolated `RunScope`; every `collection run` shares one scope across its ordered requests. Resolved environment and secret values load first, then successful captures override the same names, with the latest successful capture winning. Failed captures leave prior values unchanged. Transient values disappear when the call returns. Manual sends and `request run` may persist captures declared with `persist`; collection runs and the TUI Runner ignore persistence.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
@@ -257,6 +257,7 @@ command_palette: ctrl+p
 | `Ctrl+F` | Find request |
 | `Ctrl+L` | Toggle layout (stacked / side-by-side) |
 | `F2` | Expand/collapse focused pane |
+| `F5` | Open collection Runner |
 | `F1` | Toggle help overlay |
 | `Ctrl+T` | Open theme picker |
 | `Ctrl+E` | Edit request in overlay |
@@ -348,10 +349,10 @@ In the cookie jar, only these cookie jar targets are available:
 | Key | Action |
 |-----|--------|
 | `Ctrl+G` | Toggle fold at current line |
-| `F5` | Fold all foldable regions |
-| `F6` | Unfold all regions |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo editor changes |
 | `Shift+Return` | Insert newline |
+
+Bulk fold and unfold actions are configurable in Shortcuts and unbound by default.
 
 ### Help overlay
 | Key | Action |

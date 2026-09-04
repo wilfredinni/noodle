@@ -29,7 +29,7 @@ const TIPS = [
   "import OpenAPI, Swagger, Postman, or Insomnia files with {noodle import <path>}",
   "export a collection as OpenAPI or Postman with {noodle export <collection> --format <format> --output <path>}",
   "run a tagged collection suite with {noodle collection run <path> --tag smoke}",
-  "open {^P}, choose Run Collection to configure and inspect a transient run",
+  "open the collection Runner with {F5} to select requests, filters, and an optional delay",
   "open {^P}, choose Import Collection to bring a source into a new or current collection",
   "open {^P}, choose Export Collection to preview and write OpenAPI or Postman output",
   "environment variables let you switch between dev, staging, prod",

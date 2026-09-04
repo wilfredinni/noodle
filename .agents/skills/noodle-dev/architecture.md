@@ -195,7 +195,7 @@ Follow existing patterns:
 ### Code folding
 
 - `toggleFold(line)` — fold/unfold by Ctrl+G at cursor line
-- `foldAll()` / `unfoldAll()` — F5/F6 global fold/unfold
+- `foldAll()` / `unfoldAll()` — configurable global actions, unbound by default
 - Folding and fold-display mapping in `codeEditorFoldManager.ts` and `codeEditorFolds.ts`; fold signs stay aligned with the original source line numbers while folded interior rows are omitted
 - Auto-unfold on edit in folded region
 - Preserves cursor position during fold/unfold operations
