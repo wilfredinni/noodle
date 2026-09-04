@@ -1,7 +1,24 @@
-import { createContext, useContext, useMemo, useCallback } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import type { ReactNode } from "react"
-import { TextAttributes } from "@opentui/core"
-import { THEMES } from "./theme-data"
+import {
+  CliRenderEvents,
+  TextAttributes,
+  type TerminalColors,
+} from "@opentui/core"
+import { useRenderer } from "@opentui/react"
+import {
+  contrastOnPrimary,
+  generateSystemTheme,
+  systemTheme,
+  THEMES,
+} from "./theme-data"
 import type { Theme } from "./theme-data"
 import { PickerOverlay } from "./overlays/PickerOverlay"
 
@@ -28,6 +45,7 @@ export {
   materialTheme,
   carbonfoxTheme,
   synthwave84Theme,
+  systemTheme,
   catppuccinFrappeTheme,
   catppuccinMacchiatoTheme,
   claudeCodeTheme,
@@ -45,6 +63,7 @@ export {
   vercelTheme,
   vesperTheme,
   zenburnTheme,
+  generateSystemTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"
@@ -65,7 +84,70 @@ export function ThemeProvider({
   activeIndex: number
   previewIndex: number | null
 }) {
-  const activeTheme = THEMES[previewIndex ?? activeIndex]!
+  const renderer = useRenderer()
+  const selectedTheme = THEMES[previewIndex ?? activeIndex]!
+  const [detectedSystemTheme, setDetectedSystemTheme] = useState(systemTheme)
+
+  useEffect(() => {
+    if (selectedTheme.name !== "system") return
+
+    let cancelled = false
+    let signature: string | undefined
+    let refreshing = false
+    let refreshQueued = false
+    const applyPalette = (colors?: TerminalColors) => {
+      if (cancelled) return
+      const mode = renderer.themeMode === "light" ? "light" : "dark"
+      const next = colors
+        ? (generateSystemTheme(colors, mode) ?? systemTheme)
+        : systemTheme
+      const nextSignature = colors
+        ? `${mode}:${JSON.stringify(colors)}`
+        : "fallback"
+      if (signature === nextSignature) return
+      signature = nextSignature
+      setDetectedSystemTheme(next)
+    }
+    const refresh = () => {
+      if (cancelled) return
+      if (refreshing) {
+        refreshQueued = true
+        return
+      }
+      refreshing = true
+      renderer.clearPaletteCache()
+      void renderer
+        .getPalette({ size: 16 })
+        .then(applyPalette)
+        .catch(() => applyPalette())
+        .finally(() => {
+          refreshing = false
+          if (cancelled || !refreshQueued) return
+          refreshQueued = false
+          refresh()
+        })
+    }
+    const handleThemeNotification = (sequence: string) => {
+      if (sequence !== "\x1b[?997;1n" && sequence !== "\x1b[?997;2n") {
+        return false
+      }
+      queueMicrotask(refresh)
+      return false
+    }
+
+    renderer.on(CliRenderEvents.PALETTE, applyPalette)
+    renderer.prependInputHandler(handleThemeNotification)
+    refresh()
+
+    return () => {
+      cancelled = true
+      renderer.off(CliRenderEvents.PALETTE, applyPalette)
+      renderer.removeInputHandler(handleThemeNotification)
+    }
+  }, [renderer, selectedTheme.name])
+
+  const activeTheme =
+    selectedTheme.name === "system" ? detectedSystemTheme : selectedTheme
 
   return (
     <ThemeContext.Provider value={activeTheme}>
@@ -134,15 +216,22 @@ export function ThemePickerOverlay({
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       const isCurrent = i === activeIndex
+      const highlightedForeground = contrastOnPrimary(theme)
       return (
         <>
           {isCurrent && (
-            <text fg={highlighted ? "#1a1a1a" : theme.primary}>●</text>
+            <text fg={highlighted ? highlightedForeground : theme.primary}>
+              ●
+            </text>
           )}
           {!isCurrent && <box width={1} />}
           <text
             fg={
-              highlighted ? "#1a1a1a" : isCurrent ? theme.primary : theme.text
+              highlighted
+                ? highlightedForeground
+                : isCurrent
+                  ? theme.primary
+                  : theme.text
             }
             attributes={highlighted ? TextAttributes.BOLD : undefined}
           >

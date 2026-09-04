@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
-import { useTheme } from "../theme"
+import { contrastOnPrimary, useTheme } from "../theme"
 
 export interface CommandItem {
   id: string
@@ -129,8 +129,9 @@ export function CommandPaletteOverlay({
           </box>
         )
       }
-      const baseFg = highlighted ? "#1a1a1a" : theme.text
-      const mutedFg = highlighted ? "#333333" : theme.textMuted
+      const highlightedForeground = contrastOnPrimary(theme)
+      const baseFg = highlighted ? highlightedForeground : theme.text
+      const mutedFg = highlighted ? highlightedForeground : theme.textMuted
       return (
         <>
           <text fg={baseFg}>{item.label}</text>

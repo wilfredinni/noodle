@@ -191,9 +191,9 @@ describe("saveConfig", () => {
     })
   })
 
-  it("round-trips save→load", () => {
+  it("round-trips the system theme", () => {
     const input: NoodleConfig = {
-      theme: "dracula",
+      theme: "system",
       layout: "side-by-side",
       confirm_undo_all: true,
       collections: [],

@@ -8,7 +8,7 @@ import {
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
-import { ThemeProvider } from "../../src/ui/theme"
+import { THEMES, ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { Toast } from "../../src/ui/Toast"
 import type { Focus } from "../../src/ui/focus"
@@ -42,6 +42,7 @@ function Harness({
   onExternalEditorChange = () => {},
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
+  activeThemeIndex = 0,
 }: {
   collectionAvailable?: boolean
   onClose?: () => void
@@ -64,6 +65,7 @@ function Harness({
   onExternalEditorChange?: (editor: ExternalEditorId) => void
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
+  activeThemeIndex?: number
 }) {
   const [scope, setScope] = useState<SettingsScope>(initialScope)
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
@@ -77,7 +79,7 @@ function Harness({
       category={category}
       collectionAvailable={collectionAvailable}
       focus={focus}
-      activeThemeIndex={0}
+      activeThemeIndex={activeThemeIndex}
       layout="stacked"
       confirmUndoAll
       externalEditors={externalEditors}
@@ -217,6 +219,22 @@ describe("SettingsView", () => {
     await act(async () => host.press("down"))
     await act(async () => host.press("return"))
     expect(selected).toEqual([1])
+    cleanup()
+  })
+
+  it("exposes the system theme in Appearance settings", async () => {
+    const systemIndex = THEMES.findIndex((theme) => theme.name === "system")
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness activeThemeIndex={systemIndex} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("system")
     cleanup()
   })
 
