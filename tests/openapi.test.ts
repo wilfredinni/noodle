@@ -587,15 +587,46 @@ describe("mapCollection — auth resolution", () => {
     })
   })
 
-  it("maps openIdConnect to none", () => {
+  it("maps openIdConnect to discovery-backed OAuth 2", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { oidc: oidc } },
+        security: [{ oidc: ["openid", "profile"] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(reqs(c)[0].auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "authorization_code",
+      discovery_url: "https://x",
+      client_id: "$OAUTH_CLIENT_ID",
+      client_secret: "$OAUTH_CLIENT_SECRET",
+      scope: "openid profile",
+    })
+  })
+
+  it("preserves an OpenID Connect grant extension", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: {
+            oidc: {
+              ...oidc,
+              "x-noodle-oauth2-grant-type": "password",
+            },
+          },
+        },
         security: [{ oidc: [] }],
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "password",
+      discovery_url: "https://x",
+      username: "$OAUTH_USERNAME",
+      password: "$OAUTH_PASSWORD",
+    })
   })
 
   it("op.security overrides global security", () => {

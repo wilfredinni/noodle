@@ -28,6 +28,7 @@ export function defaultOAuth2Auth(): OAuth2Auth {
   return {
     type: "oauth2",
     grant_type: "authorization_code",
+    discovery_url: "",
     authorization_url: "",
     access_token_url: "",
     refresh_token_url: "",

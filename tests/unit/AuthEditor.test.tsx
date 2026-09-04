@@ -43,6 +43,7 @@ describe("AuthEditor", () => {
                 auth={{
                   ...defaultOAuth2Auth(),
                   grant_type: "password",
+                  discovery_url: "https://identity.example",
                   client_secret: "oauth2-secret",
                   password: "password-secret",
                 }}
@@ -66,6 +67,10 @@ describe("AuthEditor", () => {
     expect(frame).toContain("OAuth 1.0a")
     expect(frame).toContain("Private Key*")
     expect(frame).toContain("OAuth 2.0")
+    expect(frame).toContain("Discovery URL")
+    expect(frame).toContain("OIDC issuer or discovery document URL")
+    expect(frame).toContain("Access Token URL")
+    expect(frame).not.toContain("Access Token URL*")
     expect(frame).toContain("Public identifier for the OAuth client.")
     expect(frame).toContain("Algorithm used to sign the request.")
     expect(frame).toContain("RSA private key used for RSA signatures.")

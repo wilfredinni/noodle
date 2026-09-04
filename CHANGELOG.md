@@ -7,6 +7,11 @@ All notable changes to Noodle are documented in this file.
 ### ✨ Features
 
 - Add a live `system` theme that follows the terminal palette, refreshes after in-session theme changes, and keeps the saved preference while falling back to Noodle colors when detection is unavailable.
+- Discover OAuth 2 authorization and token endpoints from an OIDC issuer or `/.well-known/openid-configuration` URL, including OpenAPI import/export support.
+
+### 📚 Documentation
+
+- Document OAuth 2 OIDC discovery authoring and OpenAPI/Postman conversion behavior in the embedded `noodle-use` skill.
 
 ## [0.8.4] - 2026-09-04
 

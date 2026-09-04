@@ -238,11 +238,15 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
       ["authorization_code", "client_credentials", "implicit", "password"],
       grantDescription,
     ),
+    text("Discovery URL", "discovery_url", {
+      description:
+        "OIDC issuer or discovery document URL used to fill missing OAuth endpoints.",
+    }),
   ]
   if (browserGrant) {
     definitions.push(
       text("Authorization URL", "authorization_url", {
-        required: true,
+        required: !auth.discovery_url.trim(),
         description: "Provider endpoint used to authorize the client.",
       }),
     )
@@ -250,7 +254,7 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
   if (auth.grant_type !== "implicit") {
     definitions.push(
       text("Access Token URL", "access_token_url", {
-        required: true,
+        required: !auth.discovery_url.trim(),
         description:
           "Endpoint used to exchange credentials or an authorization code for a token.",
       }),

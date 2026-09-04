@@ -242,6 +242,7 @@ function parseOAuth2(raw: Record<string, unknown>, path: string): OAuth2Auth {
     [
       "type",
       "grant_type",
+      "discovery_url",
       "authorization_url",
       "access_token_url",
       "refresh_token_url",
@@ -306,6 +307,12 @@ function parseOAuth2(raw: Record<string, unknown>, path: string): OAuth2Auth {
       "grant_type",
       OAUTH2_GRANTS,
       defaults.grant_type,
+      path,
+    ),
+    discovery_url: optionalString(
+      raw,
+      "discovery_url",
+      defaults.discovery_url,
       path,
     ),
     authorization_url: optionalString(

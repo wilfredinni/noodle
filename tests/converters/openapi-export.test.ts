@@ -128,6 +128,126 @@ describe("exportOpenApi", () => {
     })
   })
 
+  it("exports and imports discovery-only OAuth 2 as OpenID Connect", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            id: "oidc",
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              discovery_url: "https://identity.example/issuer/",
+              scope: "read write",
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(result.document.components).toEqual({
+      securitySchemes: {
+        openIdConnectAuth: {
+          type: "openIdConnect",
+          openIdConnectUrl:
+            "https://identity.example/issuer/.well-known/openid-configuration",
+          "x-noodle-oauth2-grant-type": "client_credentials",
+        },
+      },
+    })
+    expect(result.document.paths).toMatchObject({
+      "/request": {
+        get: { security: [{ openIdConnectAuth: ["read", "write"] }] },
+      },
+    })
+
+    const imported = openApiImporter.import(JSON.stringify(result.document))
+      .collection.items[0]
+    expect(imported?.type).toBe("request")
+    if (imported?.type !== "request") throw new Error("expected request")
+    expect(imported.data.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "client_credentials",
+      discovery_url:
+        "https://identity.example/issuer/.well-known/openid-configuration",
+      scope: "read write",
+    })
+  })
+
+  it("preserves a whole discovery URL variable across OpenAPI", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              discovery_url: "$OIDC_ISSUER",
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(result.document.components).toMatchObject({
+      securitySchemes: {
+        openIdConnectAuth: { openIdConnectUrl: "$OIDC_ISSUER" },
+      },
+    })
+    const imported = openApiImporter.import(JSON.stringify(result.document))
+      .collection.items[0]
+    expect(imported?.type).toBe("request")
+    if (imported?.type !== "request") throw new Error("expected request")
+    expect(imported.data.auth).toMatchObject({
+      type: "oauth2",
+      discovery_url: "$OIDC_ISSUER",
+    })
+  })
+
+  it("keeps fully explicit OAuth 2 flows authoritative over discovery", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            auth: {
+              ...defaultOAuth2Auth(),
+              discovery_url: "https://identity.example",
+              authorization_url: "https://identity.example/authorize",
+              access_token_url: "https://identity.example/token",
+            },
+          }),
+        },
+      ]),
+    )
+    expect(result.document.components).toMatchObject({
+      securitySchemes: { oauth2Auth: { type: "oauth2" } },
+    })
+  })
+
+  it("rejects partial OAuth 2 discovery endpoint overrides", () => {
+    expect(() =>
+      exportOpenApi(
+        collection([
+          {
+            type: "request",
+            data: request({
+              auth: {
+                ...defaultOAuth2Auth(),
+                discovery_url: "https://identity.example",
+                authorization_url: "https://identity.example/authorize",
+              },
+            }),
+          },
+        ]),
+      ),
+    ).toThrow(
+      "OAuth 2 discovery cannot be combined with partial explicit endpoint overrides",
+    )
+  })
+
   it("exports resolved folder settings, enabled parameters, tags, and a server variable", () => {
     const result = exportOpenApi(
       collection([

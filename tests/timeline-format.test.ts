@@ -611,6 +611,7 @@ describe("buildTimelineEntry", () => {
         ...base,
         auth: {
           ...defaultOAuth2Auth(),
+          discovery_url: "$DISCOVERY_URL",
           client_id: "public-client",
           token_prefix: "$TOKEN_PREFIX",
           client_secret: "client-secret",
@@ -633,7 +634,13 @@ describe("buildTimelineEntry", () => {
       },
       { status: "done", response },
       "dev",
-      { name: "dev", vars: { TOKEN_PREFIX: "Token" } },
+      {
+        name: "dev",
+        vars: {
+          DISCOVERY_URL: "https://identity.example",
+          TOKEN_PREFIX: "Token",
+        },
+      },
     )
     expect(JSON.stringify(oauth1.request)).not.toMatch(
       /consumer-secret|access-token|token-secret|private-key|secret-verifier-value|secret-nonce-value|secret-timestamp-value/,
@@ -643,6 +650,8 @@ describe("buildTimelineEntry", () => {
       /client-secret|password-secret|assertion-key|authorization-secret/,
     )
     expect(JSON.stringify(oauth2.request)).toContain("public-client")
+    expect(JSON.stringify(oauth2.request)).toContain("https://identity.example")
+    expect(JSON.stringify(oauth2.request)).not.toContain("$DISCOVERY_URL")
     expect(JSON.stringify(oauth2.request)).toContain("Token")
     expect(JSON.stringify(oauth2.request)).not.toContain("$TOKEN_PREFIX")
   })
