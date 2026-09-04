@@ -193,9 +193,7 @@ const button = new BoxRenderable(renderer, {
 ## Example: card component
 
 ```typescript
-import { BoxRenderable, TextRenderable, createCliRenderer, t, bold, fg } from "@opentui/core"
-
-const renderer = await createCliRenderer()
+import { BoxRenderable, TextRenderable, t, bold, fg } from "@opentui/core"
 
 function Card(props: { title: string; description: string }) {
   const card = new BoxRenderable(renderer, {

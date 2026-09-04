@@ -20,7 +20,7 @@ Here's a writeup.
 ## The naive approach
 
 OpenTUI uses yoga layout and has elements called Renderables. Boxes with
-borders, plain text, code with tree-sitter-backed highlighting and other
+borders, plain text, code with tree-sitter backed highlighting and other
 primitives. Organised in a tree structure resembling somewhat of a DOM.
 
 Approaching a table naively, given the primitives are there, one would think to
@@ -44,10 +44,10 @@ Yes, but no. Yoga should be integrated in the zig native binary core of OpenTUI.
 It is on the roadmap to do so, which will speed up render passes by 2-5x.
 
 Yoga-layout has an open PR to support CSS Grids, which would greatly ease
-building something like a table. We will use that for fully laid-out tables when
+building something like a table. We will use that for fully laid out tables when
 it gets there.
 
-Below the typescript core level Renderables, there are lower-level primitives
+Below the typescript core level Renderables, there are lower level primitives
 like `TextBuffer`s and `TextBufferView`s, bound via FFI and completely handled
 in Zig.
 
@@ -57,8 +57,8 @@ I was stuck expecting a table primitive to handle a full layout like a table in
 the browser does. For Markdown all we need is a text-only table. So we had to
 come up with a better idea, something that is feasible now.
 
-A table layout is pretty straightforward. No need to have yoga deal with that.
-Using `TextBufferView`s for cells directly gives lower-level control and
+A table layout is pretty straight forward. No need to have yoga deal with that.
+Using `TextBufferView`s for cells directly gives lower level control and
 eliminates some overhead that Boxes and Text renderables have. A simple native
 method to draw a grid with proper conjunctions is a nice library method. It will
 surely be used for other cases, so that's what we added.
@@ -66,7 +66,7 @@ surely be used for other cases, so that's what we added.
 Using this simplified approach we were able to bring down initial instantiation
 to &lt;1ms, more than 70x improvement. With a far smaller memory footprint.
 
-Given all the low-level primitives are known and implementing a text-only table
+Given all the low level primitives are known and implementing a text-only table
 like this is possible, Codex was of great help to carve out the PoC, setup the
 benchmarks and tests.
 
