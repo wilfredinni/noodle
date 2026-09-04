@@ -435,17 +435,16 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (!selection?.isDragging) return
     if (this._selectionDragAnchor === null) {
       const editorSelection = this.getSelection()
-      if (editorSelection) {
-        this._selectionDragDirection =
-          y < selection.anchor.y ||
-          (y === selection.anchor.y && x < selection.anchor.x)
-            ? -1
-            : 1
-        this._selectionDragAnchor =
-          this._selectionDragDirection === 1
-            ? editorSelection.start
-            : editorSelection.end
-      }
+      if (!editorSelection) return
+      this._selectionDragDirection =
+        y < selection.anchor.y ||
+        (y === selection.anchor.y && x < selection.anchor.x)
+          ? -1
+          : 1
+      this._selectionDragAnchor =
+        this._selectionDragDirection === 1
+          ? editorSelection.start
+          : editorSelection.end
     }
     this._selectionDragPointer = { x, y }
     this.refreshSelectionDrag()

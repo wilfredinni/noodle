@@ -167,18 +167,19 @@ describe("ResponsePane scrollbox", () => {
       ],
       bindings: [{ key: "/", cmd: "response.query" }],
     })
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane
-          state={state}
-          focused
-          responseKey="request-1"
-          responseQueryRef={queryController}
-          responseBodyForCopyRef={copyBody}
-        />
-      </KeymapProvider>,
-      { width: 80, height: 16 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={state}
+            focused
+            responseKey="request-1"
+            responseQueryRef={queryController}
+            responseBodyForCopyRef={copyBody}
+          />
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
     await renderOnce()
 
     await act(async () => {
@@ -193,6 +194,21 @@ describe("ResponsePane scrollbox", () => {
 
     expect(captureCharFrame()).toContain("2 matches")
     expect(copyBody.current).toBe("[\n  1,\n  2\n]")
+
+    const queryInput = renderer.currentFocusedRenderable
+    if (!queryInput)
+      throw new Error("Expected the JSONPath input to be focused")
+    await act(async () => {
+      await mockMouse.drag(
+        queryInput.x + 1,
+        queryInput.y,
+        queryInput.x + 6,
+        queryInput.y,
+      )
+    })
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).not.toBe("")
+    expect("$.data.group.items[*].id").toContain(selectedText)
 
     await act(async () => raw.host.press("escape"))
     await renderOnce()
