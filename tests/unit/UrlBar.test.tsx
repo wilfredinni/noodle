@@ -454,7 +454,7 @@ describe("UrlBar", () => {
     cleanup()
   })
 
-  it("does not show the 'no request selected message' when initial URL is cleared", async () => {
+  it("does not show the 'no request selected message' when initial URL is cleared, preserves input", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame, mockInput } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -475,10 +475,21 @@ describe("UrlBar", () => {
       mockInput.pressBackspace()
     })
 
+    await renderOnce()
+
     expect(captureCharFrame()).not.toContain("no request selected")
     expect(captureCharFrame()).toContain("GET")
     expect(captureCharFrame()).toContain("▼")
     expect(captureCharFrame()).not.toContain("a")
+
+    await act(async () => {
+      await mockInput.typeText("https://example.com")
+    })
+
+    await renderOnce()
+
+    expect(captureCharFrame()).not.toContain("no request selected")
+    expect(captureCharFrame()).toContain("https://example.com")
 
     cleanup()
   })
