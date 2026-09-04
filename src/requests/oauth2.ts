@@ -2,6 +2,10 @@ import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { isAbsolute, resolve } from "node:path"
 import { decodeJwt, importPKCS8, SignJWT } from "jose"
+import {
+  normalizeOAuth2DiscoveryUrl,
+  oauth2DiscoveryUrlForIssuer,
+} from "../auth/oauth2"
 import type { ProxyPolicy } from "../proxy"
 import type {
   OAuth2AdditionalParameter,
@@ -85,6 +89,10 @@ export function oauth2CredentialKey(auth: OAuth2Auth): string {
     .update(
       JSON.stringify({
         grant_type: auth.grant_type,
+        discovery_url: auth.discovery_url,
+        ...(auth.discovery_url_kind === "document"
+          ? { discovery_url_kind: "document" }
+          : {}),
         authorization_url: auth.authorization_url,
         access_token_url: auth.access_token_url,
         refresh_token_url: auth.refresh_token_url,
@@ -120,6 +128,117 @@ function memoryKey(
 
 function warn(context: OAuth2Context, message: string): void {
   context.onAuthEvent?.(message)
+}
+
+async function resolveOAuth2Endpoints(
+  auth: OAuth2Auth,
+  context: OAuth2Context,
+  requireAuthorization: boolean,
+  requireToken: boolean,
+): Promise<OAuth2Auth> {
+  const needsAuthorization = requireAuthorization && !auth.authorization_url
+  const needsToken = requireToken && !auth.access_token_url
+  if ((!needsAuthorization && !needsToken) || !auth.discovery_url) return auth
+
+  const configuredDiscoveryUrl = validateOAuthEndpoint(
+    auth.discovery_url,
+    "discovery_url",
+  )
+  const discoveryIsDocument = auth.discovery_url_kind === "document"
+  const discoveryUrl = discoveryIsDocument
+    ? configuredDiscoveryUrl
+    : normalizeOAuth2DiscoveryUrl(configuredDiscoveryUrl)
+  warn(context, "Discovering OAuth 2 endpoints")
+  const response = await send(
+    {
+      id: "oauth2-discovery",
+      name: "OAuth 2 discovery",
+      method: "GET",
+      url: discoveryUrl.toString(),
+      timeout: 30_000,
+      followRedirects: true,
+      maxRedirects: 5,
+      headers: { Accept: { value: "application/json", enabled: true } },
+      params: [],
+      auth: { type: "none" },
+      sendCookies: false,
+    },
+    {
+      signal: context.signal,
+      proxyPolicy: context.proxyPolicy,
+      tlsPolicy: context.tlsPolicy,
+      collectionDir: context.collectionDir,
+      oauthMode: "disabled",
+      allowCrossOriginRedirects: false,
+    },
+  )
+  if (response.status !== 200) {
+    throw new Error(
+      `OAuth 2 discovery endpoint returned HTTP ${response.status}`,
+    )
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(response.body)
+  } catch (e) {
+    throw new Error("OAuth 2 discovery endpoint returned invalid JSON", {
+      cause: e,
+    })
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("OAuth 2 discovery endpoint must return a JSON object")
+  }
+  const metadata = parsed as Record<string, unknown>
+  if (typeof metadata.issuer !== "string" || !metadata.issuer) {
+    throw new Error(
+      "OAuth 2 discovery response field issuer must be a non-empty string",
+    )
+  }
+  const issuerUrl = validateOAuthEndpoint(
+    metadata.issuer,
+    "discovery response field issuer",
+  )
+  if (
+    issuerUrl.search ||
+    (!discoveryIsDocument &&
+      oauth2DiscoveryUrlForIssuer(issuerUrl).toString() !==
+        discoveryUrl.toString())
+  ) {
+    throw new Error(
+      "OAuth 2 discovery response issuer does not match discovery_url",
+    )
+  }
+  const resolved = {
+    ...auth,
+    authorization_url:
+      auth.authorization_url ||
+      (typeof metadata.authorization_endpoint === "string"
+        ? metadata.authorization_endpoint
+        : ""),
+    access_token_url:
+      auth.access_token_url ||
+      (typeof metadata.token_endpoint === "string"
+        ? metadata.token_endpoint
+        : ""),
+  }
+  if (needsAuthorization && !resolved.authorization_url) {
+    throw new Error(
+      "OAuth 2 discovery response field authorization_endpoint must be a non-empty string",
+    )
+  }
+  if (needsToken && !resolved.access_token_url) {
+    throw new Error(
+      "OAuth 2 discovery response field token_endpoint must be a non-empty string",
+    )
+  }
+  if (requireAuthorization) {
+    validateOAuthEndpoint(resolved.authorization_url, "authorization_url")
+  }
+  if (requireToken) {
+    validateOAuthEndpoint(resolved.access_token_url, "access_token_url")
+  }
+  return resolved
 }
 
 async function loadToken(
@@ -393,6 +512,12 @@ async function requestToken(
   required: Record<string, string>,
   previousRefreshToken?: string,
 ): Promise<OAuth2TokenSet> {
+  auth = await resolveOAuth2Endpoints(
+    auth,
+    context,
+    false,
+    phase === "token" || !auth.refresh_token_url,
+  )
   const endpointValue =
     phase === "refresh"
       ? auth.refresh_token_url || auth.access_token_url
@@ -562,7 +687,15 @@ async function fetchNewToken(
         "OAuth 2 authorization is required. Open this request in the Noodle TUI and run Fetch/authorize OAuth 2 token.",
       )
     }
-    return authorizeInBrowser(auth, context)
+    return authorizeInBrowser(
+      await resolveOAuth2Endpoints(
+        auth,
+        context,
+        true,
+        auth.grant_type === "authorization_code",
+      ),
+      context,
+    )
   }
   if (auth.grant_type === "password") {
     warn(context, "OAuth 2 password grant is legacy and not recommended")

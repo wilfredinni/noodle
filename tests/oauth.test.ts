@@ -106,6 +106,8 @@ describe("OAuth language", () => {
     }
     const oauth2 = {
       ...defaultOAuth2Auth(),
+      discovery_url: "https://auth.example",
+      discovery_url_kind: "document" as const,
       authorization_url: "https://auth.example/authorize",
       access_token_url: "https://auth.example/token",
       client_id: "$CLIENT_ID",
@@ -151,6 +153,7 @@ describe("OAuth language", () => {
     const auth = {
       ...defaultOAuth2Auth(),
       grant_type: "client_credentials" as const,
+      discovery_url: "https://auth.example/.well-known/openid-configuration",
       access_token_url: "https://auth.example/token",
       client_id: "$CLIENT_ID",
       client_secret: "$CLIENT_SECRET",
@@ -182,6 +185,20 @@ describe("OAuth language", () => {
         "name: OAuth\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth1\n  surprise: true\n",
       ),
     ).toThrow('unknown field "surprise"')
+    expect(() =>
+      parseRequest(
+        "oauth",
+        "name: OAuth\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth2\n  discovery_url: 42\n",
+      ),
+    ).toThrow("lang.parseRequest: auth.oauth2.discovery_url must be a string")
+    expect(() =>
+      parseRequest(
+        "oauth",
+        "name: OAuth\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth2\n  discovery_url_kind: auto\n",
+      ),
+    ).toThrow(
+      'lang.parseRequest: auth.oauth2.discovery_url_kind must be one of issuer|document, got "auto"',
+    )
   })
 })
 
@@ -473,6 +490,322 @@ describe("OAuth 2 execution", () => {
     )
   })
 
+  it("isolates cached credentials by discovery URL", () => {
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      discovery_url: "https://identity.example/one",
+      client_id: "client",
+    }
+    expect(oauth2CredentialKey(auth)).not.toBe(
+      oauth2CredentialKey({
+        ...auth,
+        discovery_url: "https://identity.example/two",
+      }),
+    )
+    expect(oauth2CredentialKey(auth)).not.toBe(
+      oauth2CredentialKey({ ...auth, discovery_url_kind: "document" }),
+    )
+  })
+
+  it("discovers issuer endpoints once across concurrent and cached calls", async () => {
+    let discoveryCalls = 0
+    let tokenCalls = 0
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      async fetch(request) {
+        const url = new URL(request.url)
+        if (url.pathname === "/issuer/.well-known/openid-configuration") {
+          discoveryCalls++
+          return Response.json({
+            issuer: `http://127.0.0.1:${serverPort}/issuer`,
+            authorization_endpoint: `http://127.0.0.1:${serverPort}/authorize`,
+            token_endpoint: `http://127.0.0.1:${serverPort}/token`,
+          })
+        }
+        if (url.pathname === "/token") {
+          tokenCalls++
+          expect(
+            new URLSearchParams(await request.text()).get("grant_type"),
+          ).toBe("client_credentials")
+          return Response.json({
+            access_token: "discovered-token",
+            expires_in: 3600,
+          })
+        }
+        return new Response(request.headers.get("authorization") ?? "")
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      discovery_url: `http://127.0.0.1:${server.port}/issuer/`,
+      client_id: "discovery-client",
+      credentials_id: `discovery-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+    const request = resourceRequest(
+      `http://127.0.0.1:${server.port}/resource`,
+      auth,
+    )
+    const [first, second] = await Promise.all([
+      send(request, { oauthMode: "cached-only" }),
+      send(request, { oauthMode: "cached-only" }),
+    ])
+    const third = await send(request, { oauthMode: "cached-only" })
+
+    expect(first.body).toBe("Bearer discovered-token")
+    expect(second.body).toBe("Bearer discovered-token")
+    expect(third.body).toBe("Bearer discovered-token")
+    expect(discoveryCalls).toBe(1)
+    expect(tokenCalls).toBe(1)
+  })
+
+  it("accepts a custom discovery document URL", async () => {
+    const paths: string[] = []
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        const path = new URL(request.url).pathname
+        paths.push(path)
+        if (path === "/oidc-metadata") {
+          return new Response(
+            JSON.stringify({
+              issuer: `http://127.0.0.1:${serverPort}/custom`,
+              token_endpoint: `http://127.0.0.1:${serverPort}/token`,
+            }),
+            { headers: { "content-type": "text/plain" } },
+          )
+        }
+        return Response.json({ access_token: "direct-token" })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      discovery_url: `http://127.0.0.1:${server.port}/oidc-metadata`,
+      discovery_url_kind: "document" as const,
+      client_id: "direct-client",
+      credentials_id: `direct-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+
+    expect(
+      (await resolveOAuth2Token(auth, { mode: "cached-only" })).token,
+    ).toBe("direct-token")
+    expect(paths).toEqual(["/oidc-metadata", "/token"])
+  })
+
+  it("keeps explicit endpoints authoritative and skips discovery", async () => {
+    let discoveryCalls = 0
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        if (new URL(request.url).pathname.includes(".well-known")) {
+          discoveryCalls++
+          return Response.json({
+            token_endpoint: "https://wrong.example/token",
+          })
+        }
+        return Response.json({ access_token: "explicit-token" })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      discovery_url: `http://127.0.0.1:${server.port}`,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      client_id: "explicit-client",
+      credentials_id: `explicit-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+
+    expect(
+      (await resolveOAuth2Token(auth, { mode: "cached-only" })).token,
+    ).toBe("explicit-token")
+    expect(discoveryCalls).toBe(0)
+  })
+
+  it("uses an explicit refresh endpoint without discovery", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    const dir = await mkdtemp(join(tmpdir(), "noodle-oauth-refresh-url-"))
+    tempDirs.push(dir)
+    await writeFile(
+      join(dir, "settings.yml"),
+      `collection_id: ${crypto.randomUUID()}\n`,
+    )
+    let discoveryCalls = 0
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        if (new URL(request.url).pathname.includes(".well-known")) {
+          discoveryCalls++
+          return Response.json({})
+        }
+        return Response.json({ access_token: "refreshed-token" })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      discovery_url: `http://127.0.0.1:${server.port}`,
+      refresh_token_url: `http://127.0.0.1:${server.port}/refresh`,
+      client_id: "refresh-url-client",
+      credentials_id: `refresh-url-${crypto.randomUUID()}`,
+      auto_fetch_token: false,
+    }
+    authToClear.push({ auth, dir })
+    await setOAuth2Credential(
+      dir,
+      oauth2CredentialKey(auth),
+      JSON.stringify({
+        access_token: "expired-token",
+        refresh_token: "refresh-token",
+        _noodle_expires_at: 1,
+      }),
+    )
+
+    expect(
+      (
+        await resolveOAuth2Token(auth, {
+          collectionDir: dir,
+          mode: "cached-only",
+        })
+      ).token,
+    ).toBe("refreshed-token")
+    expect(discoveryCalls).toBe(0)
+  })
+
+  it("reports invalid discovery responses and unsafe discovered endpoints", async () => {
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        const path = new URL(request.url).pathname
+        const issuer = `http://127.0.0.1:${serverPort}/${path.split("/")[1]}`
+        if (path.startsWith("/status/"))
+          return new Response("", { status: 503 })
+        if (path.startsWith("/json/")) return new Response("{")
+        if (path.startsWith("/missing-issuer/")) {
+          return Response.json({
+            token_endpoint: `http://127.0.0.1:${serverPort}/token`,
+          })
+        }
+        if (path.startsWith("/missing/")) return Response.json({ issuer })
+        if (path.startsWith("/wrong-type/")) {
+          return Response.json({ issuer, token_endpoint: 42 })
+        }
+        if (path.startsWith("/issuer-mismatch/")) {
+          return Response.json({
+            issuer: `http://127.0.0.1:${serverPort}/other`,
+            token_endpoint: `http://127.0.0.1:${serverPort}/token`,
+          })
+        }
+        return Response.json({
+          issuer,
+          token_endpoint: "http://identity.example/token",
+        })
+      },
+    })
+    servers.push(server)
+    const cases = [
+      ["status", "OAuth 2 discovery endpoint returned HTTP 503"],
+      ["json", "OAuth 2 discovery endpoint returned invalid JSON"],
+      [
+        "missing-issuer",
+        "OAuth 2 discovery response field issuer must be a non-empty string",
+      ],
+      [
+        "missing",
+        "OAuth 2 discovery response field token_endpoint must be a non-empty string",
+      ],
+      [
+        "wrong-type",
+        "OAuth 2 discovery response field token_endpoint must be a non-empty string",
+      ],
+      [
+        "issuer-mismatch",
+        "OAuth 2 discovery response issuer does not match discovery_url",
+      ],
+      ["unsafe", "must use HTTPS unless it targets a loopback host"],
+    ] as const
+
+    for (const [path, message] of cases) {
+      const auth = {
+        ...defaultOAuth2Auth(),
+        grant_type: "client_credentials" as const,
+        discovery_url: `http://127.0.0.1:${server.port}/${path}`,
+        client_id: "invalid-discovery-client",
+        credentials_id: `${path}-${crypto.randomUUID()}`,
+      }
+      await expect(
+        resolveOAuth2Token(auth, { mode: "cached-only" }),
+      ).rejects.toThrow(message)
+    }
+    await expect(
+      resolveOAuth2Token(
+        {
+          ...defaultOAuth2Auth(),
+          grant_type: "client_credentials",
+          discovery_url: "http://identity.example",
+          client_id: "unsafe-discovery-client",
+          credentials_id: `unsafe-url-${crypto.randomUUID()}`,
+        },
+        { mode: "cached-only" },
+      ),
+    ).rejects.toThrow("must use HTTPS unless it targets a loopback host")
+  })
+
+  it("cancels discovery with the caller signal", async () => {
+    let markSeen!: () => void
+    let release!: () => void
+    const seen = new Promise<void>((resolve) => {
+      markSeen = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      async fetch() {
+        markSeen()
+        await gate
+        return Response.json({})
+      },
+    })
+    servers.push(server)
+    const controller = new AbortController()
+    const pending = resolveOAuth2Token(
+      {
+        ...defaultOAuth2Auth(),
+        grant_type: "client_credentials",
+        discovery_url: `http://127.0.0.1:${server.port}`,
+        client_id: "cancel-client",
+        credentials_id: `cancel-${crypto.randomUUID()}`,
+      },
+      { mode: "cached-only", signal: controller.signal },
+    )
+    await seen
+    controller.abort()
+    await expect(pending).rejects.toThrow()
+    release()
+  })
+
   it("fetches client credentials, stores them in the vault, and sends the token", async () => {
     const backend = memoryBackend()
     setSecretBackendForTests(backend)
@@ -588,12 +921,20 @@ describe("OAuth 2 execution", () => {
       "collection_id: 33333333-3333-4333-8333-333333333333\n",
     )
     const serverPort = await unusedPort()
+    let discoveryCalls = 0
     let refreshCalls = 0
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: serverPort,
       async fetch(request) {
         const url = new URL(request.url)
+        if (url.pathname === "/issuer/.well-known/openid-configuration") {
+          discoveryCalls++
+          return Response.json({
+            issuer: `http://127.0.0.1:${serverPort}/issuer`,
+            token_endpoint: `http://127.0.0.1:${serverPort}/refresh`,
+          })
+        }
         if (url.pathname === "/refresh") {
           refreshCalls++
           const body = new URLSearchParams(await request.text())
@@ -616,8 +957,7 @@ describe("OAuth 2 execution", () => {
     const auth = {
       ...defaultOAuth2Auth(),
       grant_type: "authorization_code" as const,
-      access_token_url: `http://127.0.0.1:${server.port}/token`,
-      refresh_token_url: `http://127.0.0.1:${server.port}/refresh`,
+      discovery_url: `http://127.0.0.1:${server.port}/issuer`,
       client_id: "refresh-client",
       credentials_id: "refresh-test",
       token_source: "id_token" as const,
@@ -664,6 +1004,7 @@ describe("OAuth 2 execution", () => {
       { collectionDir: dir, oauthMode: "cached-only" },
     )
     expect(response.body).toBe("new-id")
+    expect(discoveryCalls).toBe(1)
     expect(refreshCalls).toBe(1)
     const stored = JSON.parse([...backend.values.values()][0]!)
     expect(stored.refresh_token).toBe("rotated-refresh")
@@ -1109,14 +1450,24 @@ describe("OAuth 2 execution", () => {
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: serverPort,
-      fetch: (request) =>
-        new Response(request.headers.get("authorization") ?? ""),
+      fetch(request) {
+        if (
+          new URL(request.url).pathname ===
+          "/issuer/.well-known/openid-configuration"
+        ) {
+          return Response.json({
+            issuer: `http://127.0.0.1:${serverPort}/issuer`,
+            authorization_endpoint: `http://127.0.0.1:${serverPort}/authorize`,
+          })
+        }
+        return new Response(request.headers.get("authorization") ?? "")
+      },
     })
     servers.push(server)
     const auth = {
       ...defaultOAuth2Auth(),
       grant_type: "implicit" as const,
-      authorization_url: `http://127.0.0.1:${server.port}/authorize`,
+      discovery_url: `http://127.0.0.1:${server.port}/issuer`,
       redirect_uri: `http://127.0.0.1:${callbackPort}/oauth/callback`,
       client_id: "implicit-client",
       implicit_response_type: "id_token" as const,

@@ -89,6 +89,7 @@ describe("Postman export", () => {
             auth: {
               ...defaultOAuth2Auth(),
               grant_type: "client_credentials",
+              discovery_url: "https://identity.example",
               access_token_url: "https://identity.example/token",
               client_id: "$CLIENT_ID",
               client_secret: "$CLIENT_SECRET",
@@ -118,6 +119,29 @@ describe("Postman export", () => {
       ]),
     })
     expect(JSON.stringify(exported.document)).not.toContain("access_token")
+  })
+
+  it("rejects OAuth 2 auth that still needs discovery", () => {
+    expect(() =>
+      exportPostman({
+        id: "oauth",
+        name: "OAuth",
+        items: [
+          {
+            type: "request",
+            data: request("oauth2", "OAuth 2", {
+              auth: {
+                ...defaultOAuth2Auth(),
+                grant_type: "client_credentials",
+                discovery_url: "https://identity.example",
+              },
+            }),
+          },
+        ],
+      }),
+    ).toThrow(
+      "OAuth 2 discovery-backed auth requires explicit endpoint URLs for the selected grant",
+    )
   })
 
   it("exports NTLM credentials in Postman format", () => {

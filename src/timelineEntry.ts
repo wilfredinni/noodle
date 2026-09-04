@@ -158,6 +158,7 @@ export function buildTimelineEntry(
         }))
       return {
         ...auth,
+        discovery_url: redact(resolvePublicVars(auth.discovery_url)),
         authorization_url: redact(resolvePublicVars(auth.authorization_url)),
         access_token_url: redact(resolvePublicVars(auth.access_token_url)),
         refresh_token_url: redact(resolvePublicVars(auth.refresh_token_url)),

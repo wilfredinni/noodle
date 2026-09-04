@@ -17,7 +17,10 @@ describe("OAuth auth rows", () => {
     expect(rsaFields).toContain("private_key_type")
 
     const authorizationCode = defaultOAuth2Auth()
-    const codeFields = getAuthRows(authorizationCode).map((row) => row.field)
+    const codeRows = getAuthRows(authorizationCode)
+    const codeFields = codeRows.map((row) => row.field)
+    expect(codeFields).toContain("discovery_url")
+    expect(codeFields).toContain("discovery_url_kind")
     expect(codeFields).toContain("authorization_url")
     expect(codeFields).toContain("pkce_method")
     expect(codeFields).not.toContain("username")
@@ -29,7 +32,29 @@ describe("OAuth auth rows", () => {
     expect(passwordFields).toContain("username")
     expect(passwordFields).toContain("password")
     expect(passwordFields).not.toContain("authorization_url")
+    expect(
+      codeRows.find((row) => row.field === "authorization_url")?.required,
+    ).toBe(true)
+    const discoveredRows = getAuthRows({
+      ...authorizationCode,
+      discovery_url: "https://identity.example",
+    })
+    expect(
+      discoveredRows.find((row) => row.field === "authorization_url")?.required,
+    ).toBe(false)
+    expect(
+      discoveredRows.find((row) => row.field === "access_token_url")?.required,
+    ).toBe(false)
     expect(authRowCount(authorizationCode)).toBe(codeFields.length + 1)
+  })
+
+  it("edits the discovery URL kind with issuer as the default", () => {
+    const auth = defaultOAuth2Auth()
+    expect(authFieldValue(auth, "discovery_url_kind")).toBe("issuer")
+    expect(updateAuthField(auth, "discovery_url_kind", "document")).toEqual({
+      ...auth,
+      discovery_url_kind: "document",
+    })
   })
 
   it("edits phase and placement parameter groups without losing other metadata", () => {

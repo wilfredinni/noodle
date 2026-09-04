@@ -238,11 +238,21 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
       ["authorization_code", "client_credentials", "implicit", "password"],
       grantDescription,
     ),
+    text("Discovery URL", "discovery_url", {
+      description:
+        "OIDC issuer or discovery document URL used to fill missing OAuth endpoints.",
+    }),
+    choice(
+      "Discovery URL Type",
+      "discovery_url_kind",
+      ["issuer", "document"],
+      "Whether to derive the standard discovery path from an issuer or request the exact document URL.",
+    ),
   ]
   if (browserGrant) {
     definitions.push(
       text("Authorization URL", "authorization_url", {
-        required: true,
+        required: !auth.discovery_url.trim(),
         description: "Provider endpoint used to authorize the client.",
       }),
     )
@@ -250,7 +260,7 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
   if (auth.grant_type !== "implicit") {
     definitions.push(
       text("Access Token URL", "access_token_url", {
-        required: true,
+        required: !auth.discovery_url.trim(),
         description:
           "Endpoint used to exchange credentials or an authorization code for a token.",
       }),
@@ -531,6 +541,9 @@ function additionalParameterField(field: string): {
 
 export function authFieldValue(auth: Auth, field: string): string {
   if (auth.type === "none" || auth.type === "inherit") return ""
+  if (auth.type === "oauth2" && field === "discovery_url_kind") {
+    return auth.discovery_url_kind ?? "issuer"
+  }
   const additional = additionalParameterField(field)
   if (auth.type === "oauth2" && additional) {
     return parameterValue(

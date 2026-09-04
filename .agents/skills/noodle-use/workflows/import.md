@@ -101,8 +101,12 @@ auth types. NTLM credentials use generated environment-variable placeholders;
 declare the password as a secret before running the imported request.
 OpenAPI OAuth 2.0 authorization code, client credentials, implicit, and password
 flows map to Noodle OAuth 2.0 auth with endpoint URLs, required scopes, and
-generated credential placeholders. OAuth 1.0a has no OpenAPI 3.0 security-scheme
-representation and is not imported from OpenAPI.
+generated credential placeholders. `openIdConnect` schemes map to exact
+discovery-document URLs; Noodle's grant and issuer semantics survive round-trips
+through `x-noodle-oauth2-grant-type` and
+`x-noodle-oauth2-discovery-url-kind`.
+OAuth 1.0a has no OpenAPI 3.0 security-scheme representation and is not imported
+from OpenAPI.
 
 Multiple servers in the spec create multiple environments.
 
@@ -157,10 +161,13 @@ OpenAPI exports write a 3.0.3 document. Enabled parameters and headers,
 request-body examples, folders as tags, supported auth, and enabled nonempty
 `base_url` values as servers are included. NTLM and AWS SigV4 are represented
 as HTTP security schemes; validate compatibility with the target OpenAPI
-consumer. OAuth 2.0 exports as standard flows with endpoint URLs and scopes,
-without client credentials or cached tokens. OAuth 1.0a auth is omitted because
-OpenAPI 3.0 has no matching security-scheme type. Other environment values and
-response timeline data are not exported.
+consumer. OAuth 2.0 exports as standard flows when its selected grant has explicit
+endpoints. Discovery-only auth exports as `openIdConnect` with a normalized
+discovery URL and Noodle extensions for the grant and issuer URL kind; partial
+endpoint overrides are rejected because OpenAPI cannot represent both sources
+faithfully. Client credentials and cached tokens are never exported. OAuth 1.0a
+auth is omitted because OpenAPI 3.0 has no matching security-scheme type. Other
+environment values and response timeline data are not exported.
 
 XML bodies export as literal string examples and preserve explicit XML MIME
 types such as `application/soap+xml`.
@@ -169,7 +176,9 @@ Postman exports require a new or empty output directory. They create
 `collection.postman_collection.json` and one redacted environment file per
 Noodle environment. NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 use Postman's
 matching auth representations. OAuth configuration is retained, but cached
-OAuth 2 tokens and generated OAuth 1 signatures are not exported. Literal
+OAuth 2 tokens and generated OAuth 1 signatures are not exported. Discovery-backed
+OAuth 2 auth must provide every endpoint required by its selected grant because
+Postman has no discovery field. Literal
 request values are retained except that `@/` file paths expand to absolute home
 paths, so inspect the bundle for secrets and local path disclosure before
 sharing it. Keep the shorthand in source collection files; both formats

@@ -6,10 +6,12 @@ import type {
   ParamEntry,
   Request,
 } from "../../schema"
+import { normalizeOAuth2DiscoveryUrl } from "../../auth/oauth2"
 import { parseJsonPreservingNumbers } from "../../lang/formatJson"
 import { mergeFolderOverrides } from "../../requests/mergeFolderOverrides"
 import { withDefaultHttpsScheme } from "../../requests/url"
 import {
+  isVariableReference,
   replaceVariableReferences,
   variableReferences,
 } from "../../variableReference"
@@ -38,6 +40,9 @@ export interface OpenApiExportOptions {
 
 const PATH_PARAM_RE = /:([\w-]+)(?=\/|\.|$)/g
 const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
+const NOODLE_OAUTH2_GRANT_EXTENSION = "x-noodle-oauth2-grant-type"
+const NOODLE_OAUTH2_DISCOVERY_KIND_EXTENSION =
+  "x-noodle-oauth2-discovery-url-kind"
 
 interface ParseableUrl {
   value: string
@@ -396,6 +401,63 @@ function addOAuth2Flow(
   }
 }
 
+function explicitOAuth2EndpointsAreSufficient(
+  auth: Extract<Auth, { type: "oauth2" }>,
+): boolean {
+  if (auth.grant_type === "authorization_code") {
+    return Boolean(auth.authorization_url && auth.access_token_url)
+  }
+  if (auth.grant_type === "implicit") return Boolean(auth.authorization_url)
+  return Boolean(auth.access_token_url)
+}
+
+function openIdConnectUrl(value: string, kind: "issuer" | "document"): string {
+  if (isVariableReference(value)) return value
+  try {
+    const template = makeParseableUrl(value)
+    if (kind === "document") {
+      new URL(template.value)
+      return value
+    }
+    return template.restore(
+      normalizeOAuth2DiscoveryUrl(new URL(template.value)).toString(),
+      true,
+    )
+  } catch (error) {
+    throw new Error(
+      `converters.openapi.export: invalid OAuth 2 discovery URL: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    )
+  }
+}
+
+function addOpenIdConnectScheme(
+  schemes: Record<string, OpenApiObject>,
+  url: string,
+  grantType: string,
+  discoveryUrlKind: "issuer" | "document",
+): string {
+  const candidate = {
+    type: "openIdConnect",
+    openIdConnectUrl: url,
+    [NOODLE_OAUTH2_GRANT_EXTENSION]: grantType,
+    ...(discoveryUrlKind === "issuer"
+      ? { [NOODLE_OAUTH2_DISCOVERY_KIND_EXTENSION]: "issuer" }
+      : {}),
+  }
+  const baseName = "openIdConnectAuth"
+  let name = baseName
+  let index = 2
+  while (
+    schemes[name] &&
+    JSON.stringify(schemes[name]) !== JSON.stringify(candidate)
+  ) {
+    name = `${baseName}${index++}`
+  }
+  schemes[name] ??= candidate
+  return name
+}
+
 function securityFor(
   auth: Auth | undefined,
   schemes: Record<string, OpenApiObject>,
@@ -424,6 +486,27 @@ function securityFor(
         .filter(Boolean)
         .map((scope) => [scope, ""]),
     )
+    if (auth.discovery_url && !explicitOAuth2EndpointsAreSufficient(auth)) {
+      if (
+        auth.authorization_url ||
+        auth.access_token_url ||
+        auth.refresh_token_url
+      ) {
+        throw new Error(
+          "converters.openapi.export: OAuth 2 discovery cannot be combined with partial explicit endpoint overrides",
+        )
+      }
+      name = addOpenIdConnectScheme(
+        schemes,
+        openIdConnectUrl(
+          auth.discovery_url,
+          auth.discovery_url_kind ?? "issuer",
+        ),
+        auth.grant_type,
+        auth.discovery_url_kind ?? "issuer",
+      )
+      return { security: [{ [name]: Object.keys(scopes) }] }
+    }
     let flowName: string
     let flow: OpenApiObject
     if (auth.grant_type === "authorization_code") {

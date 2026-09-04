@@ -207,6 +207,7 @@ function substituteAuth(
         : { ...parameter }
     return {
       ...auth,
+      discovery_url: resolve(auth.discovery_url, "auth.discovery_url"),
       authorization_url: resolve(
         auth.authorization_url,
         "auth.authorization_url",

@@ -242,6 +242,8 @@ function parseOAuth2(raw: Record<string, unknown>, path: string): OAuth2Auth {
     [
       "type",
       "grant_type",
+      "discovery_url",
+      "discovery_url_kind",
       "authorization_url",
       "access_token_url",
       "refresh_token_url",
@@ -308,6 +310,23 @@ function parseOAuth2(raw: Record<string, unknown>, path: string): OAuth2Auth {
       defaults.grant_type,
       path,
     ),
+    discovery_url: optionalString(
+      raw,
+      "discovery_url",
+      defaults.discovery_url,
+      path,
+    ),
+    ...(raw.discovery_url_kind === undefined
+      ? {}
+      : {
+          discovery_url_kind: enumValue(
+            raw,
+            "discovery_url_kind",
+            ["issuer", "document"] as const,
+            "issuer",
+            path,
+          ),
+        }),
     authorization_url: optionalString(
       raw,
       "authorization_url",

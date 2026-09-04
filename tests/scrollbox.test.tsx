@@ -28,6 +28,7 @@ import {
 } from "../src/ui/editor/CodeEditor"
 import { keyEvent } from "./unit/_helpers"
 import { defaultOAuth2Auth } from "../src/auth/defaults"
+import { getAuthRows } from "../src/ui/authRows"
 
 const testRender = createTestRender()
 
@@ -1285,10 +1286,13 @@ describe("RequestPane scrollbox", () => {
       ...makeRequest(1),
       auth: defaultOAuth2Auth(),
     }
+    const pkceMethodRow = getAuthRows(defaultOAuth2Auth()).find(
+      (field) => field.field === "pkce_method",
+    )!.row
     let focusPkceMethod: (() => void) | undefined
     function OAuthPane() {
       const [row, setRow] = useState(0)
-      focusPkceMethod = () => setRow(14)
+      focusPkceMethod = () => setRow(pkceMethodRow)
       return (
         <RequestPane
           request={request}

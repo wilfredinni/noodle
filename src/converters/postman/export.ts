@@ -158,6 +158,18 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
     }
   }
   if (auth.type === "oauth2") {
+    const requiresAuthorization =
+      auth.grant_type === "authorization_code" || auth.grant_type === "implicit"
+    const requiresToken = auth.grant_type !== "implicit"
+    if (
+      auth.discovery_url &&
+      ((requiresAuthorization && !auth.authorization_url) ||
+        (requiresToken && !auth.access_token_url))
+    ) {
+      throw new Error(
+        "converters.postman.export: OAuth 2 discovery-backed auth requires explicit endpoint URLs for the selected grant because Postman cannot represent discovery_url",
+      )
+    }
     return {
       type: "oauth2",
       oauth2: [

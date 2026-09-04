@@ -391,6 +391,7 @@ describe("substitute — OAuth", () => {
         CONSUMER_SECRET: "consumer-secret",
         CLIENT: "client",
         CLIENT_SECRET: "client-secret",
+        DISCOVERY_URL: "https://identity.example",
         TOKEN_URL: "https://identity.example/token",
         EXTRA_NAME: "resource",
         EXTRA_VALUE: "https://api.example",
@@ -417,6 +418,7 @@ describe("substitute — OAuth", () => {
         makeReq({
           auth: {
             ...defaultOAuth2Auth(),
+            discovery_url: "$DISCOVERY_URL",
             access_token_url: "$TOKEN_URL",
             client_id: "$CLIENT",
             client_secret: "$CLIENT_SECRET",
@@ -444,6 +446,7 @@ describe("substitute — OAuth", () => {
       ).auth,
     ).toMatchObject({
       type: "oauth2",
+      discovery_url: "https://identity.example",
       access_token_url: "https://identity.example/token",
       client_id: "client",
       client_secret: "client-secret",

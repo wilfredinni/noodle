@@ -211,9 +211,7 @@ timeout: 0
 auth:
   type: oauth2
   grant_type: authorization_code
-  authorization_url: https://identity.example.com/oauth/authorize
-  access_token_url: https://identity.example.com/oauth/token
-  refresh_token_url: https://identity.example.com/oauth/token
+  discovery_url: https://identity.example.com
   client_id: $oauth2_client_id
   client_secret: $oauth2_client_secret
   scope: openid profile
@@ -222,6 +220,7 @@ auth:
   pkce_method: S256
 ```
 
+Noodle resolves the authorization and token endpoints from the issuer on demand.
 The human user must complete first-time browser authorization in the TUI.
 Later automation runs may reuse or refresh the stored token, but they never
 open a browser or write the token into this file.

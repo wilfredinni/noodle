@@ -287,9 +287,10 @@ OAuth credentials when the origin changes.
 auth:
   type: oauth2
   grant_type: authorization_code
-  authorization_url: https://identity.example.com/oauth/authorize
-  access_token_url: https://identity.example.com/oauth/token
-  refresh_token_url: https://identity.example.com/oauth/token
+  discovery_url: https://identity.example.com
+  authorization_url: ""
+  access_token_url: ""
+  refresh_token_url: ""
   client_id: $oauth2_client_id
   client_secret: $oauth2_client_secret
   username: ""
@@ -329,7 +330,7 @@ auth:
 
 | Field group | Rules |
 | ----------- | ----- |
-| Grant | `grant_type` is `authorization_code`, `client_credentials`, `implicit`, or `password`. Authorization code and implicit require `authorization_url`; all non-implicit grants use `access_token_url`. `refresh_token_url` is optional. |
+| Grant and endpoints | `grant_type` is `authorization_code`, `client_credentials`, `implicit`, or `password`. `discovery_url` defaults to an OIDC issuer; set `discovery_url_kind: document` to request that exact discovery-document URL. Explicit `authorization_url` and `access_token_url` values win; `refresh_token_url` is optional and otherwise uses the token endpoint. |
 | Resource owner | `username` and `password` apply only to the password grant. Keep the password secret. |
 | Browser flow | `redirect_uri` must be a loopback HTTP URL whose path is `/oauth/callback`. Authorization code defaults to `pkce: true` and `pkce_method: S256`; `plain` is supported only for compatibility. `implicit_response_type` is `token`, `id_token`, or `token id_token`. |
 | Token lifecycle | `auto_fetch_token` and `auto_refresh_token` default to `true`. `credentials_id` is an optional stable key for sharing stored token state across compatible requests. |
@@ -338,7 +339,7 @@ auth:
 | Resource token | `token_source` is `access_token` or `id_token`. `token_placement` is `header` or `query`; customize `token_header`, `token_prefix`, or `token_query_key` as needed. |
 | Additional parameters | `authorization` entries support query placement only. `token` and `refresh` entries support body, header, or query placement. Every entry has `name`, `value`, optional `enabled` (default `true`), and `placement`. |
 
-OAuth endpoints require HTTPS except for loopback hosts. The TUI may open the
+OAuth discovery and resolved endpoints require HTTPS except for loopback hosts. The TUI may open the
 system browser for authorization code and implicit grants. Automation never
 opens a browser, but it may reuse or refresh stored browser credentials and may
 fetch client-credentials or password tokens directly. Token responses prefer

@@ -5,6 +5,7 @@ import type {
   Environment,
   FormEntry,
   KvEntry,
+  OAuth2GrantType,
   ParamEntry,
   Request,
 } from "../../schema"
@@ -29,6 +30,12 @@ export interface Normalized {
 }
 
 const FALLBACK_ID = "openapi-import"
+const OAUTH2_GRANTS: readonly OAuth2GrantType[] = [
+  "authorization_code",
+  "client_credentials",
+  "implicit",
+  "password",
+]
 
 const METHOD_KEYS = [
   "get",
@@ -303,6 +310,36 @@ function schemeToAuth(
         password: grantType === "password" ? "$OAUTH_PASSWORD" : "",
         scope: scopes.join(" "),
       }
+    }
+  }
+  if (
+    type === "openIdConnect" &&
+    typeof scheme.openIdConnectUrl === "string" &&
+    scheme.openIdConnectUrl
+  ) {
+    const extension = scheme["x-noodle-oauth2-grant-type"]
+    const grantType = OAUTH2_GRANTS.includes(extension as OAuth2GrantType)
+      ? (extension as OAuth2GrantType)
+      : "authorization_code"
+    const discoveryUrlKind =
+      scheme["x-noodle-oauth2-discovery-url-kind"] === "issuer"
+        ? "issuer"
+        : "document"
+    const scopes = Array.isArray(requiredScopes)
+      ? requiredScopes.filter(
+          (scope): scope is string => typeof scope === "string",
+        )
+      : []
+    return {
+      ...defaultOAuth2Auth(),
+      grant_type: grantType,
+      discovery_url: convertTpl(scheme.openIdConnectUrl),
+      discovery_url_kind: discoveryUrlKind,
+      client_id: "$OAUTH_CLIENT_ID",
+      client_secret: "$OAUTH_CLIENT_SECRET",
+      username: grantType === "password" ? "$OAUTH_USERNAME" : "",
+      password: grantType === "password" ? "$OAUTH_PASSWORD" : "",
+      scope: scopes.join(" "),
     }
   }
   if (type === "apiKey") {
@@ -595,6 +632,7 @@ export function mapCollection(n: Normalized): ImportResult {
     }
     if (a.type === "oauth2") {
       collectVars(
+        a.discovery_url,
         a.client_id,
         a.client_secret,
         a.username,
