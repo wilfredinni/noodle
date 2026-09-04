@@ -107,6 +107,7 @@ describe("OAuth language", () => {
     const oauth2 = {
       ...defaultOAuth2Auth(),
       discovery_url: "https://auth.example",
+      discovery_url_kind: "document" as const,
       authorization_url: "https://auth.example/authorize",
       access_token_url: "https://auth.example/token",
       client_id: "$CLIENT_ID",
@@ -190,6 +191,14 @@ describe("OAuth language", () => {
         "name: OAuth\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth2\n  discovery_url: 42\n",
       ),
     ).toThrow("lang.parseRequest: auth.oauth2.discovery_url must be a string")
+    expect(() =>
+      parseRequest(
+        "oauth",
+        "name: OAuth\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth2\n  discovery_url_kind: auto\n",
+      ),
+    ).toThrow(
+      'lang.parseRequest: auth.oauth2.discovery_url_kind must be one of issuer|document, got "auto"',
+    )
   })
 })
 
@@ -494,6 +503,9 @@ describe("OAuth 2 execution", () => {
         discovery_url: "https://identity.example/two",
       }),
     )
+    expect(oauth2CredentialKey(auth)).not.toBe(
+      oauth2CredentialKey({ ...auth, discovery_url_kind: "document" }),
+    )
   })
 
   it("discovers issuer endpoints once across concurrent and cached calls", async () => {
@@ -552,7 +564,7 @@ describe("OAuth 2 execution", () => {
     expect(tokenCalls).toBe(1)
   })
 
-  it("accepts a direct discovery document URL", async () => {
+  it("accepts a custom discovery document URL", async () => {
     const paths: string[] = []
     const serverPort = await unusedPort()
     const server = Bun.serve({
@@ -561,7 +573,7 @@ describe("OAuth 2 execution", () => {
       fetch(request) {
         const path = new URL(request.url).pathname
         paths.push(path)
-        if (path === "/custom/.well-known/openid-configuration") {
+        if (path === "/oidc-metadata") {
           return new Response(
             JSON.stringify({
               issuer: `http://127.0.0.1:${serverPort}/custom`,
@@ -577,7 +589,8 @@ describe("OAuth 2 execution", () => {
     const auth = {
       ...defaultOAuth2Auth(),
       grant_type: "client_credentials" as const,
-      discovery_url: `http://127.0.0.1:${server.port}/custom/.well-known/openid-configuration`,
+      discovery_url: `http://127.0.0.1:${server.port}/oidc-metadata`,
+      discovery_url_kind: "document" as const,
       client_id: "direct-client",
       credentials_id: `direct-${crypto.randomUUID()}`,
     }
@@ -586,10 +599,7 @@ describe("OAuth 2 execution", () => {
     expect(
       (await resolveOAuth2Token(auth, { mode: "cached-only" })).token,
     ).toBe("direct-token")
-    expect(paths).toEqual([
-      "/custom/.well-known/openid-configuration",
-      "/token",
-    ])
+    expect(paths).toEqual(["/oidc-metadata", "/token"])
   })
 
   it("keeps explicit endpoints authoritative and skips discovery", async () => {

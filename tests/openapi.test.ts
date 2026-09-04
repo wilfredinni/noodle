@@ -599,6 +599,7 @@ describe("mapCollection — auth resolution", () => {
       type: "oauth2",
       grant_type: "authorization_code",
       discovery_url: "https://x",
+      discovery_url_kind: "document",
       client_id: "$OAUTH_CLIENT_ID",
       client_secret: "$OAUTH_CLIENT_SECRET",
       scope: "openid profile",

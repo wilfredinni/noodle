@@ -190,6 +190,7 @@ export interface OAuth2Auth {
   type: "oauth2"
   grant_type: OAuth2GrantType
   discovery_url: string
+  discovery_url_kind?: "issuer" | "document"
   authorization_url: string
   access_token_url: string
   refresh_token_url: string

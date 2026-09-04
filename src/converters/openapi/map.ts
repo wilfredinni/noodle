@@ -321,6 +321,10 @@ function schemeToAuth(
     const grantType = OAUTH2_GRANTS.includes(extension as OAuth2GrantType)
       ? (extension as OAuth2GrantType)
       : "authorization_code"
+    const discoveryUrlKind =
+      scheme["x-noodle-oauth2-discovery-url-kind"] === "issuer"
+        ? "issuer"
+        : "document"
     const scopes = Array.isArray(requiredScopes)
       ? requiredScopes.filter(
           (scope): scope is string => typeof scope === "string",
@@ -330,6 +334,7 @@ function schemeToAuth(
       ...defaultOAuth2Auth(),
       grant_type: grantType,
       discovery_url: convertTpl(scheme.openIdConnectUrl),
+      discovery_url_kind: discoveryUrlKind,
       client_id: "$OAUTH_CLIENT_ID",
       client_secret: "$OAUTH_CLIENT_SECRET",
       username: grantType === "password" ? "$OAUTH_USERNAME" : "",

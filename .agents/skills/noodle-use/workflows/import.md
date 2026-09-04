@@ -101,8 +101,10 @@ auth types. NTLM credentials use generated environment-variable placeholders;
 declare the password as a secret before running the imported request.
 OpenAPI OAuth 2.0 authorization code, client credentials, implicit, and password
 flows map to Noodle OAuth 2.0 auth with endpoint URLs, required scopes, and
-generated credential placeholders. `openIdConnect` schemes map to discovery-backed
-OAuth 2.0 auth; `x-noodle-oauth2-grant-type` preserves a non-default grant.
+generated credential placeholders. `openIdConnect` schemes map to exact
+discovery-document URLs; Noodle's grant and issuer semantics survive round-trips
+through `x-noodle-oauth2-grant-type` and
+`x-noodle-oauth2-discovery-url-kind`.
 OAuth 1.0a has no OpenAPI 3.0 security-scheme representation and is not imported
 from OpenAPI.
 
@@ -161,11 +163,11 @@ request-body examples, folders as tags, supported auth, and enabled nonempty
 as HTTP security schemes; validate compatibility with the target OpenAPI
 consumer. OAuth 2.0 exports as standard flows when its selected grant has explicit
 endpoints. Discovery-only auth exports as `openIdConnect` with a normalized
-discovery URL and `x-noodle-oauth2-grant-type`; partial endpoint overrides are
-rejected because OpenAPI cannot represent both sources faithfully. Client
-credentials and cached tokens are never exported. OAuth 1.0a auth is omitted because
-OpenAPI 3.0 has no matching security-scheme type. Other environment values and
-response timeline data are not exported.
+discovery URL and Noodle extensions for the grant and issuer URL kind; partial
+endpoint overrides are rejected because OpenAPI cannot represent both sources
+faithfully. Client credentials and cached tokens are never exported. OAuth 1.0a
+auth is omitted because OpenAPI 3.0 has no matching security-scheme type. Other
+environment values and response timeline data are not exported.
 
 XML bodies export as literal string examples and preserve explicit XML MIME
 types such as `application/soap+xml`.

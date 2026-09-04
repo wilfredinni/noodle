@@ -90,6 +90,9 @@ export function oauth2CredentialKey(auth: OAuth2Auth): string {
       JSON.stringify({
         grant_type: auth.grant_type,
         discovery_url: auth.discovery_url,
+        ...(auth.discovery_url_kind === "document"
+          ? { discovery_url_kind: "document" }
+          : {}),
         authorization_url: auth.authorization_url,
         access_token_url: auth.access_token_url,
         refresh_token_url: auth.refresh_token_url,
@@ -137,9 +140,14 @@ async function resolveOAuth2Endpoints(
   const needsToken = requireToken && !auth.access_token_url
   if ((!needsAuthorization && !needsToken) || !auth.discovery_url) return auth
 
-  const discoveryUrl = normalizeOAuth2DiscoveryUrl(
-    validateOAuthEndpoint(auth.discovery_url, "discovery_url"),
+  const configuredDiscoveryUrl = validateOAuthEndpoint(
+    auth.discovery_url,
+    "discovery_url",
   )
+  const discoveryIsDocument = auth.discovery_url_kind === "document"
+  const discoveryUrl = discoveryIsDocument
+    ? configuredDiscoveryUrl
+    : normalizeOAuth2DiscoveryUrl(configuredDiscoveryUrl)
   warn(context, "Discovering OAuth 2 endpoints")
   const response = await send(
     {
@@ -193,8 +201,9 @@ async function resolveOAuth2Endpoints(
   )
   if (
     issuerUrl.search ||
-    oauth2DiscoveryUrlForIssuer(issuerUrl).toString() !==
-      discoveryUrl.toString()
+    (!discoveryIsDocument &&
+      oauth2DiscoveryUrlForIssuer(issuerUrl).toString() !==
+        discoveryUrl.toString())
   ) {
     throw new Error(
       "OAuth 2 discovery response issuer does not match discovery_url",

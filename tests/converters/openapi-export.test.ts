@@ -153,6 +153,7 @@ describe("exportOpenApi", () => {
           openIdConnectUrl:
             "https://identity.example/issuer/.well-known/openid-configuration",
           "x-noodle-oauth2-grant-type": "client_credentials",
+          "x-noodle-oauth2-discovery-url-kind": "issuer",
         },
       },
     })
@@ -171,6 +172,7 @@ describe("exportOpenApi", () => {
       grant_type: "client_credentials",
       discovery_url:
         "https://identity.example/issuer/.well-known/openid-configuration",
+      discovery_url_kind: "issuer",
       scope: "read write",
     })
   })
@@ -193,7 +195,10 @@ describe("exportOpenApi", () => {
 
     expect(result.document.components).toMatchObject({
       securitySchemes: {
-        openIdConnectAuth: { openIdConnectUrl: "$OIDC_ISSUER" },
+        openIdConnectAuth: {
+          openIdConnectUrl: "$OIDC_ISSUER",
+          "x-noodle-oauth2-discovery-url-kind": "issuer",
+        },
       },
     })
     const imported = openApiImporter.import(JSON.stringify(result.document))
@@ -203,6 +208,42 @@ describe("exportOpenApi", () => {
     expect(imported.data.auth).toMatchObject({
       type: "oauth2",
       discovery_url: "$OIDC_ISSUER",
+      discovery_url_kind: "issuer",
+    })
+  })
+
+  it("preserves a custom discovery document URL across OpenAPI", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              discovery_url: "https://identity.example/oidc-metadata",
+              discovery_url_kind: "document",
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(result.document.components).toMatchObject({
+      securitySchemes: {
+        openIdConnectAuth: {
+          openIdConnectUrl: "https://identity.example/oidc-metadata",
+        },
+      },
+    })
+    const imported = openApiImporter.import(JSON.stringify(result.document))
+      .collection.items[0]
+    expect(imported?.type).toBe("request")
+    if (imported?.type !== "request") throw new Error("expected request")
+    expect(imported.data.auth).toMatchObject({
+      type: "oauth2",
+      discovery_url: "https://identity.example/oidc-metadata",
+      discovery_url_kind: "document",
     })
   })
 

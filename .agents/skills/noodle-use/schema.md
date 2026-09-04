@@ -330,7 +330,7 @@ auth:
 
 | Field group | Rules |
 | ----------- | ----- |
-| Grant and endpoints | `grant_type` is `authorization_code`, `client_credentials`, `implicit`, or `password`. `discovery_url` accepts an OIDC issuer or direct `/.well-known/openid-configuration` URL and fills missing endpoints. Explicit `authorization_url` and `access_token_url` values win; `refresh_token_url` is optional and otherwise uses the token endpoint. |
+| Grant and endpoints | `grant_type` is `authorization_code`, `client_credentials`, `implicit`, or `password`. `discovery_url` defaults to an OIDC issuer; set `discovery_url_kind: document` to request that exact discovery-document URL. Explicit `authorization_url` and `access_token_url` values win; `refresh_token_url` is optional and otherwise uses the token endpoint. |
 | Resource owner | `username` and `password` apply only to the password grant. Keep the password secret. |
 | Browser flow | `redirect_uri` must be a loopback HTTP URL whose path is `/oauth/callback`. Authorization code defaults to `pkce: true` and `pkce_method: S256`; `plain` is supported only for compatibility. `implicit_response_type` is `token`, `id_token`, or `token id_token`. |
 | Token lifecycle | `auto_fetch_token` and `auto_refresh_token` default to `true`. `credentials_id` is an optional stable key for sharing stored token state across compatible requests. |

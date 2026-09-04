@@ -41,6 +41,8 @@ export interface OpenApiExportOptions {
 const PATH_PARAM_RE = /:([\w-]+)(?=\/|\.|$)/g
 const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
 const NOODLE_OAUTH2_GRANT_EXTENSION = "x-noodle-oauth2-grant-type"
+const NOODLE_OAUTH2_DISCOVERY_KIND_EXTENSION =
+  "x-noodle-oauth2-discovery-url-kind"
 
 interface ParseableUrl {
   value: string
@@ -409,10 +411,14 @@ function explicitOAuth2EndpointsAreSufficient(
   return Boolean(auth.access_token_url)
 }
 
-function openIdConnectUrl(value: string): string {
+function openIdConnectUrl(value: string, kind: "issuer" | "document"): string {
   if (isVariableReference(value)) return value
   try {
     const template = makeParseableUrl(value)
+    if (kind === "document") {
+      new URL(template.value)
+      return value
+    }
     return template.restore(
       normalizeOAuth2DiscoveryUrl(new URL(template.value)).toString(),
       true,
@@ -429,11 +435,15 @@ function addOpenIdConnectScheme(
   schemes: Record<string, OpenApiObject>,
   url: string,
   grantType: string,
+  discoveryUrlKind: "issuer" | "document",
 ): string {
   const candidate = {
     type: "openIdConnect",
     openIdConnectUrl: url,
     [NOODLE_OAUTH2_GRANT_EXTENSION]: grantType,
+    ...(discoveryUrlKind === "issuer"
+      ? { [NOODLE_OAUTH2_DISCOVERY_KIND_EXTENSION]: "issuer" }
+      : {}),
   }
   const baseName = "openIdConnectAuth"
   let name = baseName
@@ -488,8 +498,12 @@ function securityFor(
       }
       name = addOpenIdConnectScheme(
         schemes,
-        openIdConnectUrl(auth.discovery_url),
+        openIdConnectUrl(
+          auth.discovery_url,
+          auth.discovery_url_kind ?? "issuer",
+        ),
         auth.grant_type,
+        auth.discovery_url_kind ?? "issuer",
       )
       return { security: [{ [name]: Object.keys(scopes) }] }
     }
