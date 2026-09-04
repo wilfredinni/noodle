@@ -7,6 +7,7 @@ import {
   THEMES,
   ThemePickerOverlay,
   ThemeProvider,
+  systemTheme,
   useTheme,
 } from "../../src/ui/theme"
 import { setupKeymap } from "./_helpers"
@@ -135,7 +136,7 @@ describe("ThemePickerOverlay", () => {
     expect(systemIndex).toBeGreaterThan(-1)
 
     const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame, captureSpans, renderer } =
+    const { waitForFrame, renderOnce, captureSpans, renderer } =
       await testRender(
         <KeymapProvider keymap={keymap}>
           <ThemeProvider activeIndex={systemIndex} previewIndex={systemIndex}>
@@ -150,9 +151,7 @@ describe("ThemePickerOverlay", () => {
         </KeymapProvider>,
         { width: 60, height: 30 },
       )
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await renderOnce()
-    expect(captureCharFrame()).toContain("system")
+    await waitForFrame((frame) => frame.includes("system"))
     await act(async () => {
       renderer.emit(CliRenderEvents.PALETTE, terminalColors("#003333"))
     })
@@ -179,7 +178,6 @@ describe("system ThemeProvider", () => {
       </ThemeProvider>,
       { width: 40, height: 4 },
     )
-    await new Promise((resolve) => setTimeout(resolve, 0))
     await render.renderOnce()
 
     const colors = terminalColors()
@@ -205,26 +203,60 @@ describe("system ThemeProvider", () => {
     }
 
     const render = await testRender(<Harness />, { width: 40, height: 4 })
-    await new Promise((resolve) => setTimeout(resolve, 0))
     let paletteQueries = 0
     render.renderer.getPalette = async () => {
       paletteQueries++
       return terminalColors()
     }
 
-    await act(async () => {
+    await act(() => {
       render.mockInput.pressKey("\x1b[?997;1n")
-      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     await render.renderOnce()
     expect(paletteQueries).toBe(1)
     expect(render.captureCharFrame()).toContain("#22ccdd|#ffffff")
 
-    act(() => {
+    await act(() => {
       render.mockInput.pressKey("\x1b[?997;2n")
       leaveSystem()
     })
-    await new Promise((resolve) => setTimeout(resolve, 0))
     expect(paletteQueries).toBe(1)
+  })
+
+  it("uses the fallback while refreshing a reselected system theme", async () => {
+    const systemIndex = THEMES.findIndex((theme) => theme.name === "system")
+    let setPreviewIndex = (_index: number | null) => {}
+    function Harness() {
+      const [previewIndex, setPreview] = useState<number | null>(null)
+      setPreviewIndex = setPreview
+      return (
+        <ThemeProvider activeIndex={systemIndex} previewIndex={previewIndex}>
+          <ThemeProbe />
+        </ThemeProvider>
+      )
+    }
+
+    const render = await testRender(<Harness />, { width: 40, height: 4 })
+    await render.renderOnce()
+    await act(() => {
+      render.renderer.emit(CliRenderEvents.PALETTE, terminalColors())
+    })
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("#22ccdd|#ffffff")
+
+    let paletteQueries = 0
+    render.renderer.getPalette = () => {
+      paletteQueries++
+      return new Promise<TerminalColors>(() => {})
+    }
+
+    await act(() => setPreviewIndex(0))
+    await act(() => setPreviewIndex(null))
+    await render.renderOnce()
+
+    expect(paletteQueries).toBe(1)
+    expect(render.captureCharFrame()).toContain(
+      `${systemTheme.primary}|${systemTheme.backgroundPanel}`,
+    )
   })
 })

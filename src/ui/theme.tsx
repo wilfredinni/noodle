@@ -89,7 +89,10 @@ export function ThemeProvider({
   const [detectedSystemTheme, setDetectedSystemTheme] = useState(systemTheme)
 
   useEffect(() => {
-    if (selectedTheme.name !== "system") return
+    if (selectedTheme.name !== "system") {
+      setDetectedSystemTheme(systemTheme)
+      return
+    }
 
     let cancelled = false
     let signature: string | undefined
