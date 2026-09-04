@@ -264,6 +264,11 @@ const collection = defineCommand({
           default: false,
           description: "Stop after the first failed request",
         },
+        delay: {
+          type: "string",
+          default: "0",
+          description: "Milliseconds to wait between requests",
+        },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
         json: jsonArg,
@@ -294,6 +299,8 @@ const collection = defineCommand({
                 (values.tag ?? []) as string[],
                 (values["exclude-tag"] ?? []) as string[],
                 args["fail-fast"],
+                undefined,
+                args.delay.trim() === "" ? Number.NaN : Number(args.delay),
               )
               return {
                 data,

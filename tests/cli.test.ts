@@ -250,6 +250,40 @@ describe("CLI integration", () => {
     expect(out).toContain("repeatable; all must match")
     expect(out).toContain("repeatable; any match excludes")
     expect(out).toContain("--fail-fast")
+    expect(out).toContain("--delay=<delay>")
+    expect(out).toContain("Milliseconds to wait between requests")
+  })
+
+  it("rejects invalid collection request delays", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-delay-"))
+    try {
+      for (const value of [
+        "",
+        "   ",
+        "-1",
+        "1.5",
+        "nope",
+        "9007199254740992",
+      ]) {
+        const proc = Bun.spawnSync(
+          ["bun", CLI, "collection", "run", dir, `--delay=${value}`, "--json"],
+          { env: { ...process.env, HOME: join(dir, "home") } },
+        )
+        expect(proc.exitCode).toBe(2)
+        expect(JSON.parse(proc.stdout.toString())).toMatchObject({
+          status: "error",
+          data: {
+            failure: {
+              category: "configuration",
+              message: "delay must be a non-negative safe integer",
+            },
+          },
+          errors: ["delay must be a non-negative safe integer"],
+        })
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 
   it("accepts repeated tag filters in space and equals forms", async () => {

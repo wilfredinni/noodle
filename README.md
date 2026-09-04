@@ -74,9 +74,9 @@ the collection Runner, and CLI runs.
 In jump mode, `v` opens Assert, `c` opens Capture, and `t` opens Settings.
 
 Run Collection from the command palette opens a transient collection runner for
-choosing requests, environment, tag filters, and fail-fast behavior before
-inspecting ordered results. A folder's context palette opens the same runner
-scoped to that folder.
+choosing requests, environment, tag filters, fail-fast behavior, and an optional
+delay between requests before inspecting ordered results. A folder's context
+palette opens the same runner scoped to that folder.
 
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
@@ -106,6 +106,7 @@ noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 noodle collection run ./my-api auth/ health users/get --json
 noodle collection run ./my-api --tag smoke --tag api --exclude-tag destructive --json
+noodle collection run ./my-api --delay 500 --json
 noodle agent install
 ```
 
@@ -115,7 +116,8 @@ apply to every descendant request, so `collection run --tag smoke` can execute a
 dynamic suite without a second collection format. Repeat `--tag` to require
 every Include tag and repeat `--exclude-tag` to remove requests matching any
 Exclude tag. Exclusion wins, and `--fail-fast` records the remaining selected
-request IDs as skipped.
+request IDs as skipped. `--delay <milliseconds>` waits after each completed
+request when another selected request remains.
 
 Request YAML can also declare response assertions for status, timing, headers,
 and JSON body paths. Edit them in the TUI Assert tab or as YAML. Manual
