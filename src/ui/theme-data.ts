@@ -1,3 +1,10 @@
+import {
+  RGBA,
+  normalizeTerminalPalette,
+  rgbToHex,
+  type TerminalColors,
+} from "@opentui/core"
+
 export interface Theme {
   name: string
   primary: string
@@ -578,6 +585,74 @@ export const noodleTheme: Theme = {
   borderSubtle: "#514a42",
 }
 
+export const systemTheme: Theme = { ...noodleTheme, name: "system" }
+
+function mixColor(from: RGBA, to: RGBA, amount: number): RGBA {
+  return RGBA.fromValues(
+    from.r + (to.r - from.r) * amount,
+    from.g + (to.g - from.g) * amount,
+    from.b + (to.b - from.b) * amount,
+  )
+}
+
+export function generateSystemTheme(
+  colors: TerminalColors,
+  fallbackMode: "dark" | "light" = "dark",
+): Theme | null {
+  if (
+    !colors.defaultForeground &&
+    !colors.defaultBackground &&
+    !colors.palette.some(Boolean)
+  ) {
+    return null
+  }
+
+  const normalized = normalizeTerminalPalette(colors)
+  const background = colors.defaultBackground
+    ? RGBA.fromHex(colors.defaultBackground)
+    : colors.palette[0]
+      ? RGBA.fromHex(colors.palette[0])
+      : normalized.defaultBackground
+  const foreground = colors.defaultForeground
+    ? RGBA.fromHex(colors.defaultForeground)
+    : colors.palette[7]
+      ? RGBA.fromHex(colors.palette[7])
+      : normalized.defaultForeground
+  const mode = colors.defaultBackground
+    ? 0.299 * background.r + 0.587 * background.g + 0.114 * background.b > 0.5
+      ? "light"
+      : "dark"
+    : fallbackMode
+  const rampTarget = RGBA.fromInts(
+    mode === "dark" ? 255 : 0,
+    mode === "dark" ? 255 : 0,
+    mode === "dark" ? 255 : 0,
+  )
+  const ramp = (step: number) =>
+    rgbToHex(mixColor(background, rampTarget, (step / 12) * 0.4))
+  const ansi = (index: number) => rgbToHex(normalized.palette[index]!)
+
+  return {
+    name: "system",
+    primary: ansi(6),
+    secondary: ansi(5),
+    accent: ansi(6),
+    error: ansi(1),
+    warning: ansi(3),
+    success: ansi(2),
+    info: ansi(6),
+    text: rgbToHex(foreground),
+    textMuted: rgbToHex(mixColor(foreground, background, 0.45)),
+    background: "transparent",
+    backgroundPanel: rgbToHex(background),
+    backgroundElement: ramp(3),
+    borderDimmest: ramp(1),
+    borderSubtle: ramp(6),
+    border: ramp(7),
+    borderActive: ramp(8),
+  }
+}
+
 export const orngTheme: Theme = {
   name: "orng",
   primary: "#ec5b2b",
@@ -729,6 +804,7 @@ export const THEMES: Theme[] = [
   rosepineTheme,
   solarizedTheme,
   synthwave84Theme,
+  systemTheme,
   tokyonightTheme,
   vercelTheme,
   vesperTheme,
@@ -737,10 +813,6 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_THEME_NAME = "noodle"
 export const DEFAULT_THEME_INDEX = THEMES.indexOf(noodleTheme)
-
-export function contrastOnPrimary(_theme: Theme): string {
-  return "#1a1a1a"
-}
 
 function relativeLuminance(hex: string): number {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim())
@@ -753,8 +825,8 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
 }
 
-export function contrastOnSecondary(theme: Theme): string {
-  const background = relativeLuminance(theme.secondary)
+function contrastOn(backgroundColor: string): string {
+  const background = relativeLuminance(backgroundColor)
   const dark = relativeLuminance("#1a1a1a")
   const light = relativeLuminance("#f0f0f0")
   const ratio = (a: number, b: number) =>
@@ -762,6 +834,14 @@ export function contrastOnSecondary(theme: Theme): string {
   return ratio(background, dark) >= ratio(background, light)
     ? "#1a1a1a"
     : "#f0f0f0"
+}
+
+export function contrastOnPrimary(theme: Theme): string {
+  return contrastOn(theme.primary)
+}
+
+export function contrastOnSecondary(theme: Theme): string {
+  return contrastOn(theme.secondary)
 }
 
 export { PaneBorder, FullBorder, LeftBar } from "./borders"

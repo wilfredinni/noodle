@@ -7,7 +7,7 @@ import {
   searchRequests,
   type FinderItem,
 } from "../requestFinder"
-import { useTheme } from "../theme"
+import { contrastOnPrimary, useTheme } from "../theme"
 import { PickerOverlay } from "./PickerOverlay"
 
 function truncate(value: string, maxLength: number): string {
@@ -69,8 +69,9 @@ export function RequestFinderOverlay({
       item: FinderItem,
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
-      const fg = highlighted ? "#1a1a1a" : theme.text
-      const mutedFg = highlighted ? "#333333" : theme.textMuted
+      const highlightedForeground = contrastOnPrimary(theme)
+      const fg = highlighted ? highlightedForeground : theme.text
+      const mutedFg = highlighted ? highlightedForeground : theme.textMuted
 
       if (item.type === "request") {
         const tags = item.tags.map((tag) => `#${tag}`).join(" ")
@@ -80,7 +81,7 @@ export function RequestFinderOverlay({
               <text
                 fg={
                   highlighted
-                    ? "#333333"
+                    ? highlightedForeground
                     : methodColor(item.request.method, theme)
                 }
               >
@@ -112,7 +113,7 @@ export function RequestFinderOverlay({
 
       return (
         <box flexDirection="row" flexGrow={1}>
-          <text fg={highlighted ? "#333333" : theme.info}>
+          <text fg={highlighted ? highlightedForeground : theme.info}>
             {"FOLDER".padEnd(8)}
           </text>
           <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">

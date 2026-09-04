@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
-import { useTheme } from "../theme"
+import { contrastOnPrimary, useTheme } from "../theme"
 import type { CollectionSettings } from "../../schema"
 import { collectionDisplayName } from "../settings/collectionRegistry"
 
@@ -85,8 +85,13 @@ export function CollectionSwitcherOverlay({
       item: CollectionItem,
       { highlighted, active }: { highlighted: boolean; active: boolean },
     ) => {
-      const fg = highlighted ? "#1a1a1a" : active ? theme.primary : theme.text
-      const pathFg = highlighted ? "#333333" : theme.textMuted
+      const highlightedForeground = contrastOnPrimary(theme)
+      const fg = highlighted
+        ? highlightedForeground
+        : active
+          ? theme.primary
+          : theme.text
+      const pathFg = highlighted ? highlightedForeground : theme.textMuted
       return (
         <>
           <text fg={fg} attributes={active ? TextAttributes.BOLD : undefined}>

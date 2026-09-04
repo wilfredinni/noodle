@@ -4,6 +4,10 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### ✨ Features
+
+- Add a live `system` theme that follows the terminal palette, refreshes after in-session theme changes, and keeps the saved preference while falling back to Noodle colors when detection is unavailable.
+
 ## [0.8.4] - 2026-09-04
 
 Noodle 0.8.4 adds paced collection runs in both the CLI and TUI Runner, with F5 opening the Runner directly. Variable substitution and environment files are now stricter and more predictable, while code generation, large-response rendering, modal dismissal, selection, and terminal layouts gain focused reliability improvements.
