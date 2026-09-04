@@ -910,7 +910,10 @@ export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
     super(ctx, {
       ...options,
       orientation: "vertical",
-      onChange: (position) => targetRef.current?.scrollTo(position),
+      onChange: (position) => {
+        if (targetRef.current?.scrollY !== position)
+          targetRef.current?.scrollTo(position)
+      },
     })
     this._targetRef = targetRef
     this.target = target
