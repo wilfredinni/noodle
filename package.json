@@ -41,7 +41,7 @@
     "bun-types": "^1.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
-    "oxfmt": "^0.65.0",
+    "oxfmt": "^0.66.0",
     "oxlint": "^1.80.0",
     "typescript": "^7.0.2"
   },
