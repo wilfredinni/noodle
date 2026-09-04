@@ -242,6 +242,12 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
       description:
         "OIDC issuer or discovery document URL used to fill missing OAuth endpoints.",
     }),
+    choice(
+      "Discovery URL Type",
+      "discovery_url_kind",
+      ["issuer", "document"],
+      "Whether to derive the standard discovery path from an issuer or request the exact document URL.",
+    ),
   ]
   if (browserGrant) {
     definitions.push(
@@ -535,6 +541,9 @@ function additionalParameterField(field: string): {
 
 export function authFieldValue(auth: Auth, field: string): string {
   if (auth.type === "none" || auth.type === "inherit") return ""
+  if (auth.type === "oauth2" && field === "discovery_url_kind") {
+    return auth.discovery_url_kind ?? "issuer"
+  }
   const additional = additionalParameterField(field)
   if (auth.type === "oauth2" && additional) {
     return parameterValue(

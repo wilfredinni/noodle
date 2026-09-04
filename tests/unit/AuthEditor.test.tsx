@@ -68,6 +68,7 @@ describe("AuthEditor", () => {
     expect(frame).toContain("Private Key*")
     expect(frame).toContain("OAuth 2.0")
     expect(frame).toContain("Discovery URL")
+    expect(frame).toContain("Discovery URL Type")
     expect(frame).toContain("OIDC issuer or discovery document URL")
     expect(frame).toContain("Access Token URL")
     expect(frame).not.toContain("Access Token URL*")

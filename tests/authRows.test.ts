@@ -20,6 +20,7 @@ describe("OAuth auth rows", () => {
     const codeRows = getAuthRows(authorizationCode)
     const codeFields = codeRows.map((row) => row.field)
     expect(codeFields).toContain("discovery_url")
+    expect(codeFields).toContain("discovery_url_kind")
     expect(codeFields).toContain("authorization_url")
     expect(codeFields).toContain("pkce_method")
     expect(codeFields).not.toContain("username")
@@ -45,6 +46,15 @@ describe("OAuth auth rows", () => {
       discoveredRows.find((row) => row.field === "access_token_url")?.required,
     ).toBe(false)
     expect(authRowCount(authorizationCode)).toBe(codeFields.length + 1)
+  })
+
+  it("edits the discovery URL kind with issuer as the default", () => {
+    const auth = defaultOAuth2Auth()
+    expect(authFieldValue(auth, "discovery_url_kind")).toBe("issuer")
+    expect(updateAuthField(auth, "discovery_url_kind", "document")).toEqual({
+      ...auth,
+      discovery_url_kind: "document",
+    })
   })
 
   it("edits phase and placement parameter groups without losing other metadata", () => {
