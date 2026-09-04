@@ -48,6 +48,8 @@ export interface UseCollectionRunnerResult {
   includeTagIndex: number
   excludeTagIndex: number
   failFast: boolean
+  delayMsInput: string
+  delayError: string | null
   optionIndex: number
   requestIndex: number
   requestRowIndex: number
@@ -65,6 +67,7 @@ export interface UseCollectionRunnerResult {
   deleteTagFilter: (filter: RunnerTagFilter, index: number) => void
   setTagFilterIndex: (filter: RunnerTagFilter, index: number) => void
   setSelectOpen: (open: boolean) => void
+  setDelayMsInput: (value: string) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
   setRequestRowIndex: (index: number) => void
@@ -91,7 +94,7 @@ export interface UseCollectionRunnerResult {
   run: () => Promise<void>
 }
 
-export const RUNNER_RUN_OPTION_INDEX = 4
+export const RUNNER_RUN_OPTION_INDEX = 5
 const OPTION_COUNT = RUNNER_RUN_OPTION_INDEX + 1
 
 type RunnerNavigationRow =
@@ -157,6 +160,7 @@ export function useCollectionRunner({
   const [includeTagIndex, setIncludeTagIndex] = useState(0)
   const [excludeTagIndex, setExcludeTagIndex] = useState(0)
   const [failFast, setFailFast] = useState(false)
+  const [delayMsInput, setDelayMsInputState] = useState("0")
   const [optionIndex, setOptionIndexState] = useState(0)
   const [selectOpen, setSelectOpen] = useState(false)
   const [requestIndex, setRequestIndexState] = useState(0)
@@ -170,6 +174,15 @@ export function useCollectionRunner({
   const [runRequestIds, setRunRequestIds] = useState<string[]>([])
   const [runError, setRunError] = useState<string | null>(null)
   const runningRef = useRef(false)
+  const parsedDelayMs = Number(delayMsInput)
+  const delayMs =
+    delayMsInput.trim() !== "" &&
+    Number.isSafeInteger(parsedDelayMs) &&
+    parsedDelayMs >= 0
+      ? parsedDelayMs
+      : null
+  const delayError =
+    delayMs === null ? "Delay must be a non-negative safe integer." : null
   const setOptionIndex = useCallback(
     (index: number) => {
       if (
@@ -240,6 +253,7 @@ export function useCollectionRunner({
     setIncludeTagIndex(0)
     setExcludeTagIndex(0)
     setFailFast(false)
+    setDelayMsInputState("0")
     setOptionIndexState(0)
     setSelectOpen(false)
     setRequestIndexState(0)
@@ -443,10 +457,17 @@ export function useCollectionRunner({
   const toggleFailFast = useCallback(() => {
     if (phase !== "running") setFailFast((value) => !value)
   }, [phase])
+  const setDelayMsInput = useCallback(
+    (value: string) => {
+      if (phase !== "running") setDelayMsInputState(value)
+    },
+    [phase],
+  )
 
   const runAvailable =
     phase !== "running" &&
     !hasUnsavedChanges &&
+    delayMs !== null &&
     selectedRequestIds.length > 0 &&
     preview.ids.size > 0 &&
     preview.error === null
@@ -458,6 +479,7 @@ export function useCollectionRunner({
       runningRef.current ||
       hasUnsavedChanges ||
       selectOpen ||
+      delayMs === null ||
       !collection ||
       selectedRequestIds.length === 0
     )
@@ -497,6 +519,7 @@ export function useCollectionRunner({
         excludeTags,
         failFast,
         (detail) => nextDetails.set(detail.requestId, detail),
+        delayMs,
       )
       setResultDetails(nextDetails)
       setResult(next)
@@ -510,6 +533,7 @@ export function useCollectionRunner({
   }, [
     collection,
     collectionDir,
+    delayMs,
     environmentName,
     excludeTags,
     failFast,
@@ -540,6 +564,8 @@ export function useCollectionRunner({
     includeTagIndex,
     excludeTagIndex,
     failFast,
+    delayMsInput,
+    delayError,
     optionIndex,
     requestIndex,
     requestRowIndex,
@@ -557,6 +583,7 @@ export function useCollectionRunner({
     deleteTagFilter,
     setTagFilterIndex,
     setSelectOpen,
+    setDelayMsInput,
     setOptionIndex,
     setRequestIndex,
     setRequestRowIndex,

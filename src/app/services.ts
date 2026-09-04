@@ -912,6 +912,7 @@ export async function collectionRun(
   excludeTags: readonly string[] = [],
   failFast = false,
   onDetail?: RunDetail,
+  delayMs = 0,
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
@@ -924,6 +925,9 @@ export async function collectionRun(
   let tlsPolicy: TlsPolicy | undefined
   let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
   try {
+    if (!Number.isSafeInteger(delayMs) || delayMs < 0) {
+      throw new Error("delay must be a non-negative safe integer")
+    }
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir)
     requests = selectCollectionRunRequests(
@@ -975,6 +979,9 @@ export async function collectionRun(
           })),
         )
         break
+      }
+      if (delayMs > 0 && index < requests.length - 1) {
+        await Bun.sleep(delayMs)
       }
     }
   } finally {
