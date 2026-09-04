@@ -1,7 +1,10 @@
 import type { ParamEntry } from "../schema"
 import { parsePathToken } from "../requests/pathParams"
 
-export function buildDisplayUrl(url: string, params: ParamEntry[]): string {
+export function buildDisplayUrl(
+  url: string | null,
+  params: ParamEntry[],
+): string | null {
   if (!url) return url
 
   let baseUrl: string
