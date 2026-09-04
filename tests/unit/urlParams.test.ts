@@ -41,7 +41,8 @@ describe("buildDisplayUrl", () => {
       "https://example.com/posts?page=1&sort=asc",
       params,
     )
-    const u = new URL(result)
+    expect(result).not.toBeNull()
+    const u = new URL(result!)
     expect(u.searchParams.get("page")).toBe("2")
     expect(u.searchParams.get("sort")).toBe("asc")
   })
@@ -93,7 +94,8 @@ describe("buildDisplayUrl", () => {
   it("handles multiple params with same key (last wins)", () => {
     const params: ParamEntry[] = [{ name: "id", value: "1", enabled: true }]
     const result = buildDisplayUrl("https://example.com?sort=asc", params)
-    const u = new URL(result)
+    expect(result).not.toBeNull()
+    const u = new URL(result!)
     expect(u.searchParams.getAll("id")).toEqual(["1"])
   })
 
@@ -103,7 +105,8 @@ describe("buildDisplayUrl", () => {
       { name: "filter", value: "pending", enabled: true },
     ]
     const result = buildDisplayUrl("https://example.com/data", params)
-    const u = new URL(result)
+    expect(result).not.toBeNull()
+    const u = new URL(result!)
     expect(u.searchParams.getAll("filter")).toEqual(["active", "pending"])
   })
 })
