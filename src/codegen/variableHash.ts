@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
-
-const VAR_RE = /\$(\w+)/g
+import { replaceVariableReferences } from "../variableReference"
 const HTTP_AUTHORITY_RE = /^https?:\/\/([^/?#]*)/
 
 const VAR_PREFIX = "noodle-var-"
@@ -22,10 +21,10 @@ export function hashVars(url: string): VarHasher {
 
   let counter = 0
   const map = new Map<number, string>()
-  let hashed = working.replace(VAR_RE, (match) => {
+  let hashed = replaceVariableReferences(working, (_name, reference) => {
     const id = counter++
     const placeholder = `${VAR_PREFIX}${id}`
-    map.set(id, match)
+    map.set(id, working.slice(reference.start, reference.end))
     return placeholder
   })
   const authority = hashed.match(HTTP_AUTHORITY_RE)?.[1] ?? ""

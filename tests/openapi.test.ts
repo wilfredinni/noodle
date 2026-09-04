@@ -1154,6 +1154,33 @@ describe("mapCollection — parameters", () => {
     expect(env?.vars.org).toBe("")
     expect(env?.vars.repo).toBe("")
   })
+
+  it("ignores escaped literals while discovering environment variables", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [{ url: "https://{host}" }],
+        paths: {
+          "/users/{id}": {
+            get: {
+              operationId: "getUser",
+              parameters: [
+                {
+                  name: "id",
+                  in: "path",
+                  example: "$$literal-$$$real",
+                },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    const environment = c.environments.find((item) => item.name === "default")
+    expect(Object.keys(environment?.vars ?? {}).sort()).toEqual([
+      "host",
+      "real",
+    ])
+  })
 })
 
 describe("mapCollection — end-to-end integration", () => {

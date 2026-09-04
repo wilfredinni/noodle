@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { act, useEffect, useState, type ReactNode } from "react"
+import {
+  act,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { setupKeymap } from "./_helpers"
@@ -38,6 +44,8 @@ function fld(path: string, children: CollectionItem[]): CollectionItem {
 interface Props {
   initialSelectedId?: string
   initialItems: CollectionItem[]
+  onStateChange?: (state: string) => void
+  onSelectionRefChange?: (selectedId: string, refId: string) => void
   afterMount?: (
     setSelectedId: (id: string) => void,
     setItems: (items: CollectionItem[]) => void,
@@ -51,6 +59,8 @@ interface Props {
 function Harness({
   initialSelectedId,
   initialItems,
+  onStateChange,
+  onSelectionRefChange,
   afterMount,
 }: Props): ReactNode {
   const [items, setItems] = useState(initialItems)
@@ -62,6 +72,7 @@ function Harness({
     revealRequest,
     revealFolder,
     cursorIndex,
+    focusedFolderPath,
   } = useTreeNavigation(items, () => true, initialSelectedId)
 
   useEffect(() => {
@@ -74,6 +85,16 @@ function Harness({
       selectedIdRef,
     )
   }, [])
+
+  useEffect(() => {
+    onStateChange?.(
+      `${selectedId ?? ""}|${cursorIndex}|${focusedFolderPath ?? "request"}`,
+    )
+  }, [cursorIndex, focusedFolderPath, onStateChange, selectedId])
+
+  useLayoutEffect(() => {
+    onSelectionRefChange?.(selectedId ?? "", selectedIdRef.current ?? "")
+  }, [onSelectionRefChange, selectedId, selectedIdRef])
 
   return <text>{`s:${selectedId ?? ""}|c:${cursorIndex}`}</text>
 }
@@ -259,5 +280,77 @@ describe("useTreeNavigation", () => {
 
     // Cursor position should land on users/admin folder (index 2: root/list=0, users=1, users/admin=2)
     expect(frame).toContain("c:2")
+  })
+
+  it("does not expose a folder cursor while replacing a deleted request", async () => {
+    const initialItems = [
+      req("first"),
+      req("deleted"),
+      fld("users", [req("users/remaining")]),
+    ]
+    const nextItems = [req("first"), fld("users", [req("users/remaining")])]
+    const states: string[] = []
+    let replaceItems: ((items: CollectionItem[]) => void) | undefined
+    let reveal: ((id: string) => void) | undefined
+
+    const view = await render(
+      <Harness
+        initialItems={initialItems}
+        onStateChange={(state) => states.push(state)}
+        afterMount={(
+          _setSelectedId,
+          setItems,
+          _expandFolder,
+          revealRequest,
+        ) => {
+          replaceItems = setItems
+          reveal = revealRequest
+        }}
+      />,
+    )
+
+    await view.renderOnce()
+    await act(async () => reveal?.("deleted"))
+    await view.renderOnce()
+    expect(view.captureCharFrame()).toContain("s:deleted|c:1")
+
+    states.length = 0
+    await act(async () => replaceItems?.(nextItems))
+    await view.renderOnce()
+
+    expect(states).toEqual(["first|0|request"])
+  })
+
+  it("reveals a hidden fallback with its selection ref synchronized", async () => {
+    const initialItems = [
+      req("deleted"),
+      fld("users", [req("users/remaining")]),
+    ]
+    const nextItems = [fld("users", [req("users/remaining")])]
+    const states: string[] = []
+    const refStates: string[] = []
+    let replaceItems: ((items: CollectionItem[]) => void) | undefined
+
+    const view = await render(
+      <Harness
+        initialItems={initialItems}
+        onStateChange={(state) => states.push(state)}
+        onSelectionRefChange={(selectedId, refId) =>
+          refStates.push(`${selectedId}|${refId}`)
+        }
+        afterMount={(_setSelectedId, setItems) => {
+          replaceItems = setItems
+        }}
+      />,
+    )
+
+    await view.renderOnce()
+    states.length = 0
+    refStates.length = 0
+    await act(async () => replaceItems?.(nextItems))
+    await view.renderOnce()
+
+    expect(states).toEqual(["users/remaining|1|request"])
+    expect(refStates).toEqual(["users/remaining|users/remaining"])
   })
 })

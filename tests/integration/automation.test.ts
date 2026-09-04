@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test"
 import { existsSync } from "node:fs"
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { scheduler } from "node:timers/promises"
 import {
   collectionAudit,
   collectionFormat,
@@ -31,6 +32,7 @@ beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-automation-"))
 })
 afterEach(async () => {
+  jest.useRealTimers()
   setSecretBackendForTests(undefined)
   await rm(dir, { recursive: true, force: true })
 })
@@ -93,6 +95,31 @@ describe("automation services", () => {
     ).rejects.toThrow("not a collection root")
   })
 
+  it("rejects an invalid delay before collection setup", async () => {
+    expect(
+      await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        [],
+        [],
+        false,
+        undefined,
+        -1,
+      ),
+    ).toMatchObject({
+      failed: true,
+      failure: {
+        category: "configuration",
+        message: "delay must be a non-negative safe integer",
+      },
+    })
+  })
+
   it("defaults collection creation to the current directory", () => {
     const subCommands = collectionCommand.subCommands as {
       create: { args: { output: { default: string } } }
@@ -111,6 +138,18 @@ describe("automation services", () => {
       "development",
     ])
     expect(await readFile(join(configDir, "config.yml"), "utf8")).toContain(dir)
+  })
+
+  it("rejects invalid and reserved environment keys without changing the file", async () => {
+    await collectionInit(dir, join(dir, "config"))
+    const envPath = join(dir, ".environments", "development.env")
+    const before = await readFile(envPath, "utf8")
+    for (const key of ["bad-key", "_color"]) {
+      await expect(
+        environmentSet(key, "value", "development", dir),
+      ).rejects.toThrow(`invalid environment key "${key}"`)
+      expect(await readFile(envPath, "utf8")).toBe(before)
+    }
   })
 
   it("rejects initializing an existing collection", async () => {
@@ -358,6 +397,69 @@ describe("automation services", () => {
         [3, 5],
         [4, 5],
         [5, 5],
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("waits only between consecutive collection requests", async () => {
+    jest.useFakeTimers()
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    for (const id of ["01-first", "02-second"]) {
+      await writeFile(
+        join(dir, `${id}.yml`),
+        `name: ${id}\nmethod: GET\nurl: https://example.com/${id}\n`,
+      )
+    }
+
+    const sent: string[] = []
+    const firstSent = Promise.withResolvers<void>()
+    const secondSent = Promise.withResolvers<void>()
+    const send = executor.send
+    executor.send = async (request) => {
+      sent.push(request.id)
+      if (request.id === "01-first") firstSent.resolve()
+      else secondSent.resolve()
+      return {
+        status: request.id === "01-first" ? 500 : 200,
+        statusText: request.id === "01-first" ? "Error" : "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const pending = collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        [],
+        [],
+        false,
+        undefined,
+        1000,
+      )
+      await firstSent.promise
+      await scheduler.yield()
+      expect(sent).toEqual(["01-first"])
+      expect(jest.getTimerCount()).toBe(1)
+
+      jest.advanceTimersByTime(999)
+      await scheduler.yield()
+      expect(sent).toEqual(["01-first"])
+
+      jest.advanceTimersByTime(1)
+      await secondSent.promise
+      await scheduler.yield()
+      expect(jest.getTimerCount()).toBe(0)
+      expect((await pending).results.map((result) => result.id)).toEqual([
+        "01-first",
+        "02-second",
       ])
     } finally {
       executor.send = send
@@ -656,6 +758,7 @@ describe("automation services", () => {
   })
 
   it("stops on the first failure and records ordered fail-fast skips", async () => {
+    jest.useFakeTimers()
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     for (const id of ["01-fail", "02-skip", "03-skip"]) {
       await writeFile(
@@ -664,9 +767,11 @@ describe("automation services", () => {
       )
     }
     const sent: string[] = []
+    const firstSent = Promise.withResolvers<void>()
     const send = executor.send
     executor.send = async (request) => {
       sent.push(request.id)
+      firstSent.resolve()
       return {
         status: request.id === "01-fail" ? 500 : 200,
         statusText: request.id === "01-fail" ? "Error" : "OK",
@@ -676,7 +781,7 @@ describe("automation services", () => {
       }
     }
     try {
-      const result = await collectionRun(
+      const pending = collectionRun(
         dir,
         undefined,
         undefined,
@@ -687,7 +792,15 @@ describe("automation services", () => {
         undefined,
         undefined,
         true,
+        undefined,
+        1000,
       )
+      await firstSent.promise
+      await scheduler.yield()
+      const timerCount = jest.getTimerCount()
+      if (timerCount > 0) jest.runAllTimers()
+      const result = await pending
+      expect(timerCount).toBe(0)
       expect(sent).toEqual(["01-fail"])
       expect(result.results.map((item) => item.id)).toEqual(["01-fail"])
       expect(result.skipped).toEqual([

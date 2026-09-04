@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, jest } from "bun:test"
+import { afterEach, describe, it, expect, jest, spyOn } from "bun:test"
 import { act, useMemo, useState } from "react"
 import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
@@ -167,18 +167,19 @@ describe("ResponsePane scrollbox", () => {
       ],
       bindings: [{ key: "/", cmd: "response.query" }],
     })
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane
-          state={state}
-          focused
-          responseKey="request-1"
-          responseQueryRef={queryController}
-          responseBodyForCopyRef={copyBody}
-        />
-      </KeymapProvider>,
-      { width: 80, height: 16 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={state}
+            focused
+            responseKey="request-1"
+            responseQueryRef={queryController}
+            responseBodyForCopyRef={copyBody}
+          />
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
     await renderOnce()
 
     await act(async () => {
@@ -193,6 +194,21 @@ describe("ResponsePane scrollbox", () => {
 
     expect(captureCharFrame()).toContain("2 matches")
     expect(copyBody.current).toBe("[\n  1,\n  2\n]")
+
+    const queryInput = renderer.currentFocusedRenderable
+    if (!queryInput)
+      throw new Error("Expected the JSONPath input to be focused")
+    await act(async () => {
+      await mockMouse.drag(
+        queryInput.x + 1,
+        queryInput.y,
+        queryInput.x + 6,
+        queryInput.y,
+      )
+    })
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).not.toBe("")
+    expect("$.data.group.items[*].id").toContain(selectedText)
 
     await act(async () => raw.host.press("escape"))
     await renderOnce()
@@ -1220,6 +1236,44 @@ describe("ResponsePane scrollbox", () => {
     expect((bodyEditor as CodeEditorRenderable).plainText).toBe(body)
     expect(bodyEditorAvailable).toBe(true)
   })
+
+  it("reuses line metadata for a 2.5 MB response body", async () => {
+    const item = `{"id":1,"payload":"${"x".repeat(80)}"}`
+    const body = `{"data":[${`${item},`.repeat(26_000)}${item}]}`
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body,
+              timeMs: 1,
+            },
+          }}
+          focused
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    await editor.refreshHighlights()
+    const lineInfo = spyOn(editor.editorView, "getLogicalLineInfo")
+
+    await renderOnce()
+    await editor.refreshHighlights()
+    expect(lineInfo).toHaveBeenCalledTimes(0)
+    expect(editor.plainText.length).toBeGreaterThan(2.5 * 1024 * 1024)
+  })
 })
 
 describe("RequestPane scrollbox", () => {
@@ -1983,9 +2037,9 @@ describe("Sidebar scrollbox", () => {
     expect(lines.length).toBeLessThan(50)
 
     // Text uses all available sidebar width before truncating.
-    expect(frame).toContain("Very long request name\u2026")
+    expect(frame).toContain("Very long request name t\u2026")
     // Should render many entries without crashing
-    const count = (frame.match(/Very long request name\u2026/g) || []).length
+    const count = (frame.match(/Very long request name t\u2026/g) || []).length
     expect(count).toBeGreaterThan(10)
   })
 

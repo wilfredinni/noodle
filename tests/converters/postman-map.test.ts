@@ -33,16 +33,26 @@ describe("convertTpl", () => {
     expect(convertTpl("{{host}}:{{port}}")).toBe("$host:$port")
   })
 
-  it("preserves dynamic Postman vars", () => {
-    expect(convertTpl("{{$randomInt}}")).toBe("$$randomInt")
+  it("rejects dynamic Postman variables", () => {
+    expect(() => convertTpl("{{$randomInt}}")).toThrow(
+      'unsupported variable "{{$randomInt}}"',
+    )
   })
 
-  it("converts hyphenated variable names", () => {
-    expect(convertTpl("{{my-api-key}}")).toBe("$my-api-key")
+  it("rejects hyphenated variable names", () => {
+    expect(() => convertTpl("{{my-api-key}}")).toThrow(
+      'unsupported variable "{{my-api-key}}"',
+    )
   })
 
-  it("converts dotted variable names", () => {
-    expect(convertTpl("{{user.id}}")).toBe("$user.id")
+  it("rejects dotted variable names", () => {
+    expect(() => convertTpl("{{user.id}}")).toThrow(
+      'unsupported variable "{{user.id}}"',
+    )
+  })
+
+  it("rejects empty variable names", () => {
+    expect(() => convertTpl("{{}}")).toThrow('unsupported variable "{{}}"')
   })
 
   it("does not modify strings without templates", () => {
@@ -211,7 +221,7 @@ describe("mapCollection — auth variants", () => {
               type: "apikey",
               apikey: [
                 { key: "key", value: "{{keyName}}", type: "string" },
-                { key: "value", value: "{{$randomUUID}}", type: "string" },
+                { key: "value", value: "{{apiValue}}", type: "string" },
                 { key: "in", value: "query", type: "string" },
               ],
             },
@@ -223,7 +233,7 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({
       type: "api_key",
       key: "$keyName",
-      value: "$$randomUUID",
+      value: "$apiValue",
       placement: "query",
     })
   })

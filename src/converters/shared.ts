@@ -19,6 +19,15 @@ export function slugify(s: string): string {
     .replace(/-{2,}/g, "-")
 }
 
+export function setOwn<T>(record: Record<string, T>, key: string, value: T) {
+  Object.defineProperty(record, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  })
+}
+
 export function parseJsonOrYaml(content: string): unknown {
   try {
     return JSON.parse(content)

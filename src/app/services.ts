@@ -69,6 +69,7 @@ import {
 } from "../executionResults"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
+import { isValidVariableName } from "../variableReference"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -911,6 +912,7 @@ export async function collectionRun(
   excludeTags: readonly string[] = [],
   failFast = false,
   onDetail?: RunDetail,
+  delayMs = 0,
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
@@ -923,6 +925,9 @@ export async function collectionRun(
   let tlsPolicy: TlsPolicy | undefined
   let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
   try {
+    if (!Number.isSafeInteger(delayMs) || delayMs < 0) {
+      throw new Error("delay must be a non-negative safe integer")
+    }
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir)
     requests = selectCollectionRunRequests(
@@ -974,6 +979,9 @@ export async function collectionRun(
           })),
         )
         break
+      }
+      if (delayMs > 0 && index < requests.length - 1) {
+        await Bun.sleep(delayMs)
       }
     }
   } finally {
@@ -1230,7 +1238,7 @@ export async function environmentSet(
   name: string,
   collectionDir: string,
 ): Promise<{ environment: string; key: string }> {
-  if (!key.trim() || key.includes("="))
+  if (key === "_color" || !isValidVariableName(key))
     throw new Error(`invalid environment key "${key}"`)
   const collectionRoot = await requireCollectionRoot(collectionDir)
   const dir = join(collectionRoot, ".environments")
@@ -1317,7 +1325,7 @@ export interface SecretListItem {
 }
 
 function validateSecretKey(key: string): void {
-  if (!/^\w+$/.test(key)) {
+  if (key === "_color" || !isValidVariableName(key)) {
     throw new Error(
       `invalid secret key "${key}"; expected letters, numbers, or _`,
     )

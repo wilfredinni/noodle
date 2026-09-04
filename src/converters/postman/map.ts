@@ -20,12 +20,20 @@ import type {
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
-import { slugify, METHOD_UPPER } from "../shared"
+import { slugify, METHOD_UPPER, setOwn } from "../shared"
 import { parsePathToken } from "../../requests/pathParams"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
+import { isValidVariableName } from "../../variableReference"
 
 export function convertTpl(s: string): string {
-  return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
+  return s.replace(/\{\{([^{}]*)\}\}/g, (placeholder, name: string) => {
+    if (!isValidVariableName(name)) {
+      throw new Error(
+        `converters.postman.import: unsupported variable "${placeholder}"; expected {{WORD}}`,
+      )
+    }
+    return `$${name}`
+  })
 }
 
 function stripQuery(url: string): string {
@@ -502,7 +510,7 @@ export function mapCollection(col: Collection): ImportResult {
   const envVars: Record<string, string> = {}
   try {
     col.variables.each((v: Variable) => {
-      envVars[v.key] = v.value ?? ""
+      setOwn(envVars, v.key, v.value ?? "")
     })
   } catch {
     // no collection variables

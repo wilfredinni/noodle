@@ -77,7 +77,7 @@ function Harness({
   onActiveEnvChanged = () => {},
   editorRef,
 }: {
-  onEnvsChanged: () => void
+  onEnvsChanged: (names?: string[]) => void
   onEnvDataChanged?: () => void
   onActiveEnvChanged?: (name: string) => void
   editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null }
@@ -536,13 +536,18 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
   it("calls onEnvsChanged after save with rename", async () => {
     const spy = mock(() => {})
+    const activated = mock(() => {})
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
       current: null,
     }
 
     const { renderOnce } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Harness onEnvsChanged={spy} editorRef={ref} />
+        <Harness
+          onEnvsChanged={spy}
+          onActiveEnvChanged={activated}
+          editorRef={ref}
+        />
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
@@ -565,6 +570,8 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await renderOnce()
 
     expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy).toHaveBeenCalledWith(["alpha-renamed", "beta", "gamma"])
+    expect(activated).toHaveBeenCalledWith("alpha-renamed")
     expect(ref.current!.draft?.color).toBe("warning")
     expect(ref.current!.dirty).toBe(true)
   })
@@ -853,6 +860,61 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(editor.error).toBeNull()
     expect(spy).toHaveBeenCalled()
     expect(editor.envNames).toContain("new-env")
+  })
+
+  it("does not overwrite an unlisted file from a blank draft", async () => {
+    await env.saveEnvironment(dir, {
+      name: "hidden",
+      vars: { existing: "keep" },
+    })
+    const before = await readFile(join(dir, "hidden.env"), "utf8")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+    await act(async () => {
+      await ref.current!.openEditor()
+      ref.current!.setName("hidden")
+      await ref.current!.save()
+    })
+    expect(ref.current!.error).toContain("already exists")
+    expect(await readFile(join(dir, "hidden.env"), "utf8")).toBe(before)
+  })
+
+  it("preserves own-property variable names through an unrelated save", async () => {
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: Object.fromEntries([
+        ["__proto__", "proto"],
+        ["constructor", "ctor"],
+        ["toString", "string"],
+      ]),
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+    act(() => ref.current!.setColor("warning"))
+    await act(async () => ref.current!.save())
+
+    const loaded = await env.loadEnvironment(dir, "alpha")
+    expect(Object.entries(loaded.vars)).toEqual([
+      ["__proto__", "proto"],
+      ["constructor", "ctor"],
+      ["toString", "string"],
+    ])
   })
 
   it("navigates to first and last row using browseFirst and browseLast", async () => {

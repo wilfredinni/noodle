@@ -66,6 +66,15 @@ export function useTreeNavigation(
   const prevSelectedIdRef = useRef(selectedId)
 
   const flatReqs = flattenRequests(items)
+  let targetId = selectedId
+    ? (findRequestById(items, selectedId)?.id ?? null)
+    : null
+  if (!targetId && initialSelectedId && !initialSelectedId.endsWith("/")) {
+    targetId = findRequestById(items, initialSelectedId)?.id ?? null
+  }
+  if (!targetId && !(initialSelectedId && initialSelectedId.endsWith("/"))) {
+    targetId = flatReqs[0]?.id ?? null
+  }
 
   const setSelectedId = useCallback((id: string) => {
     selectedIdRef.current = id
@@ -142,22 +151,6 @@ export function useTreeNavigation(
   useEffect(() => {
     if (flatReqs.length > 0) {
       initialCursorSet.current = false
-
-      let targetId: string | null = null
-      if (selectedId) {
-        const found = findRequestById(items, selectedId)
-        if (found) targetId = selectedId
-      }
-      if (!targetId && initialSelectedId && !initialSelectedId.endsWith("/")) {
-        const found = findRequestById(items, initialSelectedId)
-        if (found) targetId = initialSelectedId
-      }
-      if (
-        !targetId &&
-        !(initialSelectedId && initialSelectedId.endsWith("/"))
-      ) {
-        targetId = flatReqs[0].id
-      }
       if (targetId && targetId !== selectedId) {
         selectedIdRef.current = targetId
         setSelectedIdState(targetId)
@@ -172,11 +165,11 @@ export function useTreeNavigation(
           })
         }
       }
-      if (selectedId) {
+      if (targetId) {
         const currentNode = visRef.current[cursorIndexRef.current]
-        if (currentNode?.type !== "folder") {
-          const idx = vis.findIndex(
-            (n) => n.type === "request" && n.id === selectedId,
+        if (currentNode?.type !== "folder" || targetId !== selectedId) {
+          const idx = visRef.current.findIndex(
+            (n) => n.type === "request" && n.id === targetId,
           )
           if (idx >= 0) setCursorIndex(idx)
         }
@@ -286,24 +279,51 @@ export function useTreeNavigation(
     }
   })
 
-  const clampedCursor = Math.min(cursorIndex, Math.max(0, vis.length - 1))
-  const focusedNode = vis[clampedCursor]
+  const renderedSelectedId = selectedId === null ? null : targetId
+  let renderedExpanded = expanded
+  if (renderedSelectedId !== selectedId && renderedSelectedId) {
+    const parts = renderedSelectedId.split("/")
+    if (parts.length > 1) {
+      renderedExpanded = new Set(expanded)
+      for (let i = 1; i < parts.length; i++) {
+        renderedExpanded.add(parts.slice(0, i).join("/"))
+      }
+    }
+  }
+  const renderedVisibleItems =
+    renderedExpanded === expanded ? vis : visibleNodes(items, renderedExpanded)
+  let clampedCursor = Math.min(
+    cursorIndex,
+    Math.max(0, renderedVisibleItems.length - 1),
+  )
+  if (renderedSelectedId !== selectedId) {
+    const targetIndex = renderedVisibleItems.findIndex(
+      (node) => node.type === "request" && node.id === renderedSelectedId,
+    )
+    if (targetIndex >= 0) clampedCursor = targetIndex
+  }
+  selectedIdRef.current = renderedSelectedId
+  expandedRef.current = renderedExpanded
+  visRef.current = renderedVisibleItems
+  cursorIndexRef.current = clampedCursor
+
+  const focusedNode = renderedVisibleItems[clampedCursor]
   const focusedFolderPath =
     focusedNode?.type === "folder" ? focusedNode.id : null
   const focusedFolderName =
     focusedNode?.type === "folder" ? focusedNode.name : null
-  const selectedRequest = selectedId
-    ? findRequestById(itemsRef.current, selectedId)
+  const selectedRequest = renderedSelectedId
+    ? findRequestById(itemsRef.current, renderedSelectedId)
     : null
 
   return {
-    selectedId,
+    selectedId: renderedSelectedId,
     selectedIdRef,
     selectedRequest,
     focusedFolderPath,
     focusedFolderName,
-    expanded,
-    visibleItems: vis,
+    expanded: renderedExpanded,
+    visibleItems: renderedVisibleItems,
     cursorIndex: clampedCursor,
     setSelectedId,
     revealRequest,

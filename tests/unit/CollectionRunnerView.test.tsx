@@ -253,6 +253,9 @@ describe("CollectionRunnerView", () => {
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(restoredRows.every((row) => row.includes("[x]"))).toBe(true)
+    await act(async () => current!.setOptionIndex(5))
+    await render.renderOnce()
+    await render.renderOnce()
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -319,7 +322,7 @@ describe("CollectionRunnerView", () => {
       await Promise.resolve()
     })
     await render.renderOnce()
-    expect(current!.optionIndex).toBe(4)
+    expect(current!.optionIndex).toBe(5)
     const completedButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -434,12 +437,12 @@ describe("CollectionRunnerView", () => {
     for (const label of ["Scope", "Environment", "Health"]) {
       expect(frame).toContain(label)
     }
-    for (const index of [2, 3]) {
+    for (const index of [2, 3, 4]) {
       expect(
         render.renderer.root.findDescendantById(`runner-option-${index}`),
       ).not.toBeNull()
     }
-    for (const index of [0, 1, 2, 3]) {
+    for (const index of [0, 1, 2, 3, 4]) {
       const option = render.renderer.root.findDescendantById(
         `runner-option-${index}`,
       ) as BoxRenderable
@@ -464,24 +467,35 @@ describe("CollectionRunnerView", () => {
       "runner-include-tag-1",
     )!
     expect(secondTag.screenY).toBeGreaterThan(firstTag.screenY)
-    await act(async () => current!.setOptionIndex(4))
+    await act(async () => current!.setOptionIndex(5))
     await render.renderOnce()
     await render.renderOnce()
     const scrolled = render.captureCharFrame()
     const failFast = render.renderer.root.findDescendantById("runner-option-3")!
+    const delay = render.renderer.root.findDescendantById("runner-option-4")!
     const runButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
     expect(runButton.screenY).toBeGreaterThan(failFast.screenY)
+    expect(runButton.screenY).toBeGreaterThan(delay.screenY)
     expect(runButton.width).toBe("r Run 0 requests".length + 2)
     expect(runButton.width).toBe(initialRunButtonWidth)
-    expect(current!.optionIndex).toBe(4)
+    expect(current!.optionIndex).toBe(5)
     expect(
       runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)
-    expect(scrolled).toContain("Exclude tags")
     expect(scrolled).toContain("Fail fast")
-    expect(scrolled).toContain("+ Add tag")
+    expect(scrolled).toContain("Delay (ms)")
+    expect(scrolled).toContain("r Run 0 requests")
+    expect(
+      render.renderer.root.findDescendantById("runner-include-tag-0"),
+    ).not.toBeNull()
+    expect(
+      render.renderer.root.findDescendantById("runner-exclude-tag-0"),
+    ).not.toBeNull()
+    expect(
+      render.renderer.root.findDescendantById("runner-delay-input"),
+    ).not.toBeNull()
     expect(
       render.renderer.root.findDescendantById("runner-include-tag-input"),
     ).toBeUndefined()
@@ -624,6 +638,19 @@ describe("CollectionRunnerView", () => {
     await clickOption(3)
     expect(current!.failFast).toBe(true)
 
+    await clickOption(4)
+    expect(current!.optionIndex).toBe(4)
+    expect(
+      render.renderer.root.findDescendantById("runner-delay-input"),
+    ).not.toBeNull()
+    await act(async () => {
+      await render.mockInput.pressBackspace()
+      await render.mockInput.typeText("250")
+    })
+    await render.renderOnce()
+    expect(current!.delayMsInput).toBe("250")
+    expect(current!.delayError).toBeNull()
+
     await act(async () => {
       current!.deleteTagFilter("include", 0)
       current!.deleteTagFilter("exclude", 0)
@@ -645,7 +672,7 @@ describe("CollectionRunnerView", () => {
     expect(current!.selectOpen).toBe(false)
     await act(async () => current!.optionLast())
     await render.renderOnce()
-    expect(current!.optionIndex).toBe(4)
+    expect(current!.optionIndex).toBe(5)
     expect(
       runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)

@@ -1,7 +1,6 @@
 import type { Environment, ParamEntry } from "../../schema"
 import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
-
-const VAR_RE = /\$(\w+)/g
+import { variableReferences } from "../../variableReference"
 
 export interface EnvSegment {
   text: string
@@ -13,22 +12,23 @@ export function splitEnvVars(
   text: string,
   env: Environment | null,
 ): EnvSegment[] {
-  VAR_RE.lastIndex = 0
   const segments: EnvSegment[] = []
   let lastEnd = 0
-  let match: RegExpExecArray | null
-  while ((match = VAR_RE.exec(text)) !== null) {
-    if (match.index > lastEnd) {
+  for (const reference of variableReferences(text)) {
+    if (reference.start > lastEnd) {
       segments.push({
-        text: text.slice(lastEnd, match.index),
+        text: text.slice(lastEnd, reference.start),
         isVar: false,
         exists: false,
       })
     }
-    const varName = match[1]!
-    const exists = env !== null && Object.hasOwn(env.vars, varName)
-    segments.push({ text: match[0], isVar: true, exists })
-    lastEnd = match.index + match[0].length
+    const exists = env !== null && Object.hasOwn(env.vars, reference.name)
+    segments.push({
+      text: text.slice(reference.start, reference.end),
+      isVar: true,
+      exists,
+    })
+    lastEnd = reference.end
   }
   if (lastEnd < text.length) {
     segments.push({

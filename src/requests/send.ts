@@ -3,7 +3,6 @@ import type {
   CookiePair,
   Collection,
   Environment,
-  KvEntry,
   NetworkError,
   NetworkEvent,
   NetworkEventType,
@@ -12,7 +11,6 @@ import type {
   Response,
 } from "../schema"
 import { substitute } from "./substitute"
-import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
@@ -114,25 +112,16 @@ export async function send(
       ? mergeFolderOverrides(req, collection, requestPath)
       : req
 
-  const substituted = env !== undefined ? substitute(merged, env) : merged
+  const substituted = substitute(merged, env ?? { name: "", vars: {} })
 
   if (cookies && substituted.sendCookies !== false) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
     await cookies.refresh().catch(() => {})
   }
 
-  const headers: Record<string, string> =
-    substituted === merged
-      ? filterKv(merged.headers)
-      : (substituted as SubstitutedRequest).headers
-  const params: ParamEntry[] =
-    substituted === merged
-      ? merged.params.filter((e) => e.enabled)
-      : (substituted as SubstitutedRequest).params
-  const pathParams: ParamEntry[] =
-    substituted === merged
-      ? (merged.pathParams ?? [])
-      : ((substituted as SubstitutedRequest).pathParams ?? [])
+  const headers = substituted.headers
+  const params = substituted.params
+  const pathParams = substituted.pathParams ?? []
 
   const urlWithPath = interpolatePathParams(
     withDefaultHttpsScheme(substituted.url),
@@ -789,12 +778,4 @@ function authHeader(
     return { name: auth.key, value: auth.value }
   }
   return null
-}
-
-function filterKv(entries: Record<string, KvEntry>): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [k, v] of Object.entries(entries)) {
-    if (v.enabled) out[k] = v.value
-  }
-  return out
 }

@@ -276,7 +276,7 @@ export function Sidebar({
             const isDirty = dirtyRequestIds?.has(node.id)
             const nameWidth = Math.max(
               0,
-              width - 15 - node.depth * 2 - (isDirty ? 2 : 0),
+              width - 13 - node.depth * 2 - (isDirty ? 2 : 0),
             )
             return (
               <box
@@ -285,7 +285,7 @@ export function Sidebar({
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  paddingLeft: (node.depth + 1) * 2,
+                  paddingLeft: node.depth * 2,
                   backgroundColor:
                     isCursor || isHovered ? theme.backgroundElement : undefined,
                 }}

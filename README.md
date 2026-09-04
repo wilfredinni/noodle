@@ -74,9 +74,9 @@ the collection Runner, and CLI runs.
 In jump mode, `v` opens Assert, `c` opens Capture, and `t` opens Settings.
 
 Run Collection from the command palette opens a transient collection runner for
-choosing requests, environment, tag filters, and fail-fast behavior before
-inspecting ordered results. A folder's context palette opens the same runner
-scoped to that folder.
+choosing requests, environment, tag filters, fail-fast behavior, and an optional
+delay between requests before inspecting ordered results. A folder's context
+palette opens the same runner scoped to that folder.
 
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
@@ -86,6 +86,11 @@ TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
 Switch between development, staging, and production variables. Secret
 declarations stay in the file while values live in the operating system
 credential vault or process environment.
+
+Variable names use only letters, numbers, and `_`. Reference them as `$NAME`;
+write `$$NAME` when the request must contain the literal text `$NAME`.
+Environment values preserve every character after the first `=`, including
+trailing spaces.
 
 Sensitive values are kept out of environment files, request history, generated
 code, search results, and exports.
@@ -101,6 +106,7 @@ noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 noodle collection run ./my-api auth/ health users/get --json
 noodle collection run ./my-api --tag smoke --tag api --exclude-tag destructive --json
+noodle collection run ./my-api --delay 500 --json
 noodle agent install
 ```
 
@@ -110,7 +116,8 @@ apply to every descendant request, so `collection run --tag smoke` can execute a
 dynamic suite without a second collection format. Repeat `--tag` to require
 every Include tag and repeat `--exclude-tag` to remove requests matching any
 Exclude tag. Exclusion wins, and `--fail-fast` records the remaining selected
-request IDs as skipped.
+request IDs as skipped. `--delay <milliseconds>` waits after each completed
+request when another selected request remains.
 
 Request YAML can also declare response assertions for status, timing, headers,
 and JSON body paths. Edit them in the TUI Assert tab or as YAML. Manual
@@ -152,6 +159,9 @@ stores redacted assertion results, never capture results or RunScope values.
 
 Import OpenAPI 3.0, Swagger 2.0, Postman, or Insomnia collections. Export to
 OpenAPI or Postman when another tool needs the same requests.
+
+Postman imports accept `{{WORD}}` variables. Dynamic generators and dotted or
+hyphenated placeholders are rejected before collection files are written.
 
 ```bash
 noodle import ./specs/api.yaml --output ./collections

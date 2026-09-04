@@ -8,6 +8,7 @@ import {
   setStoredSecret,
 } from "../secrets"
 import { redactTimelineSecrets } from "../filestore"
+import { isValidVariableName } from "../variableReference"
 
 let nextVarId = 1
 
@@ -78,9 +79,18 @@ export interface UseEnvironmentEditorProps {
   environmentsDir: string
   envNames: string[]
   activeEnvName: string | undefined
-  onEnvsChanged: () => void
+  onEnvsChanged: (names?: string[]) => void | Promise<void>
   onActiveEnvChanged: (name: string) => void
   onEnvDataChanged?: () => void
+}
+
+function setOwn<T>(record: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(record, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  })
 }
 
 export interface UseEnvironmentEditorResult {
@@ -141,18 +151,18 @@ function envToVarRows(environment: Environment): VarRow[] {
   const secretVars = environment.secretVars ?? {}
   const rows: VarRow[] = []
   for (const [key, value] of Object.entries(vars)) {
-    if (secretVars[key]) continue
+    if (Object.hasOwn(secretVars, key)) continue
     rows.push({ id: nextVarId++, key, value, enabled: true, secret: false })
   }
   for (const [key, value] of Object.entries(disabledVars)) {
-    if (secretVars[key]) continue
+    if (Object.hasOwn(secretVars, key)) continue
     rows.push({ id: nextVarId++, key, value, enabled: false, secret: false })
   }
   for (const [key, status] of Object.entries(secretVars)) {
     rows.push({
       id: nextVarId++,
       key,
-      value: vars[key] ?? "",
+      value: Object.hasOwn(vars, key) ? vars[key]! : "",
       enabled: status !== "disabled",
       secret: true,
       originSecret: true,
@@ -173,15 +183,17 @@ function varRowsToEnv(rows: VarRow[]): {
   for (const row of rows) {
     if (row.key === "") continue
     if (row.secret) {
-      secretVars[row.key] = row.enabled
-        ? (row.secretStatus ?? "missing")
-        : "disabled"
+      setOwn(
+        secretVars,
+        row.key,
+        row.enabled ? (row.secretStatus ?? "missing") : "disabled",
+      )
       continue
     }
     if (row.enabled) {
-      vars[row.key] = row.value
+      setOwn(vars, row.key, row.value)
     } else {
-      disabledVars[row.key] = row.value
+      setOwn(disabledVars, row.key, row.value)
     }
   }
   return { vars, disabledVars, secretVars }
@@ -207,12 +219,12 @@ function dirtyChanged(
     ...Object.keys(secretVars),
   ])
   for (const key of allKeys) {
-    const origEnabled = key in original.vars
-    const nowEnabled = key in vars
-    const wasSecret = key in original.secretVars
-    const isSecret = key in secretVars
+    const origEnabled = Object.hasOwn(original.vars, key)
+    const nowEnabled = Object.hasOwn(vars, key)
+    const wasSecret = Object.hasOwn(original.secretVars, key)
+    const isSecret = Object.hasOwn(secretVars, key)
     if (wasSecret !== isSecret) return true
-    if (key in secretVars) {
+    if (Object.hasOwn(secretVars, key)) {
       const originallyDisabled = original.secretVars[key] === "disabled"
       const nowDisabled = secretVars[key] === "disabled"
       if (originallyDisabled !== nowDisabled) return true
@@ -279,6 +291,12 @@ export function useEnvironmentEditor({
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
   const createEnvPendingRef = useRef<Promise<void> | null>(null)
+
+  const publishEnvNames = useCallback((names: string[]) => {
+    localNamesRef.current = names
+    setLocalNames(names)
+    void Promise.resolve(onEnvsChangedRef.current?.(names)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const previousNames = externalNamesRef.current
@@ -701,7 +719,10 @@ export function useEnvironmentEditor({
       curOriginal && curOriginal.name !== curDraft.name
         ? curOriginal.name
         : null
-    if (oldName && localNamesRef.current.includes(curDraft.name)) {
+    if (
+      (oldName || !curOriginal) &&
+      localNamesRef.current.includes(curDraft.name)
+    ) {
       setError(`An environment named "${curDraft.name}" already exists`)
       return
     }
@@ -719,6 +740,12 @@ export function useEnvironmentEditor({
           ) !== index,
       )
       if (duplicate) throw new Error(`Duplicate variable "${duplicate.key}"`)
+      const invalid = curDraft.varRows.find(
+        (row) =>
+          row.key !== "" &&
+          (row.key === "_color" || !isValidVariableName(row.key)),
+      )
+      if (invalid) throw new Error(`Invalid variable name "${invalid.key}"`)
 
       const originalById = new Map(
         (curOriginal?.varRows ?? []).map((row) => [row.id, row]),
@@ -783,11 +810,11 @@ export function useEnvironmentEditor({
                 previous,
               })
               row.secretStatus = row.enabled
-                ? process.env[row.key] !== undefined
+                ? Object.hasOwn(process.env, row.key)
                   ? "process"
                   : "keychain"
                 : "disabled"
-            } else if (process.env[row.key] !== undefined) {
+            } else if (Object.hasOwn(process.env, row.key)) {
               row.secretStatus = row.enabled ? "process" : "disabled"
             } else if (!before?.secret || row.valueChanged) {
               throw new Error(`Secret "${row.key}" must not be empty`)
@@ -842,13 +869,17 @@ export function useEnvironmentEditor({
           }
         }
 
-        await env.saveEnvironment(environmentsDir, {
-          name: curDraft.name,
-          vars,
-          color: curDraft.color,
-          disabledVars,
-          secretVars,
-        })
+        await env.saveEnvironment(
+          environmentsDir,
+          {
+            name: curDraft.name,
+            vars,
+            color: curDraft.color,
+            disabledVars,
+            secretVars,
+          },
+          { mode: oldName || !curOriginal ? "create" : "replace" },
+        )
 
         if (oldName) {
           try {
@@ -911,21 +942,18 @@ export function useEnvironmentEditor({
 
       setSelectedEnvName(curDraft.name)
       loadedEnvNameRef.current = curDraft.name
-      if (oldName) {
-        setLocalNames((prev) =>
-          prev.map((n) => (n === oldName ? curDraft.name : n)),
-        )
-      } else {
-        setLocalNames((prev) => {
-          if (prev.includes(curDraft.name)) return prev
-          return [...prev, curDraft.name]
-        })
-      }
+      const nextNames = oldName
+        ? localNamesRef.current.map((name) =>
+            name === oldName ? curDraft.name : name,
+          )
+        : localNamesRef.current.includes(curDraft.name)
+          ? localNamesRef.current
+          : [...localNamesRef.current, curDraft.name]
+      publishEnvNames(nextNames)
 
-      onEnvsChangedRef.current?.()
-
-      if (activeEnvName === curDraft.name || activeEnvName === oldName) {
+      if (oldName && activeEnvName === oldName) {
         onActiveEnvChangedRef.current?.(curDraft.name)
+      } else if (activeEnvName === curDraft.name) {
         onEnvDataChangedRef.current?.()
       }
       setRevealedRowId(null)
@@ -935,7 +963,7 @@ export function useEnvironmentEditor({
     } finally {
       setSaving(false)
     }
-  }, [environmentsDir, activeEnvName, onActiveEnvChanged])
+  }, [environmentsDir, activeEnvName, publishEnvNames])
 
   const createEnv = useCallback(
     ({ name, color }: { name: string; color: string | undefined }) => {
@@ -957,12 +985,16 @@ export function useEnvironmentEditor({
         setSaving(true)
         setError(null)
         try {
-          await env.saveEnvironment(environmentsDir, {
-            name: trimmedName,
-            color,
-            vars: {},
-            disabledVars: {},
-          })
+          await env.saveEnvironment(
+            environmentsDir,
+            {
+              name: trimmedName,
+              color,
+              vars: {},
+              disabledVars: {},
+            },
+            { mode: "create" },
+          )
 
           const nextDraft = { name: trimmedName, color, varRows: [] }
           const nextOriginal = {
@@ -978,15 +1010,13 @@ export function useEnvironmentEditor({
           originalRef.current = nextOriginal
           selectedEnvNameRef.current = trimmedName
           loadedEnvNameRef.current = trimmedName
-          localNamesRef.current = nextNames
           setDraft(nextDraft)
           setOriginal(nextOriginal)
           setSelectedEnvName(trimmedName)
-          setLocalNames(nextNames)
+          publishEnvNames(nextNames)
           setEditState(initialEditState())
           setEditKey("")
           setEditValue("")
-          onEnvsChangedRef.current?.()
         } catch (e: unknown) {
           setError(e instanceof Error ? e.message : String(e))
           throw e
@@ -1003,7 +1033,7 @@ export function useEnvironmentEditor({
       void pending.then(clearPending, clearPending)
       return pending
     },
-    [environmentsDir],
+    [environmentsDir, publishEnvNames],
   )
 
   const deleteEnvAction = useCallback(async () => {
@@ -1030,12 +1060,13 @@ export function useEnvironmentEditor({
         if (removed && previous !== null) deleted.push({ key, previous })
       }
       await env.deleteEnvironment(environmentsDir, name)
+      const remaining = localNamesRef.current.filter(
+        (candidate) => candidate !== name,
+      )
+      publishEnvNames(remaining)
       if (activeEnvName === name) {
-        const remaining = localNames.filter((n) => n !== name)
         onActiveEnvChangedRef.current?.(remaining[0] ?? "")
       }
-      setLocalNames((prev) => prev.filter((n) => n !== name))
-      onEnvsChangedRef.current?.()
       closeEditor()
     } catch (e: unknown) {
       const rollbackFailures: unknown[] = []
@@ -1058,7 +1089,7 @@ export function useEnvironmentEditor({
     activeEnvName,
     onActiveEnvChanged,
     closeEditor,
-    localNames,
+    publishEnvNames,
   ])
 
   const cloneEnvAction = useCallback(
@@ -1076,9 +1107,8 @@ export function useEnvironmentEditor({
           return
         }
         await env.cloneEnvironment(environmentsDir, name, targetName)
-        const updatedNames = [...localNames, targetName]
-        setLocalNames(updatedNames)
-        onEnvsChangedRef.current?.()
+        const updatedNames = [...localNamesRef.current, targetName]
+        publishEnvNames(updatedNames)
         setSelectedEnvName(targetName)
         await loadEnv(targetName)
       } catch (e: unknown) {
@@ -1088,7 +1118,7 @@ export function useEnvironmentEditor({
         setSaving(false)
       }
     },
-    [environmentsDir, localNames, loadEnv],
+    [environmentsDir, loadEnv, publishEnvNames],
   )
 
   const confirmClone = useCallback(
@@ -1114,7 +1144,7 @@ export function useEnvironmentEditor({
         cloned = true
         if (copySecrets) {
           for (const key of Object.keys(source.secretVars ?? {})) {
-            if (process.env[key] !== undefined) continue
+            if (Object.hasOwn(process.env, key)) continue
             const value = await getStoredSecret(
               dirname(environmentsDir),
               pending.source,
@@ -1131,8 +1161,7 @@ export function useEnvironmentEditor({
           }
         }
         const updatedNames = [...localNamesRef.current, pending.target]
-        setLocalNames(updatedNames)
-        onEnvsChangedRef.current?.()
+        publishEnvNames(updatedNames)
         setSelectedEnvName(pending.target)
         await loadEnv(pending.target)
       } catch (e: unknown) {
@@ -1152,7 +1181,7 @@ export function useEnvironmentEditor({
         setSaving(false)
       }
     },
-    [clonePrompt, environmentsDir, loadEnv],
+    [clonePrompt, environmentsDir, loadEnv, publishEnvNames],
   )
 
   const revertDraft = useCallback(() => {

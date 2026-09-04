@@ -84,12 +84,12 @@ describe("useCollectionRunner", () => {
     await act(async () => harness.get().optionUp())
     expect(harness.get().optionIndex).toBe(0)
     await act(async () => harness.get().optionLast())
-    expect(harness.get().optionIndex).toBe(4)
+    expect(harness.get().optionIndex).toBe(5)
     expect(harness.get().failFast).toBe(false)
     await act(async () => harness.get().toggleFailFast())
     expect(harness.get().failFast).toBe(true)
     await act(async () => harness.get().optionDown())
-    expect(harness.get().optionIndex).toBe(4)
+    expect(harness.get().optionIndex).toBe(5)
     await act(async () => harness.get().optionFirst())
     expect(harness.get().optionIndex).toBe(0)
   })
@@ -104,6 +104,33 @@ describe("useCollectionRunner", () => {
     await act(async () => harness.get().setSelectOpen(true))
     expect(harness.get().runAvailable).toBe(true)
     expect(harness.get().canRun).toBe(false)
+  })
+
+  it("validates and resets the transient request delay", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    expect(harness.get().delayMsInput).toBe("0")
+    expect(harness.get().delayError).toBeNull()
+    for (const value of ["", "-1", "1.5", "nope", "9007199254740992"]) {
+      await act(async () => harness.get().setDelayMsInput(value))
+      await render.renderOnce()
+      expect(harness.get().delayError).toBe(
+        "Delay must be a non-negative safe integer.",
+      )
+      expect(harness.get().canRun).toBe(false)
+    }
+
+    await act(async () => harness.get().setDelayMsInput("250"))
+    await render.renderOnce()
+    expect(harness.get().delayError).toBeNull()
+    expect(harness.get().canRun).toBe(true)
+
+    await act(async () => harness.reset())
+    await render.renderOnce()
+    expect(harness.get().delayMsInput).toBe("0")
+    expect(harness.get().delayError).toBeNull()
   })
 
   it("initializes a folder scope with every request selected in collection order", async () => {
@@ -297,6 +324,7 @@ describe("useCollectionRunner", () => {
       harness.get().setTagFilter("include", 0, "smoke")
       harness.get().setTagFilter("exclude", 0, "slow")
       harness.get().toggleFailFast()
+      harness.get().setDelayMsInput("250")
     })
     await render.renderOnce()
     await act(async () => harness.get().setTagFilter("exclude", 1, "flaky"))
@@ -308,6 +336,7 @@ describe("useCollectionRunner", () => {
     expect(args?.[7]).toEqual(["smoke"])
     expect(args?.[8]).toEqual(["slow", "flaky"])
     expect(args?.[9]).toBe(true)
+    expect(args?.[11]).toBe(250)
     expect(harness.get().includeTags).toEqual(["smoke"])
     expect(harness.get().progress).toEqual({ completed: 1, total: 1 })
     expect(harness.get().resultRows.map((row) => row.id)).toEqual([

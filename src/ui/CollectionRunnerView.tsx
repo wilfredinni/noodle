@@ -43,6 +43,7 @@ const OPTION_LABELS = [
   "Include tags",
   "Exclude tags",
   "Fail fast",
+  "Delay (ms)",
 ] as const
 
 const OPTION_DESCRIPTIONS = [
@@ -50,6 +51,7 @@ const OPTION_DESCRIPTIONS = [
   "Only run requests with every included tag.",
   "Skip requests with any excluded tag.",
   "Stop running after the first failed request.",
+  "Wait between completed requests before starting the next.",
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
@@ -177,11 +179,13 @@ export function CollectionRunnerView({
   }, [runner.phase])
 
   useEffect(() => {
-    optionScrollRef.current?.scrollChildIntoView(
-      runner.optionIndex === RUNNER_RUN_OPTION_INDEX
-        ? "runner-run-button"
-        : `runner-option-${runner.optionIndex}`,
-    )
+    const scrollbox = optionScrollRef.current
+    if (!scrollbox) return
+    if (runner.optionIndex === RUNNER_RUN_OPTION_INDEX) {
+      scrollbox.scrollTo(scrollbox.scrollHeight)
+      return
+    }
+    scrollbox.scrollChildIntoView(`runner-option-${runner.optionIndex}`)
   }, [runner.optionIndex])
   useEffect(() => {
     requestScrollRef.current?.scrollChildIntoView(
@@ -437,7 +441,7 @@ export function CollectionRunnerView({
               minHeight: 0,
             }}
           >
-            <box style={{ flexDirection: "column", gap: 1 }}>
+            <box style={{ flexDirection: "column", gap: 1, paddingBottom: 1 }}>
               <text fg={theme.textMuted} wrapMode="word">
                 Configure and run requests from your collection.
               </text>
@@ -456,6 +460,9 @@ export function CollectionRunnerView({
                     id={`runner-option-${index}`}
                     title={label}
                     description={OPTION_DESCRIPTIONS[index]}
+                    error={
+                      index === 4 ? (runner.delayError ?? undefined) : undefined
+                    }
                     active={active}
                     alignItems={
                       index === 1 || index === 2 ? "flex-start" : "center"
@@ -555,8 +562,33 @@ export function CollectionRunnerView({
                           )
                         })}
                       </box>
-                    ) : (
+                    ) : index === 3 ? (
                       <Checkbox checked={runner.failFast} theme={theme} />
+                    ) : (
+                      <box
+                        style={{
+                          flexGrow: 1,
+                          minWidth: 0,
+                          height: 1,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <input
+                          id="runner-delay-input"
+                          value={runner.delayMsInput}
+                          onInput={runner.setDelayMsInput}
+                          focused={active && !configurationLocked}
+                          backgroundColor="transparent"
+                          focusedBackgroundColor="transparent"
+                          textColor={theme.text}
+                          cursorColor={theme.primary}
+                          style={{
+                            flexGrow: 1,
+                            flexShrink: 1,
+                            flexBasis: 0,
+                          }}
+                        />
+                      </box>
                     )}
                   </SettingsField>
                 )

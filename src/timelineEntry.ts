@@ -15,6 +15,7 @@ import {
   redactKnownSecrets,
   REDACTED,
 } from "./secrets/redact"
+import { replaceVariableReferences } from "./variableReference"
 
 export type TimelineExecutionResult =
   | {
@@ -47,12 +48,13 @@ export function buildTimelineEntry(
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   const resolvePublicVars = (value: string) =>
     environment
-      ? value.replace(/\$(\w+)/g, (token, key: string) =>
-          !environment.secretVars?.[key] && Object.hasOwn(environment.vars, key)
+      ? replaceVariableReferences(value, (key) =>
+          !Object.hasOwn(environment.secretVars ?? {}, key) &&
+          Object.hasOwn(environment.vars, key)
             ? environment.vars[key]!
-            : token,
+            : `$${key}`,
         )
-      : value
+      : replaceVariableReferences(value, (key) => `$${key}`)
   const assertions = result.execution?.assertions
     ? {
         evaluated: result.execution.assertions.evaluated,

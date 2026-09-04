@@ -22,6 +22,7 @@ import type {
   Environment,
   Request,
 } from "../schema"
+import { validateEnvironment } from "../env/save"
 
 function serializeEnv(env: Environment): string {
   let out = ""
@@ -118,15 +119,16 @@ function importPaths(
   return paths
 }
 
-function validateEnvironmentNames(environments: Environment[]): void {
+function validateImportedEnvironments(environments: Environment[]): void {
   for (const environment of environments) {
-    if (
-      !environment.name ||
-      environment.name.includes("..") ||
-      environment.name.includes("/") ||
-      environment.name.includes("\\")
-    ) {
-      throw new Error(`invalid imported environment name "${environment.name}"`)
+    try {
+      validateEnvironment(environment)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(
+        `invalid imported environment "${environment.name}": ${message}`,
+        { cause: error },
+      )
     }
   }
 }
@@ -253,7 +255,7 @@ export async function runImport(
   }
 
   const formatted = formatItems(result.collection.items)
-  validateEnvironmentNames(result.environments)
+  validateImportedEnvironments(result.environments)
   result = {
     ...result,
     collection: { ...result.collection, items: formatted.items },
