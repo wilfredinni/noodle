@@ -32,7 +32,7 @@ export function UrlBar({
   sending = false,
 }: {
   method: Method
-  url: string
+  url: string | null
   params: ParamEntry[]
   pathParams?: ParamEntry[]
   setUrl: (url: string) => void
@@ -55,7 +55,7 @@ export function UrlBar({
   const [sendHovered, setSendHovered] = useState(false)
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const prevFocused = useRef(focused)
-  const initDisplayRef = useRef("")
+  const initDisplayRef = useRef<string | null>("")
   const inputValueRef = useRef(inputValue)
   inputValueRef.current = inputValue
 
@@ -68,7 +68,7 @@ export function UrlBar({
     }
     if (!focused && prevFocused.current) {
       if (inputValueRef.current !== initDisplayRef.current) {
-        onDefocus(inputValueRef.current)
+        onDefocus(inputValueRef.current ?? "")
       }
     }
     prevFocused.current = focused
@@ -124,7 +124,7 @@ export function UrlBar({
           : undefined
       }
     >
-      {!displayUrl ? (
+      {typeof displayUrl !== "string" ? (
         <box
           style={{
             flexGrow: 1,
@@ -161,7 +161,7 @@ export function UrlBar({
             {jumpMode && <JumpBadge letter="u" style={JUMP_BADGE_TOP_LEFT} />}
             {focused && subFocus === "text" && interactive ? (
               <VarInput
-                value={inputValue}
+                value={inputValue ?? ""}
                 env={activeEnv ?? null}
                 isEditing
                 onChange={handleInput}

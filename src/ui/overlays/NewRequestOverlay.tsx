@@ -34,7 +34,7 @@ interface NewRequestOverlayProps {
   mode?: "create" | "edit"
   initialName?: string
   initialMethod?: Method
-  initialUrl?: string
+  initialUrl?: string | null
   initialPathParams?: ParamEntry[]
   folderPaths?: SelectItem[]
   initialFolderPath?: string

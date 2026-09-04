@@ -34,7 +34,7 @@ function UrlBarHarness({
   onSubFocus?: (subFocus: "select" | "text") => void
   onSend?: () => void
   sending?: boolean
-  initialUrl?: string
+  initialUrl?: string | null
 }) {
   const [url, setUrl] = useState(initialUrl)
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -435,6 +435,62 @@ describe("UrlBar", () => {
     await renderOnce()
 
     expect(defocusedUrl).toBe("https://example.com")
+    cleanup()
+  })
+
+  it("shows the 'no request selected message' when URL is not provided", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness initialUrl={null} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("no request selected")
+    cleanup()
+  })
+
+  it("does not show the 'no request selected message' when initial URL is cleared, preserves input", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness initialUrl={"a"} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).not.toContain("no request selected")
+    expect(captureCharFrame()).toContain("GET")
+    expect(captureCharFrame()).toContain("▼")
+    expect(captureCharFrame()).toContain("a")
+
+    await act(async () => {
+      mockInput.pressBackspace()
+    })
+
+    await renderOnce()
+
+    expect(captureCharFrame()).not.toContain("no request selected")
+    expect(captureCharFrame()).toContain("GET")
+    expect(captureCharFrame()).toContain("▼")
+    expect(captureCharFrame()).not.toContain("a")
+
+    await act(async () => {
+      await mockInput.typeText("https://example.com")
+    })
+
+    await renderOnce()
+
+    expect(captureCharFrame()).not.toContain("no request selected")
+    expect(captureCharFrame()).toContain("https://example.com")
+
     cleanup()
   })
 })
