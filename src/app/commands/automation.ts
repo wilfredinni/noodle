@@ -300,7 +300,7 @@ const collection = defineCommand({
                 (values["exclude-tag"] ?? []) as string[],
                 args["fail-fast"],
                 undefined,
-                Number(args.delay),
+                args.delay.trim() === "" ? Number.NaN : Number(args.delay),
               )
               return {
                 data,

@@ -257,7 +257,14 @@ describe("CLI integration", () => {
   it("rejects invalid collection request delays", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-delay-"))
     try {
-      for (const value of ["-1", "1.5", "nope", "9007199254740992"]) {
+      for (const value of [
+        "",
+        "   ",
+        "-1",
+        "1.5",
+        "nope",
+        "9007199254740992",
+      ]) {
         const proc = Bun.spawnSync(
           ["bun", CLI, "collection", "run", dir, `--delay=${value}`, "--json"],
           { env: { ...process.env, HOME: join(dir, "home") } },
