@@ -215,7 +215,7 @@ export function RequestResponseView({
       <UrlBar
         key={draft.draft?.id}
         method={draft.draft?.method ?? "GET"}
-        url={draft.draft?.url ?? ""}
+        url={draft.draft?.url ?? null}
         params={draft.draft?.params ?? []}
         pathParams={draft.draft?.pathParams ?? []}
         setUrl={draft.setUrl}
