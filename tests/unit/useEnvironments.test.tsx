@@ -206,6 +206,7 @@ describe("useEnvironments", () => {
     const changes: Array<string | null> = []
     let state: UseEnvironmentsResult | undefined
     let setEnvList: ((names: string[]) => void) | undefined
+    await writeFile(join(dir, "renamed.env"), "HOST=renamed\n")
     const { renderOnce } = await testRender(
       <Harness
         dir={dir}
@@ -219,7 +220,6 @@ describe("useEnvironments", () => {
       />,
       { width: 80, height: 4 },
     )
-    await writeFile(join(dir, "renamed.env"), "HOST=renamed\n")
     await renderOnce()
     await waitUntil(() => state?.activeEnv?.name === "development")
 
