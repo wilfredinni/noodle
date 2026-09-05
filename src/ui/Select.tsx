@@ -35,6 +35,7 @@ export interface SelectProps {
   dropdownAlign?: "left" | "right"
   badge?: boolean
   fitContent?: boolean
+  showIndicator?: boolean
   onOpenChange?: (open: boolean) => void
   onActivate?: () => void
   interactive?: boolean
@@ -55,6 +56,7 @@ export function Select({
   dropdownAlign = "left",
   badge = false,
   fitContent = false,
+  showIndicator = true,
   onOpenChange,
   onActivate,
   interactive = true,
@@ -244,7 +246,7 @@ export function Select({
     width !== undefined
       ? width
       : fitContent || badge
-        ? selectedText.length + 4
+        ? selectedText.length + (showIndicator ? 4 : 2)
         : "100%"
 
   return (
@@ -298,10 +300,12 @@ export function Select({
               </text>
             )}
           </box>
-          <text fg={indicatorColor} style={{ flexShrink: 0 }}>
-            {" "}
-            ▼
-          </text>
+          {showIndicator ? (
+            <text fg={indicatorColor} style={{ flexShrink: 0 }}>
+              {" "}
+              ▼
+            </text>
+          ) : null}
         </box>
 
         {open &&

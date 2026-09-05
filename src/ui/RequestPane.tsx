@@ -1,7 +1,7 @@
 import { type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
   AssertionOperator,
   Auth,
@@ -28,6 +28,7 @@ import { syncPathParamsWithUrl } from "./urlParams"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
 import { AssertTab } from "./request-pane/AssertTab"
 import { createResponseExpressionCompleter } from "../response"
+import { Select } from "./Select"
 
 interface Props {
   request: Request | null
@@ -136,6 +137,7 @@ export function RequestPane({
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
+  const [tabMenuActive, setTabMenuActive] = useState(false)
   const keymap = useKeymap()
   const completeResponseExpression = useMemo(
     () => createResponseExpressionCompleter(response),
@@ -195,14 +197,49 @@ export function RequestPane({
     }
   }, [editState.cursor, editState.mode, request?.bodyType])
 
-  const tabs = useMemo(() => {
+  const { tabs, hiddenOptionalTabs } = useMemo(() => {
     const labels = computeRequestTabLabels(request)
-    return BASE_TAB_DEFS.map((tab) => ({
-      ...tab,
-      label: labels[tab.id] ?? tab.label,
-      jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
-    }))
-  }, [request, jumpMode])
+    const hiddenOptionalTabs = BASE_TAB_DEFS.filter(
+      (tab) =>
+        tab.id !== activeTab &&
+        ((tab.id === "assertions" && !request?.assertions?.length) ||
+          (tab.id === "captures" &&
+            !Object.keys(request?.captures ?? {}).length)),
+    )
+    const hiddenIds = new Set(hiddenOptionalTabs.map((tab) => tab.id))
+    return {
+      hiddenOptionalTabs,
+      tabs: BASE_TAB_DEFS.filter(
+        (tab) => jumpMode || !hiddenIds.has(tab.id),
+      ).map((tab) => ({
+        ...tab,
+        label: labels[tab.id] ?? tab.label,
+        jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
+      })),
+    }
+  }, [request, activeTab, jumpMode])
+
+  const changeTab = useCallback(
+    (tab: string) => {
+      if (onInteraction?.() === false) return
+      setTabMenuActive(false)
+      onPaneFocus?.()
+      onTabChange?.(tab as FieldKind)
+    },
+    [onInteraction, onPaneFocus, onTabChange],
+  )
+  const activateTabMenu = useCallback(() => {
+    onPaneFocus?.()
+    setTabMenuActive(true)
+  }, [onPaneFocus])
+  const handleTabMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setTabMenuActive(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
   return (
     <Frame
       visible={visible}
@@ -247,11 +284,29 @@ export function RequestPane({
           <Tabs
             tabs={tabs}
             activeId={activeTab}
-            onChange={(tab) => {
-              if (onInteraction?.() === false) return
-              onPaneFocus?.()
-              onTabChange?.(tab as FieldKind)
-            }}
+            onChange={changeTab}
+            rightChildren={
+              interactive && !jumpMode && hiddenOptionalTabs.length ? (
+                <box
+                  id="request-tab-add"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <Select
+                    items={hiddenOptionalTabs}
+                    placeholder="+"
+                    focused={tabMenuActive}
+                    visualFocused={tabMenuActive}
+                    fitContent
+                    showIndicator={false}
+                    dropdownAlign="right"
+                    maxDropdownHeight={2}
+                    onActivate={activateTabMenu}
+                    onChange={changeTab}
+                    onOpenChange={handleTabMenuOpenChange}
+                  />
+                </box>
+              ) : undefined
+            }
           >
             <box
               style={{
