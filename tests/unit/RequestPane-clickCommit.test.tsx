@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { BoxRenderable } from "@opentui/core"
+import { RGBA, TextAttributes, type BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
+import { THEMES } from "../../src/ui/theme-data"
 import { RequestPane } from "../../src/ui/RequestPane"
 import type { FieldKind } from "../../src/ui/editMode"
 import type { Request } from "../../src/schema"
@@ -30,6 +31,12 @@ const automationRequest: Request = {
   ...request,
   assertions: [{ expression: "status", operator: "exists" }],
   captures: { token: { value: "body.token", enabled: true } },
+}
+
+const browsingHeaders = {
+  mode: "browsing" as const,
+  cursor: { field: "headers" as const, row: -1, addingRow: true },
+  editingRow: -1,
 }
 
 function EditingPane({
@@ -64,9 +71,370 @@ function EditingPane({
 }
 
 describe("RequestPane blank click commit", () => {
-  it("does not change tabs when a capture commit is rejected", async () => {
+  it("hides empty optional tabs behind a compact add control", async () => {
     const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={browsingHeaders}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 42, height: 12 },
+      )
+
+      await act(async () => {
+        await render.renderOnce()
+      })
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeUndefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeUndefined()
+      const frame = render.captureCharFrame()
+      expect(frame).toContain("+")
+      expect(frame).not.toContain("▼")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("keeps and disables optional menu items after adding their tabs", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
     const changes: FieldKind[] = []
+
+    function Harness() {
+      const [activeTab, setActiveTab] = useState<FieldKind>("headers")
+      const [revealedTabs, setRevealedTabs] = useState<FieldKind[]>([])
+      return (
+        <RequestPane
+          request={request}
+          editState={{
+            mode: "browsing",
+            cursor: { field: activeTab, row: -1, addingRow: true },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          activeTab={activeTab}
+          revealedOptionalTabs={revealedTabs}
+          onInteraction={() => true}
+          onOptionalTabReveal={(tab) =>
+            setRevealedTabs((current) => [...current, tab])
+          }
+          onTabChange={(tab) => {
+            changes.push(tab)
+            setActiveTab(tab)
+          }}
+        />
+      )
+    }
+
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
+
+      await act(async () => {
+        await render.renderOnce()
+      })
+      const lines = render.captureCharFrame().split("\n")
+      const addRow = lines.findIndex((line) => line.includes("+"))
+      const addColumn = lines[addRow]!.lastIndexOf("+")
+      await act(async () => {
+        await render.mockMouse.moveTo(addColumn, addRow)
+      })
+      await act(async () => {
+        await render.renderOnce()
+      })
+      await act(async () => {
+        await render.mockMouse.click(addColumn, addRow, MouseButtons.LEFT)
+      })
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      const menu = render.captureCharFrame()
+      expect(menu).toContain("Assert")
+      expect(menu).toContain("Capture")
+
+      act(() => host.press("return"))
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      expect(changes).toEqual(["assertions"])
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeDefined()
+
+      const activeFrame = render.captureCharFrame().split("\n")
+      const remainingAddRow = activeFrame.findIndex((line) =>
+        line.includes("+"),
+      )
+      const remainingAddColumn = activeFrame[remainingAddRow]!.lastIndexOf("+")
+      await act(async () => {
+        await render.mockMouse.click(
+          remainingAddColumn,
+          remainingAddRow,
+          MouseButtons.LEFT,
+        )
+      })
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      const remainingMenu = render.captureCharFrame()
+      expect(remainingMenu.match(/Assert/g)).toHaveLength(2)
+      expect(remainingMenu.match(/Capture/g)).toHaveLength(1)
+      act(() => host.press("return"))
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      expect(changes).toEqual(["assertions", "captures"])
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
+
+      const completedFrame = render.captureCharFrame().split("\n")
+      const completedAddRow = completedFrame.findIndex((line) =>
+        line.includes("+"),
+      )
+      expect(completedAddRow).toBeGreaterThanOrEqual(0)
+      const completedAddColumn =
+        completedFrame[completedAddRow]!.lastIndexOf("+")
+      await act(async () => {
+        await render.mockMouse.click(
+          completedAddColumn,
+          completedAddRow,
+          MouseButtons.LEFT,
+        )
+      })
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      const completedMenu = render.captureCharFrame()
+      expect(completedMenu.match(/Assert/g)).toHaveLength(2)
+      expect(completedMenu.match(/Capture/g)).toHaveLength(2)
+      act(() => host.press("return"))
+      await act(async () => {
+        await render.renderOnce()
+      })
+      expect(changes).toEqual(["assertions", "captures"])
+      act(() => host.press("escape"))
+      await act(async () => {
+        await render.renderOnce()
+      })
+
+      const headers = render.renderer.root.findDescendantById(
+        "tab-headers",
+      ) as BoxRenderable
+      await act(async () => {
+        await render.mockMouse.click(
+          headers.x + 1,
+          headers.y,
+          MouseButtons.LEFT,
+        )
+      })
+      await act(async () => {
+        await render.renderOnce()
+      })
+      expect(changes).toEqual(["assertions", "captures", "headers"])
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("keeps optional tabs with disabled declarations visible", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={{
+                ...request,
+                assertions: [
+                  {
+                    expression: "status",
+                    operator: "exists",
+                    enabled: false,
+                  },
+                ],
+                captures: {
+                  token: { value: "body.token", enabled: false },
+                },
+              }}
+              editState={browsingHeaders}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+
+      await render.renderOnce()
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
+      expect(render.captureCharFrame()).toContain("+")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("shows the optional-tab add shortcut during jump mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={browsingHeaders}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+              jumpMode
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+
+      await render.renderOnce()
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeUndefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeUndefined()
+      const frame = render.captureCharFrame()
+      expect(frame).not.toContain(" v ")
+      expect(frame).not.toContain(" c ")
+      const add = render.renderer.root.findDescendantById(
+        "request-tab-add",
+      ) as BoxRenderable
+      expect(add).toBeDefined()
+      expect(frame).toContain("+")
+      expect(
+        frame.split("\n")[add.y - 1]!.slice(add.x, add.x + add.width),
+      ).toContain("o")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("makes the focused optional-tab add control visually distinct", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={{
+                mode: "inactive",
+                cursor: {
+                  field: "headers",
+                  row: -1,
+                  addingRow: false,
+                },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+              focused
+              tabMenuActive
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 20 },
+      )
+
+      await render.renderOnce()
+      const plus = render
+        .captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .find((span) => span.text.trim() === "+")
+      expect(plus?.fg.equals(RGBA.fromHex(THEMES[0]!.primary))).toBe(true)
+      expect((plus?.attributes ?? 0) & TextAttributes.BOLD).not.toBe(0)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("does not offer optional tabs in read-only mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={browsingHeaders}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+              interactive={false}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+
+      await render.renderOnce()
+      expect(render.captureCharFrame()).not.toContain("+")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("does not change tabs when a capture commit is rejected", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: FieldKind[] = []
+    let interactions = 0
     try {
       const render = await testRender(
         <KeymapProvider keymap={keymap}>
@@ -88,7 +456,10 @@ describe("RequestPane blank click commit", () => {
               setEditKey={() => {}}
               setEditValue={() => {}}
               activeTab="captures"
-              onInteraction={() => false}
+              onInteraction={() => {
+                interactions++
+                return false
+              }}
               onTabChange={(tab) => changes.push(tab)}
             />
           </ThemeProvider>
@@ -97,14 +468,30 @@ describe("RequestPane blank click commit", () => {
       )
 
       await render.renderOnce()
-      const target = render.renderer.root.findDescendantById(
-        "tab-headers",
-      ) as BoxRenderable
+      const lines = render.captureCharFrame().split("\n")
+      const addRow = lines.findIndex((line) => line.includes("+"))
+      const addColumn = lines[addRow]!.lastIndexOf("+")
       await act(async () => {
-        await render.mockMouse.click(target.x + 1, target.y, MouseButtons.LEFT)
+        await render.mockMouse.click(addColumn, addRow, MouseButtons.LEFT)
+      })
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      expect(interactions).toBe(0)
+      act(() => host.press("return"))
+      await act(async () => {
+        await render.renderOnce()
       })
 
       expect(changes).toEqual([])
+      expect(interactions).toBe(1)
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeUndefined()
     } finally {
       cleanup()
     }

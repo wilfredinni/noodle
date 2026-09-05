@@ -127,6 +127,9 @@ export function RequestResponseView({
       editError={eb.editError}
       focused={requestVisible && focus === "request"}
       activeTab={eb.activeTab}
+      revealedOptionalTabs={eb.revealedOptionalTabs}
+      tabMenuActive={eb.optionalTabMenuActive}
+      onTabMenuActiveChange={eb.setOptionalTabMenuActive}
       activeEnv={activeEnv}
       onAuthTypeChange={draft.setAuthType}
       onApiKeyPlacementChange={draft.setApiKeyPlacement}
@@ -138,6 +141,7 @@ export function RequestResponseView({
       jumpMode={jumpMode}
       onPaneFocus={() => onPaneFocus("request")}
       onTabChange={onRequestTabChange}
+      onOptionalTabReveal={eb.revealOptionalTab}
       onBodyTypeFocus={onRequestBodyTypeFocus}
       onAuthFocusRow={onRequestAuthFocusRow}
       onBodyEditorFocus={onRequestBodyEditorFocus}

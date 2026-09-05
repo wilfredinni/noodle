@@ -71,6 +71,27 @@ describe("Select", () => {
     cleanup()
   })
 
+  it("can hide the trigger indicator", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            placeholder="+"
+            fitContent
+            showIndicator={false}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 20, height: 5 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame().split("\n")[0]!.trim()).toBe("+")
+    cleanup()
+  })
+
   it("opens dropdown on Enter when focused", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let open = false
@@ -549,6 +570,37 @@ describe("Select", () => {
     })
     await renderOnce()
     expect(selected).toBe("c")
+    cleanup()
+  })
+
+  it("opens on the first enabled item", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let selected = ""
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={[
+              { id: "a", label: "A", disabled: true },
+              { id: "b", label: "B" },
+            ]}
+            focused
+            onChange={(id) => {
+              selected = id
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => host.press("return"))
+    await renderOnce()
+    act(() => host.press("return"))
+    await renderOnce()
+
+    expect(selected).toBe("b")
     cleanup()
   })
 

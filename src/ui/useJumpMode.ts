@@ -18,6 +18,7 @@ export type JumpTarget =
   | { kind: "method" }
   | { kind: "url" }
   | { kind: "request-tab"; field: FieldKind }
+  | { kind: "request-tab-add" }
   | { kind: "folder-tab"; field: FolderFieldKind }
   | { kind: "response-tab"; tab: ResponseTabKind }
   | { kind: "env-sidebar" }
@@ -98,6 +99,10 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             ebRef.current.enterBrowseAt(target.field)
             setFocus("request")
             break
+          case "request-tab-add":
+            ebRef.current.setOptionalTabMenuActive(true)
+            setFocus("request")
+            break
           case "folder-tab":
             folderEbRef.current.enterBrowseAt(target.field)
             setFocus("folder")
@@ -166,6 +171,7 @@ export function getAvailableTargets(
   environmentView = false,
   settingsView = false,
   cookieJarView = false,
+  requestTabAddVisible = false,
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
   if (settingsView) {
@@ -206,6 +212,9 @@ export function getAvailableTargets(
       targets.set("v", { kind: "request-tab", field: "assertions" })
       targets.set("c", { kind: "request-tab", field: "captures" })
       targets.set("t", { kind: "request-tab", field: "settings" })
+      if (requestTabAddVisible) {
+        targets.set(REQUEST_TAB_ADD_HINT, { kind: "request-tab-add" })
+      }
     }
     if (expanded !== "request") {
       targets.set("r", { kind: "response-tab", tab: "body" })
@@ -229,6 +238,8 @@ export const REQUEST_TAB_HINTS: Record<string, string> = {
   captures: "c",
   settings: "t",
 }
+
+export const REQUEST_TAB_ADD_HINT = "o"
 
 export const RESPONSE_TAB_HINTS: Record<string, string> = {
   body: "r",

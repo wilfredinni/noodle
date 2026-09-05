@@ -116,7 +116,11 @@ export function createRequestLayers(
   }
 
   const requestFocus: UseBindingsLayer = {
-    enabled: () => isMainBase() && keymap.getData("app.focus") === "request",
+    enabled: () =>
+      (isMainBase() || request.ebRef.current.optionalTabMenuActive) &&
+      keymap.getData("app.focus") === "request" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") === "main",
     commands: [
       {
         name: "request.edit-enter",
@@ -145,6 +149,7 @@ export function createRequestLayers(
   const browse: UseBindingsLayer = {
     enabled: () =>
       keymap.getData("app.mode") === "browse" &&
+      !request.ebRef.current.optionalTabMenuActive &&
       keymap.getData("app.focus") === "request" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") === "main",

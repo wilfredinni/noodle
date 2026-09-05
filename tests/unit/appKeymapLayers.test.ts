@@ -46,6 +46,8 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     formType: 0,
     requestCommit: 0,
     requestToggle: 0,
+    requestTabCycle: [] as number[],
+    requestBrowseHorizontal: [] as number[],
     folderUp: 0,
     folderCommit: 0,
     envSave: 0,
@@ -101,6 +103,10 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         },
         toggleFormRowType: () => calls.formType++,
         toggleRow: () => calls.requestToggle++,
+        optionalTabMenuActive: false,
+        cycleInactiveTab: (delta: number) => calls.requestTabCycle.push(delta),
+        browseLeft: () => calls.requestBrowseHorizontal.push(-1),
+        browseRight: () => calls.requestBrowseHorizontal.push(1),
         commitEdit: () => calls.requestCommit++,
         canEnterTextBodyEditor: false,
         isEditingTextBody: false,
@@ -364,6 +370,40 @@ describe("app keymap layers", () => {
       key: "ctrl+d",
       cmd: "cookie.delete-cookie",
     })
+    cleanup()
+  })
+
+  it("routes one arrow through the focused optional-tab add control", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const editor = context.request.ebRef.current
+    context.global.focusRef.current = "request"
+    keymap.setData("app.focus", "request")
+    keymap.setData("app.mode", "browse")
+    const disposers = register(context)
+
+    editor.editState.mode = "browsing"
+    host.press("right")
+    expect(calls.requestBrowseHorizontal).toEqual([1])
+
+    editor.optionalTabMenuActive = true
+    editor.editState.mode = "inactive"
+    host.press("right")
+    expect(calls.requestTabCycle).toEqual([1])
+    expect(calls.requestBrowseHorizontal).toEqual([1])
+
+    editor.optionalTabMenuActive = false
+    editor.editState.mode = "browsing"
+    host.press("left")
+    expect(calls.requestBrowseHorizontal).toEqual([1, -1])
+
+    editor.optionalTabMenuActive = true
+    editor.editState.mode = "inactive"
+    host.press("left")
+    expect(calls.requestTabCycle).toEqual([1, -1])
+    expect(calls.requestBrowseHorizontal).toEqual([1, -1])
+
+    disposers.forEach((dispose) => dispose())
     cleanup()
   })
 

@@ -35,6 +35,7 @@ export interface SelectProps {
   dropdownAlign?: "left" | "right"
   badge?: boolean
   fitContent?: boolean
+  showIndicator?: boolean
   onOpenChange?: (open: boolean) => void
   onActivate?: () => void
   interactive?: boolean
@@ -55,6 +56,7 @@ export function Select({
   dropdownAlign = "left",
   badge = false,
   fitContent = false,
+  showIndicator = true,
   onOpenChange,
   onActivate,
   interactive = true,
@@ -76,7 +78,13 @@ export function Select({
     () => items.findIndex((i) => i.id === value),
     [items, value],
   )
-  const safeInitialIndex = currentIndex >= 0 ? currentIndex : 0
+  const safeInitialIndex =
+    currentIndex >= 0 && !items[currentIndex]?.disabled
+      ? currentIndex
+      : Math.max(
+          0,
+          items.findIndex((item) => !item.disabled),
+        )
 
   useEffect(() => {
     if ((!focused || !interactive) && open) setOpen(false)
@@ -244,7 +252,7 @@ export function Select({
     width !== undefined
       ? width
       : fitContent || badge
-        ? selectedText.length + 4
+        ? selectedText.length + (showIndicator ? 4 : 2)
         : "100%"
 
   return (
@@ -293,15 +301,21 @@ export function Select({
                 focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
               )
             ) : (
-              <text fg={theme.textMuted} style={{ flexShrink: 0 }}>
+              <text
+                fg={visualFocused || open ? labelColor : theme.textMuted}
+                attributes={visualFocused ? TextAttributes.BOLD : undefined}
+                style={{ flexShrink: 0 }}
+              >
                 {placeholder}
               </text>
             )}
           </box>
-          <text fg={indicatorColor} style={{ flexShrink: 0 }}>
-            {" "}
-            ▼
-          </text>
+          {showIndicator ? (
+            <text fg={indicatorColor} style={{ flexShrink: 0 }}>
+              {" "}
+              ▼
+            </text>
+          ) : null}
         </box>
 
         {open &&

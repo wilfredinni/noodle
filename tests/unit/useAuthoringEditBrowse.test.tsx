@@ -1,9 +1,13 @@
 import { describe, expect, it } from "bun:test"
-import { useEffect, useState } from "react"
+import { act, useEffect, useState } from "react"
 import { createTestRender } from "../testRender"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
-import { useEditBrowse } from "../../src/hooks/useEditBrowse"
+import {
+  useEditBrowse,
+  type UseEditBrowseResult,
+} from "../../src/hooks/useEditBrowse"
 import type { Request } from "../../src/schema"
+import type { FieldKind } from "../../src/ui/editMode"
 
 const testRender = createTestRender()
 const request: Request = {
@@ -456,5 +460,266 @@ describe("useEditBrowse authored rows", () => {
       { index: 1, value: "" },
     ])
     expect(finalMode).toBe("browsing")
+  })
+})
+
+function TabNavigationHarness({
+  initialRequest,
+  initialTab = "settings",
+  optionalTabMenuEnabled = true,
+  onEditor,
+  onTab,
+  onTabChange,
+}: {
+  initialRequest: Request
+  initialTab?: FieldKind
+  optionalTabMenuEnabled?: boolean
+  onEditor: (editor: UseEditBrowseResult) => void
+  onTab?: (tab: FieldKind, restoreTab: (tab: FieldKind) => void) => void
+  onTabChange?: (tab: FieldKind) => void
+}) {
+  const draft = useRequestDraft(initialRequest)
+  const [tab, setTab] = useState<FieldKind>(initialTab)
+  const editor = useEditBrowse(draft.draft, draft, {
+    initialTab: tab,
+    onTabChange: (value) => {
+      onTabChange?.(value)
+      setTab(value)
+    },
+    optionalTabMenuEnabled,
+  })
+  onEditor(editor)
+  onTab?.(tab, setTab)
+  return null
+}
+
+describe("useEditBrowse optional-tab menu navigation", () => {
+  it("does not restore empty optional tabs across sessions", async () => {
+    for (const field of ["assertions", "captures"] as const) {
+      let editor: UseEditBrowseResult | undefined
+      let persistedTab: FieldKind | undefined
+      const changes: FieldKind[] = []
+      const render = await testRender(
+        <TabNavigationHarness
+          initialRequest={request}
+          initialTab={field}
+          onEditor={(value) => (editor = value)}
+          onTab={(value) => (persistedTab = value)}
+          onTabChange={(value) => changes.push(value)}
+        />,
+        { width: 20, height: 4 },
+      )
+      await render.renderOnce()
+      await render.renderOnce()
+
+      expect(editor?.activeTab).toBe("headers")
+      expect(persistedTab).toBe("headers")
+      expect(changes).toEqual(["headers"])
+    }
+  })
+
+  it("notifies once when an empty optional preference loads after mount", async () => {
+    let editor: UseEditBrowseResult | undefined
+    let persistedTab: FieldKind | undefined
+    let restoreTab: (tab: FieldKind) => void
+    const changes: FieldKind[] = []
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        initialTab="headers"
+        onEditor={(value) => (editor = value)}
+        onTab={(value, restore) => {
+          persistedTab = value
+          restoreTab = restore
+        }}
+        onTabChange={(value) => changes.push(value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+    expect(changes).toEqual([])
+
+    for (const field of ["assertions", "captures"] as const) {
+      changes.length = 0
+      act(() => restoreTab(field))
+      await render.renderOnce()
+      await render.renderOnce()
+
+      expect(editor?.activeTab).toBe("headers")
+      expect(persistedTab).toBe("headers")
+      expect(changes).toEqual(["headers"])
+    }
+  })
+
+  it("restores optional tabs that contain disabled declarations", async () => {
+    const cases: Array<[FieldKind, Request]> = [
+      [
+        "assertions",
+        {
+          ...request,
+          assertions: [
+            { expression: "status", operator: "exists", enabled: false },
+          ],
+        },
+      ],
+      [
+        "captures",
+        {
+          ...request,
+          captures: { token: { value: "body.token", enabled: false } },
+        },
+      ],
+    ]
+    for (const [field, initialRequest] of cases) {
+      let editor: UseEditBrowseResult | undefined
+      let persistedTab: FieldKind | undefined
+      const render = await testRender(
+        <TabNavigationHarness
+          initialRequest={initialRequest}
+          initialTab={field}
+          onEditor={(value) => (editor = value)}
+          onTab={(value) => (persistedTab = value)}
+        />,
+        { width: 20, height: 4 },
+      )
+      await render.renderOnce()
+
+      expect(editor?.activeTab).toBe(field)
+      expect(persistedTab).toBe(field)
+    }
+  })
+
+  it("keeps explicitly revealed empty tabs for the current session", async () => {
+    let editor: UseEditBrowseResult | undefined
+    let persistedTab: FieldKind | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        onEditor={(value) => (editor = value)}
+        onTab={(value) => (persistedTab = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    act(() => editor!.revealOptionalTab("assertions"))
+    act(() => editor!.enterBrowseAt("assertions"))
+    await render.renderOnce()
+    act(() => editor!.exitBrowse())
+    await render.renderOnce()
+    await render.renderOnce()
+
+    expect(editor?.activeTab).toBe("assertions")
+    expect(editor?.revealedOptionalTabs).toContain("assertions")
+    expect(persistedTab).toBe("assertions")
+  })
+
+  it("cycles Settings → + → Headers and Headers → + → Settings", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuVisible).toBe(true)
+
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("headers")
+    expect(editor?.optionalTabMenuActive).toBe(false)
+
+    act(() => editor!.cycleInactiveTab(-1))
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("headers")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+
+    act(() => editor!.cycleInactiveTab(-1))
+    await render.renderOnce()
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(false)
+  })
+
+  it("reaches + from browse mode without changing the active tab", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    act(() => editor!.enterBrowseAt("settings"))
+    await render.renderOnce()
+    expect(editor?.editState.mode).toBe("browsing")
+
+    act(() => editor!.browseRight())
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+    expect(editor?.editState.mode).toBe("inactive")
+
+    act(() => editor!.enterBrowseAt("settings"))
+    await render.renderOnce()
+    act(() => editor!.setOptionalTabMenuActive(true))
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+    expect(editor?.editState.mode).toBe("inactive")
+  })
+
+  it("keeps + reachable when both optional tabs are visible", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={{
+          ...request,
+          assertions: [{ expression: "status", operator: "exists" }],
+          captures: { token: { value: "body.token", enabled: true } },
+        }}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    expect(editor?.optionalTabMenuVisible).toBe(true)
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+  })
+
+  it("skips + when the menu is disabled", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        optionalTabMenuEnabled={false}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    expect(editor?.optionalTabMenuVisible).toBe(false)
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("headers")
+    expect(editor?.optionalTabMenuActive).toBe(false)
   })
 })

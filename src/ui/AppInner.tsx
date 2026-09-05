@@ -432,22 +432,6 @@ export function AppInner({
     [draft.markSaved, updateCollection],
   )
 
-  const availableJumpTargets = useMemo(
-    () =>
-      getAvailableTargets(
-        draft.draft !== null,
-        expanded,
-        focusedFolder !== null,
-        view === "env-editor",
-        view === "settings",
-        view === "cookie-jar",
-      ),
-    [draft.draft, expanded, focusedFolder, view],
-  )
-  useEffect(() => {
-    jumpTargetsRef.current = availableJumpTargets
-  }, [availableJumpTargets])
-
   const tabPrefs = getTab(selectedRequest?.id ?? "")
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
@@ -490,7 +474,26 @@ export function AppInner({
     initialTab: initialRequestTab,
     onTabChange: onRequestTabChange,
     onTagEdit: (index, value) => openTagEditorRef.current(index, value),
+    optionalTabMenuEnabled: isCollection,
   })
+
+  const requestTabAddVisible = eb.optionalTabMenuVisible
+  const availableJumpTargets = useMemo(
+    () =>
+      getAvailableTargets(
+        draft.draft !== null,
+        expanded,
+        focusedFolder !== null,
+        view === "env-editor",
+        view === "settings",
+        view === "cookie-jar",
+        requestTabAddVisible,
+      ),
+    [draft.draft, expanded, focusedFolder, requestTabAddVisible, view],
+  )
+  useEffect(() => {
+    jumpTargetsRef.current = availableJumpTargets
+  }, [availableJumpTargets])
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
   const {
