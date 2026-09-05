@@ -445,6 +445,50 @@ describe("CLI integration", () => {
     }
   })
 
+  it("uses exit 2 and explicit output for request configuration errors", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-request-config-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      const json = Bun.spawnSync(
+        [
+          "bun",
+          CLI,
+          "request",
+          "run",
+          "missing",
+          "--collection",
+          dir,
+          "--json",
+        ],
+        { env: { ...process.env, HOME: join(dir, "home") } },
+      )
+      expect(json.exitCode).toBe(2)
+      const output = JSON.parse(json.stdout.toString())
+      expect(Object.keys(output)).toEqual(["status", "data", "errors"])
+      expect(output).toEqual({
+        status: "error",
+        data: null,
+        errors: ["request not found: missing"],
+      })
+
+      const human = Bun.spawnSync([
+        "bun",
+        CLI,
+        "request",
+        "run",
+        "missing",
+        "--collection",
+        dir,
+      ])
+      expect(human.exitCode).toBe(2)
+      expect(human.stderr.toString()).toContain(
+        "configuration error: request not found: missing",
+      )
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("shows Postman bundle requirements in export help", () => {
     const proc = Bun.spawnSync(["bun", CLI, "export", "--help"])
     expect(proc.exitCode).toBe(0)

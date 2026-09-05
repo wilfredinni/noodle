@@ -51,8 +51,8 @@ noodle request run users/get-user --collection ./my-api --json
 ```
 
 A failed assertion makes the command exit nonzero. Read structured results from
-`data.result.assertions`; JSON actual values are raw server data and may be
-sensitive.
+`data.result.assertions`; known secrets are redacted from expected and actual
+values, but arbitrary server data remains visible.
 
 ## Chained requests with response capture
 
@@ -82,12 +82,33 @@ method: GET
 url: $base_url/users/$user_id
 headers:
   X-Request-ID: $request_id
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: isNumber
+  - expression: body.name
+    operator: equals
+    value: Ada
 ```
 
-Run both in collection order:
+Cleanup request (`users/delete-user.yml`):
+
+```yaml
+name: Delete User
+method: DELETE
+url: $base_url/users/$user_id
+assert:
+  - expression: status
+    operator: equals
+    value: 204
+```
+
+Run the workflow in collection order:
 
 ```bash
-noodle collection run ./my-api users/create-user users/get-created-user --json
+noodle collection run ./my-api users/create-user users/get-created-user users/delete-user --json
 ```
 
 `user_id` and `request_id` exist only for this collection command and never
@@ -96,10 +117,64 @@ modify environment files. Every capture uses the object form. Add
 changing RunScope.
 
 Read capture results from `data.results[].captures`. Human output never prints
-captured values. JSON output includes typed server values unless they match a
-known secret, so treat it as sensitive. A `persist: secret` capture is always
-fully redacted. Persistence applies only to manual TUI sends and CLI
-`request run`, never collection runs.
+captured values. Structured output redacts known secrets, credentials, cookies,
+and sensitive response headers but preserves arbitrary server data. A
+`persist: secret` capture is always fully redacted. Persistence applies only to
+manual TUI sends and CLI `request run`, never collection runs.
+
+## Login and authenticated chaining
+
+Declare `$password` as a secret in the environment used by the run. This
+prompts without echo and stores the value in the operating system vault:
+
+```bash
+noodle secret set password --env development --collection ./my-api
+```
+
+Login request (`auth/login.yml`):
+
+```yaml
+name: Login
+method: POST
+url: $base_url/login
+body_type: json
+body: '{"email":"ada@example.com","password":"$password"}'
+capture:
+  access_token:
+    value: body.access_token
+    persist: secret
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+```
+
+Authenticated request (`auth/profile.yml`):
+
+```yaml
+name: Get Profile
+method: GET
+url: $base_url/profile
+auth:
+  type: bearer
+  token: $access_token
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.email
+    operator: equals
+    value: ada@example.com
+```
+
+```bash
+noodle collection run ./my-api auth/login auth/profile --json
+```
+
+The collection run uses the captured token only in its transient RunScope; it
+does not persist it despite the declaration. Run `auth/login` alone with
+`request run` only when storing the token in the selected environment's OS-vault
+account is intentional.
 
 ## POST with JSON body
 

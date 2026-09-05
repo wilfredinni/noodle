@@ -147,7 +147,7 @@ display and completion.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots resolve ordinary variables and redact declared environment secrets, settings secrets, sensitive headers, and literal auth credentials before persistence. Server response fields remain intact, so timeline files and sidecars can still contain sensitive payloads.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and historical secret scrubbing includes compressed request and response sidecars. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
 
 ### File write conventions
 
@@ -389,6 +389,15 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      8. fetch() with proxy/TLS options and AbortSignal timeout
      9. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
      10. Manually follow HTTP(S) redirects; block downgrades, strip cross-origin credentials, and reapply allowed auth per leg
+  → shared send paths use one declarative response sequence
+    (`executionResults.ts` owns steps 4-6):
+     1. Resolve environment values and create or reuse RunScope
+     2. Execute the substituted request
+     3. Build status, response.time, case-insensitive header, and JSON-body views
+     4. Evaluate captures in declaration order
+     5. Commit successful captures to RunScope
+     6. Evaluate assertions against the same views
+     7. Produce structured results and, for manual TUI sends only, safe timeline history
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
@@ -504,7 +513,21 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same runner evaluates captures and assertions, records ordered fail-fast skips, and aggregates fixed failure categories. Completed failures exit `1`, while pre-run configuration failures exit `2`. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same runner evaluates captures and assertions, records ordered fail-fast skips, and aggregates fixed failure categories. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+
+### Extending assertions and response expressions
+
+Add an operator only when the contract requires it. Update the shared operator
+type/list and load-time validation in `schema/index.ts` and `lang/parse.ts`, add
+the evaluation branch in `assertions.ts`, then update parser/serializer,
+authoring UI, user/dev skills, and focused round-trip and semantic tests. Do not
+add CLI- or TUI-specific evaluation.
+
+Add an expression through `response.ts` so captures and assertions receive the
+same parsed expression and resolver behavior. Update expression completion in
+the assertion/capture editors, document missing/type/error semantics, and cover
+both consumers. Keep request execution and redaction in `executionResults.ts`,
+`services.ts`, and `timelineEntry.ts` rather than inside a new expression.
 
 **Config files** (read during startup):
 
@@ -567,6 +590,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | File I/O                    | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts`                                                                                                                                                                                                                                                |
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
 | Secrets and redaction       | `src/secrets/index.ts`, `src/secrets/redact.ts`                                                                                                                                                                                                                                                                              |
+| Declarative response engine | `src/response.ts`, `src/assertions.ts`, `src/runScope.ts`, `src/executionResults.ts`                                                                                                                                                                                                                                          |
 | Cookie storage and UI       | `src/cookies/index.ts`, `src/hooks/useCollectionCookieJar.ts`, `src/hooks/useCookieJarView.ts`, `src/ui/cookie-jar/`, `src/ui/overlays/CookieFormOverlay.tsx`                                                                                                                  |
 | HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`, `src/requests/oauth1.ts`, `src/requests/oauth2.ts`, `src/requests/oauth2Browser.ts`                                                                                                                                              |
 | TLS and proxy policy        | `src/tls.ts`, `src/proxy.ts`                                                                                                                                                                                                                                                                                                 |

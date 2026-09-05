@@ -58,7 +58,12 @@ import {
   loadTlsPassphrases,
   setStoredSecret,
 } from "../secrets"
-import { redactKnownSecrets } from "../secrets/redact"
+import {
+  redactKnownSecrets,
+  redactResponseHeaders,
+  requestSensitiveValues,
+  responseSensitiveValues,
+} from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
 import {
@@ -729,6 +734,7 @@ async function runRequest(
   try {
     const merged = mergeFolderOverrides(request, collection, request.id)
     const effective = substitute(merged, effectiveEnvironment)
+    secretValues.push(...requestSensitiveValues(effective))
     detailRequest = timelineRequest(merged, effective)
     const response = await executor.send(request, {
       environment: effectiveEnvironment,
@@ -739,6 +745,7 @@ async function runRequest(
       cookies,
       collectionDir,
       oauthMode: "cached-only",
+      onSensitiveValues: (values) => secretValues.push(...values),
     })
     const authWarnings = (response.network ?? [])
       .filter(
@@ -749,6 +756,7 @@ async function runRequest(
           ),
       )
       .map((event) => event.message)
+    secretValues.push(...responseSensitiveValues(response))
     let rawCaptureResults: CaptureResult[] = []
     let execution = evaluateResponseExecution(
       effective,
@@ -770,6 +778,7 @@ async function runRequest(
     }
     const captureResults = execution.captures?.results
     const assertionResults = execution.assertions?.results
+    const responseSecretValues = [...secretValues, ...runScope.secretValues()]
     const failureCategories: RunFailureCategory[] = []
     if (response.status >= 400) failureCategories.push("http")
     if (captureResults?.some((result) => !result.success)) {
@@ -784,9 +793,12 @@ async function runRequest(
       url: redact(effective.url),
       response: {
         status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        body: response.body,
+        statusText: redactKnownSecrets(
+          response.statusText,
+          responseSecretValues,
+        ),
+        headers: redactResponseHeaders(response.headers, responseSecretValues),
+        body: redactKnownSecrets(response.body, responseSecretValues),
         timeMs: response.timeMs,
       },
       ok:
@@ -806,7 +818,7 @@ async function runRequest(
         { status: "done", response, execution },
         environment?.name,
         undefined,
-        secretValues,
+        responseSecretValues,
       ),
     })
     return result

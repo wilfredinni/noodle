@@ -29,6 +29,31 @@ import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 import { signOAuth1Request, stripOAuth1Credentials } from "./oauth1"
 import { resolveOAuth2Token, type OAuth2Mode } from "./oauth2"
 import type { OAuthBrowserLauncher } from "./oauth2Browser"
+import { sensitiveHeaderValues } from "../secrets/redact"
+
+function oauth1SensitiveRequestValues(
+  url: string,
+  body: BodyInit | null | undefined,
+): string[] {
+  const parameters = [...new URL(url).searchParams]
+  if (typeof body === "string") {
+    parameters.push(...new URLSearchParams(body))
+  }
+  return [
+    ...new Set(
+      parameters
+        .filter(
+          ([name]) => name === "oauth_signature" || name === "oauth_token",
+        )
+        .flatMap(([, value]) => {
+          const encoded = new URLSearchParams({ value })
+            .toString()
+            .slice("value=".length)
+          return encoded === value ? [value] : [value, encoded]
+        }),
+    ),
+  ]
+}
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -36,6 +61,7 @@ export interface RequestExecutionOptions {
   collection?: Collection
   requestPath?: string
   onNetworkEvent?: (network: NetworkEvent[]) => void
+  onSensitiveValues?: (values: string[]) => void
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
   cookies?: CollectionCookieJar
@@ -99,6 +125,7 @@ export async function send(
     collection,
     requestPath,
     onNetworkEvent,
+    onSensitiveValues,
     proxyPolicy,
     tlsPolicy,
     cookies,
@@ -365,6 +392,15 @@ export async function send(
           requestUrl = signed.url
           signedInit = signed.init
         }
+        onSensitiveValues?.([
+          ...sensitiveHeaderValues(
+            headersToObject(new Headers(signedInit.headers)),
+          ),
+          ...(oauth1SigningEnabled
+            ? oauth1SensitiveRequestValues(requestUrl, signedInit.body)
+            : []),
+          ...(oauth2Token ? [oauth2Token] : []),
+        ])
         if (ntlmEnabled) {
           ntlmConnection ??= await createNtlmConnection(
             currentUrl,

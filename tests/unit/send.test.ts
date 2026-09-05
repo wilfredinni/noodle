@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, mock } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
 import type { CollectionCookieJar } from "../../src/cookies"
+import { defaultOAuth1Auth } from "../../src/auth/defaults"
 
 const servers: Bun.Server<undefined>[] = []
 
@@ -66,6 +67,79 @@ describe("send — environment substitution", () => {
     try {
       await send(makeReq())
       expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
+describe("send — redaction values", () => {
+  it("reports prepared authorization values without changing the request", async () => {
+    const originalFetch = globalThis.fetch
+    const sensitiveValues: string[] = []
+    globalThis.fetch = mock(
+      async () => new Response("ok"),
+    ) as unknown as typeof globalThis.fetch
+    try {
+      await send(
+        makeReq({ auth: { type: "basic", user: "ada", pass: "secret" } }),
+        { onSensitiveValues: (values) => sensitiveValues.push(...values) },
+      )
+      const encoded = Buffer.from("ada:secret").toString("base64")
+      expect(sensitiveValues).toContain(`Basic ${encoded}`)
+      expect(sensitiveValues).toContain(encoded)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("reports OAuth 1 query and body credentials", async () => {
+    const originalFetch = globalThis.fetch
+    const sensitiveValues: string[] = []
+    const sent: { url: string; body: string }[] = []
+    globalThis.fetch = mock(async (url, init) => {
+      sent.push({ url: String(url), body: String(init?.body ?? "") })
+      return new Response("ok")
+    }) as unknown as typeof globalThis.fetch
+    const auth = {
+      ...defaultOAuth1Auth(),
+      consumer_key: "consumer",
+      consumer_secret: "consumer-secret",
+      access_token: "access/token",
+      access_token_secret: "access-secret",
+      nonce: "fixed",
+      timestamp: "1700000000",
+      version: "",
+    }
+    try {
+      await send(makeReq({ auth: { ...auth, placement: "query" } }), {
+        onSensitiveValues: (values) => sensitiveValues.push(...values),
+      })
+      await send(
+        makeReq({
+          method: "POST",
+          bodyType: "urlencoded",
+          formData: [
+            { name: "field", value: "value", enabled: true, type: "text" },
+          ],
+          auth: { ...auth, placement: "body" },
+        }),
+        { onSensitiveValues: (values) => sensitiveValues.push(...values) },
+      )
+
+      const query = new URL(sent[0]!.url).searchParams
+      const body = new URLSearchParams(sent[1]!.body)
+      for (const value of [
+        query.get("oauth_signature")!,
+        query.get("oauth_token")!,
+        body.get("oauth_signature")!,
+        body.get("oauth_token")!,
+      ]) {
+        expect(sensitiveValues).toContain(value)
+        expect(sensitiveValues).toContain(
+          new URLSearchParams({ value }).toString().slice("value=".length),
+        )
+      }
     } finally {
       globalThis.fetch = originalFetch
     }

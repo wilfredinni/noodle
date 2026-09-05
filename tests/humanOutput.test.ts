@@ -137,6 +137,7 @@ describe("human CLI output", () => {
     expect(output).toContain(
       "Summary: 1 passed, 1 failed, 2/2 executed, 0 skipped, 14ms",
     )
+    expect(output).toContain("Failure: transport error")
     expect(output).not.toContain('{"users":[]}')
   })
 
@@ -182,6 +183,7 @@ describe("human CLI output", () => {
     )
 
     expect(output).toContain("Assertions: 1 passed, 1 failed")
+    expect(output).toContain("Failure: assertion failure")
     expect(output).toContain("✗ body.token equals: Expected values to be equal")
     expect(output).not.toContain("raw-server-secret")
   })
@@ -245,6 +247,7 @@ describe("human CLI output", () => {
     )
 
     expect(output).toContain("Captures: 1 captured, 1 failed")
+    expect(output).toContain("Failure: capture failure")
     expect(output).toContain("✓ $token <- body.token (environment)")
     expect(output).toContain(
       '✗ $user_id <- body.user.id: Expression "body.user.id" is missing',

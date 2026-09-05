@@ -20,8 +20,9 @@ beforeEach(async () => {
 })
 
 describe("redactTimelineSecrets", () => {
-  it("redacts request history without rewriting compressed response bodies", async () => {
+  it("redacts response fields and compressed sidecars", async () => {
     const secret = "super-secret-value"
+    const cookie = "unrelated-cookie"
     await saveTimelineEntry(
       dir,
       "redact",
@@ -46,10 +47,14 @@ describe("redactTimelineSecrets", () => {
         response: {
           status: 200,
           statusText: "OK",
-          headers: { "x-result": secret },
-          body: `${"x".repeat(10_100)}${secret}`,
+          headers: {
+            "content-type": "text/plain",
+            "set-cookie": `session="${cookie}"`,
+            "x-result": secret,
+          },
+          body: `${"x".repeat(10_100)}${secret}:${cookie}`,
           timeMs: 1,
-          size: 10_100 + secret.length,
+          size: 10_101 + secret.length + cookie.length,
         },
       }),
     )
@@ -60,14 +65,17 @@ describe("redactTimelineSecrets", () => {
     expect(entry!.assertions?.results[0]?.expected).toBe("[REDACTED]")
     expect(entry!.assertions?.results[0]?.actual).toBe("[REDACTED]")
     expect(entry!.assertions?.results[0]?.message).toBe("Expected [REDACTED]")
-    expect(entry!.response!.headers["x-result"]).toBe(secret)
+    expect(entry!.response!.headers["content-type"]).toBe("text/plain")
+    expect(entry!.response!.headers["set-cookie"]).toBe("[REDACTED]")
+    expect(entry!.response!.headers["x-result"]).toBe("[REDACTED]")
     const body = await loadTimelineBody(
       dir,
       "redact",
       entry!.response!.bodyRef!,
     )
-    expect(body).toContain(secret)
-    expect(body).not.toContain("[REDACTED]")
+    expect(body).not.toContain(secret)
+    expect(body).not.toContain(cookie)
+    expect(body).toContain("[REDACTED]")
   })
 })
 

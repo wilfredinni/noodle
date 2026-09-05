@@ -27,6 +27,19 @@ function statusLabel(result: RequestRunResult): string {
   return color(label, status < 400 ? "green" : "red")
 }
 
+function failureLabel(
+  category: RequestRunResult["failureCategories"][number],
+): string {
+  return {
+    configuration: "configuration error",
+    execution: "request error",
+    transport: "transport error",
+    http: "HTTP error",
+    capture: "capture failure",
+    assertion: "assertion failure",
+  }[category]
+}
+
 function formatAssertions(result: RequestRunResult): string[] {
   if (!result.assertions) return []
   if (!result.assertions.evaluated) return ["  Assertions: not evaluated"]
@@ -167,6 +180,9 @@ export function formatRunResult(result: RequestRunResult): string {
   return [
     `${result.ok ? color("✓", "green") : color("✗", "red")} ${color(result.method, "cyan")} ${result.id}  ${statusLabel(result)}${duration}`,
     `  ${result.url}${result.error ? `\n  ${color(result.error, "red")}` : ""}`,
+    ...(result.failureCategories.length
+      ? [`  Failure: ${result.failureCategories.map(failureLabel).join(", ")}`]
+      : []),
     ...formatCaptures(result),
     ...formatAssertions(result),
     ...(result.warnings ?? []).map(
@@ -187,7 +203,7 @@ export function formatCollectionRun(data: CollectionRunResult): string {
       (request) => `- ${request.id}  skipped (${request.reason})`,
     ),
     ...(data.failure
-      ? [`${color("error", "red")}: ${data.failure.message}`]
+      ? [`${color("configuration error", "red")}: ${data.failure.message}`]
       : []),
     "",
     `Summary: ${color(`${summary.requestSuccesses} passed`, "green")}, ${summary.requestFailures ? color(`${summary.requestFailures} failed`, "red") : "0 failed"}, ${summary.executed}/${summary.selected} executed, ${summary.skipped} skipped, ${summary.durationMs}ms`,

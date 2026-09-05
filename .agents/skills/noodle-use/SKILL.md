@@ -48,7 +48,39 @@ capture:
     enabled: false
 ```
 
-Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before assertions. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status or a later assertion fails. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
+Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before assertions. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status or a later assertion fails. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values and captures from sensitive response headers are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
+
+### Assertions and declarative execution
+Use a top-level `assert` list for response contracts:
+
+```yaml
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+  - expression: body.user.id
+    operator: isNumber
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+  - expression: response.time
+    operator: lt
+    value: 500
+```
+
+Operators without `value`: `exists`, `notExists`, `isString`, `isNumber`, `isBoolean`, `isArray`, `isObject`, `isNull`, `notNull`. Operators with `value`: `equals`, `notEquals`, `gt`, `gte`, `lt`, `lte`, `contains`, `notContains`, `matches`. Missing is distinct from JSON null. Timing uses milliseconds; headers are case-insensitive; strings and regex are case-sensitive. Equality is typed recursive JSON equality with no coercion, array order matters, and object key order does not. Regex uses JavaScript syntax without flags, is unanchored unless the pattern contains anchors, and rejects unsafe or unsupported constructs.
+
+Every manual send, `request run`, `collection run`, and TUI Runner request uses this order:
+
+1. Resolve the environment and overlay the current RunScope.
+2. Merge, substitute, and execute the request.
+3. Build the supported response views.
+4. Evaluate captures.
+5. Commit successful captures to RunScope.
+6. Evaluate assertions.
+7. Return redacted results and, for a manual send only, persist timeline history with known secrets and sensitive headers redacted from request, response, and assertion data, including compressed body sidecars.
+
+For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, and delay, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

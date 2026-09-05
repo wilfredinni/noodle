@@ -114,8 +114,9 @@ secret declaration in `.env`. The active or `--env`/settings environment is
 required. Persistence runs sequentially in declaration order, keeps partial
 successes, and a failed write fails the capture without discarding the HTTP
 response. CLI `collection run` and the TUI Runner ignore persistence and keep
-the shared scope transient. Secret capture values are always fully redacted
-from capture results, including collection runs.
+the shared scope transient. Secret capture values and values captured from
+sensitive response headers are always fully redacted from capture results,
+including collection runs.
 
 ### Response assertions
 
@@ -159,15 +160,42 @@ Operators without `value`: `exists`, `notExists`, `isString`, `isNumber`,
 
 Operators with a JSON-compatible `value`: `equals`, `notEquals`, `gt`, `gte`,
 `lt`, `lte`, `contains`, `notContains`, `matches`. Numeric comparisons require
-finite numbers. Containment checks string substrings or deeply equal array
-members. `matches` accepts strings and a deliberately restricted JavaScript
-regular-expression subset that rejects backreferences, groups, alternation,
-braced quantifiers, and unsafe repetition.
+finite numbers and never coerce strings. JSON numbers use JavaScript number
+semantics, so integers beyond the safe-integer range can lose precision. String
+comparisons and containment are case-sensitive. Equality is typed recursive
+equality with no coercion: arrays must have the same values in the same order,
+while object key order does not matter. Array containment searches for one
+deeply equal member; object values support equality, existence, and type checks
+but not ordering or substring operators. A missing path is distinct from a
+present `null`: only `notExists` matches the former, while `isNull`, `notNull`,
+and equality apply to the latter. `matches` uses an unanchored JavaScript regular
+expression with no flags unless the pattern contains its own anchors. Patterns
+may be at most 1000 characters and reject backreferences, groups, alternation,
+braced quantifiers, and unsafe repetition. `response.time` is measured in
+milliseconds.
 
 String values recursively support `$VARNAME` substitution; expressions and
-operators do not. Expected secret values are redacted from run results. JSON
-output includes actual server values, so treat assertion results as sensitive
-response data.
+operators do not. Known secret values are redacted from both expected and actual
+run results. Arbitrary server values remain visible, so treat assertion results
+as sensitive response data.
+
+### Declarative execution order
+
+Every manual send and automation request follows this order:
+
+1. Resolve the environment and create or reuse the RunScope.
+2. Execute the substituted request.
+3. Construct the supported status, timing, header, and JSON-body response views.
+4. Evaluate captures in declaration order.
+5. Commit successful captures to the RunScope.
+6. Evaluate assertions against the same response views.
+7. Return the structured result and, for manual TUI sends only, persist safe
+   timeline history.
+
+Manual sends and `request run` use isolated scopes. `collection run` and the TUI
+Runner share one scope across selected requests in collection order after target
+and tag filtering. HTTP error responses still run captures before assertions;
+transport failures have no response views to evaluate.
 
 ### Header and param values
 
@@ -547,7 +575,7 @@ Each entry has:
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 | `assertions` | object | Optional redacted manual-send assertion group: `{ evaluated: boolean, results: AssertionResult[] }` |
 
-The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, literal auth credentials, and assertion result metadata are redacted before persistence, but ordinary variables and server response fields remain intact. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
+The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment, proxy, and TLS secrets; substituted and literal credentials; cookie credentials; known captured secrets; and assertion result metadata are recursively redacted from request and response history. Sensitive response headers such as `Set-Cookie` are field-masked, and historical secret scrubbing includes compressed request and response sidecars. Unknown server data can remain visible, so timeline files are sensitive. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
 - Average response time for a request: sum all `response.timeMs` / count

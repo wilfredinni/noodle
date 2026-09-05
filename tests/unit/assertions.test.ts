@@ -224,6 +224,43 @@ describe("response assertions", () => {
     ).toMatchObject({ passed: true, actual: [1, { id: 2 }] })
   })
 
+  it("uses strict JSON equality, ordered arrays, and case-sensitive strings and regex", () => {
+    const results = evaluateAssertions(
+      [
+        { expression: "body.number", operator: "equals", value: "5" },
+        {
+          expression: "body.string",
+          operator: "equals",
+          value: "Hello noodle",
+        },
+        { expression: "body.array", operator: "equals", value: body.array },
+        {
+          expression: "body.array",
+          operator: "equals",
+          value: [{ id: 2 }, 1],
+        },
+        {
+          expression: "body.object",
+          operator: "equals",
+          value: { id: 2 },
+        },
+        { expression: "body.string", operator: "matches", value: "noodle" },
+        { expression: "body.string", operator: "matches", value: "NOODLE" },
+      ],
+      response(body),
+    )
+
+    expect(results.map(({ passed }) => passed)).toEqual([
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+    ])
+  })
+
   it("preserves an actual null and omits actual for missing or errors", () => {
     const results = evaluateAssertions(
       [

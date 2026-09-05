@@ -542,6 +542,7 @@ export function AppInner({
       req: NoodleRequest,
       result: SendCompleteResult,
       dispatchEnvironment?: Environment,
+      runSecretValues: string[] = [],
     ) => {
       timeline.appendEntry(
         buildTimelineEntry(
@@ -553,6 +554,7 @@ export function AppInner({
             ...Object.values(appProxyCredentials),
             ...Object.values(collectionProxyCredentials),
             ...Object.values(tlsPassphrases),
+            ...runSecretValues,
           ].filter((value): value is string => Boolean(value)),
         ),
       )

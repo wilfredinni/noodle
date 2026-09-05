@@ -221,7 +221,9 @@ export function createResponseResolver(
 }
 
 function invalidExpression(expression: string): Error {
-  return new Error(`Invalid response expression "${expression}"`)
+  return new Error(
+    `Invalid response expression "${expression}"; expected status, response.time, headers.<name>, or body with dot properties and array indexes`,
+  )
 }
 
 function bodyPathValue(value: unknown, path: ResponsePathPart[]): unknown {
