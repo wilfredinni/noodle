@@ -572,7 +572,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("keeps the request frame bottom border over tall JSON", async () => {
+  it("keeps the request frame bottom border at the resize minimum", async () => {
     const { keymap, cleanup } = setupKeymap()
     const tallRequest: Request = {
       ...testRequest,
@@ -582,10 +582,10 @@ describe("BodySection — edit mode", () => {
         ),
       ),
     }
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box width={80} height={8}>
+          <box width={80} height={6}>
             <RequestPane
               request={tallRequest}
               editState={editStateEditing}
@@ -599,13 +599,17 @@ describe("BodySection — edit mode", () => {
           </box>
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 8 },
+      { width: 80, height: 6 },
     )
+    await renderOnce()
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    await editor.refreshHighlights()
     await renderOnce()
 
     const bottomLine = captureCharFrame().trimEnd().split("\n").at(-1) ?? ""
-    expect(bottomLine).toContain("└")
-    expect(bottomLine).toContain("┘")
+    expect(bottomLine).toBe(`└${"─".repeat(78)}┘`)
     cleanup()
   })
 

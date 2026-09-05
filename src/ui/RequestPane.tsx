@@ -355,6 +355,7 @@ export function RequestPane({
                 flexGrow: 1,
                 minHeight: 0,
                 gap: 1,
+                overflow: "hidden",
               }}
             >
               {activeTab === "body" && (
