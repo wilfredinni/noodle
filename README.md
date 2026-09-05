@@ -93,11 +93,11 @@ Environment values preserve every character after the first `=`, including
 trailing spaces.
 
 Secret values stay out of environment files, generated code, search results,
-and exports. Structured run results mask known secret values, request
-credentials, cookies, and sensitive response headers. Timeline request
-snapshots and assertion metadata redact known secrets, but server response
-fields are stored intact. Do not publish JSON run output or `.timeline/` files
-without reviewing them.
+and exports. Structured run results and timeline history mask known secret
+values, request credentials, cookies, and sensitive response headers such as
+`Set-Cookie`. Response bodies and compressed timeline sidecars receive the same
+known-secret redaction. Arbitrary server data can still be sensitive, so review
+JSON run output and `.timeline/` files before publishing them.
 
 ## One collection, more than one way to work
 
@@ -178,7 +178,7 @@ Every send follows one execution contract:
 4. Evaluate captures.
 5. Commit successful captures to RunScope; failed captures preserve prior values.
 6. Evaluate assertions against the same response.
-7. Return redacted structured results and, for manual TUI sends only, persist timeline history with redacted request and assertion metadata.
+7. Return redacted structured results and, for manual TUI sends only, persist timeline history with known secrets and sensitive headers redacted from request, response, and assertion data.
 
 `request run` and manual sends use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order, after

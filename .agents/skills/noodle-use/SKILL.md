@@ -78,7 +78,7 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 4. Evaluate captures.
 5. Commit successful captures to RunScope.
 6. Evaluate assertions.
-7. Return redacted results and, for a manual send only, persist timeline history with redacted request and assertion metadata; server response fields remain intact.
+7. Return redacted results and, for a manual send only, persist timeline history with known secrets and sensitive headers redacted from request, response, and assertion data, including compressed body sidecars.
 
 For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, and delay, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
 

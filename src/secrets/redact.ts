@@ -126,6 +126,14 @@ function sensitiveHeaderParts(name: string, value: string): string[] {
       ...value.split(";").map((part) => part.trim().replace(/^[^=]*=/, "")),
     ]
   }
+  if (normalized === "set-cookie") {
+    return [
+      value,
+      ...[...value.matchAll(/(?:^|,\s*)[^=;,\s]+=([^;,]*)/g)]
+        .map((match) => match[1]!.trim().replace(/^"(.*)"$/, "$1"))
+        .filter((part) => part.length >= MIN_COOKIE_SUBSTRING_LENGTH),
+    ]
+  }
   return [value]
 }
 
