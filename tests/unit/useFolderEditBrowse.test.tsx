@@ -189,6 +189,53 @@ interface EnvironmentSnapshot {
   headerCalls: string[]
 }
 
+function RequestTabAddJumpHarness({
+  onSnapshot,
+}: {
+  onSnapshot: (value: {
+    focus: Focus
+    jumpMode: boolean
+    tabMenuActive: boolean
+  }) => void
+}) {
+  const [tabMenuActive, setTabMenuActive] = useState(false)
+  const ebRef = useRef({
+    setOptionalTabMenuActive: setTabMenuActive,
+  } as unknown as UseEditBrowseResult)
+  const folderEbRef = useRef({} as UseFolderEditBrowseResult)
+  const selectedIdRef = useRef<string | null>(null)
+  const envHeaderRef = useRef<EnvHeaderPaneHandle | null>(null)
+  const headerFieldRef = useRef<"name" | "color">("name")
+  const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
+  const targetsRef = useRef<Map<string, JumpTarget>>(
+    new Map([["o", { kind: "request-tab-add" }]]),
+  )
+  const [jumpMode, setJumpMode] = useState(true)
+  const [focus, setFocus] = useState<Focus>("sidebar")
+
+  useJumpMode({
+    jumpMode,
+    setJumpMode,
+    setFocus,
+    setUrlbarSubFocus: () => {},
+    ebRef,
+    folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
+    pendingHeaderFieldRef,
+    setTab: () => {},
+    selectedIdRef,
+    targetsRef,
+    triggerKey: "g",
+  })
+
+  useEffect(() => {
+    onSnapshot({ focus, jumpMode, tabMenuActive })
+  }, [focus, jumpMode, onSnapshot, tabMenuActive])
+
+  return null
+}
+
 describe("useFolderEditBrowse jump mode", () => {
   it("cancels an active edit before jumping to another folder tab", async () => {
     const { keymap, host, cleanup } = setupKeymap()
@@ -254,5 +301,32 @@ describe("useJumpMode environment editor", () => {
       })
       cleanup()
     }
+  })
+})
+
+describe("useJumpMode request tab add", () => {
+  it("focuses the optional-tab add control", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let snapshot:
+      | { focus: Focus; jumpMode: boolean; tabMenuActive: boolean }
+      | undefined
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RequestTabAddJumpHarness onSnapshot={(value) => (snapshot = value)} />
+      </KeymapProvider>,
+      { width: 1, height: 1 },
+    )
+
+    await render.renderOnce()
+    await act(async () => host.press("o"))
+    await render.renderOnce()
+    await render.renderOnce()
+
+    expect(snapshot).toEqual({
+      focus: "request",
+      jumpMode: false,
+      tabMenuActive: true,
+    })
+    cleanup()
   })
 })

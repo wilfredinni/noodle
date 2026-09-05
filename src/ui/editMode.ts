@@ -138,8 +138,22 @@ export function exitEditBrowse(prev: EditState): EditState {
   return { ...prev, mode: "inactive" }
 }
 
-function fieldIndex(field: FieldKind): number {
-  return FIELD_ORDER.indexOf(field)
+export function cycleField(
+  current: FieldKind,
+  delta: 1 | -1,
+  counts: SectionRowCount,
+  revealedOptionalTabs: readonly FieldKind[] = [],
+): FieldKind {
+  const fields = FIELD_ORDER.filter(
+    (field) =>
+      field === current ||
+      (field !== "assertions" && field !== "captures") ||
+      revealedOptionalTabs.includes(field) ||
+      (field === "assertions" && !!counts.assertions) ||
+      (field === "captures" && !!counts.captures),
+  )
+  const idx = fields.indexOf(current)
+  return fields[(idx + delta + fields.length) % fields.length]!
 }
 
 export function folderFieldIndex(field: FolderFieldKind): number {
@@ -243,11 +257,15 @@ export function moveFieldCursor(
   prev: EditState,
   delta: 1 | -1,
   counts: SectionRowCount,
+  revealedOptionalTabs: readonly FieldKind[] = [],
 ): EditState {
   if (prev.mode !== "browsing") return prev
-  const idx = fieldIndex(prev.cursor.field)
-  const nextIdx = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
-  const nextField = FIELD_ORDER[nextIdx]!
+  const nextField = cycleField(
+    prev.cursor.field,
+    delta,
+    counts,
+    revealedOptionalTabs,
+  )
   return {
     ...prev,
     cursor: cursorForField(nextField, counts),

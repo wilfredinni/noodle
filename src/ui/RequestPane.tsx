@@ -19,7 +19,11 @@ import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
-import { computeRequestTabLabels, REQUEST_TAB_HINTS } from "./useJumpMode"
+import {
+  computeRequestTabLabels,
+  REQUEST_TAB_ADD_HINT,
+  REQUEST_TAB_HINTS,
+} from "./useJumpMode"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 import { BodyTypeSelector, BodySection } from "./request-pane/RequestBodyTab"
@@ -29,6 +33,7 @@ import type { CodeEditorRenderable } from "./editor/CodeEditor"
 import { AssertTab } from "./request-pane/AssertTab"
 import { createResponseExpressionCompleter } from "../response"
 import { Select } from "./Select"
+import { JumpBadge } from "./JumpBadge"
 
 interface Props {
   request: Request | null
@@ -49,6 +54,9 @@ interface Props {
   editError?: string | null
   focused?: boolean
   activeTab: FieldKind
+  revealedOptionalTabs?: readonly FieldKind[]
+  tabMenuActive?: boolean
+  onTabMenuActiveChange?: (active: boolean) => void
   activeEnv?: Environment | null
   onAuthTypeChange?: (t: Auth["type"]) => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
@@ -64,6 +72,7 @@ interface Props {
   jumpMode?: boolean
   onPaneFocus?: () => void
   onTabChange?: (tab: FieldKind) => void
+  onOptionalTabReveal?: (tab: FieldKind) => void
   onBodyTypeFocus?: () => void
   onAuthFocusRow?: (row: number) => void
   onBodyEditorFocus?: (bodyType: BodyType) => void
@@ -109,6 +118,9 @@ export function RequestPane({
   editError = null,
   focused = false,
   activeTab,
+  revealedOptionalTabs,
+  tabMenuActive: controlledTabMenuActive,
+  onTabMenuActiveChange,
   activeEnv,
   onAuthTypeChange,
   onApiKeyPlacementChange,
@@ -120,6 +132,7 @@ export function RequestPane({
   jumpMode = false,
   onPaneFocus,
   onTabChange,
+  onOptionalTabReveal,
   onBodyTypeFocus,
   onAuthFocusRow,
   onBodyEditorFocus,
@@ -137,8 +150,17 @@ export function RequestPane({
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
-  const [tabMenuActive, setTabMenuActive] = useState(false)
+  const [localTabMenuActive, setLocalTabMenuActive] = useState(false)
+  const tabMenuActive = controlledTabMenuActive ?? localTabMenuActive
+  const setTabMenuActive = onTabMenuActiveChange ?? setLocalTabMenuActive
   const keymap = useKeymap()
+
+  useEffect(() => {
+    if (!focused && controlledTabMenuActive) {
+      onTabMenuActiveChange?.(false)
+    }
+  }, [controlledTabMenuActive, focused, onTabMenuActiveChange])
+
   const completeResponseExpression = useMemo(
     () => createResponseExpressionCompleter(response),
     [response],
@@ -202,6 +224,7 @@ export function RequestPane({
     const hiddenOptionalTabs = BASE_TAB_DEFS.filter(
       (tab) =>
         tab.id !== activeTab &&
+        !revealedOptionalTabs?.includes(tab.id as FieldKind) &&
         ((tab.id === "assertions" && !request?.assertions?.length) ||
           (tab.id === "captures" &&
             !Object.keys(request?.captures ?? {}).length)),
@@ -209,15 +232,15 @@ export function RequestPane({
     const hiddenIds = new Set(hiddenOptionalTabs.map((tab) => tab.id))
     return {
       hiddenOptionalTabs,
-      tabs: BASE_TAB_DEFS.filter(
-        (tab) => jumpMode || !hiddenIds.has(tab.id),
-      ).map((tab) => ({
-        ...tab,
-        label: labels[tab.id] ?? tab.label,
-        jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
-      })),
+      tabs: BASE_TAB_DEFS.filter((tab) => !hiddenIds.has(tab.id)).map(
+        (tab) => ({
+          ...tab,
+          label: labels[tab.id] ?? tab.label,
+          jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
+        }),
+      ),
     }
-  }, [request, activeTab, jumpMode])
+  }, [request, activeTab, jumpMode, revealedOptionalTabs])
 
   const changeTab = useCallback(
     (tab: string) => {
@@ -225,8 +248,16 @@ export function RequestPane({
       setTabMenuActive(false)
       onPaneFocus?.()
       onTabChange?.(tab as FieldKind)
+      return true
     },
     [onInteraction, onPaneFocus, onTabChange],
+  )
+  const addOptionalTab = useCallback(
+    (tab: string) => {
+      if (!changeTab(tab)) return
+      onOptionalTabReveal?.(tab as FieldKind)
+    },
+    [changeTab, onOptionalTabReveal],
   )
   const activateTabMenu = useCallback(() => {
     onPaneFocus?.()
@@ -286,22 +317,30 @@ export function RequestPane({
             activeId={activeTab}
             onChange={changeTab}
             rightChildren={
-              interactive && !jumpMode && hiddenOptionalTabs.length ? (
+              interactive && hiddenOptionalTabs.length ? (
                 <box
                   id="request-tab-add"
                   onMouseDown={(event) => event.stopPropagation()}
+                  style={{ position: "relative", overflow: "visible" }}
                 >
+                  {jumpMode ? (
+                    <JumpBadge
+                      letter={REQUEST_TAB_ADD_HINT}
+                      style={{ top: -1, left: 0 }}
+                    />
+                  ) : null}
                   <Select
                     items={hiddenOptionalTabs}
                     placeholder="+"
                     focused={tabMenuActive}
                     visualFocused={tabMenuActive}
+                    triggerColor={theme.primary}
                     fitContent
                     showIndicator={false}
                     dropdownAlign="right"
                     maxDropdownHeight={2}
                     onActivate={activateTabMenu}
-                    onChange={changeTab}
+                    onChange={addOptionalTab}
                     onOpenChange={handleTabMenuOpenChange}
                   />
                 </box>

@@ -1012,6 +1012,20 @@ describe("getAvailableTargets", () => {
     expect(targets.size).toBe(17)
   })
 
+  it("includes the optional-tab add target only while its control is visible", () => {
+    const visible = getAvailableTargets(
+      true,
+      null,
+      false,
+      false,
+      false,
+      false,
+      true,
+    )
+    expect(visible.get("o")).toEqual({ kind: "request-tab-add" })
+    expect(getAvailableTargets(true, null, false).has("o")).toBe(false)
+  })
+
   it("keeps the Results jump target when no execution groups are available", () => {
     const targets = getAvailableTargets(true, null, false, false, false, false)
     expect(targets.has("i")).toBe(true)

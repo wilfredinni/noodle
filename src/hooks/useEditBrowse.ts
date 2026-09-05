@@ -32,7 +32,7 @@ import {
   cancelEditing,
   toggleSubfield,
   cursorForField,
-  FIELD_ORDER,
+  cycleField,
   type EditState,
   type SectionRowCount,
   type FieldKind,
@@ -77,6 +77,16 @@ function rowCount(req: Request | null): SectionRowCount {
     captures: Object.keys(req.captures ?? {}).length,
     settings: 6 + (req.tags?.length ?? 0),
   }
+}
+
+function isEmptyOptionalTab(
+  request: Request | null,
+  field: FieldKind,
+): boolean {
+  if (!request) return false
+  if (field === "assertions") return !request.assertions?.length
+  if (field === "captures") return !Object.keys(request.captures ?? {}).length
+  return false
 }
 
 function assertionEditValues(
@@ -235,12 +245,6 @@ function currentKeyValueFor(
   return { key: "", value: "" }
 }
 
-function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
-  const idx = FIELD_ORDER.indexOf(current)
-  const next = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
-  return FIELD_ORDER[next]!
-}
-
 export function detectFormType(value: string): {
   formType: "text" | "file"
   cleanValue: string
@@ -265,6 +269,11 @@ export interface UseEditBrowseResult {
   editError: string | null
   isActive: boolean
   activeTab: FieldKind
+  revealedOptionalTabs: readonly FieldKind[]
+  revealOptionalTab: (tab: FieldKind) => void
+  optionalTabMenuVisible: boolean
+  optionalTabMenuActive: boolean
+  setOptionalTabMenuActive: (active: boolean) => void
   enterBrowse: () => void
   exitBrowse: () => void
   browseUp: () => void
@@ -303,6 +312,7 @@ export interface UseEditBrowseOptions {
   initialTab?: FieldKind
   onTabChange?: (tab: FieldKind) => void
   onTagEdit?: (index: number, value: string) => void
+  optionalTabMenuEnabled?: boolean
 }
 
 export function useEditBrowse(
@@ -321,12 +331,29 @@ export function useEditBrowse(
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(
     options?.initialTab ?? "headers",
   )
+  const [revealedOptionalTabsByRequest, setRevealedOptionalTabsByRequest] =
+    useState(() => new Map<string, FieldKind[]>())
+  const [optionalTabMenuActive, setOptionalTabMenuActiveState] = useState(false)
 
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const revealedOptionalTabs = draft
+    ? (revealedOptionalTabsByRequest.get(draft.id) ?? [])
+    : []
+  const revealedOptionalTabsRef = useRef(revealedOptionalTabs)
+  revealedOptionalTabsRef.current = revealedOptionalTabs
 
   const editStateRef = useRef(editState)
   editStateRef.current = editState
+
+  const setOptionalTabMenuActive = useCallback((active: boolean) => {
+    setOptionalTabMenuActiveState(active)
+    if (active) {
+      setEditState((prev) =>
+        prev.mode === "browsing" ? exitEditBrowse(prev) : prev,
+      )
+    }
+  }, [])
 
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
@@ -349,10 +376,23 @@ export function useEditBrowse(
   const onTagEditRef = useRef(options?.onTagEdit)
   onTagEditRef.current = options?.onTagEdit
 
+  const revealOptionalTab = useCallback((tab: FieldKind) => {
+    const requestId = draftRef.current?.id
+    if (!requestId) return
+    setRevealedOptionalTabsByRequest((revealed) => {
+      const requestTabs = revealed.get(requestId) ?? []
+      if (requestTabs.includes(tab)) return revealed
+      const next = new Map(revealed)
+      next.set(requestId, [...requestTabs, tab])
+      return next
+    })
+  }, [])
+
   // Sync inactiveTab when initialTab prop changes (request switch)
   useEffect(() => {
     setInactiveTab(options?.initialTab ?? "headers")
-  }, [options?.initialTab])
+    setOptionalTabMenuActive(false)
+  }, [draft?.id, options?.initialTab])
 
   const isFirstTabChange = useRef(true)
   useEffect(() => {
@@ -363,10 +403,44 @@ export function useEditBrowse(
     onTabChangeRef.current?.(inactiveTab)
   }, [inactiveTab])
 
+  const requestedTab = options?.initialTab ?? inactiveTab
   const activeTab =
     editState.mode !== "inactive"
       ? editState.cursor.field
-      : (options?.initialTab ?? inactiveTab)
+      : isEmptyOptionalTab(draft, requestedTab) &&
+          !revealedOptionalTabs.includes(requestedTab)
+        ? "headers"
+        : requestedTab
+
+  useEffect(() => {
+    if (editState.mode !== "inactive" || activeTab === requestedTab) return
+    setInactiveTab(activeTab)
+    onTabChangeRef.current?.(activeTab)
+  }, [activeTab, editState.mode, requestedTab])
+
+  useEffect(() => {
+    const field = editState.cursor.field
+    if (
+      editState.mode !== "inactive" &&
+      (field === "assertions" || field === "captures")
+    ) {
+      revealOptionalTab(field)
+    }
+  }, [editState.cursor.field, editState.mode, revealOptionalTab])
+
+  const optionalTabMenuVisible =
+    (options?.optionalTabMenuEnabled ?? true) &&
+    draft !== null &&
+    ((activeTab !== "assertions" &&
+      !revealedOptionalTabs.includes("assertions") &&
+      !draft.assertions?.length) ||
+      (activeTab !== "captures" &&
+        !revealedOptionalTabs.includes("captures") &&
+        !Object.keys(draft.captures ?? {}).length))
+
+  useEffect(() => {
+    if (!optionalTabMenuVisible) setOptionalTabMenuActive(false)
+  }, [optionalTabMenuVisible])
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)
@@ -378,6 +452,7 @@ export function useEditBrowse(
   }, [activeTab])
 
   const enterBrowseAt = useCallback((field: FieldKind, row?: number) => {
+    setOptionalTabMenuActive(false)
     setInactiveTab(field)
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
@@ -404,6 +479,7 @@ export function useEditBrowse(
       addingRow = false,
       subfield?: FieldSubfield,
     ) => {
+      setOptionalTabMenuActive(false)
       setInactiveTab(field)
       const currentDraft = draftRef.current
       setEditError(null)
@@ -476,6 +552,7 @@ export function useEditBrowse(
 
   const toggleAt = useCallback(
     (field: FieldKind, row: number) => {
+      setOptionalTabMenuActive(false)
       setInactiveTab(field)
       setEditState((prev) => {
         const browsed =
@@ -731,21 +808,29 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      const next = moveFieldCursor(prev, -1, c)
+      if (optionalTabMenuVisible && prev.cursor.field === "headers") {
+        setOptionalTabMenuActiveState(true)
+        return exitEditBrowse(prev)
+      }
+      const next = moveFieldCursor(prev, -1, c, revealedOptionalTabsRef.current)
       setInactiveTab(next.cursor.field)
       return next
     })
-  }, [])
+  }, [optionalTabMenuVisible])
 
   const browseRight = useCallback(() => {
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      const next = moveFieldCursor(prev, +1, c)
+      if (optionalTabMenuVisible && prev.cursor.field === "settings") {
+        setOptionalTabMenuActiveState(true)
+        return exitEditBrowse(prev)
+      }
+      const next = moveFieldCursor(prev, +1, c, revealedOptionalTabsRef.current)
       setInactiveTab(next.cursor.field)
       return next
     })
-  }, [])
+  }, [optionalTabMenuVisible])
 
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
@@ -1169,9 +1254,32 @@ export function useEditBrowse(
     draftMutators.setFormRow(formIdx, entry.name, entry.value, newType)
   }, [draftMutators])
 
-  const cycleInactiveTab = useCallback((delta: 1 | -1) => {
-    setInactiveTab((prev) => cycleField(prev, delta))
-  }, [])
+  const cycleInactiveTab = useCallback(
+    (delta: 1 | -1) => {
+      if (optionalTabMenuActive) {
+        setOptionalTabMenuActive(false)
+        setInactiveTab(delta === 1 ? "headers" : "settings")
+        return
+      }
+      if (
+        optionalTabMenuVisible &&
+        ((activeTab === "settings" && delta === 1) ||
+          (activeTab === "headers" && delta === -1))
+      ) {
+        setOptionalTabMenuActive(true)
+        return
+      }
+      setInactiveTab((prev) =>
+        cycleField(
+          prev,
+          delta,
+          rowCount(draftRef.current),
+          revealedOptionalTabsRef.current,
+        ),
+      )
+    },
+    [activeTab, optionalTabMenuActive, optionalTabMenuVisible],
+  )
 
   const canEnterTextBodyEditor =
     editState.mode === "browsing" &&
@@ -1198,6 +1306,11 @@ export function useEditBrowse(
       editError,
       isActive: editState.mode !== "inactive",
       activeTab,
+      revealedOptionalTabs,
+      revealOptionalTab,
+      optionalTabMenuVisible,
+      optionalTabMenuActive,
+      setOptionalTabMenuActive,
       enterBrowse,
       exitBrowse,
       browseUp,
@@ -1234,6 +1347,10 @@ export function useEditBrowse(
       editCapturePersistence,
       editError,
       activeTab,
+      revealedOptionalTabs,
+      revealOptionalTab,
+      optionalTabMenuVisible,
+      optionalTabMenuActive,
       enterBrowse,
       enterBrowseAt,
       activateAt,

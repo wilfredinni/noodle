@@ -2,9 +2,10 @@ import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { BoxRenderable } from "@opentui/core"
+import { RGBA, TextAttributes, type BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
+import { THEMES } from "../../src/ui/theme-data"
 import { RequestPane } from "../../src/ui/RequestPane"
 import type { FieldKind } from "../../src/ui/editMode"
 import type { Request } from "../../src/schema"
@@ -107,12 +108,13 @@ describe("RequestPane blank click commit", () => {
     }
   })
 
-  it("adds an optional tab and hides it after switching away empty", async () => {
+  it("keeps multiple explicitly added optional tabs visible while empty", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const changes: FieldKind[] = []
 
     function Harness() {
       const [activeTab, setActiveTab] = useState<FieldKind>("headers")
+      const [revealedTabs, setRevealedTabs] = useState<FieldKind[]>([])
       return (
         <RequestPane
           request={request}
@@ -126,7 +128,11 @@ describe("RequestPane blank click commit", () => {
           setEditKey={() => {}}
           setEditValue={() => {}}
           activeTab={activeTab}
+          revealedOptionalTabs={revealedTabs}
           onInteraction={() => true}
+          onOptionalTabReveal={(tab) =>
+            setRevealedTabs((current) => [...current, tab])
+          }
           onTabChange={(tab) => {
             changes.push(tab)
             setActiveTab(tab)
@@ -197,11 +203,18 @@ describe("RequestPane blank click commit", () => {
       const remainingMenu = render.captureCharFrame()
       expect(remainingMenu.match(/Assert/g)).toHaveLength(1)
       expect(remainingMenu.match(/Capture/g)).toHaveLength(1)
-      act(() => host.press("escape"))
+      act(() => host.press("return"))
       await act(async () => {
         await render.renderOnce()
         await render.renderOnce()
       })
+      expect(changes).toEqual(["assertions", "captures"])
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
 
       const headers = render.renderer.root.findDescendantById(
         "tab-headers",
@@ -216,10 +229,13 @@ describe("RequestPane blank click commit", () => {
       await act(async () => {
         await render.renderOnce()
       })
-      expect(changes).toEqual(["assertions", "headers"])
+      expect(changes).toEqual(["assertions", "captures", "headers"])
       expect(
         render.renderer.root.findDescendantById("tab-assertions"),
-      ).toBeUndefined()
+      ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-captures"),
+      ).toBeDefined()
     } finally {
       cleanup()
     }
@@ -270,7 +286,7 @@ describe("RequestPane blank click commit", () => {
     }
   })
 
-  it("temporarily exposes optional tabs during jump mode", async () => {
+  it("shows the optional-tab add shortcut during jump mode", async () => {
     const { keymap, cleanup } = setupKeymap()
     try {
       const render = await testRender(
@@ -294,14 +310,63 @@ describe("RequestPane blank click commit", () => {
       await render.renderOnce()
       expect(
         render.renderer.root.findDescendantById("tab-assertions"),
-      ).toBeDefined()
+      ).toBeUndefined()
       expect(
         render.renderer.root.findDescendantById("tab-captures"),
-      ).toBeDefined()
+      ).toBeUndefined()
       const frame = render.captureCharFrame()
-      expect(frame).toContain(" v ")
-      expect(frame).toContain(" c ")
-      expect(frame).not.toContain("+")
+      expect(frame).not.toContain(" v ")
+      expect(frame).not.toContain(" c ")
+      const add = render.renderer.root.findDescendantById(
+        "request-tab-add",
+      ) as BoxRenderable
+      expect(add).toBeDefined()
+      expect(frame).toContain("+")
+      expect(
+        frame.split("\n")[add.y - 1]!.slice(add.x, add.x + add.width),
+      ).toContain("o")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("makes the focused optional-tab add control visually distinct", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={{
+                mode: "inactive",
+                cursor: {
+                  field: "headers",
+                  row: -1,
+                  addingRow: false,
+                },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="headers"
+              focused
+              tabMenuActive
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 20 },
+      )
+
+      await render.renderOnce()
+      const plus = render
+        .captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .find((span) => span.text.trim() === "+")
+      expect(plus?.fg.equals(RGBA.fromHex(THEMES[0]!.primary))).toBe(true)
+      expect((plus?.attributes ?? 0) & TextAttributes.BOLD).not.toBe(0)
     } finally {
       cleanup()
     }
@@ -393,6 +458,9 @@ describe("RequestPane blank click commit", () => {
       expect(
         render.renderer.root.findDescendantById("tab-captures"),
       ).toBeDefined()
+      expect(
+        render.renderer.root.findDescendantById("tab-assertions"),
+      ).toBeUndefined()
     } finally {
       cleanup()
     }

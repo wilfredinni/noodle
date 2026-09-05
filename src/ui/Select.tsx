@@ -295,7 +295,11 @@ export function Select({
                 focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
               )
             ) : (
-              <text fg={theme.textMuted} style={{ flexShrink: 0 }}>
+              <text
+                fg={visualFocused || open ? labelColor : theme.textMuted}
+                attributes={visualFocused ? TextAttributes.BOLD : undefined}
+                style={{ flexShrink: 0 }}
+              >
                 {placeholder}
               </text>
             )}
