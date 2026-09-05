@@ -573,6 +573,37 @@ describe("Select", () => {
     cleanup()
   })
 
+  it("opens on the first enabled item", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let selected = ""
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={[
+              { id: "a", label: "A", disabled: true },
+              { id: "b", label: "B" },
+            ]}
+            focused
+            onChange={(id) => {
+              selected = id
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => host.press("return"))
+    await renderOnce()
+    act(() => host.press("return"))
+    await renderOnce()
+
+    expect(selected).toBe("b")
+    cleanup()
+  })
+
   it("renders with badge mode", async () => {
     const badgeItems: SelectItem[] = [
       { id: "get", label: "GET", color: "primary" },

@@ -640,36 +640,45 @@ describe("useEditBrowse optional-tab menu navigation", () => {
     expect(editor?.editState.mode).toBe("inactive")
   })
 
-  it("skips + when it is hidden or disabled", async () => {
-    const cases: Array<[Request, boolean]> = [
-      [
-        {
+  it("keeps + reachable when both optional tabs are visible", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={{
           ...request,
           assertions: [{ expression: "status", operator: "exists" }],
           captures: { token: { value: "body.token", enabled: true } },
-        },
-        true,
-      ],
-      [request, false],
-    ]
-    for (const [initialRequest, enabled] of cases) {
-      let editor: UseEditBrowseResult | undefined
-      const render = await testRender(
-        <TabNavigationHarness
-          initialRequest={initialRequest}
-          optionalTabMenuEnabled={enabled}
-          onEditor={(value) => (editor = value)}
-        />,
-        { width: 20, height: 4 },
-      )
-      await render.renderOnce()
+        }}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
 
-      expect(editor?.optionalTabMenuVisible).toBe(false)
-      act(() => editor!.cycleInactiveTab(1))
-      await render.renderOnce()
-      await render.renderOnce()
-      expect(editor?.activeTab).toBe("headers")
-      expect(editor?.optionalTabMenuActive).toBe(false)
-    }
+    expect(editor?.optionalTabMenuVisible).toBe(true)
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("settings")
+    expect(editor?.optionalTabMenuActive).toBe(true)
+  })
+
+  it("skips + when the menu is disabled", async () => {
+    let editor: UseEditBrowseResult | undefined
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        optionalTabMenuEnabled={false}
+        onEditor={(value) => (editor = value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+
+    expect(editor?.optionalTabMenuVisible).toBe(false)
+    act(() => editor!.cycleInactiveTab(1))
+    await render.renderOnce()
+    await render.renderOnce()
+    expect(editor?.activeTab).toBe("headers")
+    expect(editor?.optionalTabMenuActive).toBe(false)
   })
 })

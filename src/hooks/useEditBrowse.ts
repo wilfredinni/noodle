@@ -429,14 +429,7 @@ export function useEditBrowse(
   }, [editState.cursor.field, editState.mode, revealOptionalTab])
 
   const optionalTabMenuVisible =
-    (options?.optionalTabMenuEnabled ?? true) &&
-    draft !== null &&
-    ((activeTab !== "assertions" &&
-      !revealedOptionalTabs.includes("assertions") &&
-      !draft.assertions?.length) ||
-      (activeTab !== "captures" &&
-        !revealedOptionalTabs.includes("captures") &&
-        !Object.keys(draft.captures ?? {}).length))
+    (options?.optionalTabMenuEnabled ?? true) && draft !== null
 
   useEffect(() => {
     if (!optionalTabMenuVisible) setOptionalTabMenuActive(false)

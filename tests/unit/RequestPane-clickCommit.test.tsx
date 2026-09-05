@@ -108,7 +108,7 @@ describe("RequestPane blank click commit", () => {
     }
   })
 
-  it("keeps multiple explicitly added optional tabs visible while empty", async () => {
+  it("keeps and disables optional menu items after adding their tabs", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const changes: FieldKind[] = []
 
@@ -201,7 +201,7 @@ describe("RequestPane blank click commit", () => {
         await render.renderOnce()
       })
       const remainingMenu = render.captureCharFrame()
-      expect(remainingMenu.match(/Assert/g)).toHaveLength(1)
+      expect(remainingMenu.match(/Assert/g)).toHaveLength(2)
       expect(remainingMenu.match(/Capture/g)).toHaveLength(1)
       act(() => host.press("return"))
       await act(async () => {
@@ -215,6 +215,37 @@ describe("RequestPane blank click commit", () => {
       expect(
         render.renderer.root.findDescendantById("tab-captures"),
       ).toBeDefined()
+
+      const completedFrame = render.captureCharFrame().split("\n")
+      const completedAddRow = completedFrame.findIndex((line) =>
+        line.includes("+"),
+      )
+      expect(completedAddRow).toBeGreaterThanOrEqual(0)
+      const completedAddColumn =
+        completedFrame[completedAddRow]!.lastIndexOf("+")
+      await act(async () => {
+        await render.mockMouse.click(
+          completedAddColumn,
+          completedAddRow,
+          MouseButtons.LEFT,
+        )
+      })
+      await act(async () => {
+        await render.renderOnce()
+        await render.renderOnce()
+      })
+      const completedMenu = render.captureCharFrame()
+      expect(completedMenu.match(/Assert/g)).toHaveLength(2)
+      expect(completedMenu.match(/Capture/g)).toHaveLength(2)
+      act(() => host.press("return"))
+      await act(async () => {
+        await render.renderOnce()
+      })
+      expect(changes).toEqual(["assertions", "captures"])
+      act(() => host.press("escape"))
+      await act(async () => {
+        await render.renderOnce()
+      })
 
       const headers = render.renderer.root.findDescendantById(
         "tab-headers",
@@ -280,7 +311,7 @@ describe("RequestPane blank click commit", () => {
       expect(
         render.renderer.root.findDescendantById("tab-captures"),
       ).toBeDefined()
-      expect(render.captureCharFrame()).not.toContain("+")
+      expect(render.captureCharFrame()).toContain("+")
     } finally {
       cleanup()
     }

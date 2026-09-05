@@ -219,7 +219,7 @@ export function RequestPane({
     }
   }, [editState.cursor, editState.mode, request?.bodyType])
 
-  const { tabs, hiddenOptionalTabs } = useMemo(() => {
+  const { tabs, optionalTabMenuItems } = useMemo(() => {
     const labels = computeRequestTabLabels(request)
     const hiddenOptionalTabs = BASE_TAB_DEFS.filter(
       (tab) =>
@@ -231,7 +231,9 @@ export function RequestPane({
     )
     const hiddenIds = new Set(hiddenOptionalTabs.map((tab) => tab.id))
     return {
-      hiddenOptionalTabs,
+      optionalTabMenuItems: BASE_TAB_DEFS.filter(
+        (tab) => tab.id === "assertions" || tab.id === "captures",
+      ).map((tab) => ({ ...tab, disabled: !hiddenIds.has(tab.id) })),
       tabs: BASE_TAB_DEFS.filter((tab) => !hiddenIds.has(tab.id)).map(
         (tab) => ({
           ...tab,
@@ -317,7 +319,7 @@ export function RequestPane({
             activeId={activeTab}
             onChange={changeTab}
             rightChildren={
-              interactive && hiddenOptionalTabs.length ? (
+              interactive ? (
                 <box
                   id="request-tab-add"
                   onMouseDown={(event) => event.stopPropagation()}
@@ -330,7 +332,7 @@ export function RequestPane({
                     />
                   ) : null}
                   <Select
-                    items={hiddenOptionalTabs}
+                    items={optionalTabMenuItems}
                     placeholder="+"
                     focused={tabMenuActive}
                     visualFocused={tabMenuActive}

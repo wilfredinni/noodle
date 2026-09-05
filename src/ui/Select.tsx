@@ -78,7 +78,13 @@ export function Select({
     () => items.findIndex((i) => i.id === value),
     [items, value],
   )
-  const safeInitialIndex = currentIndex >= 0 ? currentIndex : 0
+  const safeInitialIndex =
+    currentIndex >= 0 && !items[currentIndex]?.disabled
+      ? currentIndex
+      : Math.max(
+          0,
+          items.findIndex((item) => !item.disabled),
+        )
 
   useEffect(() => {
     if ((!focused || !interactive) && open) setOpen(false)
