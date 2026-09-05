@@ -124,6 +124,13 @@ manual TUI sends and CLI `request run`, never collection runs.
 
 ## Login and authenticated chaining
 
+Declare `$password` as a secret in the environment used by the run. This
+prompts without echo and stores the value in the operating system vault:
+
+```bash
+noodle secret set password --env development --collection ./my-api
+```
+
 Login request (`auth/login.yml`):
 
 ```yaml

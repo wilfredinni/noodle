@@ -147,7 +147,7 @@ display and completion.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots and response fields redact known environment, proxy, TLS, credential, cookie, sensitive-header, and captured-secret values before persistence. Public variables and arbitrary server payload fields remain intact, so timeline files and sidecars are still sensitive.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots redact known environment, proxy, TLS, credential, jar-sent cookie, and captured-secret values before persistence. Assertion metadata is also redacted. Server response fields, including `Set-Cookie`, remain intact, so timeline files and sidecars are sensitive.
 
 ### File write conventions
 

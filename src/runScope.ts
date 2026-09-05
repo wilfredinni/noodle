@@ -70,8 +70,12 @@ function secretValueStrings(value: JsonValue): string[] {
   if (value === null || typeof value !== "object") return [serialized]
   return [
     serialized,
-    ...(Array.isArray(value) ? value : Object.values(value)).flatMap(
-      secretValueStrings,
+    ...(Array.isArray(value) ? value : Object.values(value)).flatMap((item) =>
+      typeof item === "string"
+        ? [item]
+        : item !== null && typeof item === "object"
+          ? secretValueStrings(item)
+          : [],
     ),
   ]
 }

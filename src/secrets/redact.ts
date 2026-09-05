@@ -2,6 +2,8 @@ import type { Environment, KvEntry, Request, Response } from "../schema"
 
 export const REDACTED = "[REDACTED]"
 
+const MIN_COOKIE_SUBSTRING_LENGTH = 4
+
 export function environmentSecretValues(
   environment: Environment | null | undefined,
 ): string[] {
@@ -104,8 +106,12 @@ export function responseSensitiveValues(
 ): string[] {
   return normalizedSecrets([
     ...sensitiveHeaderValues(response.headers),
-    ...(response.sentCookies ?? []).map(({ value }) => value),
-    ...(response.cookies ?? []).map(({ value }) => value),
+    ...(response.sentCookies ?? [])
+      .map(({ value }) => value)
+      .filter((value) => value.length >= MIN_COOKIE_SUBSTRING_LENGTH),
+    ...(response.cookies ?? [])
+      .map(({ value }) => value)
+      .filter((value) => value.length >= MIN_COOKIE_SUBSTRING_LENGTH),
   ])
 }
 

@@ -13,10 +13,8 @@ import {
   environmentSecretValues,
   isSensitiveHeader,
   redactKnownSecrets,
-  redactResponseHeaders,
   REDACTED,
   requestSensitiveValues,
-  responseSensitiveValues,
 } from "./secrets/redact"
 import {
   replaceVariableReferences,
@@ -64,9 +62,6 @@ export function buildTimelineEntry(
     ...requestSensitiveValues(req)
       .map(resolvePublicVars)
       .filter((value) => variableReferences(value).length === 0),
-    ...(result.status === "done"
-      ? responseSensitiveValues(result.response)
-      : []),
   )
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   const assertions = result.execution?.assertions
@@ -258,12 +253,9 @@ export function buildTimelineEntry(
       result.status === "done"
         ? {
             status: result.response.status,
-            statusText: redact(result.response.statusText),
-            headers: redactResponseHeaders(
-              result.response.headers,
-              secretValues,
-            ),
-            body: redact(result.response.body),
+            statusText: result.response.statusText,
+            headers: result.response.headers,
+            body: result.response.body,
             timeMs: result.response.timeMs,
             size: responseSize(result.response.body),
           }

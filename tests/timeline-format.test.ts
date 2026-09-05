@@ -846,7 +846,7 @@ describe("buildTimelineEntry", () => {
     ).toBe("not-evaluated")
   })
 
-  it("redacts credentials and sensitive response data without mutating the response", () => {
+  it("redacts request credentials while preserving server response fields", () => {
     const secret = "timeline-secret"
     const req = {
       id: "req-secret",
@@ -886,10 +886,10 @@ describe("buildTimelineEntry", () => {
     })
     expect(entry.request.url).toBe("https://api.example.com/$TOKEN")
     expect(entry.request.headers.Authorization!.value).toBe("[REDACTED]")
-    expect(entry.response?.statusText).toBe("[REDACTED]")
-    expect(entry.response?.headers["set-cookie"]).toBe("[REDACTED]")
-    expect(entry.response?.headers["x-echo"]).toBe("[REDACTED]")
-    expect(entry.response?.body).toBe("echo:[REDACTED]:[REDACTED]")
+    expect(entry.response?.statusText).toBe(secret)
+    expect(entry.response?.headers["set-cookie"]).toBe("session=cookie-secret")
+    expect(entry.response?.headers["x-echo"]).toBe(secret)
+    expect(entry.response?.body).toBe(`echo:${secret}:cookie-secret`)
     expect(response.body).toBe(`echo:${secret}:cookie-secret`)
   })
 
