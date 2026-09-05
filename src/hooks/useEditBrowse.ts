@@ -394,12 +394,10 @@ export function useEditBrowse(
     setOptionalTabMenuActive(false)
   }, [draft?.id, options?.initialTab])
 
-  const isFirstTabChange = useRef(true)
+  const lastNotifiedTabRef = useRef(inactiveTab)
   useEffect(() => {
-    if (isFirstTabChange.current) {
-      isFirstTabChange.current = false
-      return
-    }
+    if (lastNotifiedTabRef.current === inactiveTab) return
+    lastNotifiedTabRef.current = inactiveTab
     onTabChangeRef.current?.(inactiveTab)
   }, [inactiveTab])
 
@@ -415,6 +413,7 @@ export function useEditBrowse(
   useEffect(() => {
     if (editState.mode !== "inactive" || activeTab === requestedTab) return
     setInactiveTab(activeTab)
+    lastNotifiedTabRef.current = activeTab
     onTabChangeRef.current?.(activeTab)
   }, [activeTab, editState.mode, requestedTab])
 

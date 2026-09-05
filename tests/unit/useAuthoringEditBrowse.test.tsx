@@ -469,22 +469,27 @@ function TabNavigationHarness({
   optionalTabMenuEnabled = true,
   onEditor,
   onTab,
+  onTabChange,
 }: {
   initialRequest: Request
   initialTab?: FieldKind
   optionalTabMenuEnabled?: boolean
   onEditor: (editor: UseEditBrowseResult) => void
-  onTab?: (tab: FieldKind) => void
+  onTab?: (tab: FieldKind, restoreTab: (tab: FieldKind) => void) => void
+  onTabChange?: (tab: FieldKind) => void
 }) {
   const draft = useRequestDraft(initialRequest)
   const [tab, setTab] = useState<FieldKind>(initialTab)
   const editor = useEditBrowse(draft.draft, draft, {
     initialTab: tab,
-    onTabChange: setTab,
+    onTabChange: (value) => {
+      onTabChange?.(value)
+      setTab(value)
+    },
     optionalTabMenuEnabled,
   })
   onEditor(editor)
-  onTab?.(tab)
+  onTab?.(tab, setTab)
   return null
 }
 
@@ -493,12 +498,14 @@ describe("useEditBrowse optional-tab menu navigation", () => {
     for (const field of ["assertions", "captures"] as const) {
       let editor: UseEditBrowseResult | undefined
       let persistedTab: FieldKind | undefined
+      const changes: FieldKind[] = []
       const render = await testRender(
         <TabNavigationHarness
           initialRequest={request}
           initialTab={field}
           onEditor={(value) => (editor = value)}
           onTab={(value) => (persistedTab = value)}
+          onTabChange={(value) => changes.push(value)}
         />,
         { width: 20, height: 4 },
       )
@@ -507,6 +514,40 @@ describe("useEditBrowse optional-tab menu navigation", () => {
 
       expect(editor?.activeTab).toBe("headers")
       expect(persistedTab).toBe("headers")
+      expect(changes).toEqual(["headers"])
+    }
+  })
+
+  it("notifies once when an empty optional preference loads after mount", async () => {
+    let editor: UseEditBrowseResult | undefined
+    let persistedTab: FieldKind | undefined
+    let restoreTab: (tab: FieldKind) => void
+    const changes: FieldKind[] = []
+    const render = await testRender(
+      <TabNavigationHarness
+        initialRequest={request}
+        initialTab="headers"
+        onEditor={(value) => (editor = value)}
+        onTab={(value, restore) => {
+          persistedTab = value
+          restoreTab = restore
+        }}
+        onTabChange={(value) => changes.push(value)}
+      />,
+      { width: 20, height: 4 },
+    )
+    await render.renderOnce()
+    expect(changes).toEqual([])
+
+    for (const field of ["assertions", "captures"] as const) {
+      changes.length = 0
+      act(() => restoreTab(field))
+      await render.renderOnce()
+      await render.renderOnce()
+
+      expect(editor?.activeTab).toBe("headers")
+      expect(persistedTab).toBe("headers")
+      expect(changes).toEqual(["headers"])
     }
   })
 
