@@ -50,6 +50,9 @@ describe("response execution results", () => {
             persist: "secret",
           },
         },
+        assertions: [
+          { expression: "body.token", operator: "equals", value: "secret" },
+        ],
       },
       response,
       scope,
@@ -57,6 +60,31 @@ describe("response execution results", () => {
 
     expect(scope.get("token")).toBe("secret")
     expect(scope.secretValues()).toEqual(["secret"])
+    expect(results.captures?.results[0]).toMatchObject({
+      success: true,
+      value: "[REDACTED]",
+    })
+    expect(results.assertions?.results[0]).toMatchObject({
+      expected: "[REDACTED]",
+      actual: "[REDACTED]",
+      passed: true,
+    })
+  })
+
+  it("treats captures from sensitive response headers as secret", () => {
+    const scope = new RunScope()
+    const results = evaluateResponseExecution(
+      {
+        captures: {
+          session: { value: "headers.Set-Cookie", enabled: true },
+        },
+      },
+      { ...response, headers: { "Set-Cookie": "sid=cookie-secret" } },
+      scope,
+    )
+
+    expect(scope.get("session")).toBe("sid=cookie-secret")
+    expect(scope.secretValues()).toEqual(["sid=cookie-secret"])
     expect(results.captures?.results[0]).toMatchObject({
       success: true,
       value: "[REDACTED]",

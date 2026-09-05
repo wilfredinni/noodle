@@ -846,7 +846,7 @@ describe("buildTimelineEntry", () => {
     ).toBe("not-evaluated")
   })
 
-  it("redacts request credentials without altering the server response", () => {
+  it("redacts credentials and sensitive response data without mutating the response", () => {
     const secret = "timeline-secret"
     const req = {
       id: "req-secret",
@@ -863,9 +863,21 @@ describe("buildTimelineEntry", () => {
     const response = {
       status: 200,
       statusText: secret,
-      headers: { "set-cookie": secret, "x-echo": secret },
-      body: `echo:${secret}`,
+      headers: {
+        "set-cookie": "session=cookie-secret",
+        "x-echo": secret,
+      },
+      body: `echo:${secret}:cookie-secret`,
       timeMs: 1,
+      cookies: [
+        {
+          name: "session",
+          value: "cookie-secret",
+          expires: null,
+          secure: true,
+          httpOnly: true,
+        },
+      ],
     }
     const entry = buildTimelineEntry(req, { status: "done", response }, "dev", {
       name: "dev",
@@ -874,11 +886,11 @@ describe("buildTimelineEntry", () => {
     })
     expect(entry.request.url).toBe("https://api.example.com/$TOKEN")
     expect(entry.request.headers.Authorization!.value).toBe("[REDACTED]")
-    expect(entry.response?.statusText).toBe(secret)
-    expect(entry.response?.headers["set-cookie"]).toBe(secret)
-    expect(entry.response?.headers["x-echo"]).toBe(secret)
-    expect(entry.response?.body).toBe(`echo:${secret}`)
-    expect(response.body).toBe(`echo:${secret}`)
+    expect(entry.response?.statusText).toBe("[REDACTED]")
+    expect(entry.response?.headers["set-cookie"]).toBe("[REDACTED]")
+    expect(entry.response?.headers["x-echo"]).toBe("[REDACTED]")
+    expect(entry.response?.body).toBe("echo:[REDACTED]:[REDACTED]")
+    expect(response.body).toBe(`echo:${secret}:cookie-secret`)
   })
 
   it("redacts literal and secret-variable AWS credentials", () => {

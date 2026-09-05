@@ -287,7 +287,7 @@ function parseCaptures(
   for (const [variable, declaration] of Object.entries(value)) {
     if (!isValidVariableName(variable)) {
       throw new Error(
-        `lang.parseRequest: invalid capture variable "${variable}"`,
+        `lang.parseRequest: invalid capture variable "${variable}"; expected letters, numbers, or _`,
       )
     }
     if (
@@ -397,7 +397,7 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
       !ASSERTION_OPERATORS.includes(raw.operator as AssertionOperator)
     ) {
       throw new Error(
-        `lang.parseRequest: invalid assert[${index}].operator "${String(raw.operator)}"`,
+        `lang.parseRequest: invalid assert[${index}].operator "${String(raw.operator)}"; expected one of ${ASSERTION_OPERATORS.join("|")}`,
       )
     }
 

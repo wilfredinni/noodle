@@ -2,10 +2,11 @@ import { evaluateAssertions, type AssertionResult } from "./assertions"
 import type { Environment, JsonValue, Request, Response } from "./schema"
 import type { ProxyPolicy } from "./proxy"
 import type { TlsPolicy } from "./tls"
-import { createResponseResolver } from "./response"
+import { createResponseResolver, parseResponseExpression } from "./response"
 import { evaluateCaptures, type CaptureResult, RunScope } from "./runScope"
 import {
   environmentSecretValues,
+  isSensitiveHeader,
   REDACTED,
   redactKnownSecrets,
 } from "./secrets/redact"
@@ -72,11 +73,11 @@ export function evaluateResponseExecution(
     : undefined
   for (const result of rawCaptures ?? []) {
     if (result.success) {
-      runScope.set(
-        result.variable,
-        result.value,
-        request.captures?.[result.variable]?.persist === "secret",
-      )
+      const parsed = parseResponseExpression(result.expression)
+      const sensitive =
+        request.captures?.[result.variable]?.persist === "secret" ||
+        (parsed.kind === "header" && isSensitiveHeader(parsed.name))
+      runScope.set(result.variable, result.value, sensitive)
     }
   }
   if (rawCaptures) onRawCaptures?.(rawCaptures)
@@ -97,6 +98,9 @@ export function evaluateResponseExecution(
           ...result,
           ...(Object.hasOwn(result, "expected")
             ? { expected: redactExecutionValue(result.expected!, redact) }
+            : {}),
+          ...(Object.hasOwn(result, "actual")
+            ? { actual: redactExecutionValue(result.actual!, redact) }
             : {}),
           message: redact(result.message),
         }),

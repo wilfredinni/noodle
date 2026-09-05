@@ -92,8 +92,11 @@ write `$$NAME` when the request must contain the literal text `$NAME`.
 Environment values preserve every character after the first `=`, including
 trailing spaces.
 
-Sensitive values are kept out of environment files, request history, generated
-code, search results, and exports.
+Declared secrets stay out of environment files, request history, generated
+code, search results, and exports. Structured run results and timeline history
+also mask known secret values, request credentials, cookies, and sensitive
+response headers. Arbitrary server payloads can still be sensitive, so do not
+publish JSON run output or `.timeline/` files without reviewing them.
 
 ## One collection, more than one way to work
 
@@ -127,6 +130,16 @@ success, `1` after any completed request failure, and `2` for a pre-run
 configuration failure. JSON includes every executed result, fail-fast skips,
 failure categories, and the aggregate run summary.
 
+Response expressions distinguish missing values from explicit JSON `null`.
+`response.time` is measured in milliseconds, header names are matched without
+case sensitivity, and body paths retain JSON strings, finite numbers, booleans,
+arrays, objects, and null. Equality is typed and recursive with no coercion:
+array order matters, object key order does not, and string comparisons are
+case-sensitive. `contains` checks a case-sensitive substring or a deeply equal
+array member. `matches` is a case-sensitive JavaScript regular expression with
+no flags; it is unanchored unless `^` or `$` is supplied and rejects unsafe or
+unsupported regex syntax.
+
 Captures can pass response values forward during a collection run or persist
 them after an individual manual send or `request run`:
 
@@ -152,8 +165,24 @@ environment values and disappear when the run ends. On a manual TUI send or
 CLI `request run`, persisted captures update the active or selected environment
 after successful extraction, even if HTTP status or a later assertion fails.
 Collection Runner and CLI `collection run` always keep captures transient.
-Secret capture values are fully redacted from capture results. Timeline history
-stores redacted assertion results, never capture results or RunScope values.
+Secret capture values and values captured from sensitive response headers are
+fully redacted from capture results. Timeline history stores redacted assertion
+results, never capture results or RunScope values.
+
+Every send follows one execution contract:
+
+1. Resolve the selected environment and overlay the current RunScope.
+2. Merge folder overrides, substitute variables, and execute the request.
+3. Construct the supported status, timing, header, and JSON-body views.
+4. Evaluate captures.
+5. Commit successful captures to RunScope; failed captures preserve prior values.
+6. Evaluate assertions against the same response.
+7. Return redacted structured results and, for manual TUI sends only, persist a redacted timeline entry.
+
+`request run` and manual sends use isolated scopes. `collection run` and the TUI
+Runner share one scope across selected requests in collection order, after
+target and tag filtering. Automation and Runner executions do not write
+timeline history.
 
 ## Bring your existing work
 

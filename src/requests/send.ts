@@ -29,6 +29,7 @@ import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 import { signOAuth1Request, stripOAuth1Credentials } from "./oauth1"
 import { resolveOAuth2Token, type OAuth2Mode } from "./oauth2"
 import type { OAuthBrowserLauncher } from "./oauth2Browser"
+import { sensitiveHeaderValues } from "../secrets/redact"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -36,6 +37,7 @@ export interface RequestExecutionOptions {
   collection?: Collection
   requestPath?: string
   onNetworkEvent?: (network: NetworkEvent[]) => void
+  onSensitiveValues?: (values: string[]) => void
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
   cookies?: CollectionCookieJar
@@ -99,6 +101,7 @@ export async function send(
     collection,
     requestPath,
     onNetworkEvent,
+    onSensitiveValues,
     proxyPolicy,
     tlsPolicy,
     cookies,
@@ -365,6 +368,12 @@ export async function send(
           requestUrl = signed.url
           signedInit = signed.init
         }
+        onSensitiveValues?.([
+          ...sensitiveHeaderValues(
+            headersToObject(new Headers(signedInit.headers)),
+          ),
+          ...(oauth2Token ? [oauth2Token] : []),
+        ])
         if (ntlmEnabled) {
           ntlmConnection ??= await createNtlmConnection(
             currentUrl,

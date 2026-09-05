@@ -41,12 +41,14 @@ export class RunScope {
   }
 
   secretValues(): string[] {
-    return [...this.secretVariables]
-      .map((variable) => this.values.get(variable))
-      .filter((value): value is JsonValue => value !== undefined)
-      .map((value) =>
-        typeof value === "string" ? value : JSON.stringify(value),
-      )
+    return [
+      ...new Set(
+        [...this.secretVariables].flatMap((variable) => {
+          const value = this.values.get(variable)
+          return value === undefined ? [] : secretValueStrings(value)
+        }),
+      ),
+    ].sort((a, b) => b.length - a.length)
   }
 
   environment(base?: Environment): Environment {
@@ -61,6 +63,17 @@ export class RunScope {
     }
     return { ...(base ?? {}), name: base?.name ?? "run", vars }
   }
+}
+
+function secretValueStrings(value: JsonValue): string[] {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value)
+  if (value === null || typeof value !== "object") return [serialized]
+  return [
+    serialized,
+    ...(Array.isArray(value) ? value : Object.values(value)).flatMap(
+      secretValueStrings,
+    ),
+  ]
 }
 
 export function evaluateCaptures(

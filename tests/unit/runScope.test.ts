@@ -177,7 +177,7 @@ describe("RunScope", () => {
   it("tracks normalized secret values until a non-secret capture replaces them", () => {
     const scope = new RunScope()
     scope.set("token", { value: "secret" }, true)
-    expect(scope.secretValues()).toEqual(['{"value":"secret"}'])
+    expect(scope.secretValues()).toEqual(['{"value":"secret"}', "secret"])
 
     scope.set("token", "public")
     expect(scope.secretValues()).toEqual([])

@@ -1188,7 +1188,9 @@ describe("lang.parseRequest: response captures", () => {
         "captures",
         `${prefix}capture:\n  user-id: { value: body.id }\n`,
       ),
-    ).toThrow('lang.parseRequest: invalid capture variable "user-id"')
+    ).toThrow(
+      'lang.parseRequest: invalid capture variable "user-id"; expected letters, numbers, or _',
+    )
     expect(() =>
       lang.parseRequest("captures", `${prefix}capture:\n  user_id: 42\n`),
     ).toThrow("lang.parseRequest: capture.user_id must be an object")
@@ -1367,7 +1369,9 @@ describe("lang.parseRequest — response assertions", () => {
         "assertions",
         `${prefix}assert:\n  - expression: status\n    operator: equalz\n    value: 200\n`,
       ),
-    ).toThrow('lang.parseRequest: invalid assert[0].operator "equalz"')
+    ).toThrow(
+      'lang.parseRequest: invalid assert[0].operator "equalz"; expected one of exists|notExists|isString|isNumber|isBoolean|isArray|isObject|isNull|notNull|equals|notEquals|gt|gte|lt|lte|contains|notContains|matches',
+    )
   })
 
   it("strictly validates enabled and declarations while disabled", () => {

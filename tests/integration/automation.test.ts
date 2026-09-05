@@ -277,10 +277,41 @@ describe("automation services", () => {
     expect(await readFile(join(dir, "bad.yml"), "utf8")).toBe(original)
   })
 
+  it("reports file and field context for malformed declarative definitions", async () => {
+    await writeFile(
+      join(dir, "bad-capture.yml"),
+      "name: Bad capture\nmethod: GET\nurl: https://example.com\ncapture:\n  user-id: { value: body.id }\n",
+    )
+    await writeFile(
+      join(dir, "bad-assert.yml"),
+      "name: Bad assertion\nmethod: GET\nurl: https://example.com\nassert:\n  - expression: status\n    operator: equalz\n    value: 200\n",
+    )
+
+    expect((await collectionAudit(dir, false)).issues).toEqual(
+      expect.arrayContaining([
+        {
+          path: "bad-capture.yml",
+          kind: "request",
+          message:
+            'lang.parseRequest: invalid capture variable "user-id"; expected letters, numbers, or _',
+          fixed: false,
+        },
+        {
+          path: "bad-assert.yml",
+          kind: "request",
+          message: expect.stringContaining(
+            'invalid assert[0].operator "equalz"; expected one of',
+          ),
+          fixed: false,
+        },
+      ]),
+    )
+  })
+
   it("formats valid JSON request bodies without changing invalid JSON", async () => {
     await writeFile(
       join(dir, "json.yml"),
-      'name: JSON\nmethod: POST\nurl: https://example.com\ntags: [smoke, users]\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
+      'name: JSON\nmethod: POST\nurl: https://example.com\ntags: [smoke, users]\ncapture:\n  user_id: { value: body.id }\nassert:\n  - expression: status\n    operator: equals\n    value: 201\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
       "utf8",
     )
     await writeFile(
@@ -296,15 +327,23 @@ describe("automation services", () => {
       requestCount: 2,
       formattedJsonBodies: 1,
     })
-    expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
+    const formatted = await readFile(join(dir, "json.yml"), "utf8")
+    expect(formatted).toContain(
       'body: |-\n  {\n    "name": "Noodle",\n    "id": 9007199254740993\n  }',
     )
-    expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
-      "tags:\n  - smoke\n  - users\n",
+    expect(formatted).toContain("tags:\n  - smoke\n  - users\n")
+    expect(formatted).toContain(
+      "capture:\n  user_id:\n    value: body.id\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n",
     )
     expect(await readFile(join(dir, "invalid.yml"), "utf8")).toContain(
       "body: '{not json}'",
     )
+    await collectionFormat(dir)
+    expect(await readFile(join(dir, "json.yml"), "utf8")).toBe(formatted)
+    expect(await collectionAudit(dir, false)).toMatchObject({
+      valid: true,
+      issues: [],
+    })
   })
 
   it("uses the collection default environment when running requests", async () => {
@@ -894,7 +933,7 @@ describe("automation services", () => {
     })
   })
 
-  it("keeps server response fields intact in automation output", async () => {
+  it("redacts known secrets, authorization values, and cookies from automation output", async () => {
     const key = "NOODLE_AUTOMATION_RESPONSE_SECRET"
     const originalValue = process.env[key]
     const send = executor.send
@@ -908,20 +947,38 @@ describe("automation services", () => {
       })
       await writeFile(
         join(dir, "request.yml"),
-        "name: Request\nmethod: GET\nurl: https://example.com\n",
+        "name: Request\nmethod: GET\nurl: https://example.com\nauth:\n  type: bearer\n  token: literal-auth-token\n",
       )
-      executor.send = async () => ({
-        status: 200,
-        statusText: "response-secret",
-        headers: { "x-echo": "response-secret" },
-        body: "echo:response-secret",
-        timeMs: 1,
-      })
+      executor.send = async (_request, options) => {
+        options?.onSensitiveValues?.(["generated-authorization-value"])
+        return {
+          status: 200,
+          statusText: "response-secret",
+          headers: {
+            "set-cookie": "session=cookie-secret",
+            "x-echo": "response-secret",
+          },
+          body: "echo:response-secret:literal-auth-token:cookie-secret:generated-authorization-value",
+          timeMs: 1,
+          cookies: [
+            {
+              name: "session",
+              value: "cookie-secret",
+              expires: null,
+              secure: true,
+              httpOnly: true,
+            },
+          ],
+        }
+      }
       const result = await collectionRun(dir)
       expect(result.results[0]!.response).toMatchObject({
-        statusText: "response-secret",
-        headers: { "x-echo": "response-secret" },
-        body: "echo:response-secret",
+        statusText: "[REDACTED]",
+        headers: {
+          "set-cookie": "[REDACTED]",
+          "x-echo": "[REDACTED]",
+        },
+        body: "echo:[REDACTED]:[REDACTED]:[REDACTED]:[REDACTED]",
       })
     } finally {
       executor.send = send
@@ -1259,7 +1316,7 @@ describe("automation services", () => {
     }
   })
 
-  it("chains captures through later requests in collection order", async () => {
+  it("creates, captures, fetches, asserts, and deletes a user in collection order", async () => {
     await writeFile(
       join(dir, "settings.yml"),
       "environment: development\ncookies:\n  enabled: false\n",
@@ -1272,28 +1329,36 @@ describe("automation services", () => {
     const environmentFile = join(dir, ".environments", "development.env")
     const before = await readFile(environmentFile, "utf8")
     await writeFile(
-      join(dir, "01-source.yml"),
-      "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: { value: body.user.id }\n",
+      join(dir, "01-create.yml"),
+      'name: 1 Create user\nmethod: POST\nurl: $BASE_URL/users\nbody_type: json\nbody: \'{"name":"Ada"}\'\ncapture:\n  user_id: { value: body.user.id }\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n',
     )
     await writeFile(
-      join(dir, "02-middle.yml"),
-      "name: 2 Middle\nmethod: GET\nurl: $BASE_URL/users/$user_id\ncapture:\n  next_id: { value: headers.x-next-id }\n",
+      join(dir, "02-fetch.yml"),
+      "name: 2 Fetch user\nmethod: GET\nurl: $BASE_URL/users/$user_id\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n  - expression: body.id\n    operator: equals\n    value: 42\n  - expression: body.name\n    operator: equals\n    value: Ada\n",
     )
     await writeFile(
-      join(dir, "03-last.yml"),
-      "name: 3 Last\nmethod: GET\nurl: $BASE_URL/users/$next_id\n",
+      join(dir, "03-delete.yml"),
+      "name: 3 Delete user\nmethod: DELETE\nurl: $BASE_URL/users/$user_id\nassert:\n  - expression: status\n    operator: equals\n    value: 204\n",
     )
     const environments: Array<Record<string, string>> = []
     const send = executor.send
     executor.send = async (request, options) => {
       environments.push({ ...(options?.environment?.vars ?? {}) })
-      const headers: Record<string, string> =
-        request.id === "01-source" ? {} : { "x-next-id": "84" }
       return {
-        status: 200,
-        statusText: "OK",
-        headers,
-        body: request.id === "01-source" ? '{"user":{"id":42}}' : "{}",
+        status:
+          request.id === "01-create"
+            ? 201
+            : request.id === "03-delete"
+              ? 204
+              : 200,
+        statusText: request.id === "01-create" ? "Created" : "OK",
+        headers: {},
+        body:
+          request.id === "01-create"
+            ? '{"user":{"id":42,"name":"Ada"}}'
+            : request.id === "02-fetch"
+              ? '{"id":42,"name":"Ada"}'
+              : "",
         timeMs: 1,
       }
     }
@@ -1305,17 +1370,22 @@ describe("automation services", () => {
         false,
         undefined,
         false,
-        ["03-last", "02-middle", "01-source"],
+        ["03-delete", "02-fetch", "01-create"],
       )
       expect(result.failed).toBe(false)
       expect(result.results.map((item) => item.url)).toEqual([
-        "https://example.com/source",
+        "https://example.com/users",
         "https://example.com/users/42",
-        "https://example.com/users/84",
+        "https://example.com/users/42",
       ])
       expect(environments[0]?.user_id).toBe("environment")
       expect(environments[1]?.user_id).toBe("42")
-      expect(environments[2]?.next_id).toBe("84")
+      expect(environments[2]?.user_id).toBe("42")
+      expect(
+        result.results.flatMap(
+          (item) => item.assertions?.results.map(({ passed }) => passed) ?? [],
+        ),
+      ).toEqual([true, true, true, true, true])
       expect(await readFile(environmentFile, "utf8")).toBe(before)
       expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe(
         settingsBefore,
@@ -1683,7 +1753,7 @@ describe("automation services", () => {
     }
   })
 
-  it("redacts known secrets in capture results but keeps raw scope values for sending", async () => {
+  it("captures a login token for an authenticated chained request without leaking it", async () => {
     const key = "NOODLE_CAPTURE_SECRET"
     const originalValue = process.env[key]
     const send = executor.send
@@ -1699,23 +1769,30 @@ describe("automation services", () => {
         secretVars: { [key]: "process" },
       })
       await writeFile(
-        join(dir, "source.yml"),
-        "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  captured: { value: body.token, persist: secret }\n",
+        join(dir, "01-login.yml"),
+        "name: 1 Login\nmethod: POST\nurl: $BASE_URL/login\ncapture:\n  access_token: { value: body.token, persist: secret }\n",
       )
       await writeFile(
-        join(dir, "use.yml"),
-        "name: 2 Use\nmethod: GET\nurl: $BASE_URL/$captured\n",
+        join(dir, "02-profile.yml"),
+        "name: 2 Profile\nmethod: GET\nurl: $BASE_URL/profile\nauth:\n  type: bearer\n  token: $access_token\nassert:\n  - expression: body.id\n    operator: equals\n    value: 7\n",
       )
       let rawCapturedValue: string | undefined
       executor.send = async (request, options) => {
-        if (request.id === "use") {
-          rawCapturedValue = options?.environment?.vars.captured
+        if (request.id === "02-profile") {
+          rawCapturedValue = options?.environment?.vars.access_token
+          expect(request.auth).toEqual({
+            type: "bearer",
+            token: "$access_token",
+          })
         }
         return {
           status: 200,
           statusText: "OK",
           headers: {},
-          body: '{"token":"brand-new-token"}',
+          body:
+            request.id === "01-login"
+              ? '{"token":"brand-new-token"}'
+              : '{"id":7}',
           timeMs: 1,
         }
       }
@@ -1725,14 +1802,19 @@ describe("automation services", () => {
       const result = await collectionRun(dir)
       expect(rawCapturedValue).toBe("brand-new-token")
       expect(result.results[0]).toMatchObject({
-        response: { body: '{"token":"brand-new-token"}' },
+        response: { body: '{"token":"[REDACTED]"}' },
         captures: { results: [{ success: true, value: "[REDACTED]" }] },
       })
       expect(result.results[0]?.captures?.results[0]).not.toHaveProperty(
         "persisted",
       )
       expect(await readFile(environmentFile, "utf8")).toBe(before)
-      expect(result.results[1]?.url).toBe("https://example.com/[REDACTED]")
+      expect(result.results[1]).toMatchObject({
+        url: "https://example.com/profile",
+        ok: true,
+        assertions: { results: [{ passed: true }] },
+      })
+      expect(JSON.stringify(result)).not.toContain("brand-new-token")
     } finally {
       executor.send = send
       if (originalValue === undefined) delete process.env[key]
@@ -1937,7 +2019,7 @@ describe("automation services", () => {
     }
   })
 
-  it("redacts secret expected values but preserves raw actual response values", async () => {
+  it("redacts secret expected and actual assertion values", async () => {
     const key = "NOODLE_ASSERTION_SECRET"
     const originalValue = process.env[key]
     const send = executor.send
@@ -1966,7 +2048,7 @@ describe("automation services", () => {
       const result = await requestRun("request", dir)
       expect(result.result.assertions?.results[0]).toMatchObject({
         expected: "[REDACTED]",
-        actual: "assertion-secret",
+        actual: "[REDACTED]",
         passed: true,
       })
       expect(result.result.assertions?.results[0]?.message).not.toContain(

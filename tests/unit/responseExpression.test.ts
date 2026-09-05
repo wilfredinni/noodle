@@ -121,7 +121,7 @@ describe("response expressions", () => {
     })
   })
 
-  it("resolves status, timing, headers, nested JSON, arrays, and the root body", () => {
+  it("resolves status, timing in milliseconds, headers, nested JSON, arrays, and the root body", () => {
     const resolve = createResponseResolver(response())
     expect(resolve("status")).toEqual({ kind: "value", value: 201 })
     expect(resolve("response.time")).toEqual({ kind: "value", value: 12.5 })

@@ -11,6 +11,7 @@ export async function emitCommand<T>(
   json: boolean,
   action: () => Promise<CommandResult<T>>,
   formatHuman?: HumanFormatter<T>,
+  caughtErrorExitCode = 1,
 ): Promise<void> {
   try {
     const result = await action()
@@ -31,7 +32,10 @@ export async function emitCommand<T>(
       process.stdout.write(
         `${JSON.stringify({ status: "error", data: null, errors: [message] })}\n`,
       )
-    else process.stderr.write(`error: ${message}\n`)
-    process.exitCode = 1
+    else
+      process.stderr.write(
+        `${caughtErrorExitCode === 2 ? "configuration error" : "error"}: ${message}\n`,
+      )
+    process.exitCode = caughtErrorExitCode
   }
 }

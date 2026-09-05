@@ -72,6 +72,27 @@ describe("send — environment substitution", () => {
   })
 })
 
+describe("send — redaction values", () => {
+  it("reports prepared authorization values without changing the request", async () => {
+    const originalFetch = globalThis.fetch
+    const sensitiveValues: string[] = []
+    globalThis.fetch = mock(
+      async () => new Response("ok"),
+    ) as unknown as typeof globalThis.fetch
+    try {
+      await send(
+        makeReq({ auth: { type: "basic", user: "ada", pass: "secret" } }),
+        { onSensitiveValues: (values) => sensitiveValues.push(...values) },
+      )
+      const encoded = Buffer.from("ada:secret").toString("base64")
+      expect(sensitiveValues).toContain(`Basic ${encoded}`)
+      expect(sensitiveValues).toContain(encoded)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
 describe("send — param deduplication", () => {
   it("params block replaces inline URL value for same key", async () => {
     let captured: string | undefined

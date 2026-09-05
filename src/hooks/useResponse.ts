@@ -27,6 +27,10 @@ import { RunScope } from "../runScope"
 import { substitute } from "../requests/substitute"
 import { persistResponseCaptures } from "../app/services"
 import type { CaptureResult } from "../runScope"
+import {
+  requestSensitiveValues,
+  responseSensitiveValues,
+} from "../secrets/redact"
 
 type CachedResult =
   | {
@@ -68,6 +72,7 @@ export function useResponse(
     req: Request,
     result: SendCompleteResult,
     dispatchEnvironment?: Environment,
+    runSecretValues?: string[],
   ) => void,
   collection?: Collection,
   requestPath?: string,
@@ -159,6 +164,7 @@ async function runSend(
         req: Request,
         result: SendCompleteResult,
         dispatchEnvironment?: Environment,
+        runSecretValues?: string[],
       ) => void)
     | undefined
   >,
@@ -171,6 +177,7 @@ async function runSend(
   onEnvironmentPersisted?: () => Promise<void>,
 ): Promise<void> {
   const runScope = new RunScope()
+  const runtimeSecretValues: string[] = []
   try {
     const res = await executor.send(req, {
       environment: env,
@@ -188,16 +195,23 @@ async function runSend(
       tlsPolicy,
       collectionDir,
       oauthMode: "interactive",
+      onSensitiveValues: (values) => runtimeSecretValues.push(...values),
       ...(cookies ? { cookies } : {}),
     })
     const runEnvironment = runScope.environment(env)
     const effectiveRequest = substitute(req, runEnvironment)
+    const secretValues = [
+      ...executionSecretValues([env, runEnvironment], proxyPolicy, tlsPolicy),
+      ...requestSensitiveValues(effectiveRequest),
+      ...runtimeSecretValues,
+      ...responseSensitiveValues(res),
+    ]
     let rawCaptureResults: CaptureResult[] = []
     let execution = evaluateResponseExecution(
       effectiveRequest,
       res,
       runScope,
-      executionSecretValues([env, runEnvironment], proxyPolicy, tlsPolicy),
+      secretValues,
       (results) => {
         rawCaptureResults = results
       },
@@ -219,7 +233,10 @@ async function runSend(
     const result = { status: "done" as const, response: res, execution }
     cacheRef.current.set(req.id, { ...result, requestId: req.id })
     setState((prev) => finishSend(prev, req, res, execution))
-    onCompleteRef.current?.(req, result, env)
+    onCompleteRef.current?.(req, result, env, [
+      ...runtimeSecretValues,
+      ...runScope.secretValues(),
+    ])
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       setState({ status: "idle" })
@@ -235,7 +252,7 @@ async function runSend(
     }
     cacheRef.current.set(req.id, result)
     setState((prev) => failSend(prev, req, err, execution))
-    onCompleteRef.current?.(req, result, env)
+    onCompleteRef.current?.(req, result, env, runtimeSecretValues)
   } finally {
     abortRef.current = null
   }
