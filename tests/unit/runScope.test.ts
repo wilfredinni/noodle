@@ -186,9 +186,9 @@ describe("RunScope", () => {
       '[null,"inner"]',
       "secret",
       "inner",
-      "true",
-      "null",
-      "1",
+      { kind: "json-primitive", value: "true" },
+      { kind: "json-primitive", value: "null" },
+      { kind: "json-primitive", value: "1" },
     ])
 
     scope.set("token", "public")

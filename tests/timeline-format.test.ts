@@ -825,6 +825,60 @@ describe("buildTimelineEntry", () => {
     expect(JSON.stringify(entry)).not.toContain("timeline-assertion-secret")
   })
 
+  it("preserves common primitives and redacts distinctive primitive secrets", () => {
+    const entry = buildTimelineEntry(
+      {
+        id: "public-primitive",
+        name: "Public primitive",
+        method: "GET",
+        url: "https://api.example.com",
+        headers: {},
+        params: [],
+        timeout: 0,
+      },
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"count":1}',
+          timeMs: 1,
+        },
+        execution: {
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "body.count",
+                operator: "isNumber",
+                actual: 1,
+                passed: true,
+                message: "Assertion passed",
+              },
+              {
+                expression: "body.otp",
+                operator: "isNumber",
+                actual: 123456,
+                passed: true,
+                message: "Assertion passed",
+              },
+            ],
+          },
+        },
+      },
+      undefined,
+      undefined,
+      [
+        { kind: "json-primitive", value: "1" },
+        { kind: "json-primitive", value: "123456" },
+      ],
+    )
+
+    expect(entry.assertions?.results[0]?.actual).toBe(1)
+    expect(entry.assertions?.results[1]?.actual).toBe("[REDACTED]")
+  })
+
   it("supports assertion not-evaluated state and old entries", () => {
     const oldEntry: TimelineEntry = {
       timestamp: 1,

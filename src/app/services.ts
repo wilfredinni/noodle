@@ -63,6 +63,7 @@ import {
   redactResponseHeaders,
   requestSensitiveValues,
   responseSensitiveValues,
+  type RedactionSecret,
 } from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
@@ -723,7 +724,7 @@ async function runRequest(
   onDetail?: RunDetail,
 ): Promise<RequestRunResult> {
   const effectiveEnvironment = runScope.environment(environment)
-  const secretValues = executionSecretValues(
+  const secretValues: RedactionSecret[] = executionSecretValues(
     [environment, effectiveEnvironment],
     proxyPolicy,
     tlsPolicy,

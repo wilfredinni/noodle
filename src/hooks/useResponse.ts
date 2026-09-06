@@ -30,6 +30,7 @@ import type { CaptureResult } from "../runScope"
 import {
   requestSensitiveValues,
   responseSensitiveValues,
+  type RedactionSecret,
 } from "../secrets/redact"
 
 type CachedResult =
@@ -72,7 +73,7 @@ export function useResponse(
     req: Request,
     result: SendCompleteResult,
     dispatchEnvironment?: Environment,
-    runSecretValues?: string[],
+    runSecretValues?: RedactionSecret[],
   ) => void,
   collection?: Collection,
   requestPath?: string,
@@ -164,7 +165,7 @@ async function runSend(
         req: Request,
         result: SendCompleteResult,
         dispatchEnvironment?: Environment,
-        runSecretValues?: string[],
+        runSecretValues?: RedactionSecret[],
       ) => void)
     | undefined
   >,

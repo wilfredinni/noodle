@@ -58,6 +58,7 @@ import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { useCollectionCookieJar } from "../hooks/useCollectionCookieJar"
 import { useCookieJarView } from "../hooks/useCookieJarView"
+import type { RedactionSecret } from "../secrets/redact"
 import { settingsReturnFocus, type Focus, type UrlBarSubFocus } from "./focus"
 import {
   buildCommandPaletteCommands,
@@ -545,7 +546,7 @@ export function AppInner({
       req: NoodleRequest,
       result: SendCompleteResult,
       dispatchEnvironment?: Environment,
-      runSecretValues: string[] = [],
+      runSecretValues: RedactionSecret[] = [],
     ) => {
       timeline.appendEntry(
         buildTimelineEntry(
@@ -558,7 +559,7 @@ export function AppInner({
             ...Object.values(collectionProxyCredentials),
             ...Object.values(tlsPassphrases),
             ...runSecretValues,
-          ].filter((value): value is string => Boolean(value)),
+          ].filter((value) => typeof value !== "string" || Boolean(value)),
         ),
       )
     },
