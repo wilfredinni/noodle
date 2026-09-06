@@ -120,16 +120,18 @@ export function redactExecutionValue(
   redact: (value: string) => string,
 ): JsonValue {
   if (typeof value === "string") return redact(value)
+  if (value === null || typeof value !== "object") {
+    const serialized = JSON.stringify(value)
+    const redacted = redact(serialized)
+    return redacted === serialized ? value : redacted
+  }
   if (Array.isArray(value)) {
     return value.map((item) => redactExecutionValue(item, redact))
   }
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        key,
-        redactExecutionValue(item, redact),
-      ]),
-    )
-  }
-  return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      redactExecutionValue(item, redact),
+    ]),
+  )
 }

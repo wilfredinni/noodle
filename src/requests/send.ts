@@ -69,6 +69,7 @@ export interface RequestExecutionOptions {
   oauthMode?: OAuth2Mode
   openOAuthBrowser?: OAuthBrowserLauncher
   allowCrossOriginRedirects?: boolean
+  resolveVariables?: boolean
 }
 
 export function interpolatePathParams(
@@ -133,13 +134,18 @@ export async function send(
     oauthMode = "cached-only",
     openOAuthBrowser,
     allowCrossOriginRedirects = true,
+    resolveVariables = true,
   } = options
   const merged =
     collection && requestPath
       ? mergeFolderOverrides(req, collection, requestPath)
       : req
 
-  const substituted = substitute(merged, env ?? { name: "", vars: {} })
+  const substituted = substitute(
+    merged,
+    env ?? { name: "", vars: {} },
+    resolveVariables,
+  )
 
   if (cookies && substituted.sendCookies !== false) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.

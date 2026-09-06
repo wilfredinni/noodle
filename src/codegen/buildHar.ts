@@ -43,11 +43,10 @@ export function buildHar(
 ): BuildHarOutput {
   const shouldInterpolate = interpolate ?? false
 
-  let working = request
-
-  if (shouldInterpolate && env) {
-    working = interpolateRequest(request, env)
-  }
+  let working = interpolateRequest(
+    request,
+    shouldInterpolate && env ? env : { name: "", vars: {} },
+  )
 
   const { hashed: hashedUrl, restore: unhash } = hashVars(working.url)
   working = { ...working, url: hashedUrl }

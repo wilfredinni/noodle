@@ -71,6 +71,29 @@ describe("response execution results", () => {
     })
   })
 
+  it("redacts numeric leaves from structured secret captures", () => {
+    const scope = new RunScope()
+    const results = evaluateResponseExecution(
+      {
+        captures: {
+          credentials: {
+            value: "body.credentials",
+            enabled: true,
+            persist: "secret",
+          },
+        },
+        assertions: [
+          { expression: "body.credentials.otp", operator: "isNumber" },
+        ],
+      },
+      { ...response, body: '{"credentials":{"otp":123456}}' },
+      scope,
+    )
+
+    expect(scope.get("credentials")).toEqual({ otp: 123456 })
+    expect(results.assertions?.results[0]?.actual).toBe("[REDACTED]")
+  })
+
   it("treats captures from sensitive response headers as secret", () => {
     const scope = new RunScope()
     const results = evaluateResponseExecution(

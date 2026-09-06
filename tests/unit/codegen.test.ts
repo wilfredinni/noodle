@@ -69,6 +69,31 @@ describe("buildHar", () => {
     })
   })
 
+  it("decodes literal-dollar escapes across generated request values", () => {
+    const { har, unhash } = buildHar(
+      makeRequest({
+        url: "https://api.example.com/$$NAME",
+        headers: { "X-Name": { value: "$$NAME", enabled: true } },
+        body: "$$NAME",
+        auth: { type: "none" },
+      }),
+    )
+
+    expect(unhash(har.url)).toBe("https://api.example.com/$NAME")
+    expect(har.headers).toContainEqual({ name: "X-Name", value: "$NAME" })
+    expect(har.postData?.text).toBe("$NAME")
+  })
+
+  it("decodes interpolated URL escapes only once", () => {
+    const { har, unhash } = buildHar(
+      makeRequest({ url: "https://api.example.com/$$$$NAME" }),
+      { name: "dev", vars: {} },
+      true,
+    )
+
+    expect(unhash(har.url)).toBe("https://api.example.com/$$NAME")
+  })
+
   it("includes query params in queryString", () => {
     const { har } = buildHar(makeRequest())
     expect(har.queryString).toContainEqual({ name: "page", value: "1" })

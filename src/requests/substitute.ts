@@ -15,16 +15,22 @@ export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   params: ParamEntry[]
 }
 
-export function substitute(req: Request, env: Environment): SubstitutedRequest {
+export function substitute(
+  req: Request,
+  env: Environment,
+  resolveVariables = true,
+): SubstitutedRequest {
   const resolve = (s: string, field: string): string =>
-    replaceVariableReferences(s, (name) => {
-      if (!Object.hasOwn(env.vars, name)) {
-        throw new Error(
-          `requests.substitute: unresolved variable "${name}" in ${field}`,
-        )
-      }
-      return env.vars[name]!
-    })
+    resolveVariables
+      ? replaceVariableReferences(s, (name) => {
+          if (!Object.hasOwn(env.vars, name)) {
+            throw new Error(
+              `requests.substitute: unresolved variable "${name}" in ${field}`,
+            )
+          }
+          return env.vars[name]!
+        })
+      : s
 
   const headers: Record<string, string> = {}
   for (const [k, v] of Object.entries(req.headers)) {
