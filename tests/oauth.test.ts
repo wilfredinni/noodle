@@ -827,6 +827,7 @@ describe("OAuth 2 execution", () => {
           const body = new URLSearchParams(await request.text())
           expect(body.get("grant_type")).toBe("client_credentials")
           expect(body.get("client_id")).toBe("client")
+          expect(body.get("client_secret")).toBe("pa$word")
           return Response.json({
             access_token: "vault-token",
             expires_in: 3600,
@@ -841,8 +842,12 @@ describe("OAuth 2 execution", () => {
       grant_type: "client_credentials" as const,
       access_token_url: `http://127.0.0.1:${server.port}/token`,
       client_id: "client",
-      client_secret: "secret",
+      client_secret: "$CLIENT_SECRET",
       credentials_id: "client-credentials-test",
+    }
+    const environment = {
+      name: "dev",
+      vars: { CLIENT_SECRET: "pa$word" },
     }
     authToClear.push({ auth, dir })
     const request = resourceRequest(
@@ -850,11 +855,20 @@ describe("OAuth 2 execution", () => {
       auth,
     )
     const [first, second] = await Promise.all([
-      send(request, { collectionDir: dir, oauthMode: "cached-only" }),
-      send(request, { collectionDir: dir, oauthMode: "cached-only" }),
+      send(request, {
+        collectionDir: dir,
+        environment,
+        oauthMode: "cached-only",
+      }),
+      send(request, {
+        collectionDir: dir,
+        environment,
+        oauthMode: "cached-only",
+      }),
     ])
     const third = await send(request, {
       collectionDir: dir,
+      environment,
       oauthMode: "cached-only",
     })
     expect(first.body).toBe("Bearer vault-token")

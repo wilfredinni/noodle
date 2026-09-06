@@ -170,6 +170,7 @@ async function resolveOAuth2Endpoints(
       collectionDir: context.collectionDir,
       oauthMode: "disabled",
       allowCrossOriginRedirects: false,
+      resolveVariables: false,
     },
   )
   if (response.status !== 200) {
@@ -572,6 +573,7 @@ async function requestToken(
     collectionDir: context.collectionDir,
     oauthMode: "disabled",
     allowCrossOriginRedirects: false,
+    resolveVariables: false,
   })
   if (response.status < 200 || response.status >= 300) {
     let detail = ""

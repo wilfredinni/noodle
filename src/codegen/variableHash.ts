@@ -21,12 +21,16 @@ export function hashVars(url: string): VarHasher {
 
   let counter = 0
   const map = new Map<number, string>()
-  let hashed = replaceVariableReferences(working, (_name, reference) => {
-    const id = counter++
-    const placeholder = `${VAR_PREFIX}${id}`
-    map.set(id, working.slice(reference.start, reference.end))
-    return placeholder
-  })
+  let hashed = replaceVariableReferences(
+    working,
+    (_name, reference) => {
+      const id = counter++
+      const placeholder = `${VAR_PREFIX}${id}`
+      map.set(id, working.slice(reference.start, reference.end))
+      return placeholder
+    },
+    () => "$$",
+  )
   const authority = hashed.match(HTTP_AUTHORITY_RE)?.[1] ?? ""
   const host = authority.slice(authority.lastIndexOf("@") + 1)
   if (!host || host.startsWith(":") || !URL.canParse(hashed)) {

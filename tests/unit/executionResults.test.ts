@@ -71,6 +71,97 @@ describe("response execution results", () => {
     })
   })
 
+  it("redacts structured secret paths without masking public primitives", () => {
+    const scope = new RunScope()
+    const results = evaluateResponseExecution(
+      {
+        captures: {
+          credentials: {
+            value: "body.credentials",
+            enabled: true,
+            persist: "secret",
+          },
+        },
+        assertions: [
+          { expression: "body.credentials.attempts", operator: "isNumber" },
+          { expression: "body.credentials.enabled", operator: "isBoolean" },
+          { expression: "body.credentials.empty", operator: "isNull" },
+          { expression: "body.requestId", operator: "isString" },
+          { expression: "body.attempts", operator: "isNumber" },
+          { expression: "body.enabled", operator: "isBoolean" },
+          { expression: "body.empty", operator: "isNull" },
+          { expression: "body.version", operator: "isString" },
+          { expression: "body.active", operator: "isString" },
+          { expression: "body.nothing", operator: "isString" },
+        ],
+      },
+      {
+        ...response,
+        body: JSON.stringify({
+          credentials: { attempts: 1, enabled: true, empty: null },
+          requestId: "request-1",
+          attempts: 1,
+          enabled: true,
+          empty: null,
+          version: "1",
+          active: "true",
+          nothing: "null",
+        }),
+      },
+      scope,
+    )
+
+    expect(scope.get("credentials")).toEqual({
+      attempts: 1,
+      enabled: true,
+      empty: null,
+    })
+    expect(results.assertions?.results.map((result) => result.actual)).toEqual([
+      "[REDACTED]",
+      "[REDACTED]",
+      "[REDACTED]",
+      "request-1",
+      1,
+      true,
+      null,
+      "1",
+      "true",
+      "null",
+    ])
+  })
+
+  it("redacts distinctive primitive secrets across responses", () => {
+    const scope = new RunScope()
+    evaluateResponseExecution(
+      {
+        captures: {
+          otp: { value: "body.otp", persist: "secret", enabled: true },
+        },
+      },
+      { ...response, body: '{"otp":123456}' },
+      scope,
+    )
+
+    const results = evaluateResponseExecution(
+      {
+        assertions: [
+          { expression: "body.otp", operator: "isNumber" },
+          { expression: "body.requestId", operator: "isString" },
+        ],
+      },
+      {
+        ...response,
+        body: '{"otp":123456,"requestId":"request-123456"}',
+      },
+      scope,
+    )
+
+    expect(results.assertions?.results.map((result) => result.actual)).toEqual([
+      "[REDACTED]",
+      "request-123456",
+    ])
+  })
+
   it("treats captures from sensitive response headers as secret", () => {
     const scope = new RunScope()
     const results = evaluateResponseExecution(

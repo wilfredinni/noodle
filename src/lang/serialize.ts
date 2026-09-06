@@ -95,8 +95,9 @@ export function serializeRequest(req: Request): string {
   if (req.captures && Object.keys(req.captures).length > 0) {
     out += "capture:\n"
     for (const [variable, capture] of Object.entries(req.captures)) {
+      const variableName = yamlVal(variable, 2)
       const value = yamlVal(capture.value, 4)
-      out += `  ${variable}:\n`
+      out += `  ${variableName}:\n`
       out += `    value: ${value}\n`
       if (capture.persist) out += `    persist: ${capture.persist}\n`
       if (!capture.enabled) out += "    enabled: false\n"

@@ -3,6 +3,22 @@ import type { Environment, KvEntry, Request, Response } from "../schema"
 export const REDACTED = "[REDACTED]"
 
 const MIN_COOKIE_SUBSTRING_LENGTH = 4
+const MIN_PRIMITIVE_SECRET_LENGTH = 4
+
+export type RedactionSecret = string | { kind: "json-primitive"; value: string }
+
+export function executionResultSecrets(
+  values: readonly RedactionSecret[],
+): RedactionSecret[] {
+  return values.filter(
+    (secret) =>
+      typeof secret === "string" ||
+      (secret.value.length >= MIN_PRIMITIVE_SECRET_LENGTH &&
+        secret.value !== "true" &&
+        secret.value !== "false" &&
+        secret.value !== "null"),
+  )
+}
 
 export function environmentSecretValues(
   environment: Environment | null | undefined,
@@ -17,12 +33,40 @@ export function environmentSecretValues(
   ].sort((a, b) => b.length - a.length)
 }
 
-export function redactKnownSecrets(input: string, values: string[]): string {
+export function redactKnownSecrets(
+  input: string,
+  values: readonly RedactionSecret[],
+): string {
   let output = input
-  for (const value of [...new Set(values.filter(Boolean))].sort(
-    (a, b) => b.length - a.length,
-  )) {
-    output = output.split(value).join(REDACTED)
+  const secrets = [
+    ...new Map(
+      values.flatMap((secret) => {
+        const value = typeof secret === "string" ? secret : secret.value
+        return value
+          ? [
+              [
+                `${typeof secret === "string" ? "text" : secret.kind}:${value}`,
+                secret,
+              ] as const,
+            ]
+          : []
+      }),
+    ).values(),
+  ].sort((a, b) => {
+    const aValue = typeof a === "string" ? a : a.value
+    const bValue = typeof b === "string" ? b : b.value
+    return bValue.length - aValue.length
+  })
+  for (const secret of secrets) {
+    if (typeof secret === "string") {
+      output = output.split(secret).join(REDACTED)
+      continue
+    }
+    const escaped = secret.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    output = output.replace(
+      new RegExp(`(^|[\\s\\[{:;,=?&])${escaped}(?=$|[\\s\\]},;&#])`, "g"),
+      (_match, prefix: string) => `${prefix}${REDACTED}`,
+    )
   }
   return output
 }
@@ -46,7 +90,7 @@ export function isSensitiveHeader(name: string): boolean {
 
 export function redactResponseHeaders(
   headers: Record<string, string>,
-  secretValues: string[],
+  secretValues: readonly RedactionSecret[],
 ): Record<string, string> {
   return Object.fromEntries(
     Object.entries(headers).map(([name, value]) => [

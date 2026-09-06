@@ -1,5 +1,6 @@
 import type { CaptureEntry, Environment, JsonValue } from "./schema"
 import type { ResponseResolver } from "./response"
+import type { RedactionSecret } from "./secrets/redact"
 
 export type CaptureValueType =
   | "null"
@@ -40,15 +41,25 @@ export class RunScope {
     return this.values.get(variable)
   }
 
-  secretValues(): string[] {
+  secretValues(): RedactionSecret[] {
+    const values = [...this.secretVariables].flatMap((variable) => {
+      const value = this.values.get(variable)
+      return value === undefined ? [] : secretRedactionValues(value)
+    })
     return [
-      ...new Set(
-        [...this.secretVariables].flatMap((variable) => {
-          const value = this.values.get(variable)
-          return value === undefined ? [] : secretValueStrings(value)
-        }),
-      ),
-    ].sort((a, b) => b.length - a.length)
+      ...new Map(
+        values.map((value) => [
+          typeof value === "string"
+            ? `text:${value}`
+            : `${value.kind}:${value.value}`,
+          value,
+        ]),
+      ).values(),
+    ].sort((a, b) => {
+      const aValue = typeof a === "string" ? a : a.value
+      const bValue = typeof b === "string" ? b : b.value
+      return bValue.length - aValue.length
+    })
   }
 
   environment(base?: Environment): Environment {
@@ -65,17 +76,16 @@ export class RunScope {
   }
 }
 
-function secretValueStrings(value: JsonValue): string[] {
+function secretRedactionValues(value: JsonValue): RedactionSecret[] {
   const serialized = typeof value === "string" ? value : JSON.stringify(value)
-  if (value === null || typeof value !== "object") return [serialized]
+  if (typeof value === "string") return [value]
+  if (value === null || typeof value !== "object") {
+    return [{ kind: "json-primitive", value: serialized }]
+  }
   return [
     serialized,
-    ...(Array.isArray(value) ? value : Object.values(value)).flatMap((item) =>
-      typeof item === "string"
-        ? [item]
-        : item !== null && typeof item === "object"
-          ? secretValueStrings(item)
-          : [],
+    ...(Array.isArray(value) ? value : Object.values(value)).flatMap(
+      secretRedactionValues,
     ),
   ]
 }

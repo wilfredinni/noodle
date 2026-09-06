@@ -11,12 +11,14 @@ import { redactExecutionValue } from "./executionResults"
 import { interpolatePathParams } from "./requests/send"
 import {
   environmentSecretValues,
+  executionResultSecrets,
   isSensitiveHeader,
   redactKnownSecrets,
   redactResponseHeaders,
   REDACTED,
   requestSensitiveValues,
   responseSensitiveValues,
+  type RedactionSecret,
 } from "./secrets/redact"
 import {
   replaceVariableReferences,
@@ -45,7 +47,7 @@ export function buildTimelineEntry(
   result: TimelineExecutionResult,
   envName?: string,
   environment?: Environment | null,
-  settingsSecrets: string[] = [],
+  settingsSecrets: RedactionSecret[] = [],
 ): TimelineEntry {
   const secretValues = [
     ...environmentSecretValues(environment),
@@ -54,10 +56,11 @@ export function buildTimelineEntry(
   const resolvePublicVars = (value: string) =>
     environment
       ? replaceVariableReferences(value, (key) =>
-          !Object.hasOwn(environment.secretVars ?? {}, key) &&
-          Object.hasOwn(environment.vars, key)
-            ? environment.vars[key]!
-            : `$${key}`,
+          Object.hasOwn(environment.secretVars ?? {}, key)
+            ? REDACTED
+            : Object.hasOwn(environment.vars, key)
+              ? environment.vars[key]!
+              : `$${key}`,
         )
       : replaceVariableReferences(value, (key) => `$${key}`)
   secretValues.push(
@@ -69,6 +72,8 @@ export function buildTimelineEntry(
       : []),
   )
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
+  const redactResult = (value: string) =>
+    redactKnownSecrets(value, executionResultSecrets(secretValues))
   const assertions = result.execution?.assertions
     ? {
         evaluated: result.execution.assertions.evaluated,
@@ -76,11 +81,16 @@ export function buildTimelineEntry(
           ...assertion,
           ...(Object.hasOwn(assertion, "expected")
             ? {
-                expected: redactExecutionValue(assertion.expected!, redact),
+                expected: redactExecutionValue(
+                  assertion.expected!,
+                  redactResult,
+                ),
               }
             : {}),
           ...(Object.hasOwn(assertion, "actual")
-            ? { actual: redactExecutionValue(assertion.actual!, redact) }
+            ? {
+                actual: redactExecutionValue(assertion.actual!, redactResult),
+              }
             : {}),
           message: redact(assertion.message),
         })),

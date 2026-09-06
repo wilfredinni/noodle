@@ -1229,6 +1229,19 @@ describe("lang.parseRequest: response captures", () => {
     )
   })
 
+  it("round-trips numeric-looking capture names", () => {
+    const request = lang.parseRequest(
+      "captures",
+      `${prefix}capture:\n  "001": { value: status }\n`,
+    )
+
+    const reparsed = lang.parseRequest(
+      "captures",
+      lang.serializeRequest(request),
+    )
+    expect(Object.keys(reparsed.captures!)).toEqual(["001"])
+  })
+
   it("persists disabled captures canonically and normalizes enabled objects", () => {
     const request = lang.parseRequest(
       "captures",
