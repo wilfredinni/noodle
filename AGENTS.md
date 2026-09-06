@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (3117 across 204 files)
+bun test                              # all tests (3181 across 205 files)
 bun test tests/lang.test.ts           # single file
 bun run audit                         # fail on vulnerable dependencies
 bun run lint                          # oxlint
@@ -52,7 +52,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **UI:** [OpenTUI](https://github.com/anomius/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
 - **Language:** TypeScript 7, strict mode, `"type": "module"`.
 - **Lint:** Oxlint 1 with ESLint and TypeScript plugins. `no-unused-vars` ignores `_`-prefixed args.
-- **Format:** Oxfmt 0.64 — `semi: false`, `singleQuote: false`, `printWidth: 80`.
+- **Format:** Oxfmt 0.66 — `semi: false`, `singleQuote: false`, `printWidth: 80`.
 - **Tests:** `bun:test` (not vitest/jest). `describe`, `it`, `expect`.
 - **Package manager:** Bun. `bun.lock` (not `yarn.lock`/`package-lock.json`).
 
@@ -156,7 +156,7 @@ src/
     │   └── envHighlight.ts             # splitEnvVars — segments text into plain/resolved $var
     ├── [themes]
     │   ├── theme.tsx                   # ThemeProvider, useTheme, ThemePickerOverlay
-    │   └── theme-data.ts              # 34 themes, Theme interface, THEMES array
+    │   └── theme-data.ts              # 35 themes, Theme interface, THEMES array
     ├── [infrastructure]
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder
@@ -210,13 +210,15 @@ tests/integration/ # Integration tests
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`. Optional `sendCookies: false` disables the collection cookie jar for that request (serialized only when set; parsed strictly like `followRedirects`/`maxRedirects`).
-- **Response assertions**: Optional request `assert` blocks are evaluated by manual TUI sends, `request run`, and `collection run`. Each row accepts optional `enabled: false`; disabled rows remain validated and editable but produce no outcomes. Expressions address `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` paths. Failed assertions make automation runs fail; assertion expected values support recursive environment substitution, and secret expected values are redacted from results.
+- **Response assertions**: Optional request `assert` blocks are evaluated by manual TUI sends, `request run`, and `collection run`. Each row accepts optional `enabled: false`; disabled rows remain validated and editable but produce no outcomes. Expressions address `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` paths. Failed assertions make automation runs fail; assertion expected values support recursive environment substitution, and known secrets are redacted from expected and actual result values.
 - **Response captures**: Optional request `capture` mappings bind response expressions to RunScope variable names. Every entry is an object with required `value`, optional `enabled: false`, and optional `persist: secret|environment`; scalar shorthand is invalid. Captures and assertions share `createResponseResolver()`. Successful captures commit before assertions, including on HTTP error responses; missing or invalid traversal results fail without creating or replacing a variable. Manual sends and `request run` honor persistence, while `collection run` and the TUI Runner keep captures transient. Secret-persisted capture values are fully redacted.
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Request bodies** support `none`, `json`, `xml`, `multipart`, `urlencoded`, and `binary`. XML bodies use the code editor, default to `application/xml` when no enabled Content-Type exists, and are sent unchanged after variable substitution.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth and assertion expected string values. Automation overlays current RunScope values through the same substitution path. Strings substitute verbatim; numbers, booleans, null, arrays, and objects use `JSON.stringify()`.
-- **Authentication:** Requests and folder overrides support bearer, basic, API key, connection-bound server NTLMv2, AWS SigV4, OAuth 1.0a, and OAuth 2.0. OAuth 1.0a supports HMAC, RSA, and PLAINTEXT signatures with header, query, or URL-encoded body placement. OAuth 2.0 supports authorization code, client credentials, implicit, and password grants; browser grants run interactively in the TUI, while automation only reuses, refreshes, or directly acquires non-browser credentials. Cached tokens live in the OS vault with a session-only memory fallback and are never written to request YAML. Keep all credentials in secret environment variables. Generated client code is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests.
+- **Optional request tabs:** Empty Assert and Capture tabs are hidden behind the request pane `+` menu. `g` then `o` focuses it; existing `g` then `v`/`c` targets reveal either tab directly. `useEditBrowse` owns per-request session reveal state and menu focus; populated tabs remain visible.
+- **System theme:** Select `system` to follow the terminal palette. `ThemeProvider` listens for palette/theme notifications, refreshes colors, and retains the saved choice while using Noodle colors if detection fails.
+- **Authentication:** Requests and folder overrides support bearer, basic, API key, connection-bound server NTLMv2, AWS SigV4, OAuth 1.0a, and OAuth 2.0. OAuth 1.0a supports HMAC, RSA, and PLAINTEXT signatures with header, query, or URL-encoded body placement. OAuth 2.0 accepts `discovery_url` to fill missing endpoints from an OIDC issuer or standard discovery URL; `discovery_url_kind: document` requests an exact document URL. Explicit endpoints take precedence. OAuth 2.0 supports authorization code, client credentials, implicit, and password grants; browser grants run interactively in the TUI, while automation only reuses, refreshes, or directly acquires non-browser credentials. Cached tokens live in the OS vault with a session-only memory fallback and are never written to request YAML. Keep all credentials in secret environment variables. Generated client code is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests.
 - **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes the shorthand from the user home directory, while expansion happens only at output boundaries, including file reads during request sending, HAR generation through `buildHar`, and Postman export.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **Settings, proxy, and TLS policy:** `F4` opens Settings. Global Behavior selects a detected external editor for command-palette actions that open the active collection or `~/.config/noodle`. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs reject credentials and variables; authenticated proxies persist only `auth: true`, while credentials live in the OS vault. `--noproxy` takes precedence for one run. Collection `settings.yml` also stores generated `collection_id`, optional `name`, `description`, `timeline_max_entries`, active `environment`, cookie jar toggle (`cookies.enabled`, default on), and TLS verification, CA, and exact-host client-certificate metadata. Encrypted key passphrases live in the OS vault; `--insecure` disables verification for one run. Settings parsing is strict.
@@ -229,7 +231,7 @@ tests/integration/ # Integration tests
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
 - **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
 - **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`. In environment browse mode, configurable `env_secret` (`s`) toggles secure storage and `env_reveal` (`r`) reveals the selected secret for the session.
-- **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers, auth credentials, OAuth signatures, assertions, and tokens before persistence. Response headers and bodies receive the same known-secret redaction, sensitive response headers such as `Set-Cookie` are field-masked, and compressed body sidecars are included when historical secrets are scrubbed. Capture declarations persist in request YAML but are excluded from timeline snapshots; capture results and RunScope values are not persisted, and automation runs do not create timeline entries. Timeline YAML and gzip sidecars may still contain sensitive public variables or server data that Noodle does not know is secret.
+- **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers, auth credentials, OAuth signatures, assertions, and tokens before persistence. Response headers and bodies receive the same known-secret redaction, sensitive response headers such as `Set-Cookie` are field-masked, and body redaction happens before compression into sidecars. Marking or updating a secret does not rewrite existing history. Capture declarations persist in request YAML but are excluded from timeline snapshots; capture results and RunScope values are not persisted, and automation runs do not create timeline entries. Timeline YAML and gzip sidecars may still contain sensitive public variables or server data that Noodle does not know is secret.
 - **Cookie jar security:** Jar contents are encrypted at rest (`~/.config/noodle/cookies/`), jar-sent `Cookie` headers and response `Set-Cookie` headers are masked in timeline snapshots, and short cookie values are not used as unrestricted substring-redaction tokens.
 - **Response body editor:** `ResponsePane` renders bodies through a read-only `CodeEditorRenderable`; JSON folds retain source line numbers, XML responses use XML highlighting, the gutter owns fold signs, and copy operations must return original source text even when rows are folded.
 
@@ -291,6 +293,7 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `v` | Request Assert tab |
 | `c` | Request Capture tab |
 | `t` | Request Settings tab |
+| `o` | Request optional-tab menu (`+`) |
 | `r` | Response Body tab |
 | `e` | Response Headers tab |
 | `n` | Response Network tab |

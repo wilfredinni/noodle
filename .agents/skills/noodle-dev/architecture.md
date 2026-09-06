@@ -147,7 +147,7 @@ display and completion.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and historical secret scrubbing includes compressed request and response sidecars. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction happens before body compression. Marking or updating a secret leaves existing entries and sidecars unchanged. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
 
 ### File write conventions
 
@@ -301,12 +301,13 @@ the application services.
 
 ### Theme data (src/ui/theme-data.ts)
 
-- 34 themes defined in `THEMES[]` array; `noodle` is the default when no theme is saved
+- 35 themes defined in `THEMES[]` array; `noodle` is the default when no theme is saved
 - `Theme` interface: `{ name, primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle, borderDimmest }`
 
 ### Theme provider (src/ui/theme.tsx)
 
-- `ThemeProvider` — React context, supports preview index (`previewIndex` prop)
+- `ThemeProvider` — React context, supports preview index (`previewIndex` prop). For `system`, listens for palette/theme notifications and refreshes the terminal palette; detection failure uses Noodle colors without changing the saved preference.
+- `generateSystemTheme()` derives System colors from terminal foreground, background, and ANSI colors; stale refreshes are ignored when leaving System
 - `useTheme()` — reads current theme from context
 - `ThemePickerOverlay` — searchable theme picker with live preview, ● indicator for active theme, uses `PickerOverlay`
 - Theme persisted to `~/.config/noodle/config.yml` via `useConfig` hook
@@ -350,7 +351,7 @@ ui/              ← OpenTUI components + pure helpers + keymap layers
   │   ├── editor/CodeEditor.ts — renderable orchestration; highlight, fold, key, style, and validation modules
   │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
-  │   ├── theme.tsx / theme-data.ts: 34 themes with live preview
+  │   ├── theme.tsx / theme-data.ts: 35 themes with live preview
   │   ├── settings/SettingsView.tsx — global and collection Settings workspace
   │   ├── settings/ProxySettingsForm.tsx — proxy policy editor
   │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
@@ -419,7 +420,7 @@ App (src/ui/App.tsx)
       │   └── [request mode]
       │       └── RequestResponseView
       │           ├── UrlBar
-      │           ├── RequestPane      ← Tabs: headers/params/body/auth/settings
+      │           ├── RequestPane      ← Tabs: headers/params/path/body/auth/settings + optional assert/capture
       │           │   ├── KeyValueSection / JsonBodyViewer / AuthEditor / FormEditor / Select / Checkbox
       │           │   └── [body tab] CodeEditor (JSON) or FormEditor or VarInput
       │           └── ResponsePane     ← Tabs: foldable body/headers/network/timeline

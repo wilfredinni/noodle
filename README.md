@@ -67,6 +67,10 @@ structured rows, while request tags live in Settings. Manual sends use a fresh
 scope each time. Results stays available and gains a value indicator when the
 send has assertion or capture outcomes.
 
+Empty Assert and Capture tabs stay behind the request pane's `+` menu. Reveal
+them when needed; tabs with declarations remain visible. Press `g` then `o` to
+focus the menu, or use `g` then `v` or `c` to open either tab directly.
+
 Assert and Capture rows use the same per-row checkboxes as Headers and Params.
 Disabled declarations remain in the request but are skipped by manual sends,
 the collection Runner, and CLI runs.
@@ -80,6 +84,13 @@ results. A folder's context palette opens the same runner scoped to that folder.
 
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
+OAuth 2 can discover missing endpoints from an OIDC issuer or an exact discovery
+document URL. See [Authentication](https://noodlerest.dev/docs/guides/authentication/)
+for setup and import/export behavior.
+
+Choose `system` in the Ctrl+T theme picker to follow your terminal's palette.
+Noodle refreshes colors when the terminal reports a theme change and falls back
+to Noodle colors when detection is unavailable.
 
 ## Environment-aware without leaking secrets
 
@@ -98,6 +109,8 @@ values, request credentials, cookies, and sensitive response headers such as
 `Set-Cookie`. Response bodies and compressed timeline sidecars receive the same
 known-secret redaction. Arbitrary server data can still be sensitive, so review
 JSON run output and `.timeline/` files before publishing them.
+Redaction applies when entries are saved. Marking a variable secret later does
+not rewrite existing history.
 
 ## One collection, more than one way to work
 

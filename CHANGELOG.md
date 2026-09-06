@@ -4,14 +4,40 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-09-06
+
+Noodle 0.8.5 adds OAuth 2 endpoint discovery, a System theme that follows your terminal, and a compact request pane that reveals Assert and Capture when needed. It also strengthens secret redaction in run results and newly saved timeline history, preserves literal dollar signs through OAuth and code generation, and makes automation failures easier to diagnose.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-5-a-closer-fit/)
+
 ### ✨ Features
 
 - Add a live `system` theme that follows the terminal palette, refreshes after in-session theme changes, and keeps the saved preference while falling back to Noodle colors when detection is unavailable.
-- Discover OAuth 2 authorization and token endpoints from an OIDC issuer or `/.well-known/openid-configuration` URL, including OpenAPI import/export support.
+- Discover missing OAuth 2 authorization and token endpoints from an OIDC issuer, the standard discovery URL, or an exact document URL selected with `discovery_url_kind: document`. Explicit endpoints take precedence; the request and folder Auth editors expose Discovery URL and Discovery URL Type.
+- Import and export OpenAPI `openIdConnect` security schemes while preserving Noodle's grant and discovery URL kind. OpenAPI rejects partial endpoint overrides it cannot represent; Postman requires explicit endpoints for the selected grant.
+- Hide empty Assert and Capture tabs behind the request pane's `+` menu. Reveal them with the menu or their existing jump shortcuts; `g` then `o` focuses the menu. Populated tabs stay visible, and revealed tabs stay available per request for the session.
+
+### 🐞 Fixes
+
+- Redact known secrets, request credentials, OAuth tokens and signatures, and sensitive response headers from structured run results and newly saved timeline entries, including bodies stored in compressed sidecars. Secret environment references in request snapshots become `[REDACTED]`; unknown server data remains visible.
+- Fully mask captures from sensitive response headers and secret capture expressions, including overlapping assertion and capture results. Redact nested secret values while preserving unrelated public numbers, booleans, and null values in results.
+- Keep existing timeline entries unchanged when an environment variable becomes secret or a stored secret is updated. Redaction happens when a new entry is saved; it does not retroactively sanitize older history.
+- Preserve literal dollar signs in OAuth discovery and token requests without a second variable-substitution pass, and decode dollar escapes exactly once in generated client code.
+- Quote capture variable names during YAML serialization so numeric-looking names survive a save and reload.
+- Return exit code `2` for `request run` configuration failures before execution, label failure categories in human output, and include supported syntax in invalid capture and assertion errors.
+- Keep the inline request body editor inside its pane and maintain tab selection and edit commits when revealing optional tabs.
+- Choose readable foreground colors for selected theme, command, request, and collection picker rows when the theme uses a dark primary color.
+
+### 🔧 Refactors
+
+- Update OpenTUI, OAuth signing dependencies, Bun types, and the formatting and linting toolchain.
 
 ### 📚 Documentation
 
-- Document OAuth 2 OIDC discovery authoring and OpenAPI/Postman conversion behavior in the embedded `noodle-use` skill.
+- Document discovery, the System theme, optional request tabs, run-result redaction, and timeline retention behavior across the README, agent instructions, in-app tips, and documentation site.
+- Update `noodle-dev` with response execution and redaction boundaries, OAuth discovery, optional-tab state, and live System-theme behavior.
+- Update `noodle-use` with OIDC authoring and conversion, typed response checks and chaining examples, structured failure output, and redaction at save time.
+- Refresh `opentui` component examples, keyboard aliases, renderer references, and Solid runtime guidance.
 
 ## [0.8.4] - 2026-09-04
 
