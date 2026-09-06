@@ -1,4 +1,5 @@
 import type { TimelineEntry, Method } from "../../schema"
+import { REDACTED } from "../../secrets/redact"
 
 export function relativeTime(ts: number): string {
   const diff = Date.now() - ts
@@ -73,10 +74,20 @@ export function formatRequestUrl(entry: TimelineEntry): string {
   const enabled = params.filter((p) => p.enabled)
   if (enabled.length === 0) return u
   const qs = enabled
-    .map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+    .map(
+      (p) =>
+        `${encodeTimelineQueryPart(p.name)}=${encodeTimelineQueryPart(p.value)}`,
+    )
     .join("&")
   if (u.includes("?")) return `${u}&${qs}`
   return `${u}?${qs}`
+}
+
+function encodeTimelineQueryPart(value: string): string {
+  return encodeURIComponent(value).replaceAll(
+    encodeURIComponent(REDACTED),
+    REDACTED,
+  )
 }
 
 export function maskedAuthHeader(

@@ -104,7 +104,7 @@ describe("useResponse execution results", () => {
       }
       expect(completedWith).toBe(first)
       expect(timelineEntry?.envName).toBe("a")
-      expect(timelineEntry?.request.url).toBe("https://a.example/$TOKEN")
+      expect(timelineEntry?.request.url).toBe("https://a.example/[REDACTED]")
       expect(timelineEntry?.network?.[0]?.message).toBe(
         "GET https://a.example/[REDACTED]",
       )

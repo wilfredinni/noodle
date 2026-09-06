@@ -56,10 +56,11 @@ export function buildTimelineEntry(
   const resolvePublicVars = (value: string) =>
     environment
       ? replaceVariableReferences(value, (key) =>
-          !Object.hasOwn(environment.secretVars ?? {}, key) &&
-          Object.hasOwn(environment.vars, key)
-            ? environment.vars[key]!
-            : `$${key}`,
+          Object.hasOwn(environment.secretVars ?? {}, key)
+            ? REDACTED
+            : Object.hasOwn(environment.vars, key)
+              ? environment.vars[key]!
+              : `$${key}`,
         )
       : replaceVariableReferences(value, (key) => `$${key}`)
   secretValues.push(

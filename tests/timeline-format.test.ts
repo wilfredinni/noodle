@@ -337,6 +337,24 @@ describe("formatRequestUrl", () => {
     ).toBe("https://example.com?q=hello%20world&tag=a%26b")
   })
 
+  it("preserves redaction markers in encoded params", () => {
+    expect(
+      formatRequestUrl({
+        ...makeEntry(),
+        request: {
+          ...makeEntry().request,
+          params: [
+            {
+              name: "secret [REDACTED]",
+              value: "prefix [REDACTED]",
+              enabled: true,
+            },
+          ],
+        },
+      }),
+    ).toBe("https://example.com?secret%20[REDACTED]=prefix%20[REDACTED]")
+  })
+
   it("uses ampersand when URL already has a query", () => {
     expect(
       formatRequestUrl({
@@ -938,7 +956,7 @@ describe("buildTimelineEntry", () => {
       vars: { TOKEN: secret },
       secretVars: { TOKEN: "keychain" },
     })
-    expect(entry.request.url).toBe("https://api.example.com/$TOKEN")
+    expect(entry.request.url).toBe("https://api.example.com/[REDACTED]")
     expect(entry.request.headers.Authorization!.value).toBe("[REDACTED]")
     expect(entry.response?.statusText).toBe("[REDACTED]")
     expect(entry.response?.headers["set-cookie"]).toBe("[REDACTED]")
@@ -1134,7 +1152,7 @@ describe("buildTimelineEntry", () => {
     expect(entry.network).toEqual(error.network)
   })
 
-  it("resolves public variables and path params while preserving secret placeholders", () => {
+  it("resolves public variables and redacts secret placeholders", () => {
     const req = {
       id: "req-3",
       name: "Env",
@@ -1150,7 +1168,7 @@ describe("buildTimelineEntry", () => {
         { name: "disabled", value: "$comment_id", enabled: false },
       ],
       pathParams: [{ name: "commentId", value: "$comment_id", enabled: true }],
-      body: '{"id":"$comment_id","token":"$TOKEN"}',
+      body: '{"id":"$comment_id","token":"$TOKEN","missing":"$MISSING"}',
       auth: { type: "basic" as const, user: "$comment_id", pass: "$TOKEN" },
       timeout: 0,
     }
@@ -1176,7 +1194,9 @@ describe("buildTimelineEntry", () => {
       },
       secretVars: { TOKEN: "keychain" },
     })
-    expect(entry.request.url).toBe("https://api.example.com/comments/42/$TOKEN")
+    expect(entry.request.url).toBe(
+      "https://api.example.com/comments/42/[REDACTED]",
+    )
     expect(entry.request.headers).toEqual({
       "X-Comment": { value: "42", enabled: true },
       "X-Disabled": { value: "$comment_id", enabled: false },
@@ -1189,7 +1209,9 @@ describe("buildTimelineEntry", () => {
     expect(entry.request.pathParams).toEqual([
       { name: "commentId", value: "42", enabled: true },
     ])
-    expect(entry.request.body).toBe('{"id":"42","token":"$TOKEN"}')
+    expect(entry.request.body).toBe(
+      '{"id":"42","token":"[REDACTED]","missing":"$MISSING"}',
+    )
     expect(entry.request.auth).toEqual({
       type: "basic",
       user: "42",
