@@ -1151,6 +1151,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await renderOnce()
 
     expect(ref.current!.error).toBeNull()
+    expect(await getStoredSecret(root, "alpha", "key")).toBe("val")
     expect((await loadTimeline(root, "history"))[0]?.request.url).toBe(
       "https://example.com/val",
     )
