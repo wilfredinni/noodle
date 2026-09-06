@@ -9,7 +9,6 @@ import {
   pruneTimeline,
   clearTimelineForRequest,
   clearAllTimeline,
-  redactTimelineSecrets,
 } from "../src/filestore/timeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -17,66 +16,6 @@ let dir: string
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-tl-"))
-})
-
-describe("redactTimelineSecrets", () => {
-  it("redacts response fields and compressed sidecars", async () => {
-    const secret = "super-secret-value"
-    const cookie = "unrelated-cookie"
-    await saveTimelineEntry(
-      dir,
-      "redact",
-      makeEntry({
-        request: {
-          ...makeEntry().request,
-          url: `https://example.com?token=${secret}`,
-        },
-        assertions: {
-          evaluated: true,
-          results: [
-            {
-              expression: "body.token",
-              operator: "equals",
-              expected: secret,
-              actual: secret,
-              passed: false,
-              message: `Expected ${secret}`,
-            },
-          ],
-        },
-        response: {
-          status: 200,
-          statusText: "OK",
-          headers: {
-            "content-type": "text/plain",
-            "set-cookie": `session="${cookie}"`,
-            "x-result": secret,
-          },
-          body: `${"x".repeat(10_100)}${secret}:${cookie}`,
-          timeMs: 1,
-          size: 10_101 + secret.length + cookie.length,
-        },
-      }),
-    )
-
-    await redactTimelineSecrets(dir, [secret])
-    const [entry] = await loadTimeline(dir, "redact")
-    expect(entry!.request.url).toContain("[REDACTED]")
-    expect(entry!.assertions?.results[0]?.expected).toBe("[REDACTED]")
-    expect(entry!.assertions?.results[0]?.actual).toBe("[REDACTED]")
-    expect(entry!.assertions?.results[0]?.message).toBe("Expected [REDACTED]")
-    expect(entry!.response!.headers["content-type"]).toBe("text/plain")
-    expect(entry!.response!.headers["set-cookie"]).toBe("[REDACTED]")
-    expect(entry!.response!.headers["x-result"]).toBe("[REDACTED]")
-    const body = await loadTimelineBody(
-      dir,
-      "redact",
-      entry!.response!.bodyRef!,
-    )
-    expect(body).not.toContain(secret)
-    expect(body).not.toContain(cookie)
-    expect(body).toContain("[REDACTED]")
-  })
 })
 
 afterEach(async () => {

@@ -15,6 +15,7 @@ import { dirname, join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
 import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
+import { loadTimeline, saveTimelineEntry } from "../src/filestore/timeline"
 import {
   getStoredSecret,
   setSecretBackendForTests,
@@ -54,6 +55,7 @@ function memoryBackend(): SecretBackend & {
 const testRender = createTestRender()
 
 let dir: string
+let root: string
 
 async function waitForDraft(
   editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null },
@@ -129,7 +131,8 @@ function ExternalNamesHarness({
 
 describe("useEnvironmentEditor onEnvsChanged callback", () => {
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "noodle-onEnvsChanged-"))
+    root = await mkdtemp(join(tmpdir(), "noodle-onEnvsChanged-"))
+    dir = join(root, ".environments")
     await env.saveEnvironment(dir, { name: "alpha", vars: { key: "val" } })
     await env.saveEnvironment(dir, { name: "beta", vars: { key: "val" } })
     await env.saveEnvironment(dir, { name: "gamma", vars: { key: "val" } })
@@ -138,7 +141,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
   afterEach(async () => {
     delete process.env.NOODLE_PROCESS_SECRET
     setSecretBackendForTests(undefined)
-    await rm(dir, { recursive: true, force: true })
+    await rm(root, { recursive: true, force: true })
   })
 
   it("picks up environment names added outside the editor", async () => {
@@ -1116,6 +1119,41 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     act(() => ref.current!.activateVar(0, false, "value"))
     await renderOnce()
     expect(ref.current!.editValue).toBe("val")
+  })
+
+  it("does not rewrite timeline history when marking a variable secret", async () => {
+    setSecretBackendForTests(memoryBackend())
+    await saveTimelineEntry(root, "history", {
+      timestamp: 1,
+      request: {
+        id: "history",
+        name: "History",
+        method: "GET",
+        url: "https://example.com/val",
+        headers: {},
+        params: [],
+      },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    await act(async () => ref.current!.save())
+    await renderOnce()
+
+    expect(ref.current!.error).toBeNull()
+    expect((await loadTimeline(root, "history"))[0]?.request.url).toBe(
+      "https://example.com/val",
+    )
   })
 
   it("moves a keychain secret to plaintext with one toggle", async () => {
