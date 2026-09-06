@@ -7,7 +7,6 @@ import {
   getStoredSecret,
   setStoredSecret,
 } from "../secrets"
-import { redactTimelineSecrets } from "../filestore"
 import { isValidVariableName } from "../variableReference"
 
 let nextVarId = 1
@@ -750,14 +749,6 @@ export function useEnvironmentEditor({
       const originalById = new Map(
         (curOriginal?.varRows ?? []).map((row) => [row.id, row]),
       )
-      const plaintextToRedact: string[] = []
-      for (const row of curDraft.varRows) {
-        const before = originalById.get(row.id)
-        if (row.secret && !before?.secret && before?.value) {
-          plaintextToRedact.push(before.value)
-        }
-      }
-      await redactTimelineSecrets(collectionDir, plaintextToRedact)
 
       const written: {
         environment: string

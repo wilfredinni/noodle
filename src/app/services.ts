@@ -19,7 +19,6 @@ import {
   saveRequest,
   saveSettings,
   ensureCollectionBootstrapped,
-  redactTimelineSecrets,
 } from "../filestore"
 import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
@@ -1358,12 +1357,6 @@ export async function secretSet(
   const current = await env.loadEnvironment(directory, name, {
     resolveSecrets: false,
   })
-  const oldPlaintext = Object.hasOwn(current.vars, key)
-    ? current.vars[key]
-    : Object.hasOwn(current.disabledVars ?? {}, key)
-      ? current.disabledVars?.[key]
-      : undefined
-  if (oldPlaintext) await redactTimelineSecrets(collectionRoot, [oldPlaintext])
 
   const previous = await getStoredSecret(collectionRoot, name, key)
   await setStoredSecret(collectionRoot, name, key, value)

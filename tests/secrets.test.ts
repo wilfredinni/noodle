@@ -3,7 +3,12 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { env } from "../src/env"
-import { loadSettings, saveSettings } from "../src/filestore"
+import {
+  loadSettings,
+  loadTimeline,
+  saveSettings,
+  saveTimelineEntry,
+} from "../src/filestore"
 import { saveRequest } from "../src/filestore"
 import {
   environmentSet,
@@ -374,12 +379,26 @@ describe("secret automation services", () => {
       headers: {},
       params: [],
     })
+    await saveTimelineEntry(root, "example", {
+      timestamp: 1,
+      request: {
+        id: "example",
+        name: "Example",
+        method: "GET",
+        url: "https://example.com/old-plaintext",
+        headers: {},
+        params: [],
+      },
+    })
     setSecretBackendForTests(memoryBackend())
 
     await secretSet("TOKEN", "new-secret", "dev", root)
     const raw = await readFile(join(directory, "dev.env"), "utf8")
     expect(raw).toContain("# @secret TOKEN\nTOKEN=")
     expect(raw).not.toContain("old-plaintext")
+    expect((await loadTimeline(root, "example"))[0]?.request.url).toBe(
+      "https://example.com/old-plaintext",
+    )
     expect(await secretList("dev", root)).toEqual({
       environment: "dev",
       secrets: [{ key: "TOKEN", enabled: true, status: "keychain" }],

@@ -25,7 +25,6 @@ import {
   DEFAULT_TIMELINE_MAX_ENTRIES,
   clearTimelineForRequest,
   clearAllTimeline,
-  redactTimelineSecrets,
 } from "./timeline"
 
 export {
@@ -48,7 +47,6 @@ export {
   DEFAULT_TIMELINE_MAX_ENTRIES,
   clearTimelineForRequest,
   clearAllTimeline,
-  redactTimelineSecrets,
 }
 export type { CollectionSettings }
 
