@@ -92,6 +92,7 @@ function JumpHarness({
     selectedIdRef,
     targetsRef,
     triggerKey: "g",
+    sidebarVisible: true,
   })
 
   useEffect(() => {
@@ -161,6 +162,7 @@ function EnvironmentJumpHarness({
     selectedIdRef,
     targetsRef,
     triggerKey: "g",
+    sidebarVisible: true,
   })
 
   useEffect(() => {
@@ -227,6 +229,7 @@ function RequestTabAddJumpHarness({
     selectedIdRef,
     targetsRef,
     triggerKey: "g",
+    sidebarVisible: true,
   })
 
   useEffect(() => {
