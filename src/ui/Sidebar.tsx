@@ -45,7 +45,7 @@ export function Sidebar({
   onFolderContextMenu,
 }: {
   visible?: boolean
-  toggleSidebarVisible: () => void
+  toggleSidebarVisible?: () => void
   items: CollectionItem[]
   loading: boolean
   error: Error | null
@@ -80,7 +80,7 @@ export function Sidebar({
 
   useKeyboard((key) => {
     if (key.name === "f2") {
-      toggleSidebarVisible()
+      toggleSidebarVisible?.()
     }
   })
 
