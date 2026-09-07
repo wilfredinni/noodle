@@ -23,6 +23,7 @@ import {
   undoAll,
 } from "../../src/ui/commandActions"
 import type { ExternalEditor } from "../../src/externalEditor"
+import { Focus } from "../../src/ui/focus"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -1047,5 +1048,52 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).not.toContain("Environment")
+  })
+
+  it("sidebar.toggle collapses the sidebar and changes current focus", () => {
+    const ctx = minimalContext()
+    let sidebarVisible = true
+    let focus: Focus = "sidebar"
+    ctx.sidebarVisibleRef.current = sidebarVisible
+    ctx.setSidebarVisible = (newSidebarVisible) => {
+      if (typeof newSidebarVisible === "function") {
+        sidebarVisible = newSidebarVisible(sidebarVisible)
+      }
+    }
+    ctx.setFocus = (newFocus) => {
+      if (typeof newFocus !== "function") {
+        focus = newFocus
+      }
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "sidebar.toggle")!
+    expect(cmd.label).toBe("Toggle Sidebar")
+    expect(cmd.run()).toBe(true)
+    expect(sidebarVisible).toBe(false)
+    expect(focus).not.toBe("sidebar")
+    expect(focus).toBe<Focus>("request")
+  })
+
+  it("sidebar.toggle opens the sidebar and changes current focus", () => {
+    const ctx = minimalContext()
+    let sidebarVisible = false
+    let focus: Focus = "request"
+    ctx.sidebarVisibleRef.current = sidebarVisible
+    ctx.setSidebarVisible = (newSidebarVisible) => {
+      if (typeof newSidebarVisible === "function") {
+        sidebarVisible = newSidebarVisible(sidebarVisible)
+      }
+    }
+    ctx.setFocus = (newFocus) => {
+      if (typeof newFocus !== "function") {
+        focus = newFocus
+      }
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "sidebar.toggle")!
+    expect(cmd.label).toBe("Toggle Sidebar")
+    expect(cmd.run()).toBe(true)
+    expect(sidebarVisible).toBe(true)
+    expect(focus).toBe<Focus>("sidebar")
   })
 })

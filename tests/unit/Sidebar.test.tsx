@@ -212,4 +212,67 @@ describe("Sidebar", () => {
     expect(wideFrame).toContain("Long request name expands")
     expect(wideFrame).toContain("A😊BCDEFG")
   })
+
+  it("visible by default", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Sidebar
+          items={[]}
+          loading={false}
+          error={null}
+          visibleItems={[
+            {
+              type: "request",
+              id: "example",
+              name: "Example",
+              depth: 0,
+              expanded: false,
+              hasChildren: false,
+              method: "GET",
+            },
+          ]}
+          cursorIndex={0}
+          selectedId={null}
+          expanded={new Set()}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 8 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("Requests")
+  })
+
+  it("renders in non-visible state", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Sidebar
+          items={[]}
+          loading={false}
+          error={null}
+          visibleItems={[
+            {
+              type: "request",
+              id: "example",
+              name: "Example",
+              depth: 0,
+              expanded: false,
+              hasChildren: false,
+              method: "GET",
+            },
+          ]}
+          cursorIndex={0}
+          selectedId={null}
+          expanded={new Set()}
+          visible={false}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 8 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("Requests")
+  })
 })
