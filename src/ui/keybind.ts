@@ -127,6 +127,7 @@ export const Definitions = {
     false,
     "Workspace",
   ),
+  sidebar_toggle: keybind("f2", "Toggle sidebar", false, "Workspace", ["main"]),
   pane_expand: keybind(
     "f2",
     "Expand/collapse focused pane",
