@@ -37,6 +37,8 @@ interface MainViewProps {
   eb: UseEditBrowseResult
   layout: "stacked" | "side-by-side"
   sidebarWidth?: number
+  sidebarVisible?: boolean
+  toggleSidebarVisible: () => void
   onSidebarWidthChange?: (width: number) => void
   paneSplitRatio?: number
   onPaneSplitRatioChange?: (ratio: number) => void
@@ -124,6 +126,8 @@ export function MainView({
   eb,
   layout,
   sidebarWidth = SIDEBAR_WIDTH,
+  sidebarVisible = true,
+  toggleSidebarVisible,
   onSidebarWidthChange = () => {},
   paneSplitRatio = 0.5,
   onPaneSplitRatioChange = () => {},
@@ -313,6 +317,8 @@ export function MainView({
       }}
     >
       <Sidebar
+        visible={sidebarVisible}
+        toggleSidebarVisible={toggleSidebarVisible}
         items={items}
         loading={loading}
         error={error}

@@ -382,6 +382,7 @@ export function createGlobalLayers(
       { key: keybinds.layout_toggle, cmd: "layout.toggle" },
       { key: keybinds.help_toggle, cmd: "app.help" },
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
+      { key: keybinds.sidebar_toggle, cmd: "sidebar.toggle" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.runner_open, cmd: "collection.runner" },
       ...(keybinds.editor_fold_all

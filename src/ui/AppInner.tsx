@@ -186,6 +186,7 @@ export function AppInner({
   onCollectionBootstrapped,
   onCollectionImported,
   mode = "empty",
+  sidebarVisible: initialSidebarVisible = true,
 }: {
   appConfigDir: string
   collectionDir: string
@@ -258,6 +259,7 @@ export function AppInner({
   onCollectionBootstrapped: (collectionDir: string) => void
   onCollectionImported: (collectionDir: string) => void
   mode?: "collection" | "browse" | "empty" | "invalid"
+  sidebarVisible?: boolean
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -277,6 +279,9 @@ export function AppInner({
     initialLayout,
   )
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH)
+  const [sidebarVisible, setSidebarVisible] = useState(
+    () => initialSidebarVisible,
+  )
   const [paneSplitRatios, setPaneSplitRatios] = useState<
     Record<"stacked" | "side-by-side", number>
   >({ stacked: 0.5, "side-by-side": 0.5 })
@@ -1066,6 +1071,11 @@ export function AppInner({
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
 
+  const handleToggleSidebar = useCallback(() => {
+    focusPane("urlbar")
+    setSidebarVisible((v) => !v)
+  }, [focusPane])
+
   const handleSettingsScopeChange = useCallback(
     (scope: SettingsScope) => {
       if (scope === "collection" && !isCollection) return
@@ -1664,6 +1674,8 @@ export function AppInner({
       >
         {view === "main" ? (
           <MainView
+            sidebarVisible={sidebarVisible}
+            toggleSidebarVisible={handleToggleSidebar}
             items={items}
             collectionDir={collectionDir}
             loading={loading}
