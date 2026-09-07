@@ -77,6 +77,7 @@ export interface AppKeymapGlobal {
   openSettingsView: () => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   sidebarVisibleRef: RefObject<boolean>
+  setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export interface AppKeymapRequest {

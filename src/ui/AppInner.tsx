@@ -1215,6 +1215,7 @@ export function AppInner({
       openSettingsView: handleOpenSettings,
       onLayoutChange,
       sidebarVisibleRef,
+      setSidebarVisible,
     },
     request: {
       ebRef,

@@ -106,6 +106,16 @@ export function createGlobalLayers(
           }),
       },
       {
+        name: "sidebar.toggle",
+        enabled: () => shortcutEnabled(keybinds.sidebar_toggle),
+        run: () => {
+          global.setFocus(
+            global.sidebarVisibleRef.current ? "request" : "sidebar",
+          )
+          global.setSidebarVisible((v) => !v)
+        },
+      },
+      {
         name: "focus.prev",
         enabled: () => {
           const editState = request.ebRef.current.editState
