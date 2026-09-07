@@ -83,6 +83,8 @@ function minimalContext(): CommandBuilderContext {
     onReloadCollection: () => {},
     openRunner: () => true,
     paletteTarget: null,
+    setSidebarVisible: () => {},
+    sidebarVisibleRef: { current: false } as never,
   }
 }
 
