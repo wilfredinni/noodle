@@ -127,7 +127,7 @@ export const Definitions = {
     false,
     "Workspace",
   ),
-  sidebar_toggle: keybind("f2", "Toggle sidebar", false, "Workspace", ["main"]),
+  sidebar_toggle: keybind("ctrl+b", "Toggle sidebar", true, "Workspace"),
   pane_expand: keybind(
     "f2",
     "Expand/collapse focused pane",
@@ -149,7 +149,7 @@ export const Definitions = {
     "folder",
   ]),
   response_copy_body: keybind(
-    "ctrl+b",
+    "ctrl+alt+b",
     "Copy response body",
     false,
     "Request",
@@ -259,7 +259,7 @@ export const Definitions = {
     "cookie-jar",
   ]),
   cookie_new: keybind("ctrl+n", "Add cookie", false, "Cookies", ["cookie-jar"]),
-  cookie_copy: keybind("ctrl+b", "Copy cookie", false, "Cookies", [
+  cookie_copy: keybind("ctrl+alt+b", "Copy cookie", false, "Cookies", [
     "cookie-jar",
   ]),
 } satisfies Record<string, KeybindDefinition>
@@ -270,6 +270,7 @@ export const CommandMap = {
   request_send: "request.send",
   request_save: "request.save",
   layout_toggle: "layout.toggle",
+  sidebar_toggle: "sidebar.toggle",
   pane_expand: "request.expand-toggle",
   runner_open: "collection.runner",
   editor_fold_all: "editor.fold-all",
