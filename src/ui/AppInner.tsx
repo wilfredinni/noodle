@@ -1280,6 +1280,7 @@ export function AppInner({
     selectedIdRef,
     targetsRef: jumpTargetsRef,
     triggerKey: keybinds.jump_mode,
+    sidebarVisible,
   })
 
   const handleImportCollectionConfirm = useCallback(
