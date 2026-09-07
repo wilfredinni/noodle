@@ -52,6 +52,7 @@ export interface CommandActionsConfig {
   folderDeletePathRef: RefObject<string | null>
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
+  sidebarVisibleRef: RefObject<boolean>
 }
 
 export function sendRequest(c: CommandActionsConfig): boolean {
@@ -428,6 +429,16 @@ export function togglePaneExpand(
   const f = focus as "request" | "response"
   if (f !== "request" && f !== "response") return false
   setExpanded((prev: "request" | "response" | null) => toggleExpand(prev, f))
+  return true
+}
+
+export function toggleSidebarVisible(
+  c: CommandActionsConfig,
+  setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void,
+  setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void,
+): boolean {
+  setFocus(c.sidebarVisibleRef.current ? "request" : "sidebar")
+  setSidebarVisible((v) => !v)
   return true
 }
 

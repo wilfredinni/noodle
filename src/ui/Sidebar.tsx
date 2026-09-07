@@ -4,7 +4,6 @@ import type { CollectionItem, Method } from "../schema"
 import { truncateToWidth } from "./format"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
-import { useKeyboard } from "@opentui/react"
 
 export const SIDEBAR_WIDTH = 38
 import { FullBorder, LeftBar } from "./borders"
@@ -23,7 +22,6 @@ import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "./JumpBadge"
 
 export function Sidebar({
   visible,
-  toggleSidebarVisible,
   items: _items,
   loading,
   error,
@@ -77,12 +75,6 @@ export function Sidebar({
       scrollRef.current?.scrollChildIntoView(`so-${visibleItems[idx].id}`)
     }
   }, [cursorIndex, visibleItems])
-
-  useKeyboard((key) => {
-    if (key.name === "f2") {
-      toggleSidebarVisible?.()
-    }
-  })
 
   const fileErrors = error ? extractFileErrors(error) : []
 
