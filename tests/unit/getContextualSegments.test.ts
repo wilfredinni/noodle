@@ -46,7 +46,6 @@ describe("getContextualSegments", () => {
   it("sidebar in collection mode", () => {
     const r = base({ focus: "sidebar" })
     expect(r.footer).toMatchObject([
-      seg("^b", "toggle"),
       seg("^n", "new"),
       seg("^alt+n", "new folder"),
       seg("^k", "clone"),

@@ -242,7 +242,6 @@ describe("getKeybindingHints footer", () => {
         }),
       ).footer,
     ).toEqual([
-      seg("^b", "toggle", "sidebar.toggle"),
       seg("^n", "new", "request.new"),
       seg("^alt+n", "new folder", "folder.new"),
       seg("^k", "clone", "request.clone"),

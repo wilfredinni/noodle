@@ -256,11 +256,6 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   if (ctx.focus === "sidebar") {
     if (!col) return []
     return [
-      {
-        key: displayKey(kb.sidebar_toggle),
-        word: "toggle",
-        command: "sidebar.toggle",
-      },
       { key: displayKey(kb.request_new), word: "new", command: "request.new" },
       {
         key: displayKey(kb.folder_new),
