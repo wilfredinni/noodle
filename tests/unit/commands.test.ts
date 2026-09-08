@@ -1088,13 +1088,13 @@ describe("buildCommandPaletteCommands", () => {
     expect(cmd.run()).toBe(true)
     expect(sidebarVisible).toBe(false)
     expect(focus).not.toBe("sidebar")
-    expect(focus).toBe<Focus>("request")
+    expect(focus).toBe<Focus>("urlbar")
   })
 
   it("sidebar.toggle opens the sidebar and changes current focus", () => {
     const ctx = minimalContext()
     let sidebarVisible = false
-    let focus: Focus = "request"
+    let focus: Focus = "urlbar"
     ctx.sidebarVisibleRef.current = sidebarVisible
     ctx.setSidebarVisible = (newSidebarVisible) => {
       if (typeof newSidebarVisible === "function") {

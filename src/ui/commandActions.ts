@@ -437,7 +437,7 @@ export function toggleSidebarVisible(
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void,
   setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void,
 ): boolean {
-  setFocus(c.sidebarVisibleRef.current ? "request" : "sidebar")
+  setFocus(c.sidebarVisibleRef.current ? "urlbar" : "sidebar")
   setSidebarVisible((v) => !v)
   return true
 }
