@@ -41,6 +41,8 @@ function createActionsConfig(
     focusedFolderPathRef: folder.focusedFolderPathRef,
     focusedFolderNameRef: folder.focusedFolderNameRef,
     folderDeletePathRef: folder.folderDeletePathRef,
+    sidebarVisibleRef: global.sidebarVisibleRef,
+    folderViewRef: folder.folderViewRef,
   }
 }
 

@@ -99,6 +99,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Toggle layout",
         },
         {
+          key: displayKey(keybinds.sidebar_toggle),
+          description: "Toggle sidebar",
+        },
+        {
           key: displayKey(keybinds.env_cycle),
           description: "Cycle environment",
         },

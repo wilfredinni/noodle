@@ -52,6 +52,8 @@ export interface CommandActionsConfig {
   folderDeletePathRef: RefObject<string | null>
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
+  sidebarVisibleRef: RefObject<boolean>
+  folderViewRef: RefObject<boolean>
 }
 
 export function sendRequest(c: CommandActionsConfig): boolean {
@@ -428,6 +430,18 @@ export function togglePaneExpand(
   const f = focus as "request" | "response"
   if (f !== "request" && f !== "response") return false
   setExpanded((prev: "request" | "response" | null) => toggleExpand(prev, f))
+  return true
+}
+
+export function toggleSidebarVisible(
+  c: CommandActionsConfig,
+  setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void,
+  setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void,
+): boolean {
+  // Folder view has no URL bar, so collapsing must fall back to the folder pane.
+  const collapsedFocus: Focus = c.folderViewRef.current ? "folder" : "urlbar"
+  setFocus(c.sidebarVisibleRef.current ? collapsedFocus : "sidebar")
+  setSidebarVisible((v) => !v)
   return true
 }
 

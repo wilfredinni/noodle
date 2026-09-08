@@ -26,6 +26,18 @@ describe("cycleFocus", () => {
       "settings-sidebar",
     )
   })
+
+  it("skips the sidebar when it is hidden", () => {
+    expect(cycleFocus("response", 1, "main", null, false, false)).toBe("urlbar")
+    expect(cycleFocus("urlbar", -1, "main", null, false, false)).toBe(
+      "response",
+    )
+  })
+
+  it("keeps folder focus when the sidebar is hidden", () => {
+    expect(cycleFocus("folder", 1, "main", null, true, false)).toBe("folder")
+    expect(cycleFocus("folder", -1, "main", null, true, false)).toBe("folder")
+  })
 })
 
 describe("settingsReturnFocus", () => {

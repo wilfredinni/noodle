@@ -58,6 +58,7 @@ import {
   openCollectionInEditor,
   openAppSettingsInEditor,
   type CommandActionsConfig,
+  toggleSidebarVisible,
 } from "./commandActions"
 
 export type CommandPaletteTarget = "request" | "folder" | "environment"
@@ -153,6 +154,9 @@ export interface CommandBuilderContext {
   onReloadCollection: () => void
   openRunner: (folderPath: string | null) => boolean
   paletteTarget: CommandPaletteTarget | null
+  setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  sidebarVisibleRef: RefObject<boolean>
+  folderViewRef: RefObject<boolean>
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -180,6 +184,8 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     folderDeletePathRef: ctx.folderDeletePathRef,
     proxyPolicy: ctx.proxyPolicy,
     tlsPolicy: ctx.tlsPolicy,
+    sidebarVisibleRef: ctx.sidebarVisibleRef,
+    folderViewRef: ctx.folderViewRef,
   }
 }
 
@@ -220,6 +226,7 @@ export function buildCommandPaletteCommands(
     setEnvDeletePending,
     getCollectionMode,
     paletteTarget,
+    setSidebarVisible,
   } = ctx
 
   const c = toConfig(ctx)
@@ -550,6 +557,13 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.pane_expand),
       run: () => togglePaneExpand(c, getKeymapFocus(), setExpanded),
+    },
+    {
+      id: "sidebar.toggle",
+      label: "Toggle Sidebar",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.sidebar_toggle),
+      run: () => toggleSidebarVisible(c, setFocus, setSidebarVisible),
     },
   ]
 

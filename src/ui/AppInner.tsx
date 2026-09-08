@@ -186,6 +186,7 @@ export function AppInner({
   onCollectionBootstrapped,
   onCollectionImported,
   mode = "empty",
+  sidebarVisible: initialSidebarVisible = true,
 }: {
   appConfigDir: string
   collectionDir: string
@@ -258,6 +259,7 @@ export function AppInner({
   onCollectionBootstrapped: (collectionDir: string) => void
   onCollectionImported: (collectionDir: string) => void
   mode?: "collection" | "browse" | "empty" | "invalid"
+  sidebarVisible?: boolean
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -277,6 +279,13 @@ export function AppInner({
     initialLayout,
   )
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH)
+  const [sidebarVisible, setSidebarVisible] = useState(
+    () => initialSidebarVisible,
+  )
+  const sidebarVisibleRef = useRef(sidebarVisible)
+  useLayoutEffect(() => {
+    sidebarVisibleRef.current = sidebarVisible
+  }, [sidebarVisible])
   const [paneSplitRatios, setPaneSplitRatios] = useState<
     Record<"stacked" | "side-by-side", number>
   >({ stacked: 0.5, "side-by-side": 0.5 })
@@ -1207,6 +1216,8 @@ export function AppInner({
       setJumpMode,
       openSettingsView: handleOpenSettings,
       onLayoutChange,
+      sidebarVisibleRef,
+      setSidebarVisible,
     },
     request: {
       ebRef,
@@ -1271,6 +1282,7 @@ export function AppInner({
     selectedIdRef,
     targetsRef: jumpTargetsRef,
     triggerKey: keybinds.jump_mode,
+    sidebarVisible,
   })
 
   const handleImportCollectionConfirm = useCallback(
@@ -1597,6 +1609,9 @@ export function AppInner({
         onReloadCollection: requestReload,
         paletteTarget,
         openRunner: handleOpenRunner,
+        setSidebarVisible,
+        sidebarVisibleRef,
+        folderViewRef,
       }),
     [
       keybinds,
@@ -1664,6 +1679,7 @@ export function AppInner({
       >
         {view === "main" ? (
           <MainView
+            sidebarVisible={sidebarVisible}
             items={items}
             collectionDir={collectionDir}
             loading={loading}

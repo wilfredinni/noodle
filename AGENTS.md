@@ -258,13 +258,14 @@ command_palette: ctrl+p
 | `Ctrl+P` | Open command palette |
 | `Ctrl+F` | Find request |
 | `Ctrl+L` | Toggle layout (stacked / side-by-side) |
+| `Ctrl+B` | Toggle sidebar (open / closed) |
 | `F2` | Expand/collapse focused pane |
 | `F5` | Open collection Runner |
 | `F1` | Toggle help overlay |
 | `Ctrl+T` | Open theme picker |
 | `Ctrl+E` | Edit request in overlay |
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
-| `Ctrl+B` | Copy response body |
+| `Ctrl+Alt+B` | Copy response body |
 | `/` | Filter response body with JSONPath (when the response pane is focused) |
 | `Ctrl+Alt+N` | New folder |
 | `Ctrl+O` | Open collection switcher |
@@ -301,6 +302,8 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `k` | Response Cookies tab |
 | `i` | Response Results tab |
 | `y` | Folder Activity tab |
+
+> the sidebar jump still works even when it is collapsed
 
 When a folder is selected, the folder targets replace the request and response
 targets:
@@ -394,7 +397,7 @@ Bulk fold and unfold actions are configurable in Shortcuts and unbound by defaul
 | `Ctrl+N` | Add a cookie (modal form: name, value, domain, path, expires, secure, httpOnly, sameSite) |
 | `Ctrl+E` | Edit the selected cookie |
 | `Enter` | Expand or collapse the selected cookie |
-| `Ctrl+B` | Copy the selected cookie as `name=value` |
+| `Ctrl+Alt+B` | Copy the selected cookie as `name=value` |
 | `/` | Filter the cookie list (`Esc` clears, `Enter` keeps) |
 | `Ctrl+W` | Delete all cookies for the selected domain (confirms) |
 | `Ctrl+D` | Delete the selected cookie (confirms) |

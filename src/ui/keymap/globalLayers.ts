@@ -10,6 +10,7 @@ import {
   openThemePicker,
   togglePaneExpand,
   undoAll,
+  toggleSidebarVisible,
 } from "../commandActions"
 import type { AppKeymapContext } from "./types"
 import { CodeEditorRenderable } from "../editor/CodeEditor"
@@ -85,6 +86,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "urlbar") global.setUrlbarSubFocus("select")
           if (next === "request" && global.viewRef.current === "main") {
@@ -104,6 +106,19 @@ export function createGlobalLayers(
             const next = prev === "stacked" ? "side-by-side" : "stacked"
             return global.onLayoutChange(next) ? next : prev
           }),
+      },
+      {
+        name: "sidebar.toggle",
+        enabled: () =>
+          shortcutEnabled(keybinds.sidebar_toggle) &&
+          global.viewRef.current === "main" &&
+          keymap.getData("app.overlay") === "none",
+        run: () =>
+          toggleSidebarVisible(
+            actions,
+            global.setFocus,
+            global.setSidebarVisible,
+          ),
       },
       {
         name: "focus.prev",
@@ -133,6 +148,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "urlbar") global.setUrlbarSubFocus("text")
           if (next === "request" && global.viewRef.current === "main") {
@@ -382,6 +398,7 @@ export function createGlobalLayers(
       { key: keybinds.layout_toggle, cmd: "layout.toggle" },
       { key: keybinds.help_toggle, cmd: "app.help" },
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
+      { key: keybinds.sidebar_toggle, cmd: "sidebar.toggle" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.runner_open, cmd: "collection.runner" },
       ...(keybinds.editor_fold_all
@@ -425,6 +442,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "request" && global.viewRef.current === "main") {
             request.ebRef.current.enterBrowse()
@@ -446,6 +464,7 @@ export function createGlobalLayers(
               global.viewRef.current,
               global.expandedRef.current,
               folder.folderViewRef.current,
+              global.sidebarVisibleRef.current,
             ),
           )
         },
