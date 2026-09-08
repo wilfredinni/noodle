@@ -86,6 +86,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "urlbar") global.setUrlbarSubFocus("select")
           if (next === "request" && global.viewRef.current === "main") {
@@ -144,6 +145,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "urlbar") global.setUrlbarSubFocus("text")
           if (next === "request" && global.viewRef.current === "main") {
@@ -437,6 +439,7 @@ export function createGlobalLayers(
             global.viewRef.current,
             global.expandedRef.current,
             folder.folderViewRef.current,
+            global.sidebarVisibleRef.current,
           )
           if (next === "request" && global.viewRef.current === "main") {
             request.ebRef.current.enterBrowse()
@@ -458,6 +461,7 @@ export function createGlobalLayers(
               global.viewRef.current,
               global.expandedRef.current,
               folder.folderViewRef.current,
+              global.sidebarVisibleRef.current,
             ),
           )
         },
