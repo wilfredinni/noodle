@@ -154,9 +154,12 @@ export const Definitions = {
     "Request",
     ["main"],
   ),
-  response_query: keybind(
-    "/",
-    "Filter response with JSONPath",
+  response_query: keybind("/", "Filter response body", false, "Request", [
+    "main",
+  ]),
+  response_body_view: keybind(
+    "m",
+    "Toggle Source / Visual response body",
     false,
     "Request",
     ["main"],
@@ -275,6 +278,7 @@ export const CommandMap = {
   editor_unfold_all: "editor.unfold-all",
   response_copy_body: "response.copy-body",
   response_query: "response.query",
+  response_body_view: "response.body-view",
   request_edit: "request.edit-enter",
   env_cycle: "env.cycle",
   command_palette: "app.command-palette",

@@ -82,6 +82,12 @@ describe("bindingDefaults", () => {
     const defaults = bindingDefaults()
     expect(defaults.response_query).toBe("/")
   })
+  it("makes the response body view configurable with m by default", () => {
+    expect(bindingDefaults().response_body_view).toBe("m")
+    expect(
+      parseOverrides({ response_body_view: "alt+m" }).response_body_view,
+    ).toBe("alt+m")
+  })
 
   it("includes settings_open with default key f4", () => {
     expect(bindingDefaults().settings_open).toBe("f4")

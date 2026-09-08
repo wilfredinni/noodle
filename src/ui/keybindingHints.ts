@@ -387,6 +387,11 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       return [
         ...foldSegments,
         {
+          key: displayKey(kb.response_body_view),
+          word: "view",
+          command: "response.body-view",
+        },
+        {
           key: displayKey(kb.response_copy_body),
           word: "copy",
           command: "response.copy-body",

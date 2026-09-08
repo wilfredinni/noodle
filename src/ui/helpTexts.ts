@@ -132,7 +132,11 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         {
           key: displayKey(keybinds.response_query),
-          description: "Filter response with JSONPath",
+          description: "Filter response (Source: JSONPath; Visual: text)",
+        },
+        {
+          key: displayKey(keybinds.response_body_view),
+          description: "Toggle Source / Visual response body",
         },
       ],
     },

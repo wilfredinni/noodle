@@ -60,6 +60,10 @@ export function sendRequest(c: CommandActionsConfig): boolean {
   return true
 }
 
+export function toggleResponseBodyView(c: CommandActionsConfig): void {
+  c.responseQueryRef.current?.toggleView?.()
+}
+
 export function saveRequest(c: CommandActionsConfig): boolean {
   if (c.focusedFolderPathRef.current) return false
   const d = c.draftRef.current

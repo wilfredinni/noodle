@@ -645,6 +645,9 @@ export function AppInner({
   const responseStateRef = useRef(responseState)
   responseStateRef.current = responseState
   const responseQueryRef = useRef<ResponseQueryController | null>(null)
+  const [responseBodyView, setResponseBodyView] = useState<"source" | "visual">(
+    "source",
+  )
   const responseBodyForCopyRef = useRef<string | null>(null)
 
   const envEditor = useEnvironmentEditor({
@@ -1694,6 +1697,8 @@ export function AppInner({
             collectionTlsVerify={collectionTls?.verify}
             insecure={insecure}
             responseState={responseState}
+            responseBodyView={responseBodyView}
+            onResponseBodyViewChange={setResponseBodyView}
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}

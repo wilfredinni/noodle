@@ -276,6 +276,7 @@ describe("getContextualSegments", () => {
     })
     expect(r.footer).toMatchObject([
       seg("^g", "fold"),
+      seg("m", "view"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -290,6 +291,7 @@ describe("getContextualSegments", () => {
       responseBodyEditorAvailable: false,
     })
     expect(r.footer).toMatchObject([
+      seg("m", "view"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -345,6 +347,7 @@ describe("getContextualSegments", () => {
     })
     expect(r.footer).toMatchObject([
       seg("^g", "fold"),
+      seg("m", "view"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -359,6 +362,7 @@ describe("getContextualSegments", () => {
     })
     expect(r.footer).toMatchObject([
       seg("^g", "fold"),
+      seg("m", "view"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),

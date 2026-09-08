@@ -10,6 +10,8 @@ export interface ResponseQueryController {
   canOpen: () => boolean
   isOpen: () => boolean
   open: () => boolean
+  canToggleView?: () => boolean
+  toggleView?: () => void
 }
 
 export function queryResponseBody(
