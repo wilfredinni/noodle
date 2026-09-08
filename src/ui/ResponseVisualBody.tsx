@@ -20,13 +20,19 @@ export interface VisualSearchController {
   focus: () => void
 }
 
+interface Column {
+  key: string
+  width: number
+  offset: number
+}
+
 interface Row {
   key: string
   node: VisualNode
   depth: number
   open: boolean
   count: string
-  columns?: string[]
+  columns?: Column[]
   header?: boolean
 }
 
@@ -60,7 +66,7 @@ function buildRows(
   type Work = {
     node: VisualNode
     depth: number
-    columns?: string[]
+    columns?: Column[]
     header?: boolean
   }
   const pending: Work[] = [{ node: root, depth: 0 }]
@@ -95,12 +101,43 @@ function buildRows(
       node.kind === "array" &&
       node.children.length > 0 &&
       node.children.every((child) => child.kind === "object")
-    let tableColumns: string[] | undefined
+    let tableColumns: Column[] | undefined
     if (table) {
-      const keys = new Set<string>()
-      for (const record of node.children)
-        for (const field of record.children) keys.add(field.label)
-      if (keys.size) tableColumns = [...keys]
+      const widths = new Map<string, { width: number; records: number }>()
+      for (const record of node.children) {
+        const seen = new Set<string>()
+        for (const field of record.children) {
+          const column = widths.get(field.label) ?? {
+            width: Math.min(
+              22,
+              Math.max(1, stringWidth(singleLine(field.label))),
+            ),
+            records: 0,
+          }
+          if (column.width < 22)
+            column.width = Math.min(
+              22,
+              Math.max(
+                column.width,
+                stringWidth(singleLine(visualSummary(field))),
+              ),
+            )
+          if (!seen.has(field.label)) column.records++
+          seen.add(field.label)
+          widths.set(field.label, column)
+        }
+      }
+      let offset = 0
+      if (widths.size)
+        tableColumns = [...widths].map(([key, column]) => {
+          const width = Math.max(
+            column.width,
+            column.records < node.children.length ? "(missing)".length : 1,
+          )
+          const result = { key, width, offset }
+          offset += width + 3
+          return result
+        })
     }
     for (let index = children.length - 1; index >= 0; index--)
       pending.push({
@@ -129,23 +166,37 @@ function rowText(
   const indent = " ".repeat(indentWidth(row))
   const prefix = `${indent}${row.open ? "▾" : "▸"} `
   if (row.columns) {
-    const first = Math.max(0, Math.floor((left - indent.length - 2) / 25))
-    const count = Math.ceil(width / 25) + 2
+    const relativeLeft = left - indent.length - 2
+    let first = 0
+    let end = row.columns.length
+    while (first < end) {
+      const middle = Math.floor((first + end) / 2)
+      const column = row.columns[middle]!
+      if (column.offset + column.width + 3 <= relativeLeft) first = middle + 1
+      else end = middle
+    }
+    end = first
+    while (
+      end < row.columns.length &&
+      row.columns[end]!.offset < relativeLeft + width + 25
+    )
+      end++
     const values = new Map(
       row.node.children.map((child) => [child.label, child]),
     )
-    const cells = row.columns.slice(first, first + count).map((key) => {
+    const cells = row.columns.slice(first, end).map(({ key, width }) => {
       const value = row.header
         ? key
         : values.has(key)
           ? visualSummary(values.get(key)!)
           : "(missing)"
-      const clipped = truncateToWidth(singleLine(value), 22)
-      return clipped + " ".repeat(Math.max(0, 22 - stringWidth(clipped)))
+      const clipped = truncateToWidth(singleLine(value), width)
+      return clipped + " ".repeat(Math.max(0, width - stringWidth(clipped)))
     })
     return {
       text: `${first === 0 ? (row.header ? `${indent}  ` : prefix) : ""}${cells.join(" │ ")}`,
-      offset: first === 0 ? 0 : indent.length + 2 + first * 25,
+      offset:
+        first === 0 ? 0 : indent.length + 2 + (row.columns[first]?.offset ?? 0),
     }
   }
   let summary = singleLine(visualSummary(row.node))
@@ -229,7 +280,10 @@ export function ResponseVisualBody({
           Math.max(
             max,
             row.columns
-              ? indentWidth(row) + 2 + row.columns.length * 25
+              ? indentWidth(row) +
+                  2 +
+                  row.columns.at(-1)!.offset +
+                  row.columns.at(-1)!.width
               : row.open && row.node.kind === "value"
                 ? indentWidth(row) +
                   4 +

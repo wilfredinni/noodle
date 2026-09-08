@@ -254,6 +254,22 @@ describe("visual response body", () => {
     expect(view.controller.current?.isOpen()).toBe(true)
   })
 
+  it("fits columns to headers and values using terminal widths, capped at 22", async () => {
+    const view = await mount(
+      JSON.stringify([
+        { id: 1, name: "Al", glyph: "界界", note: "x".repeat(40) },
+        { id: 123, name: "Beatrice", glyph: "界", note: "ok" },
+      ]),
+    )
+    await view.visual()
+    expect(view.captureCharFrame()).toContain(
+      "id  │ name       │ glyph  │ note",
+    )
+    expect(view.captureCharFrame()).toContain(
+      '1   │ "Al"       │ "界界" │ "' + "x".repeat(20) + "…",
+    )
+  })
+
   it("finds matches beyond truncated previews and windows very wide sparse tables", async () => {
     const view = await mount(
       JSON.stringify(
@@ -267,7 +283,11 @@ describe("visual response body", () => {
     const scroll = view.renderer.root.findDescendantById(
       "response-visual-scroll",
     ) as ScrollBoxRenderable
-    expect(scroll.scrollWidth).toBeGreaterThan(20000)
+    expect(scroll.scrollWidth).toBe(4 + 999 * (9 + 3) + 22)
+    await act(async () => scroll.scrollTo({ x: scroll.scrollWidth, y: 0 }))
+    await view.render()
+    expect(view.captureCharFrame()).toContain("field-999")
+    await act(async () => scroll.scrollTo({ x: 0, y: 0 }))
     await view.search("needle")
     expect(view.captureCharFrame()).toContain("(1/1000)")
     expect(view.captureCharFrame()).toContain("needle")
