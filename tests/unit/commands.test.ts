@@ -86,6 +86,7 @@ function minimalContext(): CommandBuilderContext {
     paletteTarget: null,
     setSidebarVisible: () => {},
     sidebarVisibleRef: { current: false } as never,
+    folderViewRef: { current: false } as never,
   }
 }
 
@@ -1089,6 +1090,22 @@ describe("buildCommandPaletteCommands", () => {
     expect(sidebarVisible).toBe(false)
     expect(focus).not.toBe("sidebar")
     expect(focus).toBe<Focus>("urlbar")
+  })
+
+  it("sidebar.toggle keeps focus in the folder pane in folder view", () => {
+    const ctx = minimalContext()
+    ctx.sidebarVisibleRef.current = true
+    ctx.folderViewRef.current = true
+    let focus: Focus = "sidebar"
+    ctx.setFocus = (newFocus) => {
+      if (typeof newFocus !== "function") {
+        focus = newFocus
+      }
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "sidebar.toggle")!
+    expect(cmd.run()).toBe(true)
+    expect(focus).toBe<Focus>("folder")
   })
 
   it("sidebar.toggle opens the sidebar and changes current focus", () => {

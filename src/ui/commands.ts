@@ -156,6 +156,7 @@ export interface CommandBuilderContext {
   paletteTarget: CommandPaletteTarget | null
   setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   sidebarVisibleRef: RefObject<boolean>
+  folderViewRef: RefObject<boolean>
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -184,6 +185,7 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     proxyPolicy: ctx.proxyPolicy,
     tlsPolicy: ctx.tlsPolicy,
     sidebarVisibleRef: ctx.sidebarVisibleRef,
+    folderViewRef: ctx.folderViewRef,
   }
 }
 

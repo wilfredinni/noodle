@@ -53,6 +53,7 @@ export interface CommandActionsConfig {
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
   sidebarVisibleRef: RefObject<boolean>
+  folderViewRef: RefObject<boolean>
 }
 
 export function sendRequest(c: CommandActionsConfig): boolean {
@@ -437,7 +438,9 @@ export function toggleSidebarVisible(
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void,
   setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void,
 ): boolean {
-  setFocus(c.sidebarVisibleRef.current ? "urlbar" : "sidebar")
+  // Folder view has no URL bar, so collapsing must fall back to the folder pane.
+  const collapsedFocus: Focus = c.folderViewRef.current ? "folder" : "urlbar"
+  setFocus(c.sidebarVisibleRef.current ? collapsedFocus : "sidebar")
   setSidebarVisible((v) => !v)
   return true
 }

@@ -1611,6 +1611,7 @@ export function AppInner({
         openRunner: handleOpenRunner,
         setSidebarVisible,
         sidebarVisibleRef,
+        folderViewRef,
       }),
     [
       keybinds,
