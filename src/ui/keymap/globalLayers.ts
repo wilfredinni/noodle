@@ -111,7 +111,6 @@ export function createGlobalLayers(
         name: "sidebar.toggle",
         enabled: () =>
           shortcutEnabled(keybinds.sidebar_toggle) &&
-          global.modeRef.current === "collection" &&
           global.viewRef.current === "main" &&
           keymap.getData("app.overlay") === "none",
         run: () =>
