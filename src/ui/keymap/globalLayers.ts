@@ -10,6 +10,7 @@ import {
   openThemePicker,
   togglePaneExpand,
   undoAll,
+  toggleSidebarVisible,
 } from "../commandActions"
 import type { AppKeymapContext } from "./types"
 import { CodeEditorRenderable } from "../editor/CodeEditor"
@@ -108,12 +109,12 @@ export function createGlobalLayers(
       {
         name: "sidebar.toggle",
         enabled: () => shortcutEnabled(keybinds.sidebar_toggle),
-        run: () => {
-          global.setFocus(
-            global.sidebarVisibleRef.current ? "request" : "sidebar",
-          )
-          global.setSidebarVisible((v) => !v)
-        },
+        run: () =>
+          toggleSidebarVisible(
+            actions,
+            global.setFocus,
+            global.setSidebarVisible,
+          ),
       },
       {
         name: "focus.prev",
