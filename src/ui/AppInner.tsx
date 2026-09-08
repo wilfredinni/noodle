@@ -283,7 +283,9 @@ export function AppInner({
     () => initialSidebarVisible,
   )
   const sidebarVisibleRef = useRef(sidebarVisible)
-  sidebarVisibleRef.current = sidebarVisible
+  useLayoutEffect(() => {
+    sidebarVisibleRef.current = sidebarVisible
+  }, [sidebarVisible])
   const [paneSplitRatios, setPaneSplitRatios] = useState<
     Record<"stacked" | "side-by-side", number>
   >({ stacked: 0.5, "side-by-side": 0.5 })
