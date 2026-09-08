@@ -761,39 +761,6 @@ export function ResponsePane({
                   overflow: "hidden",
                 }}
               >
-                {isDone && (
-                  <box style={{ flexDirection: "row", flexShrink: 0, gap: 1 }}>
-                    {(["source", "visual"] as const).map((view) => (
-                      <box
-                        key={view}
-                        onMouseDown={(event) => {
-                          if (
-                            event.button !== MouseButton.LEFT ||
-                            keymap.getData("app.overlay") !== "none"
-                          )
-                            return
-                          onPaneFocus?.()
-                          setBodyView(view)
-                          event.stopPropagation()
-                        }}
-                      >
-                        <text
-                          fg={
-                            bodyView === view ? theme.primary : theme.textMuted
-                          }
-                        >
-                          {bodyView === view ? (
-                            <b>{view === "source" ? "[Source]" : "[Visual]"}</b>
-                          ) : view === "source" ? (
-                            "Source"
-                          ) : (
-                            "Visual"
-                          )}
-                        </text>
-                      </box>
-                    ))}
-                  </box>
-                )}
                 {queryVisible && bodyView === "source" && (
                   <box
                     style={{ flexDirection: "column", gap: 0, flexShrink: 0 }}

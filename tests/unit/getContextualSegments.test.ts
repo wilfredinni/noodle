@@ -275,10 +275,10 @@ describe("getContextualSegments", () => {
       responseBodyEditorAvailable: true,
     })
     expect(r.footer).toMatchObject([
+      seg("m", "visual"),
       seg("^g", "fold"),
-      seg("m", "view"),
-      seg("^b", "copy"),
       seg("/", "filter"),
+      seg("^b", "copy"),
       seg("f2", "expand"),
     ])
   })
@@ -291,9 +291,9 @@ describe("getContextualSegments", () => {
       responseBodyEditorAvailable: false,
     })
     expect(r.footer).toMatchObject([
-      seg("m", "view"),
-      seg("^b", "copy"),
+      seg("m", "visual"),
       seg("/", "filter"),
+      seg("^b", "copy"),
       seg("f2", "expand"),
     ])
     expect(r.footer).not.toContainEqual(seg("^g", "fold"))
@@ -328,14 +328,21 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
-  it("response when done with open query hides hints", () => {
+  it("keeps footer actions available while Visual search is focused", () => {
     const r = base({
       focus: "response",
       sendState: done,
       tab: "body",
       queryVisible: true,
+      responseBodyView: "visual",
+      responseBodyEditorAvailable: false,
     })
-    expect(r.footer).toMatchObject([])
+    expect(r.footer).toMatchObject([
+      seg("click", "source"),
+      seg("Enter", "browse"),
+      seg("^b", "copy"),
+      seg("f2", "expand"),
+    ])
   })
 
   it("response when done with closed query shows filter", () => {
@@ -346,10 +353,10 @@ describe("getContextualSegments", () => {
       queryVisible: false,
     })
     expect(r.footer).toMatchObject([
+      seg("m", "visual"),
       seg("^g", "fold"),
-      seg("m", "view"),
-      seg("^b", "copy"),
       seg("/", "filter"),
+      seg("^b", "copy"),
       seg("f2", "expand"),
     ])
   })
@@ -361,10 +368,10 @@ describe("getContextualSegments", () => {
       tab: "body",
     })
     expect(r.footer).toMatchObject([
+      seg("m", "visual"),
       seg("^g", "fold"),
-      seg("m", "view"),
-      seg("^b", "copy"),
       seg("/", "filter"),
+      seg("^b", "copy"),
       seg("f2", "expand"),
     ])
   })

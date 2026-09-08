@@ -1474,6 +1474,9 @@ describe("app keymap layers", () => {
     browsing = false
     host.press("v")
     expect(toggles).toBe(1)
+    keymap.dispatchCommand("response.body-view")
+    expect(toggles).toBe(2)
+    toggles = 1
     browsing = true
     body = false
     host.press("v")

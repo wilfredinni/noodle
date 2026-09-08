@@ -11,6 +11,9 @@ import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent, ScrollBoxRenderable } from "@opentui/core"
 import { createTestRender } from "../testRender"
 import { ResponsePane } from "../../src/ui/ResponsePane"
+import { StatusBar } from "../../src/ui/StatusBar"
+import { getKeybindingHints } from "../../src/ui/keybindingHints"
+import { bindingDefaults } from "../../src/ui/keybind"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import type { UseRequestDraftResult } from "../../src/hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../../src/hooks/useEditBrowse"
@@ -29,13 +32,26 @@ extend({
 })
 afterEach(() => jest.useRealTimers())
 
-async function mount(body: string, width = 90, height = 20) {
+async function mount(
+  body: string,
+  width = 90,
+  height = 20,
+  withFooter = false,
+) {
   const raw = createTestKeymap()
   const keymap = raw.keymap as unknown as Keymap<Renderable, KeyEvent>
   keymap.setData("app.overlay", "none")
   registerDefaultKeys(keymap)
   registerEnabledFields(keymap)
   const controller = { current: null as ResponseQueryController | null }
+  keymap.registerLayer({
+    commands: [
+      {
+        name: "response.body-view",
+        run: () => controller.current?.toggleView?.(),
+      },
+    ],
+  })
   const copy = { current: null as string | null }
   let replace!: (body: string) => void
   let focus!: (focused: boolean) => void
@@ -44,6 +60,8 @@ async function mount(body: string, width = 90, height = 20) {
     const [value, setValue] = useState(body)
     const [focused, setFocused] = useState(true)
     const [activeTab, setTab] = useState<"body" | "headers">("body")
+    const [bodyView, setBodyView] = useState<"source" | "visual">("source")
+    const [queryVisible, setQueryVisible] = useState(false)
     replace = setValue
     focus = setFocused
     tab = setTab
@@ -59,13 +77,43 @@ async function mount(body: string, width = 90, height = 20) {
     }
     return (
       <KeymapProvider keymap={keymap}>
-        <ResponsePane
-          state={state}
-          focused={focused}
-          initialTab={activeTab}
-          responseQueryRef={controller}
-          responseBodyForCopyRef={copy}
-        />
+        <box flexDirection="column" height="100%">
+          <ResponsePane
+            state={state}
+            focused={focused}
+            initialTab={activeTab}
+            responseQueryRef={controller}
+            responseBodyForCopyRef={copy}
+            bodyView={bodyView}
+            onBodyViewChange={setBodyView}
+            onQueryVisibleChange={setQueryVisible}
+          />
+          {withFooter && (
+            <StatusBar
+              kb={bindingDefaults()}
+              globalHints={[]}
+              footerHints={
+                getKeybindingHints({
+                  view: "main",
+                  focus: "response",
+                  paneMode: "base",
+                  collectionMode: "collection",
+                  overlayActive: false,
+                  jumpMode: false,
+                  tab: activeTab,
+                  sendState: state,
+                  queryVisible,
+                  responseBodyView: bodyView,
+                  responseBodyEditorAvailable: bodyView === "source",
+                  keybinds: bindingDefaults(),
+                }).footer
+              }
+              onHintActivate={(command) => {
+                keymap.dispatchCommand(command)
+              }}
+            />
+          )}
+        </box>
       </KeymapProvider>
     )
   }
@@ -120,6 +168,32 @@ async function mount(body: string, width = 90, height = 20) {
 }
 
 describe("visual response body", () => {
+  it("keeps the view switch exclusively in the footer and clickable during search", async () => {
+    const view = await mount('{"name":"Alice"}', 110, 20, true)
+    let lines = view.captureCharFrame().trimEnd().split("\n")
+    expect(lines.at(-1)).toContain("m visual")
+    expect(lines.slice(0, -1).join("\n")).not.toContain("[Source]")
+    await view.visual()
+    lines = view.captureCharFrame().trimEnd().split("\n")
+    const footer = lines.at(-1)!
+    expect(footer).toContain("click source")
+    expect(footer).toContain("Enter browse")
+    expect(footer).toContain("copy")
+    expect(footer).toContain("expand")
+    expect(lines.slice(0, -1).join("\n")).not.toContain("[Visual]")
+    expect(lines.slice(0, -1).join("\n")).not.toContain("Enter browse")
+    expect(view.controller.current?.isOpen()).toBe(true)
+    await act(async () => {
+      await view.mockMouse.click(footer.indexOf("source") + 1, lines.length - 1)
+    })
+    await view.render()
+    expect(
+      view.renderer.root.findDescendantById("response-visual-search"),
+    ).toBeUndefined()
+    expect(view.captureCharFrame().trimEnd().split("\n").at(-1)).toContain(
+      "m visual",
+    )
+  })
   it("restores manual expansion after clearing search and keeps the filter across view switches", async () => {
     const view = await mount('{"nested":{"name":"Alice"},"other":2}')
     await view.visual()
@@ -282,7 +356,9 @@ describe("visual response body", () => {
       await act(async () => {
         await view.renderOnce()
       })
-      expect(view.captureCharFrame()).toContain("[Visual]")
+      expect(
+        view.renderer.root.findDescendantById("response-visual-search"),
+      ).toBeDefined()
       expect(view.captureCharFrame()).toContain("Santiago")
       expect(view.captureCharFrame()).toContain("(1/2)")
       if (process.env.NOODLE_VISUAL_QA_DIR) {
@@ -307,9 +383,13 @@ describe("visual response body", () => {
       { id: 2, name: "Bob", role: "admin" },
     ])
     const view = await mount(body)
-    expect(view.captureCharFrame()).toContain("[Source]")
+    expect(
+      view.renderer.root.findDescendantById("response-body-editor"),
+    ).toBeDefined()
     await view.visual()
-    expect(view.captureCharFrame()).toContain("[Visual]")
+    expect(
+      view.renderer.root.findDescendantById("response-visual-search"),
+    ).toBeDefined()
     expect(view.renderer.currentFocusedRenderable?.id).toBe(
       "response-visual-search",
     )
@@ -336,7 +416,9 @@ describe("visual response body", () => {
     await view.press("escape")
     expect(view.captureCharFrame()).toContain("SANTIAGO")
     await view.visual()
-    expect(view.captureCharFrame()).toContain("[Source]")
+    expect(
+      view.renderer.root.findDescendantById("response-body-editor"),
+    ).toBeDefined()
   })
 
   it("renders narrow records as fields and supports mouse expansion and full long values", async () => {
@@ -413,7 +495,9 @@ describe("visual response body", () => {
       view.replace('{"name":"Bob"}')
     })
     await view.render()
-    expect(view.captureCharFrame()).toContain("[Visual]")
+    expect(
+      view.renderer.root.findDescendantById("response-visual-search"),
+    ).toBeDefined()
     expect(view.captureCharFrame()).toContain("Bob")
     expect(view.captureCharFrame()).not.toContain("absent")
     await act(async () => {

@@ -433,11 +433,6 @@ export function ResponseVisualBody({
           style={{ flexGrow: 1 }}
         />
       </box>
-      <text fg={theme.textMuted} height={1}>
-        {searching
-          ? "Enter browse · Esc leave search"
-          : "↑/↓ select · Enter details · Shift+←/→ scroll"}
-      </text>
       {parsed.kind !== "success" ? (
         <text fg={parsed.kind === "error" ? theme.warning : theme.textMuted}>
           {parsed.message}

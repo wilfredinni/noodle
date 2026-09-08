@@ -249,13 +249,11 @@ export function createGlobalLayers(
       {
         name: "response.body-view",
         enabled: () =>
-          shortcutEnabled(
-            keybinds.response_body_view,
-            keymap.getData("app.overlay") === "none" &&
-              global.viewRef.current === "main" &&
-              keymap.getData("app.focus") === "response" &&
-              (global.responseQueryRef.current?.canToggleView?.() ?? false),
-          ),
+          !isRunnerRunning() &&
+          keymap.getData("app.overlay") === "none" &&
+          global.viewRef.current === "main" &&
+          keymap.getData("app.focus") === "response" &&
+          (global.responseQueryRef.current?.canToggleView?.() ?? false),
         run: () => {
           toggleResponseBodyView(actions)
         },
@@ -407,7 +405,13 @@ export function createGlobalLayers(
         : []),
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.response_query, cmd: "response.query" },
-      { key: keybinds.response_body_view, cmd: "response.body-view" },
+      {
+        key: keybinds.response_body_view,
+        cmd: () => {
+          if (!shortcutEnabled(keybinds.response_body_view)) return false
+          return keymap.dispatchCommand("response.body-view")
+        },
+      },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
