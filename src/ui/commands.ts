@@ -535,13 +535,6 @@ export function buildCommandPaletteCommands(
       keybinding: displayKey(keybinds.layout_toggle),
       run: () => toggleLayout(c, setLayout, onLayoutChange),
     },
-    {
-      id: "sidebar.toggle",
-      label: "Toggle Sidebar",
-      section: "Workspace",
-      keybinding: displayKey(keybinds.sidebar_toggle),
-      run: () => toggleSidebarVisible(c, setFocus, setSidebarVisible),
-    },
   ]
 
   const folderSaveCommand: CommandItem = {
@@ -562,6 +555,13 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.pane_expand),
       run: () => togglePaneExpand(c, getKeymapFocus(), setExpanded),
+    },
+    {
+      id: "sidebar.toggle",
+      label: "Toggle Sidebar",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.sidebar_toggle),
+      run: () => toggleSidebarVisible(c, setFocus, setSidebarVisible),
     },
   ]
 

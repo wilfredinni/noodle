@@ -1028,6 +1028,23 @@ describe("buildCommandPaletteCommands", () => {
     expect(sections).toContain("Environment")
   })
 
+  it("shows sidebar.toggle only in the main view", () => {
+    const ctx = minimalContext()
+
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (command) => command.id === "sidebar.toggle",
+      ),
+    ).toBe(true)
+
+    ctx.getView = () => "env-editor"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (command) => command.id === "sidebar.toggle",
+      ),
+    ).toBe(false)
+  })
+
   it("app.about opens About and Updates", () => {
     const ctx = minimalContext()
     let opened = false
