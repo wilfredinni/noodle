@@ -37,6 +37,7 @@ interface MainViewProps {
   eb: UseEditBrowseResult
   layout: "stacked" | "side-by-side"
   sidebarWidth?: number
+  sidebarVisible?: boolean
   onSidebarWidthChange?: (width: number) => void
   paneSplitRatio?: number
   onPaneSplitRatioChange?: (ratio: number) => void
@@ -126,6 +127,7 @@ export function MainView({
   eb,
   layout,
   sidebarWidth = SIDEBAR_WIDTH,
+  sidebarVisible = true,
   onSidebarWidthChange = () => {},
   paneSplitRatio = 0.5,
   onPaneSplitRatioChange = () => {},
@@ -317,6 +319,7 @@ export function MainView({
       }}
     >
       <Sidebar
+        visible={sidebarVisible}
         items={items}
         loading={loading}
         error={error}
@@ -337,20 +340,22 @@ export function MainView({
         onRequestContextMenu={onRequestContextMenu}
         onFolderContextMenu={onFolderContextMenu}
       />
-      <box
-        id="sidebar-resize-handle"
-        style={{
-          width: 1,
-          flexShrink: 0,
-        }}
-        onMouseDown={(event) => {
-          if (event.button !== MouseButton.LEFT) return
-          resizingSidebarRef.current = true
-          sidebarDraggedRef.current = false
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-      />
+      {sidebarVisible && (
+        <box
+          id="sidebar-resize-handle"
+          style={{
+            width: 1,
+            flexShrink: 0,
+          }}
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            resizingSidebarRef.current = true
+            sidebarDraggedRef.current = false
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+        />
+      )}
       <box
         style={{
           flexDirection: "column",

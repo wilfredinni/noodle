@@ -241,6 +241,8 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       viewRef: { current: "main" },
       expandedRef: { current: null },
       responseQueryRef: { current: null },
+      sidebarVisibleRef: { current: true },
+      setSidebarVisible: () => {},
       setFocus: (focus: string) => {
         calls.focus = focus
       },

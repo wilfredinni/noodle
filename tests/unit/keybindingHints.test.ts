@@ -232,4 +232,21 @@ describe("getKeybindingHints footer", () => {
         .footer,
     ).toContainEqual(seg("^d", "delete", "cookie.delete-cookie"))
   })
+
+  it("shows the sidebar hints", () => {
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "main",
+          focus: "sidebar",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("^n", "new", "request.new"),
+      seg("^alt+n", "new folder", "folder.new"),
+      seg("^k", "clone", "request.clone"),
+      seg("^w", "delete", "request.delete"),
+      seg("^s", "save", "request.save"),
+    ])
+  })
 })

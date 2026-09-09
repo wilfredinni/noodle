@@ -373,3 +373,10 @@ describe("displayKey", () => {
     expect(displayKey("ctrl+alt+e")).toBe("^alt+e")
   })
 })
+
+describe("sidebar_toggle", () => {
+  it("is not configurable and appears in defaults", () => {
+    expect(Definitions.sidebar_toggle.fixed).toBe(true)
+    expect(bindingDefaults().sidebar_toggle).toBe("ctrl+b")
+  })
+})

@@ -44,6 +44,7 @@ interface UseJumpModeOpts {
   selectedIdRef: RefObject<string | null>
   targetsRef: RefObject<Map<string, JumpTarget>>
   triggerKey: string
+  sidebarVisible: boolean
 }
 
 export function useJumpMode(opts: UseJumpModeOpts): void {
@@ -62,6 +63,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     selectedIdRef,
     targetsRef,
     triggerKey,
+    sidebarVisible,
   } = opts
 
   useEffect(() => {
@@ -86,6 +88,9 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
         switch (target.kind) {
           case "sidebar":
             setFocus("sidebar")
+            if (!sidebarVisible) {
+              keymap.dispatchCommand("sidebar.toggle")
+            }
             break
           case "method":
             setFocus("urlbar")

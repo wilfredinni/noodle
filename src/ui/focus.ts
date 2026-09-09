@@ -42,9 +42,10 @@ export function cycleFocus(
   view: string = "main",
   expanded?: ExpandTarget,
   folderView = false,
+  sidebarVisible = true,
 ): Focus {
   if (folderView && view === "main") {
-    const order: Focus[] = ["sidebar", "folder"]
+    const order: Focus[] = sidebarVisible ? ["sidebar", "folder"] : ["folder"]
     const idx = order.indexOf(current)
     const idx2 = idx < 0 ? 0 : idx
     return order[(idx2 + delta + order.length) % order.length]!
@@ -58,7 +59,9 @@ export function cycleFocus(
           ? SETTINGS_FOCUS_ORDER
           : view === "runner"
             ? RUNNER_FOCUS_ORDER
-            : MAIN_FOCUS_ORDER
+            : sidebarVisible
+              ? MAIN_FOCUS_ORDER
+              : MAIN_FOCUS_ORDER.filter((f) => f !== "sidebar")
   const idx = order.indexOf(current)
   let next = (idx + delta + order.length) % order.length
   const candidate = order[next]!

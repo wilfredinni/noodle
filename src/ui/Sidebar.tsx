@@ -21,6 +21,7 @@ import { Badge } from "./Badge"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "./JumpBadge"
 
 export function Sidebar({
+  visible,
   items: _items,
   loading,
   error,
@@ -41,6 +42,8 @@ export function Sidebar({
   onRequestContextMenu,
   onFolderContextMenu,
 }: {
+  visible?: boolean
+  toggleSidebarVisible?: () => void
   items: CollectionItem[]
   loading: boolean
   error: Error | null
@@ -77,6 +80,7 @@ export function Sidebar({
 
   return (
     <Frame
+      visible={visible}
       style={{
         width,
         minWidth: 20,
