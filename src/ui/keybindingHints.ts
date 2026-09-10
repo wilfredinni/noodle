@@ -21,6 +21,7 @@ export interface KeybindingHintsContext {
   sendState: SendState
   queryVisible?: boolean
   responseBodyEditorAvailable?: boolean
+  responseBodyView?: "source" | "visual"
   settingsCategory?: SettingsCategory
   runnerPhase?: RunnerPhase
   keybinds: Keybinds
@@ -379,22 +380,37 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       ]
     }
     if (ctx.sendState.status === "done" && ctx.tab === "body") {
-      if (ctx.queryVisible) return []
       const foldSegments =
-        ctx.responseBodyEditorAvailable === false
-          ? []
-          : [{ key: "^g", word: "fold" }]
+        !ctx.queryVisible && ctx.responseBodyView === "visual"
+          ? [{ key: "Enter", word: "details" }]
+          : ctx.queryVisible || ctx.responseBodyEditorAvailable === false
+            ? []
+            : [{ key: "^g", word: "fold" }]
       return [
+        {
+          key: ctx.queryVisible ? "click" : displayKey(kb.response_body_view),
+          word: ctx.responseBodyView === "visual" ? "source" : "visual",
+          command: "response.body-view",
+        },
         ...foldSegments,
+        ...(ctx.queryVisible
+          ? [
+              {
+                key: "Esc",
+                word: "close filter",
+              },
+            ]
+          : [
+              {
+                key: displayKey(kb.response_query),
+                word: "filter",
+                command: "response.query",
+              },
+            ]),
         {
           key: displayKey(kb.response_copy_body),
           word: "copy",
           command: "response.copy-body",
-        },
-        {
-          key: displayKey(kb.response_query),
-          word: "filter",
-          command: "response.query",
         },
         {
           key: displayKey(kb.pane_expand),

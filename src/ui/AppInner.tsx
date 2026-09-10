@@ -654,6 +654,9 @@ export function AppInner({
   const responseStateRef = useRef(responseState)
   responseStateRef.current = responseState
   const responseQueryRef = useRef<ResponseQueryController | null>(null)
+  const [responseBodyView, setResponseBodyView] = useState<"source" | "visual">(
+    "source",
+  )
   const responseBodyForCopyRef = useRef<string | null>(null)
 
   const envEditor = useEnvironmentEditor({
@@ -996,6 +999,7 @@ export function AppInner({
         collectionError: collectionErrorCount > 0,
         queryVisible,
         responseBodyEditorAvailable,
+        responseBodyView,
         settingsCategory,
         runnerPhase: runner.phase,
         keybinds,
@@ -1013,6 +1017,7 @@ export function AppInner({
       collectionErrorCount,
       queryVisible,
       responseBodyEditorAvailable,
+      responseBodyView,
       settingsCategory,
       runner.phase,
       keybinds,
@@ -1710,6 +1715,8 @@ export function AppInner({
             collectionTlsVerify={collectionTls?.verify}
             insecure={insecure}
             responseState={responseState}
+            responseBodyView={responseBodyView}
+            onResponseBodyViewChange={setResponseBodyView}
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}

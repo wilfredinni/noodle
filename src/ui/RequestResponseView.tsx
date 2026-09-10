@@ -28,6 +28,8 @@ interface RequestResponseViewProps {
   collectionTlsVerify?: boolean
   insecure?: boolean
   responseState: SendState
+  responseBodyView?: "source" | "visual"
+  onResponseBodyViewChange?: (view: "source" | "visual") => void
   timelineEntries: TimelineEntry[]
   initialResponseTab?: ResponseTabKind
   onResponseTabChange: (tab: ResponseTabKind) => void
@@ -73,6 +75,8 @@ export function RequestResponseView({
   collectionTlsVerify,
   insecure = false,
   responseState,
+  responseBodyView,
+  onResponseBodyViewChange,
   timelineEntries,
   initialResponseTab,
   onResponseTabChange,
@@ -158,6 +162,8 @@ export function RequestResponseView({
     <ResponsePane
       key={responseKey}
       state={responseState}
+      bodyView={responseBodyView}
+      onBodyViewChange={onResponseBodyViewChange}
       visible={responseVisible}
       focused={responseVisible && focus === "response"}
       timelineEntries={timelineEntries}

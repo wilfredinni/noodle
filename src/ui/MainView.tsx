@@ -46,6 +46,8 @@ interface MainViewProps {
   collectionTlsVerify?: boolean
   insecure?: boolean
   responseState: import("./sendState").SendState
+  responseBodyView?: "source" | "visual"
+  onResponseBodyViewChange?: (view: "source" | "visual") => void
   timelineEntries: import("../schema").TimelineEntry[]
   initialResponseTab?: import("./tabs/uiState").ResponseTabKind
   onResponseTabChange: (tab: import("./tabs/uiState").ResponseTabKind) => void
@@ -134,6 +136,8 @@ export function MainView({
   collectionTlsVerify,
   insecure = false,
   responseState,
+  responseBodyView,
+  onResponseBodyViewChange,
   timelineEntries,
   initialResponseTab,
   onResponseTabChange,
@@ -410,6 +414,8 @@ export function MainView({
             collectionTlsVerify={collectionTlsVerify}
             insecure={insecure}
             responseState={responseState}
+            responseBodyView={responseBodyView}
+            onResponseBodyViewChange={onResponseBodyViewChange}
             timelineEntries={timelineEntries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}

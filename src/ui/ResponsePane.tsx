@@ -40,7 +40,14 @@ import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { CookieRow, cookieDetails, cookieNameWidth } from "./CookieRow"
+import { ResponseFilter } from "./ResponseFilter"
 import { ResponseResults } from "./ResponseResults"
+import {
+  ResponseVisualBody,
+  type VisualSearchController,
+  type VisualSession,
+} from "./ResponseVisualBody"
+import { parseVisualBody } from "./responseVisual"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -111,6 +118,8 @@ export function ResponsePane({
   onQueryVisibleChange,
   onBodyEditorAvailableChange,
   onPaneFocus,
+  bodyView: controlledBodyView,
+  onBodyViewChange,
 }: {
   state: SendState
   visible?: boolean
@@ -128,6 +137,8 @@ export function ResponsePane({
   onQueryVisibleChange?: (v: boolean) => void
   onBodyEditorAvailableChange?: (available: boolean) => void
   onPaneFocus?: () => void
+  bodyView?: "source" | "visual"
+  onBodyViewChange?: (view: "source" | "visual") => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -154,11 +165,28 @@ export function ResponsePane({
   }, [jumpMode, resultsStatus])
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
+  const [localBodyView, setLocalBodyView] = useState<"source" | "visual">(
+    "source",
+  )
+  const bodyView = controlledBodyView ?? localBodyView
+  const setBodyView = useCallback(
+    (view: "source" | "visual") => {
+      setLocalBodyView(view)
+      onBodyViewChange?.(view)
+    },
+    [onBodyViewChange],
+  )
+  const [visualSearchFocused, setVisualSearchFocused] = useState(false)
+  const visualSearchRef = useRef<VisualSearchController | null>(null)
   const [query, setQuery] = useState("")
   const [hoveringRawBody, setHoveringRawBody] = useState(false)
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const isDone = state.status === "done"
+  const visualSessionRef = useMemo<RefObject<VisualSession | null>>(
+    () => ({ current: null }),
+    [responseKey, state.status, isDone ? state.response.body : null],
+  )
   const sentCookies = isDone ? (state.response.sentCookies ?? []) : []
   const responseCookies = isDone ? (state.response.cookies ?? []) : []
   const cookieRows: CookieTimelineRow[] = [
@@ -232,8 +260,10 @@ export function ResponsePane({
   onQueryVisibleChangeRef.current = onQueryVisibleChange
 
   useEffect(() => {
-    onQueryVisibleChangeRef.current?.(queryVisible)
-  }, [queryVisible])
+    onQueryVisibleChangeRef.current?.(
+      bodyView === "visual" ? visualSearchFocused : queryVisible,
+    )
+  }, [queryVisible, bodyView, visualSearchFocused])
 
   useEffect(() => {
     setSelectedCookieIdx(0)
@@ -245,7 +275,7 @@ export function ResponsePane({
     if (!focusedRef.current) return
     if (!isActiveRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
-    if (queryVisible) return
+    if (bodyView === "visual" ? visualSearchFocused : queryVisible) return
     if (!key.shift && key.name === "left") {
       key.preventDefault()
       setActiveTab((prev) => {
@@ -308,6 +338,8 @@ export function ResponsePane({
         )
       }
       return
+    } else if (activeTab === "body" && bodyView === "visual") {
+      return
     } else if (activeTab === "body" && bodyEditorRef.current) {
       if (key.shift && bodyEditorRef.current.handleKeyPress(key)) {
         key.preventDefault()
@@ -334,7 +366,13 @@ export function ResponsePane({
   })
 
   useEffect(() => {
-    if (!queryVisible) return
+    if (
+      !queryVisible ||
+      bodyView !== "source" ||
+      !focused ||
+      activeTab !== "body"
+    )
+      return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -353,6 +391,9 @@ export function ResponsePane({
     return dispose
   }, [
     keymap,
+    bodyView,
+    focused,
+    activeTab,
     queryVisible,
     responseBodyForCopyRef,
     isDone,
@@ -404,9 +445,15 @@ export function ResponsePane({
   }, [responseKey, state.status, isDone ? state.response.body : null])
 
   useEffect(() => {
-    if (!queryVisible) return
+    if (
+      !queryVisible ||
+      bodyView !== "source" ||
+      !focused ||
+      activeTab !== "body"
+    )
+      return
     queryInputRef.current?.focus()
-  }, [queryVisible])
+  }, [queryVisible, bodyView, focused, activeTab])
 
   useEffect(() => {
     if (!queryVisible) return
@@ -447,9 +494,36 @@ export function ResponsePane({
   ])
 
   const parsedResponseBody = useMemo(() => {
-    if (!isDone || !queryVisible) return null
+    if (!isDone || !queryVisible || bodyView !== "source") return null
     return parseResponseBody(state.response.body)
-  }, [isDone, queryVisible, isDone ? state.response.body : null])
+  }, [isDone, queryVisible, bodyView, isDone ? state.response.body : null])
+
+  const visualCache = useRef<{
+    body: string
+    parsed: ReturnType<typeof parseVisualBody>
+  } | null>(null)
+  const visualBody = useMemo(() => {
+    if (
+      !isDone ||
+      bodyView !== "visual" ||
+      activeTab !== "body" ||
+      !visible ||
+      (bodySize > AUTO_RENDER_LIMIT && !showLargeBody)
+    )
+      return null
+    const body = state.response.body
+    if (visualCache.current?.body !== body)
+      visualCache.current = { body, parsed: parseVisualBody(body) }
+    return visualCache.current.parsed
+  }, [
+    isDone,
+    bodyView,
+    activeTab,
+    visible,
+    bodySize,
+    showLargeBody,
+    isDone ? state.response.body : null,
+  ])
 
   const queryResult = useMemo(() => {
     if (settledQuery === "" || parsedResponseBody?.kind !== "success")
@@ -483,7 +557,7 @@ export function ResponsePane({
   useEffect(() => {
     if (!responseBodyForCopyRef) return
     responseBodyForCopyRef.current =
-      queryResult?.kind === "success"
+      bodyView === "source" && queryResult?.kind === "success"
         ? queryResult.body
         : isDone
           ? state.response.body
@@ -491,6 +565,7 @@ export function ResponsePane({
   }, [
     responseBodyForCopyRef,
     queryResult,
+    bodyView,
     isDone,
     isDone ? state.response.body : null,
   ])
@@ -498,18 +573,39 @@ export function ResponsePane({
   useEffect(() => {
     if (!responseQueryRef) return
     responseQueryRef.current = {
-      canOpen: () => isDone && activeTab === "body" && !queryVisible,
-      isOpen: () => queryVisible,
+      canOpen: () =>
+        isDone &&
+        activeTab === "body" &&
+        (bodyView === "visual"
+          ? visualSearchRef.current !== null && !visualSearchFocused
+          : !queryVisible),
+      isOpen: () =>
+        focused &&
+        activeTab === "body" &&
+        (bodyView === "visual" ? visualSearchFocused : queryVisible),
       open: () => {
         if (!isDone || activeTab !== "body") return false
-        setQueryVisible(true)
+        if (bodyView === "visual") visualSearchRef.current?.focus()
+        else setQueryVisible(true)
         return true
       },
+      canToggleView: () => isDone && activeTab === "body",
+      toggleView: () =>
+        setBodyView(bodyView === "source" ? "visual" : "source"),
     }
     return () => {
       responseQueryRef.current = null
     }
-  }, [responseQueryRef, isDone, activeTab, queryVisible])
+  }, [
+    responseQueryRef,
+    isDone,
+    activeTab,
+    queryVisible,
+    bodyView,
+    visualSearchFocused,
+    focused,
+    setBodyView,
+  ])
 
   const headerRight = (
     <box style={{ flexDirection: "row" }}>
@@ -666,23 +762,13 @@ export function ResponsePane({
                   overflow: "hidden",
                 }}
               >
-                {queryVisible && (
-                  <box
-                    style={{ flexDirection: "column", gap: 0, flexShrink: 0 }}
+                {queryVisible && bodyView === "source" && (
+                  <ResponseFilter
+                    inputRef={queryInputRef}
+                    value={query}
+                    placeholder="$.data.items[*].id"
+                    onInput={setQuery}
                   >
-                    <box style={{ flexDirection: "row", gap: 1 }}>
-                      <input
-                        ref={queryInputRef}
-                        value={query}
-                        placeholder="$.data.items[*].id"
-                        onInput={setQuery}
-                        backgroundColor={theme.background}
-                        focusedBackgroundColor={theme.background}
-                        textColor={theme.text}
-                        cursorColor={theme.primary}
-                        style={{ flexGrow: 1 }}
-                      />
-                    </box>
                     {queryResult?.kind === "success" ? (
                       <text fg={theme.success}>
                         {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
@@ -698,7 +784,7 @@ export function ResponsePane({
                         Enter a JSONPath expression to filter this response
                       </text>
                     ) : null}
-                  </box>
+                  </ResponseFilter>
                 )}
                 {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (
                   <box
@@ -727,12 +813,20 @@ export function ResponsePane({
                             : undefined,
                         }}
                       >
-                        <text fg={theme.textMuted}>
-                          v view raw · ctrl+b copy
-                        </text>
+                        <text fg={theme.textMuted}>v view body</text>
                       </box>
                     </box>
                   </box>
+                ) : bodyView === "visual" && visualBody ? (
+                  <ResponseVisualBody
+                    key={responseKey}
+                    parsed={visualBody}
+                    focused={focused && visible}
+                    searchRef={visualSearchRef}
+                    sessionRef={visualSessionRef}
+                    onSearchFocusChange={setVisualSearchFocused}
+                    onPaneFocus={onPaneFocus}
+                  />
                 ) : displayedBody === "" ? (
                   <text fg={theme.textMuted}>(no body)</text>
                 ) : (

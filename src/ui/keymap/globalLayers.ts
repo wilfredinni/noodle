@@ -2,6 +2,7 @@ import type { UseBindingsLayer } from "@opentui/keymap/react"
 import { cycleFocus } from "../focus"
 import {
   copyResponseBody,
+  toggleResponseBodyView,
   getEditFolderYamlFile,
   getEditRequestYamlFile,
   openCookieJar,
@@ -262,6 +263,18 @@ export function createGlobalLayers(
         },
       },
       {
+        name: "response.body-view",
+        enabled: () =>
+          !isRunnerRunning() &&
+          keymap.getData("app.overlay") === "none" &&
+          global.viewRef.current === "main" &&
+          keymap.getData("app.focus") === "response" &&
+          (global.responseQueryRef.current?.canToggleView?.() ?? false),
+        run: () => {
+          toggleResponseBodyView(actions)
+        },
+      },
+      {
         name: "response.query",
         enabled: () =>
           shortcutEnabled(
@@ -409,6 +422,13 @@ export function createGlobalLayers(
         : []),
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.response_query, cmd: "response.query" },
+      {
+        key: keybinds.response_body_view,
+        cmd: () => {
+          if (!shortcutEnabled(keybinds.response_body_view)) return false
+          return keymap.dispatchCommand("response.body-view")
+        },
+      },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },

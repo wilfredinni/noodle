@@ -1450,6 +1450,50 @@ describe("app keymap layers", () => {
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
+  it("toggles the response view only while browsing the Body tab and respects overrides", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    let toggles = 0
+    let browsing = true
+    let body = true
+    context.global.responseQueryRef.current = {
+      canOpen: () => body && browsing,
+      open: () => true,
+      isOpen: () => !browsing,
+      canToggleView: () => body,
+      toggleView: () => {
+        toggles++
+      },
+    }
+    context.actions.responseQueryRef = context.global.responseQueryRef
+    context.keybinds.response_body_view = "v"
+    keymap.setData("app.focus", "response")
+    const disposers = register(context)
+    host.press("m")
+    expect(toggles).toBe(0)
+    host.press("v")
+    expect(toggles).toBe(1)
+    browsing = false
+    host.press("v")
+    expect(toggles).toBe(1)
+    keymap.dispatchCommand("response.body-view")
+    expect(toggles).toBe(2)
+    toggles = 1
+    browsing = true
+    body = false
+    host.press("v")
+    expect(toggles).toBe(1)
+    body = true
+    keymap.setData("app.overlay", "help")
+    host.press("v")
+    expect(toggles).toBe(1)
+    keymap.setData("app.overlay", "none")
+    keymap.setData("app.focus", "request")
+    host.press("v")
+    expect(toggles).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
 
   it("enters jump mode while the environment color select is focused", () => {
     const { keymap, host, cleanup } = setup()
