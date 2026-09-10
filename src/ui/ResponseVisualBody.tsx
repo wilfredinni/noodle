@@ -7,6 +7,7 @@ import {
 } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { useTheme } from "./theme"
+import { ResponseFilter } from "./ResponseFilter"
 import { truncateToWidth } from "./format"
 import {
   visualChildren,
@@ -20,25 +21,21 @@ export interface VisualSearchController {
   focus: () => void
 }
 
-interface Column {
-  key: string
-  width: number
-  offset: number
-}
-
 interface Row {
   key: string
   node: VisualNode
+  parent: number | null
   depth: number
   open: boolean
   count: string
-  columns?: Column[]
-  header?: boolean
+  nameWidth: number
+  preview: string
 }
 
 export interface VisualSession {
   parsed: VisualBody
   query: string
+  searchVisible: boolean
   settled: string
   expanded: Set<number>
   selected: number
@@ -52,6 +49,12 @@ const singleLine = (value: string) =>
     JSON.stringify(character).slice(1, -1),
   )
 const indentWidth = (row: Row) => Math.min(row.depth, 12) * 2
+const previewWidth = (row: Row, width: number) =>
+  Math.max(1, width - indentWidth(row) - 12 - row.nameWidth)
+const canExpand = (row: Row, width: number) =>
+  row.node.children.length > 0 ||
+  (row.node.kind === "value" &&
+    stringWidth(singleLine(row.node.value)) > previewWidth(row, width))
 
 function buildRows(
   root: VisualNode,
@@ -63,27 +66,12 @@ function buildRows(
   const matches = visualMatches(root, query)
   if (query && !matches.has(root.id)) return []
   const rows: Row[] = []
-  type Work = {
-    node: VisualNode
-    depth: number
-    columns?: Column[]
-    header?: boolean
-  }
-  const pending: Work[] = [{ node: root, depth: 0 }]
+  const previews = new Map<number, string>()
+  const pending = [
+    { node: root, parent: null as VisualNode | null, depth: 0, nameWidth: 12 },
+  ]
   while (pending.length) {
-    const { node, depth, columns, header } = pending.pop()!
-    if (header) {
-      rows.push({
-        key: `header-${node.id}`,
-        node,
-        depth,
-        columns,
-        header: true,
-        open: false,
-        count: "",
-      })
-      continue
-    }
+    const { node, parent, depth, nameWidth } = pending.pop()!
     const children = visualChildren(node, query, matches)
     const automatic =
       query !== "" && node.children.some((child) => matches.has(child.id))
@@ -92,138 +80,111 @@ function buildRows(
       : expanded.has(node.id)
     const count =
       node.kind === "array"
-        ? ` (${children.length}/${node.children.length})`
+        ? `(${children.length}/${node.children.length}) `
         : ""
-    rows.push({ key: `node-${node.id}`, node, depth, columns, open, count })
+    const preview = previews.get(node.id) ?? visualSummary(node)
+    rows.push({
+      key: `node-${node.id}`,
+      node,
+      parent: parent?.id ?? null,
+      depth,
+      nameWidth,
+      open,
+      count,
+      preview,
+    })
     if (!open || node.kind === "value") continue
-    const table =
-      width >= 60 &&
-      node.kind === "array" &&
-      node.children.length > 0 &&
-      node.children.every((child) => child.kind === "object")
-    let tableColumns: Column[] | undefined
-    if (table) {
-      const widths = new Map<string, { width: number; records: number }>()
-      for (const record of node.children) {
-        const seen = new Set<string>()
-        for (const field of record.children) {
-          const column = widths.get(field.label) ?? {
-            width: Math.min(
-              22,
-              Math.max(1, stringWidth(singleLine(field.label))),
+    if (node.kind === "array") {
+      const records = node.children
+        .filter((child) => child.kind === "object")
+        .map((record) => ({
+          id: record.id,
+          cells: record.children
+            .slice(0, 3)
+            .map(
+              (child) =>
+                `${singleLine(child.label)}: ${truncateToWidth(singleLine(visualSummary(child)), 32)}`,
             ),
-            records: 0,
-          }
-          if (column.width < 22)
-            column.width = Math.min(
-              22,
-              Math.max(
-                column.width,
-                stringWidth(singleLine(visualSummary(field))),
-              ),
-            )
-          if (!seen.has(field.label)) column.records++
-          seen.add(field.label)
-          widths.set(field.label, column)
-        }
-      }
-      let offset = 0
-      if (widths.size)
-        tableColumns = [...widths].map(([key, column]) => {
-          const width = Math.max(
-            column.width,
-            column.records < node.children.length ? "(missing)".length : 1,
-          )
-          const result = { key, width, offset }
-          offset += width + 3
-          return result
+        }))
+      const widths = [0, 0, 0]
+      for (const { cells } of records)
+        cells.forEach((cell, index) => {
+          widths[index] = Math.max(widths[index]!, stringWidth(cell))
         })
+      for (const { id, cells } of records)
+        if (cells.length)
+          previews.set(
+            id,
+            cells
+              .map(
+                (cell, index) =>
+                  cell +
+                  (index < cells.length - 1
+                    ? " ".repeat(widths[index]! - stringWidth(cell))
+                    : ""),
+              )
+              .join(" · "),
+          )
     }
+    const childNameWidth = Math.min(
+      24,
+      Math.max(6, Math.floor((width - Math.min(depth + 1, 12) * 2 - 11) / 2)),
+      children.reduce(
+        (max, child) => Math.max(max, stringWidth(singleLine(child.label)) + 2),
+        0,
+      ),
+    )
     for (let index = children.length - 1; index >= 0; index--)
       pending.push({
         node: children[index]!,
+        parent: node,
         depth: depth + 1,
-        columns: tableColumns,
-      })
-    if (tableColumns)
-      pending.push({
-        node,
-        depth: depth + 1,
-        columns: tableColumns,
-        header: true,
+        nameWidth: childNameWidth,
       })
   }
   return rows
 }
 
-// Rows and columns are windowed independently, including sparse heterogeneous tables.
-function rowText(
-  row: Row,
-  width: number,
-  left: number,
-  query: string,
-): { text: string; offset: number } {
-  const indent = " ".repeat(indentWidth(row))
-  const prefix = `${indent}${row.open ? "▾" : "▸"} `
-  if (row.columns) {
-    const relativeLeft = left - indent.length - 2
-    let first = 0
-    let end = row.columns.length
-    while (first < end) {
-      const middle = Math.floor((first + end) / 2)
-      const column = row.columns[middle]!
-      if (column.offset + column.width + 3 <= relativeLeft) first = middle + 1
-      else end = middle
-    }
-    end = first
-    while (
-      end < row.columns.length &&
-      row.columns[end]!.offset < relativeLeft + width + 25
-    )
-      end++
-    const values = new Map(
-      row.node.children.map((child) => [child.label, child]),
-    )
-    const cells = row.columns.slice(first, end).map(({ key, width }) => {
-      const value = row.header
-        ? key
-        : values.has(key)
-          ? visualSummary(values.get(key)!)
-          : "(missing)"
-      const clipped = truncateToWidth(singleLine(value), width)
-      return clipped + " ".repeat(Math.max(0, width - stringWidth(clipped)))
-    })
-    return {
-      text: `${first === 0 ? (row.header ? `${indent}  ` : prefix) : ""}${cells.join(" │ ")}`,
-      offset:
-        first === 0 ? 0 : indent.length + 2 + (row.columns[first]?.offset ?? 0),
-    }
-  }
-  let summary = singleLine(visualSummary(row.node))
-  const label = singleLine(row.node.label)
-  const previewWidth = Math.max(
-    12,
-    width - indent.length - stringWidth(label) - 6,
-  )
+// Keep long values windowed while matching the Cookies/Results row layout.
+function rowText(row: Row, width: number, left: number, query: string) {
+  const chevron = canExpand(row, width) ? (row.open ? "▾" : "▸") : " "
+  const prefix = `${" ".repeat(indentWidth(row) + 1)}${chevron} `
+  const kind = row.node.kind.toUpperCase().padEnd(8)
+  const name = truncateToWidth(singleLine(row.node.label), row.nameWidth - 1)
+  const label =
+    name + " ".repeat(Math.max(1, row.nameWidth - stringWidth(name)))
+  let summary = singleLine(row.preview)
+  const valueWidth = previewWidth(row, width)
   const match = query ? summary.toLowerCase().indexOf(query.toLowerCase()) : -1
-  if (!row.open && match > previewWidth / 2)
+  if (!row.open && match > valueWidth / 2)
     summary = `…${summary.slice(Math.max(0, match - 8))}`
-  const text = `${prefix}${label}${row.count}: ${row.open && row.node.kind === "value" ? summary : truncateToWidth(summary, previewWidth)}`
-  // Slice only at grapheme boundaries so wide characters stay aligned while scrolling.
-  let offset = 0
-  let result = ""
-  let position = 0
+  const value =
+    row.count +
+    (row.open && row.node.kind === "value"
+      ? summary
+      : truncateToWidth(summary, valueWidth))
+  const parts = [
+    { text: prefix, color: "textMuted" as const },
+    { text: kind, color: "primary" as const },
+    { text: label, color: "text" as const },
+    { text: value, color: "textMuted" as const },
+  ]
   const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" })
-  for (const { segment } of segments.segment(text)) {
-    const next = position + stringWidth(segment)
-    if (position >= left + width + 2) break
-    if (next > left) {
-      if (!result) offset = position
-      result += segment
+  let position = 0
+  return parts.map(({ text, color }) => {
+    let offset = position
+    let result = ""
+    for (const { segment } of segments.segment(text)) {
+      if (position >= left + width + 2) break
+      const next = position + stringWidth(segment)
+      if (next > left) {
+        if (!result) offset = position
+        result += segment
+      }
+      position = next
     }
-    position = next
-  }
-  return { text: result, offset }
+    return { text: result, offset, color }
+  })
 }
 
 export function ResponseVisualBody({
@@ -249,19 +210,25 @@ export function ResponseVisualBody({
     sessionRef.current?.parsed === parsed ? sessionRef.current : null
   const [query, setQuery] = useState(saved?.query ?? "")
   const [settled, setSettled] = useState(saved?.settled ?? "")
-  const [searching, setSearching] = useState(true)
+  const [searchVisible, setSearchVisible] = useState(
+    saved?.searchVisible ?? false,
+  )
+  const [searching, setSearching] = useState(saved?.searchVisible ?? false)
   const [expanded, setExpanded] = useState<Set<number>>(
     () =>
       saved?.expanded ??
       new Set(parsed.kind === "success" ? [parsed.root.id] : []),
   )
   const [selected, setSelected] = useState(saved?.selected ?? 0)
+  const pendingSelection = useRef<number | null>(null)
   const [searchOverrides, setSearchOverrides] = useState<Map<number, boolean>>(
     () => saved?.searchOverrides ?? new Map(),
   )
+  const [hovered, setHovered] = useState<string | null>(null)
   const [left, setLeft] = useState(0)
   const [top, setTop] = useState(0)
   const [size, setSize] = useState({ width: 60, height: 10 })
+  const viewportHeight = Math.max(1, size.height - (searchVisible ? 2 : 0))
   const active = focused && keymap.getData("app.overlay") === "none"
   const rows = useMemo(
     () =>
@@ -270,26 +237,48 @@ export function ResponseVisualBody({
         : [],
     [parsed, expanded, settled, size.width, searchOverrides],
   )
+  const matchCount = useMemo(() => {
+    if (!settled || parsed.kind !== "success") return 0
+    const needle = settled.toLowerCase()
+    const pending = [parsed.root]
+    let count = 0
+    while (pending.length) {
+      const node = pending.pop()!
+      if (
+        node.label.toLowerCase().includes(needle) ||
+        node.value.toLowerCase().includes(needle)
+      )
+        count++
+      for (const child of node.children) pending.push(child)
+    }
+    return count
+  }, [parsed, settled])
   const selectedIndex = Math.min(selected, Math.max(0, rows.length - 1))
+  useEffect(() => {
+    if (pendingSelection.current === null) return
+    const index = rows.findIndex(
+      (row) => row.node.id === pendingSelection.current,
+    )
+    pendingSelection.current = null
+    if (index < 0) return
+    setSelected(index)
+    const scroll = scrollRef.current
+    if (scroll && index < scroll.scrollTop) scroll.scrollTo(index)
+  }, [rows])
   const start = Math.max(0, Math.min(Math.floor(top) - 3, rows.length - 1))
-  const end = Math.min(rows.length, start + size.height + 6)
+  const end = Math.min(rows.length, start + viewportHeight + 6)
   const contentWidth = useMemo(
     () =>
       rows.reduce(
         (max, row) =>
           Math.max(
             max,
-            row.columns
+            row.open && row.node.kind === "value"
               ? indentWidth(row) +
-                  2 +
-                  row.columns.at(-1)!.offset +
-                  row.columns.at(-1)!.width
-              : row.open && row.node.kind === "value"
-                ? indentWidth(row) +
-                  4 +
-                  stringWidth(singleLine(row.node.label)) +
+                  11 +
+                  row.nameWidth +
                   stringWidth(singleLine(row.node.value))
-                : size.width,
+              : size.width,
           ),
         size.width,
       ),
@@ -301,12 +290,22 @@ export function ResponseVisualBody({
     sessionRef.current = {
       parsed,
       query,
+      searchVisible,
       settled,
       expanded,
       selected,
       searchOverrides,
     }
-  }, [sessionRef, parsed, query, settled, expanded, selected, searchOverrides])
+  }, [
+    sessionRef,
+    parsed,
+    query,
+    searchVisible,
+    settled,
+    expanded,
+    selected,
+    searchOverrides,
+  ])
 
   useEffect(() => {
     if (lastParsed.current === parsed) return
@@ -317,7 +316,8 @@ export function ResponseVisualBody({
     setExpanded(new Set(parsed.kind === "success" ? [parsed.root.id] : []))
     setSelected(0)
     setTop(0)
-    setSearching(true)
+    setSearchVisible(false)
+    setSearching(false)
     scrollRef.current?.scrollTo({ x: 0, y: 0 })
   }, [parsed])
   useEffect(() => {
@@ -333,13 +333,18 @@ export function ResponseVisualBody({
     scrollRef.current?.scrollTo({ x: 0, y: 0 })
   }, [settled])
   useEffect(() => {
-    onSearchFocusChange(active && searching)
-    if (active && searching) inputRef.current?.focus()
+    onSearchFocusChange(active && searchVisible)
+    if (active && searching && searchVisible) inputRef.current?.focus()
     else inputRef.current?.blur()
     return () => onSearchFocusChange(false)
-  }, [active, searching, onSearchFocusChange])
+  }, [active, searching, searchVisible, onSearchFocusChange])
   useEffect(() => {
-    searchRef.current = { focus: () => setSearching(true) }
+    searchRef.current = {
+      focus: () => {
+        setSearchVisible(true)
+        setSearching(true)
+      },
+    }
     return () => {
       searchRef.current = null
     }
@@ -360,17 +365,28 @@ export function ResponseVisualBody({
 
   const toggle = (index: number) => {
     const row = rows[index]
-    if (!row || row.header) return
+    if (!row || !canExpand(row, size.width)) return
+    pendingSelection.current = row.node.id
+    const siblings = rows.filter(
+      (candidate) =>
+        candidate.parent === row.parent && candidate.node.id !== row.node.id,
+    )
     if (settled) {
-      setSearchOverrides((previous) =>
-        new Map(previous).set(row.node.id, !row.open),
-      )
+      setSearchOverrides((previous) => {
+        const next = new Map(previous)
+        if (!row.open)
+          for (const sibling of siblings) next.set(sibling.node.id, false)
+        return next.set(row.node.id, !row.open)
+      })
       return
     }
     setExpanded((previous) => {
       const next = new Set(previous)
       if (next.has(row.node.id)) next.delete(row.node.id)
-      else next.add(row.node.id)
+      else {
+        for (const sibling of siblings) next.delete(sibling.node.id)
+        next.add(row.node.id)
+      }
       return next
     })
   }
@@ -382,9 +398,13 @@ export function ResponseVisualBody({
           if (!focused || keymap.getData("app.overlay") !== "none") return
           const key = ctx.event
           if (key.ctrl || key.meta || key.option) return
-          if (searching) {
-            if (key.name !== "return" && key.name !== "escape") return
+          if (searchVisible && key.name === "escape") {
+            setSearchVisible(false)
             setSearching(false)
+            setQuery("")
+            setSettled("")
+          } else if (searching) {
+            return
           } else if (
             key.shift &&
             (key.name === "left" || key.name === "right")
@@ -400,27 +420,21 @@ export function ResponseVisualBody({
           ) {
             let next = selectedIndex
             const distance = key.name.startsWith("page")
-              ? Math.max(1, size.height - 1)
+              ? Math.max(1, viewportHeight - 1)
               : 1
             if (key.name === "home") next = 0
             else if (key.name === "end") next = rows.length - 1
             else
               next += ["up", "pageup"].includes(key.name) ? -distance : distance
+            if (key.name === "up" && next < 0) next = rows.length - 1
+            if (key.name === "down" && next >= rows.length) next = 0
             next = Math.max(0, Math.min(rows.length - 1, next))
-            if (rows[next]?.header)
-              next = Math.max(
-                0,
-                Math.min(
-                  rows.length - 1,
-                  next + (next < selectedIndex ? -1 : 1),
-                ),
-              )
             setSelected(next)
             const scroll = scrollRef.current
             if (scroll) {
               if (next < scroll.scrollTop) scroll.scrollTo(next)
-              else if (next >= scroll.scrollTop + size.height)
-                scroll.scrollTo(next - size.height + 1)
+              else if (next >= scroll.scrollTop + viewportHeight)
+                scroll.scrollTo(next - viewportHeight + 1)
             }
           } else if (key.name === "return") toggle(selectedIndex)
           else return
@@ -429,7 +443,15 @@ export function ResponseVisualBody({
         },
         { priority: 80 },
       ),
-    [keymap, focused, searching, selectedIndex, rows, size.height],
+    [
+      keymap,
+      focused,
+      searching,
+      searchVisible,
+      selectedIndex,
+      rows,
+      viewportHeight,
+    ],
   )
 
   const highlight = (text: string) => {
@@ -461,6 +483,12 @@ export function ResponseVisualBody({
 
   return (
     <box
+      onSizeChange={function () {
+        setSize({
+          width: Math.max(1, this.width - 1),
+          height: Math.max(1, this.height - 1),
+        })
+      }}
       style={{
         flexDirection: "column",
         flexGrow: 1,
@@ -468,25 +496,29 @@ export function ResponseVisualBody({
         overflow: "hidden",
       }}
     >
-      <box style={{ flexDirection: "row", flexShrink: 0 }}>
-        <text fg={theme.textMuted}>Search </text>
-        <input
+      {searchVisible && (
+        <ResponseFilter
           id="response-visual-search"
-          ref={inputRef}
+          inputRef={inputRef}
           value={query}
           onInput={setQuery}
           placeholder="Keys or values…"
-          backgroundColor={theme.background}
-          focusedBackgroundColor={theme.background}
-          textColor={theme.text}
-          cursorColor={theme.primary}
           onMouseDown={() => {
             onPaneFocus?.()
             setSearching(true)
           }}
-          style={{ flexGrow: 1 }}
-        />
-      </box>
+        >
+          {settled ? (
+            <text
+              fg={theme.success}
+            >{`${matchCount} match${matchCount === 1 ? "" : "es"}`}</text>
+          ) : (
+            <text fg={theme.textMuted}>
+              Enter a key or value to filter this response
+            </text>
+          )}
+        </ResponseFilter>
+      )}
       {parsed.kind !== "success" ? (
         <text fg={parsed.kind === "error" ? theme.warning : theme.textMuted}>
           {parsed.message}
@@ -499,12 +531,6 @@ export function ResponseVisualBody({
           ref={scrollRef}
           scrollX
           scrollY
-          onSizeChange={function () {
-            setSize({
-              width: Math.max(1, this.width - 1),
-              height: Math.max(1, this.height - 1),
-            })
-          }}
           verticalScrollbarOptions={{
             trackOptions: {
               backgroundColor: theme.background,
@@ -530,15 +556,18 @@ export function ResponseVisualBody({
                 height={1}
                 width={contentWidth}
                 backgroundColor={
-                  !searching && focused && selectedIndex === start + offset
+                  active &&
+                  ((!searching && selectedIndex === start + offset) ||
+                    hovered === row.key)
                     ? theme.backgroundElement
                     : undefined
                 }
+                onMouseOver={() => setHovered(row.key)}
+                onMouseOut={() => setHovered(null)}
                 onMouseDown={(event) => {
                   if (
                     event.button !== MouseButton.LEFT ||
-                    keymap.getData("app.overlay") !== "none" ||
-                    row.header
+                    keymap.getData("app.overlay") !== "none"
                   )
                     return
                   onPaneFocus?.()
@@ -548,19 +577,17 @@ export function ResponseVisualBody({
                   event.stopPropagation()
                 }}
               >
-                {(() => {
-                  const display = rowText(row, size.width, left, settled)
-                  return (
-                    <text
-                      position="absolute"
-                      left={display.offset}
-                      wrapMode="none"
-                      fg={row.header ? theme.primary : theme.text}
-                    >
-                      {highlight(display.text)}
-                    </text>
-                  )
-                })()}
+                {rowText(row, size.width, left, settled).map((part, index) => (
+                  <text
+                    key={index}
+                    position="absolute"
+                    left={part.offset}
+                    wrapMode="none"
+                    fg={theme[part.color]}
+                  >
+                    {highlight(part.text)}
+                  </text>
+                ))}
               </box>
             ))}
           </box>

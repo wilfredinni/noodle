@@ -339,7 +339,7 @@ describe("getContextualSegments", () => {
     })
     expect(r.footer).toMatchObject([
       seg("click", "source"),
-      seg("Enter", "browse"),
+      seg("Esc", "close filter"),
       seg("^alt+b", "copy"),
       seg("f2", "expand"),
     ])

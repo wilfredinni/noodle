@@ -40,6 +40,7 @@ import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { CookieRow, cookieDetails, cookieNameWidth } from "./CookieRow"
+import { ResponseFilter } from "./ResponseFilter"
 import { ResponseResults } from "./ResponseResults"
 import {
   ResponseVisualBody,
@@ -762,22 +763,12 @@ export function ResponsePane({
                 }}
               >
                 {queryVisible && bodyView === "source" && (
-                  <box
-                    style={{ flexDirection: "column", gap: 0, flexShrink: 0 }}
+                  <ResponseFilter
+                    inputRef={queryInputRef}
+                    value={query}
+                    placeholder="$.data.items[*].id"
+                    onInput={setQuery}
                   >
-                    <box style={{ flexDirection: "row", gap: 1 }}>
-                      <input
-                        ref={queryInputRef}
-                        value={query}
-                        placeholder="$.data.items[*].id"
-                        onInput={setQuery}
-                        backgroundColor={theme.background}
-                        focusedBackgroundColor={theme.background}
-                        textColor={theme.text}
-                        cursorColor={theme.primary}
-                        style={{ flexGrow: 1 }}
-                      />
-                    </box>
                     {queryResult?.kind === "success" ? (
                       <text fg={theme.success}>
                         {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
@@ -793,7 +784,7 @@ export function ResponsePane({
                         Enter a JSONPath expression to filter this response
                       </text>
                     ) : null}
-                  </box>
+                  </ResponseFilter>
                 )}
                 {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (
                   <box

@@ -396,9 +396,8 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         ...(ctx.queryVisible
           ? [
               {
-                key: ctx.responseBodyView === "visual" ? "Enter" : "Esc",
-                word:
-                  ctx.responseBodyView === "visual" ? "browse" : "close filter",
+                key: "Esc",
+                word: "close filter",
               },
             ]
           : [
