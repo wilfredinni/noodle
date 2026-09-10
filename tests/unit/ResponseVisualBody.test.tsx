@@ -179,6 +179,30 @@ async function mount(
 }
 
 describe("visual response body", () => {
+  it("toggles details with Space without intercepting search spaces or overlay keys", async () => {
+    const view = await mount('{"user":{"name":"Alice Smith"}}')
+    await view.visual()
+    await view.press("down")
+    await view.press("space")
+    expect(view.captureCharFrame()).toContain('"Alice Smith"')
+    view.keymap.setData("app.overlay", "help")
+    await view.press("space")
+    expect(view.captureCharFrame()).toContain('"Alice Smith"')
+    view.keymap.setData("app.overlay", "none")
+    await view.press("space")
+    expect(view.captureCharFrame()).not.toContain('"Alice Smith"')
+    await view.press("return")
+    expect(view.captureCharFrame()).toContain('"Alice Smith"')
+    await view.press("down")
+    await view.press("space")
+    expect(view.captureCharFrame()).toContain('"Alice Smith"')
+    await view.search("Alice Smith")
+    expect(view.captureCharFrame()).toContain("1 match")
+    expect(view.renderer.currentFocusedRenderable?.id).toBe(
+      "response-visual-search",
+    )
+  })
+
   it("shares Source filter geometry, match status, and Escape lifecycle", async () => {
     const source = await mount('{"name":"Alice"}')
     const visual = await mount('{"name":"Alice"}')
@@ -461,6 +485,45 @@ describe("visual response body", () => {
     expect(lines[2]).toContain('name: "Patricia Lebsack"')
   })
 
+  it("gives long preview fields the remaining space and adapts on resize", async () => {
+    const name = "x".repeat(65) + "END"
+    const view = await mount(
+      JSON.stringify([
+        { postId: 1, id: 1, name },
+        { postId: 10, id: 100, name: "short" },
+      ]),
+      140,
+    )
+    await view.visual()
+    const settle = async () => {
+      await act(async () => {
+        await view.waitForVisualIdle()
+      })
+      await view.render()
+    }
+    await settle()
+    expect(view.captureCharFrame()).toContain(name)
+    await act(async () => {
+      view.resize(80, 20)
+    })
+    await settle()
+    const lines = view
+      .captureCharFrame()
+      .split("\n")
+      .filter((line) => line.includes("postId:"))
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toContain("…")
+    expect(lines[0]).not.toContain("END")
+    expect(lines[1]).toContain('name: "short"')
+    expect(lines[0]!.indexOf("name:")).toBe(lines[1]!.indexOf("name:"))
+    expect(lines[0]).toContain("x".repeat(20))
+    await act(async () => {
+      view.resize(140, 20)
+    })
+    await settle()
+    expect(view.captureCharFrame()).toContain(name)
+  })
+
   it("finds matches beyond truncated previews in large heterogeneous lists", async () => {
     const view = await mount(
       JSON.stringify(
@@ -711,6 +774,7 @@ describe("visual response body", () => {
           frame.includes("[3999]"),
       )
     })
+    await view.render()
     expect(view.captureCharFrame()).toContain("[3999]")
     expect(scroll.width).toBeLessThan(42)
   })

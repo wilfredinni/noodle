@@ -94,6 +94,14 @@ function buildRows(
       preview,
     })
     if (!open || node.kind === "value") continue
+    const childNameWidth = Math.min(
+      24,
+      Math.max(6, Math.floor((width - Math.min(depth + 1, 12) * 2 - 11) / 2)),
+      children.reduce(
+        (max, child) => Math.max(max, stringWidth(singleLine(child.label)) + 2),
+        0,
+      ),
+    )
     if (node.kind === "array") {
       const records = node.children
         .filter((child) => child.kind === "object")
@@ -103,7 +111,7 @@ function buildRows(
             .slice(0, 3)
             .map(
               (child) =>
-                `${singleLine(child.label)}: ${truncateToWidth(singleLine(visualSummary(child)), 32)}`,
+                `${singleLine(child.label)}: ${singleLine(visualSummary(child))}`,
             ),
         }))
       const widths = [0, 0, 0]
@@ -111,29 +119,42 @@ function buildRows(
         cells.forEach((cell, index) => {
           widths[index] = Math.max(widths[index]!, stringWidth(cell))
         })
+      const columns = widths
+        .map((natural, index) => ({ natural, index }))
+        .filter(({ natural }) => natural > 0)
+        .sort((a, b) => a.natural - b.natural)
+      let remaining = Math.max(
+        0,
+        width -
+          Math.min(depth + 1, 12) * 2 -
+          12 -
+          childNameWidth -
+          Math.max(0, columns.length - 1) * 3,
+      )
+      columns.forEach(({ natural, index }, position) => {
+        widths[index] = Math.min(
+          natural,
+          Math.max(1, Math.floor(remaining / (columns.length - position))),
+        )
+        remaining -= widths[index]!
+      })
       for (const { id, cells } of records)
         if (cells.length)
           previews.set(
             id,
             cells
-              .map(
-                (cell, index) =>
-                  cell +
+              .map((cell, index) => {
+                const clipped = truncateToWidth(cell, widths[index]!)
+                return (
+                  clipped +
                   (index < cells.length - 1
-                    ? " ".repeat(widths[index]! - stringWidth(cell))
-                    : ""),
-              )
+                    ? " ".repeat(widths[index]! - stringWidth(clipped))
+                    : "")
+                )
+              })
               .join(" · "),
           )
     }
-    const childNameWidth = Math.min(
-      24,
-      Math.max(6, Math.floor((width - Math.min(depth + 1, 12) * 2 - 11) / 2)),
-      children.reduce(
-        (max, child) => Math.max(max, stringWidth(singleLine(child.label)) + 2),
-        0,
-      ),
-    )
     for (let index = children.length - 1; index >= 0; index--)
       pending.push({
         node: children[index]!,
@@ -228,7 +249,7 @@ export function ResponseVisualBody({
   const [left, setLeft] = useState(0)
   const [top, setTop] = useState(0)
   const [size, setSize] = useState({ width: 60, height: 10 })
-  const viewportHeight = Math.max(1, size.height - (searchVisible ? 2 : 0))
+  const viewportHeight = size.height
   const active = focused && keymap.getData("app.overlay") === "none"
   const rows = useMemo(
     () =>
@@ -355,9 +376,19 @@ export function ResponseVisualBody({
     if (!scroll) return
     const change = ({ position }: { position: number }) => setTop(position)
     const horizontal = ({ position }: { position: number }) => setLeft(position)
+    const resize = () => {
+      if (scroll.viewport.width === 0 || scroll.viewport.height === 0) return
+      setSize({
+        width: Math.max(1, scroll.viewport.width),
+        height: Math.max(1, scroll.viewport.height),
+      })
+    }
+    resize()
+    scroll.viewport.on("resize", resize)
     scroll.verticalScrollBar.on("change", change)
     scroll.horizontalScrollBar.on("change", horizontal)
     return () => {
+      scroll.viewport.off("resize", resize)
       scroll.verticalScrollBar.off("change", change)
       scroll.horizontalScrollBar.off("change", horizontal)
     }
@@ -436,7 +467,8 @@ export function ResponseVisualBody({
               else if (next >= scroll.scrollTop + viewportHeight)
                 scroll.scrollTo(next - viewportHeight + 1)
             }
-          } else if (key.name === "return") toggle(selectedIndex)
+          } else if (key.name === "return" || key.name === "space")
+            toggle(selectedIndex)
           else return
           key.preventDefault()
           key.stopPropagation()
@@ -483,12 +515,6 @@ export function ResponseVisualBody({
 
   return (
     <box
-      onSizeChange={function () {
-        setSize({
-          width: Math.max(1, this.width - 1),
-          height: Math.max(1, this.height - 1),
-        })
-      }}
       style={{
         flexDirection: "column",
         flexGrow: 1,
