@@ -73,8 +73,10 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 | `focus_prev` | `Shift+Tab` | Previous pane in focus cycle | yes |
 | `layout_toggle` | `Ctrl+L` | Toggle layout (stacked / side-by-side) | no |
 | `pane_expand` | `F2` | Expand/collapse focused pane | no |
-| `response_copy_body` | `Ctrl+B` | Copy response body to clipboard | no |
-| `response_query` | `/` | Filter the response with JSONPath | no |
+| `response_copy_body` | `Ctrl+Alt+B` | Copy response body to clipboard | no |
+| `response_query` | `/` | JSONPath in Source or literal text search in Visual (Body tab focused) | no |
+| `response_body_view` | `m` | Toggle Source / Visual (Body tab focused) | no |
+| `sidebar_toggle` | `Ctrl+B` | Toggle the main sidebar | yes |
 | `request_edit_yaml` | `Ctrl+Alt+E` | Edit request YAML in overlay | no |
 | `request_edit_overlay` | `Ctrl+E` | Edit request in overlay | no |
 | `browse_toggle_form_type` | `Ctrl+T` | Toggle form entry text/file in request browse mode | no |
@@ -90,7 +92,7 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 | `cookie_delete_domain` | `Ctrl+D` | Delete selected cookie | no |
 | `cookie_clear` | `Ctrl+Alt+W` | Clear the cookie jar | no |
 | `cookie_new` | `Ctrl+N` | Add a cookie | no |
-| `cookie_copy` | `Ctrl+B` | Copy selected cookie | no |
+| `cookie_copy` | `Ctrl+Alt+B` | Copy selected cookie | no |
 
 The remaining browse and edit mode keys (`request_edit`, `browse_up`,
 `browse_down`, `browse_left`, `browse_right`, `browse_enter`, `browse_escape`,

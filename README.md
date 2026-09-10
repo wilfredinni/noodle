@@ -92,6 +92,14 @@ Choose `system` in the Ctrl+T theme picker to follow your terminal's palette.
 Noodle refreshes colors when the terminal reports a theme change and falls back
 to Noodle colors when detection is unavailable.
 
+Focus the response Body tab and press `m`, or click the footer action, to switch
+between Source and Visual. Visual turns JSON and XML into expandable rows and
+compact tables; `/` searches labels and values. Source keeps JSONPath filtering.
+Copy the response body with Ctrl+Alt+B.
+
+Hide or show the sidebar with Ctrl+B. Tab skips it while hidden; `g` then `s`
+reopens it and focuses the request tree.
+
 ## Environment-aware without leaking secrets
 
 Switch between development, staging, and production variables. Secret

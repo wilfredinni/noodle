@@ -4,6 +4,27 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-09-11
+
+![Noodle Visual response view with expandable JSON rows](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/visual-response.png)
+
+Noodle 0.8.6 adds a Visual response view for exploring JSON and XML through expandable rows, compact tables, and text search. A collapsible sidebar gives the response more room, with updated copy shortcuts keeping common actions close at hand.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-6-response-visualization/)
+
+### ✨ Features
+
+- Switch between Source and Visual from the response footer or with `m` while the Body tab is focused. Visual renders JSON and XML as expandable trees, compact object previews, and tables where the data fits; expand rows with Return, Space, or a click.
+- Search Visual response labels and values with `/`. Case-insensitive literal matches are highlighted with their surrounding structure, and Escape clears the filter. Source keeps its JSONPath filtering, while copying from Visual returns the original response body.
+- Hide or show the main sidebar with `Ctrl+B` or Toggle Sidebar in the command palette. Tab navigation skips the hidden sidebar, and `g` then `s` reopens and focuses it. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#218](https://github.com/wilfredinni/noodle/pull/218).
+- Move the default response-body and cookie-copy shortcuts to `Ctrl+Alt+B` to make room for sidebar toggling.
+
+### 📚 Documentation
+
+- Document Visual response browsing, search, sidebar toggling, and the updated shortcuts in the README, agent instructions, in-app tips, and documentation site.
+- Update `noodle-dev` with Visual rendering, copy and large-body boundaries, and sidebar focus behavior.
+- Update `noodle-use` with the current sidebar, response-view, filtering, and copy keybindings.
+
 ## [0.8.5] - 2026-09-06
 
 Noodle 0.8.5 adds OAuth 2 endpoint discovery, a System theme that follows your terminal, and a compact request pane that reveals Assert and Capture when needed. It also strengthens secret redaction in run results and newly saved timeline history, preserves literal dollar signs through OAuth and code generation, and makes automation failures easier to diagnose.

@@ -233,6 +233,7 @@ tests/integration/ # Integration tests
 - **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`. In environment browse mode, configurable `env_secret` (`s`) toggles secure storage and `env_reveal` (`r`) reveals the selected secret for the session.
 - **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers, auth credentials, OAuth signatures, assertions, and tokens before persistence. Response headers and bodies receive the same known-secret redaction, sensitive response headers such as `Set-Cookie` are field-masked, and body redaction happens before compression into sidecars. Marking or updating a secret does not rewrite existing history. Capture declarations persist in request YAML but are excluded from timeline snapshots; capture results and RunScope values are not persisted, and automation runs do not create timeline entries. Timeline YAML and gzip sidecars may still contain sensitive public variables or server data that Noodle does not know is secret.
 - **Cookie jar security:** Jar contents are encrypted at rest (`~/.config/noodle/cookies/`), jar-sent `Cookie` headers and response `Set-Cookie` headers are masked in timeline snapshots, and short cookie values are not used as unrestricted substring-redaction tokens.
+- **Visual response view:** `m` or the footer action switches the focused Body tab between Source and Visual. `ResponseVisualBody` renders JSON/XML parsed by `responseVisual.ts` as expandable rows and compact tables. `/` searches labels and values literally, case-insensitively; Source retains JSONPath. Visual copying returns the original body. Preserve the 5 MiB opt-in rendering guard and response-scoped search/expansion state.
 - **Response body editor:** `ResponsePane` renders bodies through a read-only `CodeEditorRenderable`; JSON folds retain source line numbers, XML responses use XML highlighting, the gutter owns fold signs, and copy operations must return original source text even when rows are folded.
 
 ## Keybindings (defaults; customizable via `~/.config/noodle/keybinds.yml`)
@@ -266,7 +267,8 @@ command_palette: ctrl+p
 | `Ctrl+E` | Edit request in overlay |
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
 | `Ctrl+Alt+B` | Copy response body |
-| `/` | Filter response body with JSONPath (when the response pane is focused) |
+| `m` | Toggle Source / Visual (response Body tab focused) |
+| `/` | Filter the focused Body tab with JSONPath in Source or text search in Visual |
 | `Ctrl+Alt+N` | New folder |
 | `Ctrl+O` | Open collection switcher |
 | `Ctrl+Z` | Undo all unsaved changes |
