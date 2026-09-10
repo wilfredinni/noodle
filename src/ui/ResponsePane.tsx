@@ -813,9 +813,7 @@ export function ResponsePane({
                             : undefined,
                         }}
                       >
-                        <text fg={theme.textMuted}>
-                          v view body · ctrl+b copy
-                        </text>
+                        <text fg={theme.textMuted}>v view body</text>
                       </box>
                     </box>
                   </box>

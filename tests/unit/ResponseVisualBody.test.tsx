@@ -840,6 +840,8 @@ describe("visual response body", () => {
     const view = await mount('"' + "x".repeat(5 * 1024 * 1024) + '"')
     await view.visual()
     expect(view.captureCharFrame()).toContain("not rendered automatically")
+    expect(view.captureCharFrame()).toContain("v view body")
+    expect(view.captureCharFrame()).not.toContain("ctrl+b copy")
     expect(
       view.renderer.root.findDescendantById("response-visual-search"),
     ).toBeUndefined()
