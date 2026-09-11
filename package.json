@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@opentui/core": "^0.5.10",
+    "@opentui/core": "^0.5.11",
     "@opentui/keymap": "^0.5.10",
     "@opentui/react": "^0.5.10",
     "aws4": "^1.13.2",
