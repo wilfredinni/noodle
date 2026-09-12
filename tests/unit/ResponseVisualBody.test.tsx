@@ -16,7 +16,12 @@ import { CookieRow } from "../../src/ui/CookieRow"
 import { useTheme } from "../../src/ui/theme"
 import { getKeybindingHints } from "../../src/ui/keybindingHints"
 import { bindingDefaults } from "../../src/ui/keybind"
-import { RequestResponseView } from "../../src/ui/RequestResponseView"
+import { MainView } from "../../src/ui/MainView"
+import {
+  toggleSidebarVisible,
+  type CommandActionsConfig,
+} from "../../src/ui/commandActions"
+import type { Focus } from "../../src/ui/focus"
 import type { UseRequestDraftResult } from "../../src/hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../../src/hooks/useEditBrowse"
 import { initialEditState } from "../../src/ui/editMode"
@@ -544,7 +549,7 @@ describe("visual response body", () => {
   })
 
   for (const layout of ["stacked", "side-by-side"] as const) {
-    it(`renders the visualization in the actual ${layout} request/response layout`, async () => {
+    it(`keeps the ${layout} Visual layout free of scrollbar artifacts while toggling the sidebar`, async () => {
       const raw = createTestKeymap()
       const keymap = raw.keymap as unknown as Keymap<Renderable, KeyEvent>
       keymap.setData("app.overlay", "none")
@@ -574,38 +579,78 @@ describe("visual response body", () => {
         editValue: "",
         activeTab: "headers",
       } as unknown as UseEditBrowseResult
-      const view = await testRender(
-        <KeymapProvider keymap={keymap}>
-          <box height="100%" flexDirection="column">
-            <RequestResponseView
-              draft={draft}
-              eb={eb}
-              error={null}
-              focus="response"
-              layout={layout}
-              expanded={null}
-              activeEnv={null}
-              responseState={{
-                status: "done",
-                response: {
-                  status: 200,
-                  statusText: "OK",
-                  headers: {},
-                  body,
-                  timeMs: 14,
-                },
-              }}
-              timelineEntries={[]}
-              onResponseTabChange={() => {}}
-              setSelectOpen={() => {}}
-              urlbarSubFocus="text"
-              urlbarInteractive={false}
-              responseQueryRef={controller}
-            />
-          </box>
-        </KeymapProvider>,
-        { width: 150, height: 36 },
-      )
+      let toggleSidebar!: () => void
+      registerDefaultKeys(keymap)
+      registerEnabledFields(keymap)
+      keymap.registerLayer({
+        commands: [{ name: "sidebar.toggle", run: () => toggleSidebar() }],
+        bindings: [{ key: "ctrl+b", cmd: "sidebar.toggle" }],
+      })
+      function Harness() {
+        const [sidebarVisible, setSidebarVisible] = useState(true)
+        const [focus, setFocus] = useState<Focus>("response")
+        toggleSidebar = () =>
+          toggleSidebarVisible(
+            {
+              sidebarVisibleRef: { current: sidebarVisible },
+              focusRef: { current: focus },
+              folderViewRef: { current: false },
+            } as CommandActionsConfig,
+            setFocus,
+            setSidebarVisible,
+          )
+        return (
+          <KeymapProvider keymap={keymap}>
+            <box height="100%" flexDirection="column">
+              <MainView
+                collectionDir="/tmp/noodle-sidebar-test"
+                keybinds={bindingDefaults()}
+                onInitialize={() => {}}
+                onCreateRequest={() => {}}
+                onCollectionErrorSaved={() => {}}
+                items={[{ type: "request", data: draft.draft! }]}
+                loading={false}
+                visibleItems={[]}
+                cursorIndex={0}
+                selectedId="users"
+                expandedFolders={new Set()}
+                focusedFolderPresent={false}
+                folderDraft={
+                  { dirtyPaths: new Set() } as Parameters<
+                    typeof MainView
+                  >[0]["folderDraft"]
+                }
+                folderEb={{} as Parameters<typeof MainView>[0]["folderEb"]}
+                sidebarVisible={sidebarVisible}
+                draft={draft}
+                eb={eb}
+                error={null}
+                focus={focus}
+                layout={layout}
+                expanded={null}
+                activeEnv={null}
+                responseState={{
+                  status: "done",
+                  response: {
+                    status: 200,
+                    statusText: "OK",
+                    headers: {},
+                    body,
+                    timeMs: 14,
+                  },
+                }}
+                timelineEntries={[]}
+                onResponseTabChange={() => {}}
+                setSelectOpen={() => {}}
+                urlbarSubFocus="text"
+                urlbarInteractive
+                responseQueryRef={controller}
+              />
+            </box>
+          </KeymapProvider>
+        )
+      }
+      const view = await testRender(<Harness />, { width: 150, height: 36 })
       await act(async () => {
         await view.renderOnce()
       })
@@ -615,6 +660,35 @@ describe("visual response body", () => {
       await act(async () => {
         await view.renderOnce()
       })
+      expect(view.renderer.getCursorState().visible).toBe(false)
+      const toggleFrames: string[] = []
+      const recordFrame = () => {
+        toggleFrames.push(view.captureCharFrame())
+      }
+      view.renderer.on("frame", recordFrame)
+      for (let index = 0; index < 4; index++) {
+        await act(async () => {
+          raw.host.press("b", { ctrl: true })
+        })
+        await act(async () => {
+          await view.waitForVisualIdle()
+        })
+        await act(async () => {
+          await view.renderOnce()
+        })
+        const scroll = view.renderer.root.findDescendantById(
+          "response-visual-scroll",
+        ) as ScrollBoxRenderable
+        expect(scroll.verticalScrollBar.visible).toBe(false)
+        expect(scroll.horizontalScrollBar.visible).toBe(false)
+        expect(view.captureCharFrame()).not.toMatch(/[█▀▄▌▐]/)
+        expect(view.renderer.getCursorState().visible).toBe(false)
+        expect(view.captureCharFrame()).toContain("Response")
+        expect(view.captureCharFrame()).toContain("users")
+      }
+      view.renderer.off("frame", recordFrame)
+      expect(toggleFrames.length).toBeGreaterThan(0)
+      for (const frame of toggleFrames) expect(frame).not.toMatch(/[█▀▄▌▐]/)
       await act(async () => {
         controller.current?.open()
       })

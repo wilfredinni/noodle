@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, jest } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
 import { buildCommandPaletteCommands } from "../../src/ui/commands"
 import type { CommandBuilderContext } from "../../src/ui/commands"
@@ -1072,6 +1072,7 @@ describe("buildCommandPaletteCommands", () => {
     const ctx = minimalContext()
     let sidebarVisible = true
     let focus: Focus = "sidebar"
+    ctx.focusRef.current = focus
     ctx.sidebarVisibleRef.current = sidebarVisible
     ctx.setSidebarVisible = (newSidebarVisible) => {
       if (typeof newSidebarVisible === "function") {
@@ -1097,6 +1098,7 @@ describe("buildCommandPaletteCommands", () => {
     ctx.sidebarVisibleRef.current = true
     ctx.folderViewRef.current = true
     let focus: Focus = "sidebar"
+    ctx.focusRef.current = focus
     ctx.setFocus = (newFocus) => {
       if (typeof newFocus !== "function") {
         focus = newFocus
@@ -1108,26 +1110,31 @@ describe("buildCommandPaletteCommands", () => {
     expect(focus).toBe<Focus>("folder")
   })
 
-  it("sidebar.toggle opens the sidebar and changes current focus", () => {
-    const ctx = minimalContext()
-    let sidebarVisible = false
-    let focus: Focus = "urlbar"
-    ctx.sidebarVisibleRef.current = sidebarVisible
-    ctx.setSidebarVisible = (newSidebarVisible) => {
-      if (typeof newSidebarVisible === "function") {
-        sidebarVisible = newSidebarVisible(sidebarVisible)
-      }
+  for (const initialFocus of [
+    "urlbar",
+    "request",
+    "response",
+    "folder",
+  ] as const) {
+    for (const visible of [true, false]) {
+      it(`sidebar.toggle preserves ${initialFocus} focus when ${visible ? "hiding" : "showing"}`, () => {
+        const ctx = minimalContext()
+        ctx.focusRef.current = initialFocus
+        ctx.sidebarVisibleRef.current = visible
+        let sidebarVisible = visible
+        ctx.setSidebarVisible = (value) => {
+          sidebarVisible =
+            typeof value === "function" ? value(sidebarVisible) : value
+        }
+        const setFocus = jest.fn()
+        ctx.setFocus = setFocus
+        const cmd = buildCommandPaletteCommands(ctx).find(
+          (c) => c.id === "sidebar.toggle",
+        )!
+        expect(cmd.run()).toBe(true)
+        expect(sidebarVisible).toBe(!visible)
+        expect(setFocus).not.toHaveBeenCalled()
+      })
     }
-    ctx.setFocus = (newFocus) => {
-      if (typeof newFocus !== "function") {
-        focus = newFocus
-      }
-    }
-    const commands = buildCommandPaletteCommands(ctx)
-    const cmd = commands.find((c) => c.id === "sidebar.toggle")!
-    expect(cmd.label).toBe("Toggle Sidebar")
-    expect(cmd.run()).toBe(true)
-    expect(sidebarVisible).toBe(true)
-    expect(focus).toBe<Focus>("sidebar")
-  })
+  }
 })
