@@ -288,7 +288,7 @@ export function ResponseVisualBody({
   }, [rows])
   const start = Math.max(0, Math.min(Math.floor(top) - 3, rows.length - 1))
   const end = Math.min(rows.length, start + viewportHeight + 6)
-  const contentWidth = useMemo(
+  const minContentWidth = useMemo(
     () =>
       rows.reduce(
         (max, row) =>
@@ -299,11 +299,11 @@ export function ResponseVisualBody({
                   11 +
                   row.nameWidth +
                   stringWidth(singleLine(row.node.value))
-              : size.width,
+              : 0,
           ),
-        size.width,
+        0,
       ),
-    [rows, size.width],
+    [rows],
   )
   const lastParsed = useRef(parsed)
   const lastQuery = useRef(settled)
@@ -557,6 +557,7 @@ export function ResponseVisualBody({
           ref={scrollRef}
           scrollX
           scrollY
+          contentOptions={{ width: "100%", minWidth: minContentWidth }}
           verticalScrollbarOptions={{
             trackOptions: {
               backgroundColor: theme.background,
@@ -571,7 +572,7 @@ export function ResponseVisualBody({
           }}
           style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
         >
-          <box height={rows.length} width={contentWidth} flexShrink={0}>
+          <box height={rows.length} width="100%" flexShrink={0}>
             {rows.slice(start, end).map((row, offset) => (
               <box
                 key={row.key}
@@ -580,7 +581,7 @@ export function ResponseVisualBody({
                 top={start + offset}
                 left={0}
                 height={1}
-                width={contentWidth}
+                width="100%"
                 backgroundColor={
                   active &&
                   ((!searching && selectedIndex === start + offset) ||

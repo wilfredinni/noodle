@@ -444,7 +444,8 @@ export function toggleSidebarVisible(
 ): boolean {
   // Folder view has no URL bar, so collapsing must fall back to the folder pane.
   const collapsedFocus: Focus = c.folderViewRef.current ? "folder" : "urlbar"
-  setFocus(c.sidebarVisibleRef.current ? collapsedFocus : "sidebar")
+  if (c.sidebarVisibleRef.current && c.focusRef.current === "sidebar")
+    setFocus(collapsedFocus)
   setSidebarVisible((v) => !v)
   return true
 }
