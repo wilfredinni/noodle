@@ -17,7 +17,8 @@
   <a href="https://noodlerest.dev/">Website</a> ·
   <a href="https://noodlerest.dev/docs/">Docs</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="SECURITY.md">Security</a>
+  <a href="SECURITY.md">Security</a> ·
+  <a href="https://github.com/sponsors/wilfredinni">Sponsor</a>
 </p>
 
 ![Noodle terminal interface](assets/noodle.png)
@@ -225,6 +226,13 @@ noodle import ./specs/api.yaml --output ./collections
 - [CLI reference](https://noodlerest.dev/docs/getting-started/cli/)
 - [AI agent skills](https://noodlerest.dev/docs/guides/ai-agent-skills/)
 - [Changelog](CHANGELOG.md)
+
+## Sponsor
+
+Noodle is free and open source. If it saves you time, you can
+[sponsor its continued development](https://github.com/sponsors/wilfredinni).
+Sponsorship helps fund maintenance, bug fixes, documentation, platform testing,
+and thoughtful new features.
 
 ## Contributing
 
