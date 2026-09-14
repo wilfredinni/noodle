@@ -449,6 +449,7 @@ App (src/ui/App.tsx)
 - Folder cycle: `sidebar → folder` (2 panes, when selected item is a folder)
 - Env editor cycle: `env-sidebar → env-header → env-vars` (3 panes)
 - Cookie jar cycle: `cookie-sidebar → cookie-list` (2 panes)
+- Toggling the main sidebar preserves non-sidebar focus. Hiding the focused sidebar moves focus to the URL bar or folder pane; the sidebar jump reopens and focuses it.
 - Active pane gets **cyan border** (`theme.primary`) via `borders.ts` FullBorder/LeftBar presets
 - `toggleExpand()` switches between null, `"request"`, `"response"` — F2 expands/collapses focused pane
 - `getContextualSegments()` in `StatusBar.tsx` derives shortcut hints from focus, edit mode, view, collection mode, active tab, and response-filter visibility

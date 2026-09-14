@@ -4,6 +4,26 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-09-14
+
+Noodle 0.8.7 keeps your place while the sidebar changes: toggling it now preserves focus in the active URL, request, response, or folder pane. Response Visualization also stays clean during sidebar resizing, avoiding transient scrollbar artifacts in stacked and side-by-side layouts.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-7-focus-stays-put/)
+
+### 🐞 Fixes
+
+- Preserve the current URL bar, request, response, or folder focus when hiding or showing the main sidebar. Hiding the focused sidebar still moves focus to the URL bar or folder pane, and `g` then `s` continues to reopen and focus it.
+- Prevent transient scrollbar artifacts from appearing in Visual JSON and XML responses while sidebar toggling resizes either the stacked or side-by-side layout.
+
+### 🔧 Refactors
+
+- Update OpenTUI, React, JOSE, Bun types, lint-staged, Oxfmt, Oxlint, and related runtime and tooling dependencies.
+
+### 📚 Documentation
+
+- Add GitHub Sponsors metadata and a README link for supporting Noodle maintenance.
+- Update `noodle-dev` with sidebar focus preservation, resize-safe Visual response sizing, and current test guidance.
+
 ## [0.8.6] - 2026-09-11
 
 ![Noodle Visual response view with expandable JSON rows](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/visual-response.png)
