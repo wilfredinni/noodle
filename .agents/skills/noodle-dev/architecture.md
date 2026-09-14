@@ -379,26 +379,26 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      Modes: inactive → browsing (navigate) → editing (commit/cancel)
      commitEdit() dispatches to draftMutators
    → SAVE: lang/serialize.ts → filestore/save.ts (direct write)
-  → SEND: requests/send.ts pipeline:
-     1. mergeFolderOverrides(req, collection, path)
-     2. substitute(req, env) — $var replacement
-     3. Build URL with params
-     4. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop
-     5. Resolve proxy and TLS policy from RequestExecutionOptions for each leg
-     6. Merge matching jar cookies for this redirect leg unless `sendCookies: false`; explicit request cookies win by name
-     7. Apply OAuth 2 tokens, AWS SigV4 signing, OAuth 1.0a signing, or the NTLM handshake path as required
-     8. fetch() with proxy/TLS options and AbortSignal timeout
-     9. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
-     10. Manually follow HTTP(S) redirects; block downgrades, strip cross-origin credentials, and reapply allowed auth per leg
-  → shared send paths use one declarative response sequence
-    (`executionResults.ts` owns steps 4-6):
-     1. Resolve environment values and create or reuse RunScope
-     2. Execute the substituted request
-     3. Build status, response.time, case-insensitive header, and JSON-body views
-     4. Evaluate captures in declaration order
-     5. Commit successful captures to RunScope
-     6. Evaluate assertions against the same views
-     7. Produce structured results and, for manual TUI sends only, safe timeline history
+  → SEND: requestLifecycle.ts shared sequence:
+     1. Merge folder overrides
+     2. Overlay RunScope values for substitution
+     3. Substitute the request once
+     4. Run an optional staged request-level pre-script in preRequestScript.ts
+     5. Commit successful script request and RunScope mutations
+     6. Pass only the prepared transport request to executor.send()
+     7. Evaluate and commit captures in executionResults.ts
+     8. Evaluate assertions against the same response views
+  → requests/send.ts transport-only executor pipeline:
+     1. Build URL with path and query params
+     2. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop
+     3. Resolve proxy and TLS policy for each leg
+     4. Merge matching jar cookies unless `sendCookies: false`; explicit request cookies win by name
+     5. Apply OAuth 2 tokens, AWS SigV4 signing, OAuth 1.0a signing, or the NTLM handshake path as required
+     6. fetch() with proxy/TLS options and AbortSignal timeout
+     7. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
+     8. Manually follow HTTP(S) redirects; block downgrades, strip cross-origin credentials, and reapply allowed auth per leg
+  → ResponseExecutionResults contains optional script, capture, and assertion groups
+     Script source, results, and logs stay transient; successful manual timeline request snapshots use the mutated prepared request
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
@@ -515,7 +515,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same runner evaluates captures and assertions, records ordered fail-fast skips, and aggregates fixed failure categories. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same shared lifecycle runs pre-request scripts, captures, and assertions, records ordered fail-fast skips, and aggregates fixed failure categories without aggregate script counters. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` script/capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `script`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 ### Extending assertions and response expressions
 
@@ -592,7 +592,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | File I/O                    | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts`                                                                                                                                                                                                                                                |
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
 | Secrets and redaction       | `src/secrets/index.ts`, `src/secrets/redact.ts`                                                                                                                                                                                                                                                                              |
-| Declarative response engine | `src/response.ts`, `src/assertions.ts`, `src/runScope.ts`, `src/executionResults.ts`                                                                                                                                                                                                                                          |
+| Request lifecycle and results | `src/requestLifecycle.ts`, `src/preRequestScript.ts`, `src/response.ts`, `src/assertions.ts`, `src/runScope.ts`, `src/executionResults.ts`                                                                                                                                                                                                                                          |
 | Cookie storage and UI       | `src/cookies/index.ts`, `src/hooks/useCollectionCookieJar.ts`, `src/hooks/useCookieJarView.ts`, `src/ui/cookie-jar/`, `src/ui/overlays/CookieFormOverlay.tsx`                                                                                                                  |
 | HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`, `src/requests/oauth1.ts`, `src/requests/oauth2.ts`, `src/requests/oauth2Browser.ts`                                                                                                                                              |
 | TLS and proxy policy        | `src/tls.ts`, `src/proxy.ts`                                                                                                                                                                                                                                                                                                 |

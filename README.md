@@ -66,7 +66,7 @@ cookies, status, timing, and network timeline in the same place.
 The request Assert and Capture tabs edit response checks and extracted values as
 structured rows, while request tags live in Settings. Manual sends use a fresh
 scope each time. Results stays available and gains a value indicator when the
-send has assertion or capture outcomes.
+send has script, assertion, or capture outcomes.
 
 Empty Assert and Capture tabs stay behind the request pane's `+` menu. Reveal
 them when needed; tabs with declarations remain visible. Press `g` then `o` to
@@ -163,6 +163,75 @@ array member. `matches` is a case-sensitive JavaScript regular expression with
 no flags; it is unanchored unless `^` or `$` is supplied and rejects unsafe or
 unsupported regex syntax.
 
+### Sandboxed pre-request scripts
+
+A request can run one synchronous inline script after folder merging and
+variable substitution, but before HTTP transport:
+
+```yaml
+scripts:
+  pre: |-
+    const timestamp = new Date().toISOString();
+    request.headers.set("X-Timestamp", timestamp);
+    request.headers.set(
+      "X-Signature",
+      crypto.hmacSha256(env.get("SIGNING_SECRET"), request.body.text() ?? "", "hex"),
+    );
+    request.body.setJson({ ...request.body.json(), sentAt: timestamp });
+    run.set("temporary_id", crypto.randomBytes(12, "hex"));
+```
+
+`scripts` must be a mapping containing only the string-valued `pre` member. An
+empty string is a valid no-op. Script source is emitted as a literal YAML block
+before `capture` and `assert`, and `$` references inside the source are never
+substituted.
+
+The public API is intentionally small:
+
+- `request.url` and `request.method` are readable and writable.
+- `request.headers` provides `get`, `has`, `set`, and `delete`; names are
+  case-insensitive.
+- `request.params` provides `get`, `getAll`, `set`, `append`, and `delete` for
+  enabled, case-sensitive query parameters. Disabled declarations are untouched.
+- `request.body` provides `text`, `json`, `setText`, `setJson`, and `clear`.
+- `request.auth` provides `clear`, `setBearer`, `setBasic`, and `setApiKey`.
+- `env.get(name)` reads only the selected environment.
+- `run.get`, `run.set`, and `run.unset` access the current transient RunScope.
+- `crypto.sha256`, `crypto.hmacSha256`, and `crypto.randomBytes` support exact
+  `hex` or `base64` output.
+- `console.log`, `info`, `warn`, and `error` capture bounded result logs.
+
+Request and RunScope changes commit only after the complete script succeeds.
+Request changes affect only the prepared in-memory copy. RunScope changes are
+committed before HTTP and can be used by later requests in the same collection
+run, even if transport, HTTP status, capture, or assertion handling later
+fails. A later successful capture can overwrite a script value. Manual sends
+and `request run` use a fresh scope, so `temporary_id` above is temporary unless
+a later request in the same collection run consumes it.
+
+Scripts run in a fresh QuickJS runtime and context with a fixed 64 MiB WASM
+memory, 32 MiB runtime memory, 512 KiB stack, 500 ms deadline, and 256 KiB UTF-8
+source limit. One bridged JSON value is limited to 256 KiB and depth 32. Random
+generation is limited to 4 KiB per call. Console capture keeps at most 100
+entries and 64 KiB of combined text, with serialization depth 4.
+
+The sandbox exposes no Bun, process, filesystem, shell, network, timer, worker,
+or host module APIs. Imports, returned Promises, and queued async work are not
+supported. Each invocation is disposed before the next request. Values crossing
+the boundary must be bounded JSON with safe keys, finite numbers, and plain or
+null-prototype objects.
+
+Treat collections containing scripts as trusted code. A script can read
+selected-environment secrets with `env.get`, place them in the prepared URL,
+headers, or body, and disclose them through the HTTP request that follows.
+
+The Results view shows script status, duration, log count, normalized error,
+and expandable redacted logs. Human CLI output reports status, duration, log
+count, and a redacted failure without printing log contents. `--json` includes
+the full redacted `scripts` result group. Script source, status, and logs are
+transient and are never stored in `.timeline`; successful manual timeline
+snapshots reflect the prepared request mutations.
+
 Captures can pass response values forward during a collection run or persist
 them after an individual manual send or `request run`:
 
@@ -194,13 +263,19 @@ results, never capture results or RunScope values.
 
 Every send follows one execution contract:
 
-1. Resolve the selected environment and overlay the current RunScope.
-2. Merge folder overrides, substitute variables, and execute the request.
-3. Construct the supported status, timing, header, and JSON-body views.
-4. Evaluate captures.
-5. Commit successful captures to RunScope; failed captures preserve prior values.
-6. Evaluate assertions against the same response.
-7. Return redacted structured results and, for manual TUI sends only, persist timeline history with known secrets and sensitive headers redacted from request, response, and assertion data.
+1. Merge folder overrides.
+2. Overlay the current RunScope on the selected environment for substitution.
+3. Substitute the request once.
+4. Run the request-level pre-script against a staged prepared copy.
+5. Commit successful script request and RunScope mutations.
+6. Send the prepared request through the HTTP transport.
+7. Evaluate and commit captures.
+8. Evaluate assertions.
+
+Results are redacted using declared secrets, secret RunScope values,
+credentials, sensitive headers, script-created secrets, and secrets discovered
+by transport. For manual TUI sends only, Noodle also persists the existing safe
+timeline record.
 
 `request run` and manual sends use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order, after

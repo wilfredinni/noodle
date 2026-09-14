@@ -1,0 +1,34 @@
+name: Mutated JSON POST
+method: POST
+url: $base_url/posts
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body: |-
+  {
+    "title": "Created by Noodle",
+    "body": "The pre-request script adds runtime metadata.",
+    "userId": 1
+  }
+body_type: json
+scripts:
+  pre: |-
+    const requestId = crypto.randomBytes(8, "hex");
+    request.body.setJson({
+      ...request.body.json(),
+      requestId,
+      sentAt: new Date().toISOString(),
+    });
+    request.headers.set("X-Request-ID", requestId);
+    run.set("last_request_id", requestId);
+    console.info("Prepared JSON body", { requestId });
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+  - expression: body.requestId
+    operator: isString
+  - expression: body.sentAt
+    operator: isString
+auth:
+  type: none

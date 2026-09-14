@@ -54,6 +54,46 @@ A failed assertion makes the command exit nonzero. Read structured results from
 `data.result.assertions`; known secrets are redacted from expected and actual
 values, but arbitrary server data remains visible.
 
+## Request with a sandboxed pre-request script
+
+Request (`signed/create.yml`):
+
+```yaml
+name: Create signed event
+method: POST
+url: $base_url/events
+body_type: json
+body: '{"name":"deploy"}'
+scripts:
+  pre: |-
+    const timestamp = new Date().toISOString();
+    request.body.setJson({ ...request.body.json(), timestamp });
+    request.headers.set("X-Timestamp", timestamp);
+    request.headers.set(
+      "X-Signature",
+      crypto.hmacSha256(env.get("signing_secret"), request.body.text(), "hex"),
+    );
+    run.set("temporary_nonce", crypto.randomBytes(12, "base64"));
+    console.info("prepared", timestamp);
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+```
+
+Declare `signing_secret` as a secret in the selected environment. The script
+source is literal, so `$name` text inside it is not environment substitution.
+The body and header changes apply only to the prepared request. During a
+collection run, `temporary_nonce` is available only to later requests and is
+discarded when the run ends. Human output reports the script status and log
+count without printing `console` messages; JSON places redacted logs in the
+request's `scripts` group.
+
+Use only synchronous `request`, `env`, `run`, `crypto`, and `console` APIs.
+Imports, fetch, timers, host modules, and Promises are unavailable. See
+[schema.md](../schema.md#inline-pre-request-script) for exact methods and fixed
+resource limits.
+
 ## Chained requests with response capture
 
 First request (`users/create-user.yml`):

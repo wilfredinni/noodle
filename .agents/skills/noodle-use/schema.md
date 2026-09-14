@@ -25,6 +25,7 @@ One request per file. Fields:
 | `file_path` | no | string | n/a | Path to file for binary uploads. `@/` starts at the user's home directory |
 | `auth` | no | map | n/a | Auth config. Omit for no auth |
 | `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
+| `scripts` | no | map | n/a | Inline request scripts. Only string-valued `pre` is supported |
 | `capture` | no | map | None | Response expressions captured as run-scoped variables |
 | `assert` | no | list | None | Response assertions evaluated by manual TUI sends and non-interactive run commands |
 
@@ -60,6 +61,103 @@ path_params:
 
 Noodle synchronizes path-param names with URL tokens. Values can use `$var`
 references and must resolve in the active environment before sending.
+
+### Inline pre-request script
+
+An optional `scripts` mapping may contain exactly one string-valued `pre`
+member. Empty mappings, unknown members, and non-string sources are invalid. An
+empty string is a valid no-op. Canonical YAML writes the source as a literal
+block immediately before `capture` and `assert`:
+
+```yaml
+scripts:
+  pre: |-
+    const timestamp = new Date().toISOString();
+    const body = request.body.json();
+    request.body.setJson({ ...body, timestamp });
+    request.headers.set(
+      "X-Signature",
+      crypto.hmacSha256(env.get("SIGNING_SECRET"), request.body.text(), "hex"),
+    );
+    run.set("request_nonce", crypto.randomBytes(16, "base64"));
+```
+
+Script source is never variable-substituted. The script runs synchronously
+after folder overrides and one substitution pass, but before HTTP. Request and
+RunScope changes are staged and all are discarded on an uncaught script
+failure. On complete success, request mutations apply only to the in-memory
+prepared copy and RunScope changes commit before HTTP. Those RunScope changes
+remain available to later requests in the same collection run even when HTTP,
+transport, capture, or assertion handling subsequently fails. A later capture
+can overwrite a script value. Manual sends and `request run` use fresh scopes.
+
+Public API:
+
+| Global | Members |
+| --- | --- |
+| `request` | Read/write `url: string` and `method: Method` |
+| `request.headers` | `get(name)`, `has(name)`, `set(name, value)`, `delete(name)` |
+| `request.params` | `get(name)`, `getAll(name)`, `set(name, value)`, `append(name, value)`, `delete(name)` |
+| `request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
+| `request.auth` | `clear()`, `setBearer(token)`, `setBasic(username, password)`, `setApiKey(key, value, placement)` |
+| `env` | `get(name)` |
+| `run` | `get(name)`, `set(name, value)`, `unset(name)` |
+| `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
+| `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
+
+Header names are case-insensitive. `set` preserves the first matching key's
+casing and position while removing duplicate case variants; `delete` removes
+all case variants. Parameter names are case-sensitive. Parameter operations
+affect only enabled declarations, preserve duplicate order, leave disabled
+declarations untouched, and append new entries at the end.
+
+`body.text()` returns JSON, XML, or raw text, and returns null for absent,
+multipart, URL-encoded, or binary bodies. `body.json()` parses the current
+textual body and throws for absent or invalid JSON. `setText`, `setJson`, and
+`clear` replace incompatible body, form-data, and file fields. `setJson` stores
+compact JSON with `body_type: json`; `clear` sets `body_type: none`.
+
+Auth helpers replace the complete prepared auth config. `setApiKey` placement
+is `header` or `query`. Auth arguments, HMAC secrets, and generated random
+values are known secrets. `env.get` reads only the selected environment and
+never RunScope overrides. `env` and `run` names match `^\w+$` and reject unsafe
+prototype names. `run.set` accepts only bounded JSON-compatible values. Crypto
+inputs are UTF-8 strings; encoding is exactly `hex` or `base64`; random size is
+an integer from 0 through 4096.
+
+The sandbox uses a fresh QuickJS runtime and context for each script with these
+fixed limits:
+
+| Limit | Value |
+| --- | ---: |
+| Execution deadline | 500 ms |
+| QuickJS runtime memory | 32 MiB |
+| QuickJS stack | 512 KiB |
+| UTF-8 source | 256 KiB |
+| Console entries | 100 |
+| Combined console text | 64 KiB |
+| Random bytes per call | 4 KiB |
+| One bridged value | 256 KiB |
+| Bridged JSON depth | 32 |
+| Console serialization depth | 4 |
+
+The shared WASM memory is fixed at 64 MiB. Bun, process, filesystem, shell,
+network, timer, worker, module-loader, and other host APIs are absent. Static
+and dynamic imports, returned Promises, queued jobs, and other async execution
+are unsupported. Bridged objects must be plain or null-prototype JSON without
+cycles, unsafe keys, non-finite numbers, or unsupported members.
+
+Treat collections containing scripts as trusted code. `env.get` can read
+selected-environment secrets, and a script can place them in the prepared URL,
+headers, or body that Noodle sends immediately afterward.
+
+Requests with scripts return a `scripts` group containing `evaluated` and one
+result with `phase: pre`, `scope: request`, `sourceKind: inline`, `success`,
+`durationMs`, redacted `logs`, and an optional normalized error. Preparation
+failures before script execution use `evaluated: false`; requests without a
+script omit the group. Human run output never prints logs. Script source,
+status, and logs are never stored in `.timeline`, while a successful manual
+timeline request snapshot reflects the prepared request mutations.
 
 ### Response captures
 
@@ -183,14 +281,14 @@ as sensitive response data.
 
 Every manual send and automation request follows this order:
 
-1. Resolve the environment and create or reuse the RunScope.
-2. Execute the substituted request.
-3. Construct the supported status, timing, header, and JSON-body response views.
-4. Evaluate captures in declaration order.
-5. Commit successful captures to the RunScope.
-6. Evaluate assertions against the same response views.
-7. Return the structured result and, for manual TUI sends only, persist safe
-   timeline history.
+1. Merge folder overrides.
+2. Overlay the current RunScope for substitution.
+3. Substitute the request once.
+4. Run the request-level pre-script against a staged prepared copy.
+5. Commit successful script request and RunScope mutations.
+6. Send the prepared request.
+7. Evaluate and commit captures in declaration order.
+8. Evaluate assertions against the same response views.
 
 Manual sends and `request run` use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order after target

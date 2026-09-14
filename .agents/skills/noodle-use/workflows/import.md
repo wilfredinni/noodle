@@ -122,7 +122,8 @@ Postman imports map:
 - Folder hierarchy → noodle folder structure
 - Folder auth → the matching nested `folder.yml` override
 - Request auth → inline `auth` on requests (or `inherit` if same as parent)
-- Pre-request scripts → not imported (noodle doesn't support scripts)
+- Pre-request scripts → not imported. Noodle supports request-level inline
+  `scripts.pre`, but automatic Postman script conversion remains unsupported.
 - Tests → not imported
 - Collection variables → environment file
 - Raw XML bodies → `body_type: xml` (from the raw language or XML Content-Type)
