@@ -92,6 +92,17 @@ export function serializeRequest(req: Request): string {
     out += `file_path: ${yamlVal(req.filePath)}\n`
   }
 
+  if (req.scripts) {
+    out += "scripts:\n"
+    const endsWithNewline = req.scripts.pre.endsWith("\n")
+    out += `  pre: |${endsWithNewline ? "+" : "-"}\n`
+    const source = endsWithNewline
+      ? req.scripts.pre.slice(0, -1)
+      : req.scripts.pre
+    const lines = source.split("\n")
+    for (const line of lines) out += `    ${line}\n`
+  }
+
   if (req.captures && Object.keys(req.captures).length > 0) {
     out += "capture:\n"
     for (const [variable, capture] of Object.entries(req.captures)) {
