@@ -8,6 +8,7 @@ import {
   type ResponseExpression,
 } from "./response"
 import { evaluateCaptures, type CaptureResult, RunScope } from "./runScope"
+import type { ScriptExecutionResult } from "./preRequestScript"
 import {
   environmentSecretValues,
   executionResultSecrets,
@@ -23,6 +24,7 @@ export interface ExecutionResultGroup<T> {
 }
 
 export interface ResponseExecutionResults {
+  scripts?: ExecutionResultGroup<ScriptExecutionResult>
   assertions?: ExecutionResultGroup<AssertionResult>
   captures?: ExecutionResultGroup<CaptureResult>
 }
@@ -44,7 +46,7 @@ export function executionSecretValues(
 }
 
 export function unevaluatedExecutionResults(
-  request: Pick<Request, "assertions" | "captures">,
+  request: Pick<Request, "scripts" | "assertions" | "captures">,
 ): ResponseExecutionResults {
   const hasCaptures = Object.values(request.captures ?? {}).some(
     (capture) => capture.enabled,
@@ -53,8 +55,32 @@ export function unevaluatedExecutionResults(
     (assertion) => assertion.enabled !== false,
   )
   return {
+    ...(request.scripts ? { scripts: { evaluated: false, results: [] } } : {}),
     ...(hasCaptures ? { captures: { evaluated: false, results: [] } } : {}),
     ...(hasAssertions ? { assertions: { evaluated: false, results: [] } } : {}),
+  }
+}
+
+export function redactScriptExecutionResult(
+  result: ScriptExecutionResult,
+  secretValues: readonly RedactionSecret[],
+): ScriptExecutionResult {
+  const redact = (value: string) => redactKnownSecrets(value, secretValues)
+  return {
+    ...result,
+    logs: result.logs.map((entry) => ({
+      ...entry,
+      message: redact(entry.message),
+    })),
+    ...(result.error
+      ? {
+          error: {
+            ...result.error,
+            name: redact(result.error.name),
+            message: redact(result.error.message),
+          },
+        }
+      : {}),
   }
 }
 
@@ -81,9 +107,17 @@ export function evaluateResponseExecution(
   for (const result of rawCaptures ?? []) {
     if (result.success) {
       const parsed = parseResponseExpression(result.expression)
+      const serialized =
+        typeof result.value === "string"
+          ? result.value
+          : JSON.stringify(result.value)
       const sensitive =
         request.captures?.[result.variable]?.persist === "secret" ||
-        (parsed.kind === "header" && isSensitiveHeader(parsed.name))
+        (parsed.kind === "header" && isSensitiveHeader(parsed.name)) ||
+        redactKnownSecrets(serialized, [
+          ...secretValues,
+          ...runScope.secretValues(),
+        ]) !== serialized
       runScope.set(result.variable, result.value, sensitive)
       if (sensitive) sensitiveExpressions.push(parsed)
     }

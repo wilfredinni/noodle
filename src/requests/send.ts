@@ -10,7 +10,7 @@ import type {
   Request,
   Response,
 } from "../schema"
-import { substitute } from "./substitute"
+import { substitute, type SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
@@ -55,11 +55,8 @@ function oauth1SensitiveRequestValues(
   ]
 }
 
-export interface RequestExecutionOptions {
-  environment?: Environment
+export interface TransportExecutionOptions {
   signal?: AbortSignal
-  collection?: Collection
-  requestPath?: string
   onNetworkEvent?: (network: NetworkEvent[]) => void
   onSensitiveValues?: (values: string[]) => void
   proxyPolicy?: ProxyPolicy
@@ -69,8 +66,19 @@ export interface RequestExecutionOptions {
   oauthMode?: OAuth2Mode
   openOAuthBrowser?: OAuthBrowserLauncher
   allowCrossOriginRedirects?: boolean
+}
+
+export interface RequestExecutionOptions extends TransportExecutionOptions {
+  environment?: Environment
+  collection?: Collection
+  requestPath?: string
   resolveVariables?: boolean
 }
+
+export type TransportRequest = Omit<
+  SubstitutedRequest,
+  "scripts" | "captures" | "assertions"
+>
 
 export function interpolatePathParams(
   url: string,
@@ -121,10 +129,28 @@ export async function send(
   options: RequestExecutionOptions = {},
 ): Promise<Response> {
   const {
-    environment: env,
-    signal,
+    environment,
     collection,
     requestPath,
+    resolveVariables = true,
+    ...transport
+  } = options
+  const merged =
+    collection && requestPath
+      ? mergeFolderOverrides(req, collection, requestPath)
+      : req
+  return sendPrepared(
+    substitute(merged, environment ?? { name: "", vars: {} }, resolveVariables),
+    transport,
+  )
+}
+
+export async function sendPrepared(
+  substituted: TransportRequest,
+  options: TransportExecutionOptions = {},
+): Promise<Response> {
+  const {
+    signal,
     onNetworkEvent,
     onSensitiveValues,
     proxyPolicy,
@@ -134,18 +160,7 @@ export async function send(
     oauthMode = "cached-only",
     openOAuthBrowser,
     allowCrossOriginRedirects = true,
-    resolveVariables = true,
   } = options
-  const merged =
-    collection && requestPath
-      ? mergeFolderOverrides(req, collection, requestPath)
-      : req
-
-  const substituted = substitute(
-    merged,
-    env ?? { name: "", vars: {} },
-    resolveVariables,
-  )
 
   if (cookies && substituted.sendCookies !== false) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
@@ -200,8 +215,8 @@ export async function send(
   }
 
   let effectiveSignal = signal
-  if (req.timeout > 0) {
-    const timeoutSignal = AbortSignal.timeout(req.timeout)
+  if (substituted.timeout > 0) {
+    const timeoutSignal = AbortSignal.timeout(substituted.timeout)
     effectiveSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal
@@ -282,8 +297,8 @@ export async function send(
   let oauth1SigningEnabled = substituted.auth?.type === "oauth1"
   let oauth2Enabled = substituted.auth?.type === "oauth2"
   let sentCookies: CookiePair[] = []
-  const maxRedirects = req.maxRedirects ?? 5
-  const followRedirects = req.followRedirects ?? true
+  const maxRedirects = substituted.maxRedirects ?? 5
+  const followRedirects = substituted.followRedirects ?? true
 
   while (true) {
     let proxyRoute
