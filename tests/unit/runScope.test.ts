@@ -184,7 +184,11 @@ describe("RunScope", () => {
     expect(scope.secretValues()).toEqual([
       '{"value":"secret","retries":1,"enabled":true,"nested":[null,"inner"]}',
       '[null,"inner"]',
+      "retries",
+      "enabled",
       "secret",
+      "nested",
+      "value",
       "inner",
       { kind: "json-primitive", value: "true" },
       { kind: "json-primitive", value: "null" },

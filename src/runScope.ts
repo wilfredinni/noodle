@@ -41,6 +41,22 @@ export class RunScope {
     return this.values.get(variable)
   }
 
+  isSecret(variable: string): boolean {
+    return this.secretVariables.has(variable)
+  }
+
+  secretValuesFor(variable: string): RedactionSecret[] {
+    const value = this.values.get(variable)
+    return value === undefined || !this.secretVariables.has(variable)
+      ? []
+      : secretRedactionValues(value)
+  }
+
+  unset(variable: string): void {
+    this.values.delete(variable)
+    this.secretVariables.delete(variable)
+  }
+
   secretValues(): RedactionSecret[] {
     const values = [...this.secretVariables].flatMap((variable) => {
       const value = this.values.get(variable)
@@ -84,9 +100,12 @@ function secretRedactionValues(value: JsonValue): RedactionSecret[] {
   }
   return [
     serialized,
-    ...(Array.isArray(value) ? value : Object.values(value)).flatMap(
-      secretRedactionValues,
-    ),
+    ...(Array.isArray(value)
+      ? value.flatMap(secretRedactionValues)
+      : Object.entries(value).flatMap(([key, item]) => [
+          key,
+          ...secretRedactionValues(item),
+        ])),
   ]
 }
 
