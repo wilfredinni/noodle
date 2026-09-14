@@ -223,6 +223,247 @@ describe("useResponse execution results", () => {
     }
   })
 
+  it("keeps normal timeline substitution when preparation fails", async () => {
+    const originalSend = executor.send
+    let transportCalls = 0
+    executor.send = async () => {
+      transportCalls++
+      throw new Error("transport should not run")
+    }
+    const environment: Environment = {
+      name: "dev",
+      vars: { HOST: "example.com" },
+    }
+    let timelineEntry: ReturnType<typeof buildTimelineEntry> | undefined
+    function Harness() {
+      const response = useResponse(
+        request({ url: "https://$HOST/$MISSING" }),
+        environment,
+        (completedRequest, result, dispatchEnvironment, secrets, prepared) => {
+          timelineEntry = buildTimelineEntry(
+            completedRequest,
+            result,
+            dispatchEnvironment?.name,
+            dispatchEnvironment,
+            secrets,
+            prepared,
+          )
+        },
+      )
+      useEffect(() => {
+        if (response.state.status === "idle") response.trySend()
+      }, [response])
+      return null
+    }
+
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      for (let i = 0; i < 5 && !timelineEntry; i++) {
+        await act(async () => {
+          await render.renderOnce()
+          await render.flush()
+        })
+      }
+      expect(transportCalls).toBe(0)
+      expect(timelineEntry?.request.url).toBe("https://example.com/$MISSING")
+    } finally {
+      executor.send = originalSend
+    }
+  })
+
+  it("uses the shared pre-script lifecycle for a manual send", async () => {
+    const originalSend = executor.send
+    let transportedUrl: string | undefined
+    executor.send = async (prepared) => {
+      transportedUrl = prepared.url
+      expect(prepared.headers).toEqual({ "X-Manual": "yes" })
+      expect(prepared).not.toHaveProperty("scripts")
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "ok",
+        timeMs: 1,
+      }
+    }
+    const observed: {
+      state?: SendState
+      completedRequest?: Request
+    } = {}
+    let resolveComplete: (() => void) | undefined
+    const complete = new Promise<void>((resolve) => {
+      resolveComplete = resolve
+    })
+    function Harness() {
+      const response = useResponse(
+        request({
+          scripts: {
+            pre: 'request.url = "https://manual.example/mutated"; request.headers.set("X-Manual", "yes"); console.info("ready")',
+          },
+        }),
+        undefined,
+        (completedRequest) => {
+          observed.completedRequest = completedRequest
+          resolveComplete?.()
+        },
+      )
+      useEffect(() => {
+        if (response.state.status === "idle") response.trySend()
+        else if (response.state.status === "done")
+          observed.state = response.state
+      }, [response])
+      return null
+    }
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      await act(async () => {
+        await complete
+        await render.flush()
+      })
+      expect(transportedUrl).toBe("https://manual.example/mutated")
+      expect(observed.state?.status).toBe("done")
+      if (observed.state?.status !== "done") throw new Error("narrow")
+      expect(observed.state.execution?.scripts).toMatchObject({
+        evaluated: true,
+        results: [
+          {
+            success: true,
+            logs: [{ level: "info", message: "ready" }],
+          },
+        ],
+      })
+      expect(observed.completedRequest?.url).toBe(
+        "https://manual.example/mutated",
+      )
+      expect(observed.completedRequest).not.toHaveProperty("scripts")
+    } finally {
+      executor.send = originalSend
+    }
+  })
+
+  it("redacts failed script secrets before manual error state", async () => {
+    const originalSend = executor.send
+    executor.send = async () => {
+      throw new Error("transport should not run")
+    }
+    const observed: { state?: SendState } = {}
+    function Harness() {
+      const response = useResponse(
+        request({
+          scripts: {
+            pre: 'request.auth.setBearer("manual-secret"); console.error("manual-secret"); const error = new Error("manual-secret"); error.name = "manual-secret"; throw error',
+          },
+        }),
+      )
+      useEffect(() => {
+        if (response.state.status === "idle") response.trySend()
+        else if (response.state.status === "error")
+          observed.state = response.state
+      }, [response])
+      return null
+    }
+
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      for (let i = 0; i < 5 && !observed.state; i++) {
+        await act(async () => {
+          await render.renderOnce()
+          await render.flush()
+        })
+      }
+      expect(observed.state?.status).toBe("error")
+      if (observed.state?.status !== "error") throw new Error("narrow")
+      expect(observed.state.error.name).toBe("ScriptRuntimeError")
+      expect(observed.state.error.message).toBe("[REDACTED]")
+      expect(observed.state.execution?.scripts?.results[0]).toMatchObject({
+        success: false,
+        logs: [{ level: "error", message: "[REDACTED]" }],
+        error: { name: "ScriptRuntimeError", message: "[REDACTED]" },
+      })
+    } finally {
+      executor.send = originalSend
+    }
+  })
+
+  it("redacts script secrets from live and failed network events", async () => {
+    const originalSend = executor.send
+    let failTransport: (() => void) | undefined
+    executor.send = (prepared, options) =>
+      new Promise((_resolve, reject) => {
+        const secret = new URL(prepared.url).pathname.slice(1)
+        const network = [
+          {
+            timeMs: 1,
+            type: "request" as const,
+            message: `GET ${prepared.url}`,
+          },
+        ]
+        options?.onNetworkEvent?.(network)
+        failTransport = () =>
+          reject(Object.assign(new Error(`offline ${secret}`), { network }))
+      })
+    const observed: { live?: string; final?: SendState } = {}
+    function Harness() {
+      const response = useResponse(
+        request({
+          scripts: {
+            pre: 'request.url = "https://example.com/" + crypto.randomBytes(8, "hex")',
+          },
+        }),
+      )
+      useEffect(() => {
+        if (response.state.status === "idle") response.trySend()
+        else if (
+          response.state.status === "sending" &&
+          response.state.network.length > 0
+        ) {
+          observed.live = response.state.network[0]?.message
+        } else if (response.state.status === "error") {
+          observed.final = response.state
+        }
+      }, [response])
+      return null
+    }
+
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      for (let i = 0; i < 5 && !observed.live; i++) {
+        await act(async () => {
+          await render.renderOnce()
+          await render.flush()
+        })
+      }
+      expect(observed.live).toBe("GET https://example.com/[REDACTED]")
+      await act(async () => {
+        failTransport?.()
+        await render.flush()
+      })
+      for (let i = 0; i < 5 && !observed.final; i++) {
+        await act(async () => {
+          await render.renderOnce()
+          await render.flush()
+        })
+      }
+      expect(observed.final?.status).toBe("error")
+      if (observed.final?.status !== "error") throw new Error("narrow")
+      expect(observed.final.error.message).toBe("offline [REDACTED]")
+      expect(
+        (observed.final.error as { network?: Array<{ message: string }> })
+          .network?.[0]?.message,
+      ).toBe("GET https://example.com/[REDACTED]")
+    } finally {
+      executor.send = originalSend
+    }
+  })
+
   it("keeps a completed send when the environment refresh fails", async () => {
     const collectionDir = await mkdtemp(
       join(tmpdir(), "noodle-manual-capture-"),

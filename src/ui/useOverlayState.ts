@@ -31,7 +31,7 @@ export type TagEditPending =
 export interface RunnerDetailOverlayState {
   entry: TimelineEntry
   execution: ResponseExecutionResults
-  request: Pick<Request, "assertions" | "captures">
+  request: Pick<Request, "scripts" | "assertions" | "captures">
   warnings?: string[]
 }
 

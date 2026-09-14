@@ -197,6 +197,40 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("shows transient script-only results in Runner detail", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry(),
+      () => {},
+      true,
+      {
+        execution: {
+          scripts: {
+            evaluated: true,
+            results: [
+              {
+                phase: "pre",
+                scope: "request",
+                sourceKind: "inline",
+                success: true,
+                durationMs: 3,
+                logs: [{ level: "info", message: "ready" }],
+              },
+            ],
+          },
+        },
+        request: { scripts: { pre: 'console.info("ready")' } },
+      },
+    )
+
+    await renderOnce()
+    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Results/)
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Pre-request")
+    cleanup()
+  })
+
   it("allows Results navigation while the timeline overlay is active", async () => {
     const { keymap, renderOnce, captureCharFrame, host, cleanup } =
       await renderOverlay(

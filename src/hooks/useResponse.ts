@@ -10,7 +10,6 @@ import type {
 import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
 import type { CollectionCookieJar } from "../cookies"
-import { executor } from "../requests"
 import {
   startSend,
   finishSend,
@@ -18,20 +17,10 @@ import {
   type SendState,
 } from "../ui/sendState"
 import type { ResponseExecutionResults } from "../executionResults"
-import {
-  evaluateResponseExecution,
-  executionSecretValues,
-  unevaluatedExecutionResults,
-} from "../executionResults"
 import { RunScope } from "../runScope"
-import { substitute } from "../requests/substitute"
 import { persistResponseCaptures } from "../app/services"
-import type { CaptureResult } from "../runScope"
-import {
-  requestSensitiveValues,
-  responseSensitiveValues,
-  type RedactionSecret,
-} from "../secrets/redact"
+import type { RedactionSecret } from "../secrets/redact"
+import { executeRequestLifecycle } from "../requestLifecycle"
 
 type CachedResult =
   | {
@@ -74,6 +63,7 @@ export function useResponse(
     result: SendCompleteResult,
     dispatchEnvironment?: Environment,
     runSecretValues?: RedactionSecret[],
+    prepared?: boolean,
   ) => void,
   collection?: Collection,
   requestPath?: string,
@@ -166,6 +156,7 @@ async function runSend(
         result: SendCompleteResult,
         dispatchEnvironment?: Environment,
         runSecretValues?: RedactionSecret[],
+        prepared?: boolean,
       ) => void)
     | undefined
   >,
@@ -178,48 +169,55 @@ async function runSend(
   onEnvironmentPersisted?: () => Promise<void>,
 ): Promise<void> {
   const runScope = new RunScope()
-  const runtimeSecretValues: string[] = []
   try {
-    const res = await executor.send(req, {
+    const lifecycle = await executeRequestLifecycle({
+      request: req,
+      runScope,
       environment: env,
-      signal,
       collection,
       requestPath,
-      onNetworkEvent: (network: NetworkEvent[]) => {
-        setState((prev) =>
-          prev.status === "sending" && prev.request.id === req.id
-            ? { ...prev, network }
-            : prev,
-        )
+      transport: {
+        signal,
+        onNetworkEvent: (network: NetworkEvent[]) => {
+          setState((prev) =>
+            prev.status === "sending" && prev.request.id === req.id
+              ? { ...prev, network }
+              : prev,
+          )
+        },
+        proxyPolicy,
+        tlsPolicy,
+        collectionDir,
+        oauthMode: "interactive",
+        ...(cookies ? { cookies } : {}),
       },
-      proxyPolicy,
-      tlsPolicy,
-      collectionDir,
-      oauthMode: "interactive",
-      onSensitiveValues: (values) => runtimeSecretValues.push(...values),
-      ...(cookies ? { cookies } : {}),
     })
-    const runEnvironment = runScope.environment(env)
-    const effectiveRequest = substitute(req, runEnvironment)
-    const secretValues = [
-      ...executionSecretValues([env, runEnvironment], proxyPolicy, tlsPolicy),
-      ...requestSensitiveValues(effectiveRequest),
-      ...runtimeSecretValues,
-      ...responseSensitiveValues(res),
-    ]
-    let rawCaptureResults: CaptureResult[] = []
-    let execution = evaluateResponseExecution(
-      effectiveRequest,
-      res,
-      runScope,
-      secretValues,
-      (results) => {
-        rawCaptureResults = results
-      },
-    )
+
+    if (lifecycle.status === "error") {
+      const result = {
+        status: "error" as const,
+        request: lifecycle.request,
+        error: lifecycle.error,
+        execution: lifecycle.execution,
+      }
+      cacheRef.current.set(req.id, result)
+      setState((prev) =>
+        failSend(prev, lifecycle.request, lifecycle.error, lifecycle.execution),
+      )
+      onCompleteRef.current?.(
+        lifecycle.request,
+        result,
+        env,
+        lifecycle.secretValues,
+        lifecycle.prepared !== undefined,
+      )
+      return
+    }
+
+    let execution = lifecycle.execution
     execution = await persistResponseCaptures(
-      effectiveRequest,
-      rawCaptureResults,
+      lifecycle.prepared,
+      lifecycle.rawCaptures,
       execution,
       env?.name,
       collectionDir,
@@ -231,29 +229,34 @@ async function runSend(
     ) {
       await onEnvironmentPersisted?.().catch(() => {})
     }
-    const result = { status: "done" as const, response: res, execution }
+    const result = {
+      status: "done" as const,
+      response: lifecycle.response,
+      execution,
+    }
     cacheRef.current.set(req.id, { ...result, requestId: req.id })
-    setState((prev) => finishSend(prev, req, res, execution))
-    onCompleteRef.current?.(req, result, env, [
-      ...runtimeSecretValues,
-      ...runScope.secretValues(),
-    ])
+    setState((prev) => finishSend(prev, req, lifecycle.response, execution))
+    onCompleteRef.current?.(
+      lifecycle.request,
+      result,
+      env,
+      lifecycle.secretValues,
+      true,
+    )
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       setState({ status: "idle" })
       return
     }
     const err = e instanceof Error ? e : new Error(String(e))
-    const execution = unevaluatedExecutionResults(req)
     const result = {
       status: "error" as const,
       request: req,
       error: err,
-      execution,
     }
     cacheRef.current.set(req.id, result)
-    setState((prev) => failSend(prev, req, err, execution))
-    onCompleteRef.current?.(req, result, env, runtimeSecretValues)
+    setState((prev) => failSend(prev, req, err))
+    onCompleteRef.current?.(req, result, env, undefined, false)
   } finally {
     abortRef.current = null
   }

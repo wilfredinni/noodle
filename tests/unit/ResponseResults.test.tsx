@@ -10,6 +10,56 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("ResponseResults", () => {
+  it("renders expandable script status, timing, errors, and redacted logs", async () => {
+    const { keymap, host } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              scripts: {
+                evaluated: true,
+                results: [
+                  {
+                    phase: "pre",
+                    scope: "request",
+                    sourceKind: "inline",
+                    success: false,
+                    durationMs: 4.25,
+                    logs: [
+                      { level: "info", message: "token [REDACTED]" },
+                      { level: "info", message: "second message" },
+                    ],
+                    error: {
+                      name: "ScriptRuntimeError",
+                      message: "safe failure",
+                      line: 2,
+                      column: 3,
+                    },
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 18 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toMatch(/Scripts\s+Failed/)
+    expect(captureCharFrame()).toMatch(/FAIL\s+Pre-request\s+4.25ms, 2 logs/)
+    expect(captureCharFrame()).not.toContain("token [REDACTED]")
+
+    await act(async () => host.press("return"))
+    await act(async () => renderOnce())
+    const expanded = captureCharFrame()
+    expect(expanded).toMatch(/Duration\s+4.25ms/)
+    expect(expanded).toMatch(/Message\s+safe failure/)
+    expect(expanded).toMatch(/Location\s+pre-request.js:2:3/)
+    expect(expanded).toMatch(/INFO\s+token \[REDACTED\]/)
+    expect(expanded).toMatch(/INFO\s+second message/)
+  })
+
   it("renders assertion and redacted capture details at constrained widths", async () => {
     const { keymap, host } = setupKeymap()
     const { renderOnce, captureCharFrame, renderer, mockMouse } =
