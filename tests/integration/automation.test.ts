@@ -1190,6 +1190,45 @@ capture:
     }
   })
 
+  it("reports timeout aborts as transport failures and continues", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-timeout.yml"),
+      "name: Timeout\nmethod: GET\nurl: https://example.com/timeout\ntimeout: 5\n",
+    )
+    await writeFile(
+      join(dir, "02-success.yml"),
+      "name: Success\nmethod: GET\nurl: https://example.com/success\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => {
+      if (request.id === "01-timeout") {
+        throw new DOMException("The operation was aborted", "AbortError")
+      }
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "ok",
+        timeMs: 1,
+      }
+    }
+    try {
+      expect(await requestRun("01-timeout", dir)).toMatchObject({
+        failed: true,
+        result: { ok: false, failureCategories: ["transport"] },
+      })
+
+      const collection = await collectionRun(dir)
+      expect(collection.results).toMatchObject([
+        { id: "01-timeout", ok: false, failureCategories: ["transport"] },
+        { id: "02-success", ok: true, failureCategories: [] },
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("stops on the first failure and records ordered fail-fast skips", async () => {
     jest.useFakeTimers()
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")

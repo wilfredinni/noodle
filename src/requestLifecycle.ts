@@ -180,8 +180,8 @@ export async function executeRequestLifecycle(options: {
       secretValues,
     }
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError")
-      throw error
+    const aborted = error instanceof DOMException && error.name === "AbortError"
+    if (aborted && transport.signal?.aborted) throw error
     secretValues.push(...runtimeSecrets, ...runScope.secretValues())
     const normalized = error instanceof Error ? error : new Error(String(error))
     const safeError = redactLifecycleError(normalized, secretValues)
@@ -197,9 +197,10 @@ export async function executeRequestLifecycle(options: {
       request: timeline,
       prepared,
       error: safeError,
-      failureCategory: Array.isArray((normalized as NetworkError).network)
-        ? "transport"
-        : "execution",
+      failureCategory:
+        aborted || Array.isArray((normalized as NetworkError).network)
+          ? "transport"
+          : "execution",
       execution,
       secretValues,
     }

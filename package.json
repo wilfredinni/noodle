@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "bun --watch src/app/cli.ts",
     "test": "bun test",
-    "build:bin": "bun build --compile src/app/cli.ts --outfile noodle",
+    "build:bin": "bun build --compile src/app/cli.ts --outfile noodle && bun scripts/compiled-script-smoke.ts",
     "release:context": "bun scripts/release-context.ts",
     "release:check": "bun scripts/release-check.ts",
     "prepare": "husky",
