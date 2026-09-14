@@ -664,6 +664,80 @@ describe("CLI integration", () => {
     }
   })
 
+  it("includes redacted script results in JSON and omits logs from human output", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-script-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await writeFile(
+        join(dir, "script.yml"),
+        `name: Script
+method: GET
+url: https://example.com
+scripts:
+  pre: |-
+    request.headers.set("Authorization", "Bearer cli-script-secret");
+    console.warn("hidden", "cli-script-secret");
+    request.headers.delete("Authorization");
+    throw new Error("failed cli-script-secret");
+`,
+      )
+      const json = Bun.spawnSync([
+        "bun",
+        CLI,
+        "request",
+        "run",
+        "script",
+        "--collection",
+        dir,
+        "--json",
+      ])
+      expect(json.exitCode).toBe(1)
+      const stdout = json.stdout.toString()
+      expect(stdout).not.toContain("cli-script-secret")
+      expect(JSON.parse(stdout)).toMatchObject({
+        status: "error",
+        data: {
+          failed: true,
+          result: {
+            failureCategories: ["script"],
+            scripts: {
+              evaluated: true,
+              results: [
+                {
+                  success: false,
+                  logs: [{ level: "warn", message: "hidden [REDACTED]" }],
+                  error: {
+                    name: "ScriptRuntimeError",
+                    message: "failed [REDACTED]",
+                  },
+                },
+              ],
+            },
+          },
+        },
+        errors: ["command failed"],
+      })
+
+      const human = Bun.spawnSync([
+        "bun",
+        CLI,
+        "request",
+        "run",
+        "script",
+        "--collection",
+        dir,
+      ])
+      const humanOutput = human.stdout.toString()
+      expect(human.exitCode).toBe(1)
+      expect(humanOutput).toContain("Pre-script: failed")
+      expect(humanOutput).toContain("failed [REDACTED]")
+      expect(humanOutput).not.toContain("hidden")
+      expect(humanOutput).not.toContain("cli-script-secret")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("adds noodle subcommand when positional path is given", () => {
     const proc = Bun.spawnSync(["bun", CLI, "./collections", "--help"], {})
     expect(proc.exitCode).toBe(0)

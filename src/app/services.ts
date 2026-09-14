@@ -22,9 +22,6 @@ import {
 } from "../filestore"
 import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
-import { executor, substitute } from "../requests"
-import { mergeFolderOverrides } from "../requests/mergeFolderOverrides"
-import type { SubstitutedRequest } from "../requests/substitute"
 import { withDefaultHttpsScheme } from "../requests/url"
 import {
   resolveProxyPolicy,
@@ -44,7 +41,6 @@ import type {
   CollectionItem,
   CollectionSettings,
   Environment,
-  NetworkError,
   Request,
   TimelineEntry,
 } from "../schema"
@@ -57,21 +53,12 @@ import {
   loadTlsPassphrases,
   setStoredSecret,
 } from "../secrets"
-import {
-  redactKnownSecrets,
-  redactResponseHeaders,
-  requestSensitiveValues,
-  responseSensitiveValues,
-  type RedactionSecret,
-} from "../secrets/redact"
+import { redactKnownSecrets, redactResponseHeaders } from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
-import {
-  evaluateResponseExecution,
-  executionSecretValues,
-  unevaluatedExecutionResults,
-  type ResponseExecutionResults,
-} from "../executionResults"
+import { type ResponseExecutionResults } from "../executionResults"
+import type { ScriptExecutionResult } from "../preRequestScript"
+import { executeRequestLifecycle } from "../requestLifecycle"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
 import { isValidVariableName } from "../variableReference"
@@ -653,11 +640,16 @@ export interface RequestRunResult {
     evaluated: boolean
     results: CaptureResult[]
   }
+  scripts?: {
+    evaluated: boolean
+    results: ScriptExecutionResult[]
+  }
 }
 
 export const RUN_FAILURE_CATEGORIES = [
   "configuration",
   "execution",
+  "script",
   "transport",
   "http",
   "capture",
@@ -692,24 +684,6 @@ export type RequestRunDetail = {
 }
 export type RunDetail = (detail: RequestRunDetail) => void
 
-function timelineRequest(
-  request: Request,
-  effective: SubstitutedRequest,
-): Request {
-  return {
-    ...effective,
-    headers: Object.fromEntries(
-      Object.entries(request.headers).map(([key, header]) => [
-        key,
-        {
-          ...header,
-          value: header.enabled ? effective.headers[key]! : header.value,
-        },
-      ]),
-    ),
-  }
-}
-
 async function runRequest(
   collectionDir: string,
   collection: Collection,
@@ -722,142 +696,120 @@ async function runRequest(
   persistCaptures = false,
   onDetail?: RunDetail,
 ): Promise<RequestRunResult> {
-  const effectiveEnvironment = runScope.environment(environment)
-  const secretValues: RedactionSecret[] = executionSecretValues(
-    [environment, effectiveEnvironment],
-    proxyPolicy,
-    tlsPolicy,
-  )
-  secretValues.push(...runScope.secretValues())
-  const redact = (value: string) => redactKnownSecrets(value, secretValues)
-  let detailRequest = request
-  try {
-    const merged = mergeFolderOverrides(request, collection, request.id)
-    const effective = substitute(merged, effectiveEnvironment)
-    secretValues.push(...requestSensitiveValues(effective))
-    detailRequest = timelineRequest(merged, effective)
-    const response = await executor.send(request, {
-      environment: effectiveEnvironment,
-      collection,
-      requestPath: request.id,
+  const lifecycle = await executeRequestLifecycle({
+    request,
+    runScope,
+    environment,
+    collection,
+    requestPath: request.id,
+    transport: {
       proxyPolicy,
       tlsPolicy,
       cookies,
       collectionDir,
       oauthMode: "cached-only",
-      onSensitiveValues: (values) => secretValues.push(...values),
-    })
-    const authWarnings = (response.network ?? [])
-      .filter(
-        (event) =>
-          event.type === "auth" &&
-          /unavailable|session only|legacy|not recommended/i.test(
-            event.message,
-          ),
-      )
-      .map((event) => event.message)
-    secretValues.push(...responseSensitiveValues(response))
-    let rawCaptureResults: CaptureResult[] = []
-    let execution = evaluateResponseExecution(
-      effective,
-      response,
-      runScope,
-      secretValues,
-      (results) => {
-        rawCaptureResults = results
-      },
-    )
-    if (persistCaptures) {
-      execution = await persistResponseCaptures(
-        effective,
-        rawCaptureResults,
-        execution,
-        environment?.name,
-        collectionDir,
-      )
-    }
-    const captureResults = execution.captures?.results
-    const assertionResults = execution.assertions?.results
-    const responseSecretValues = [...secretValues, ...runScope.secretValues()]
-    const failureCategories: RunFailureCategory[] = []
-    if (response.status >= 400) failureCategories.push("http")
-    if (captureResults?.some((result) => !result.success)) {
-      failureCategories.push("capture")
-    }
-    if (assertionResults?.some((result) => !result.passed)) {
-      failureCategories.push("assertion")
-    }
-    const result: RequestRunResult = {
-      id: request.id,
-      method: request.method,
-      url: redact(effective.url),
-      response: {
-        status: response.status,
-        statusText: redactKnownSecrets(
-          response.statusText,
-          responseSecretValues,
-        ),
-        headers: redactResponseHeaders(response.headers, responseSecretValues),
-        body: redactKnownSecrets(response.body, responseSecretValues),
-        timeMs: response.timeMs,
-      },
-      ok:
-        response.status < 400 &&
-        (captureResults?.every((result) => result.success) ?? true) &&
-        (assertionResults?.every((result) => result.passed) ?? true),
-      failureCategories,
-      ...execution,
-      ...(authWarnings.length > 0
-        ? { warnings: [...new Set(authWarnings)] }
-        : {}),
-    }
-    onDetail?.({
-      requestId: request.id,
-      entry: buildTimelineEntry(
-        detailRequest,
-        { status: "done", response, execution },
-        environment?.name,
-        undefined,
-        responseSecretValues,
-      ),
-    })
-    return result
-  } catch (error) {
-    const result: RequestRunResult = {
-      id: request.id,
-      method: request.method,
-      url: redact(request.url),
-      error: redact(errorMessage(error)),
-      ok: false,
-      failureCategories: [failureCategoryForError(error)],
-      ...unevaluatedExecutionResults(request),
-    }
-    const network = (error as NetworkError | undefined)?.network
-    const detailError = Object.assign(new Error(errorMessage(error)), {
+    },
+  })
+  const redact = (value: string) =>
+    redactKnownSecrets(value, lifecycle.secretValues)
+
+  if (lifecycle.status === "error") {
+    const network = (lifecycle.error as { network?: unknown }).network
+    const detailError = Object.assign(new Error(lifecycle.error.message), {
       ...(Array.isArray(network) ? { network } : {}),
     })
+    const result: RequestRunResult = {
+      id: request.id,
+      method: lifecycle.prepared?.method ?? request.method,
+      url: redact(lifecycle.prepared?.url ?? request.url),
+      error: redact(lifecycle.error.message),
+      ok: false,
+      failureCategories: [lifecycle.failureCategory],
+      ...lifecycle.execution,
+    }
     onDetail?.({
       requestId: request.id,
       entry: buildTimelineEntry(
-        detailRequest,
+        lifecycle.request,
         {
           status: "error",
           error: detailError,
-          execution: unevaluatedExecutionResults(request),
+          execution: lifecycle.execution,
         },
         environment?.name,
         undefined,
-        secretValues,
+        lifecycle.secretValues,
+        lifecycle.prepared !== undefined,
       ),
     })
     return result
   }
-}
 
-function failureCategoryForError(error: unknown): "execution" | "transport" {
-  return Array.isArray((error as NetworkError | undefined)?.network)
-    ? "transport"
-    : "execution"
+  const { response, prepared } = lifecycle
+  let execution = lifecycle.execution
+  if (persistCaptures) {
+    execution = await persistResponseCaptures(
+      prepared,
+      lifecycle.rawCaptures,
+      execution,
+      environment?.name,
+      collectionDir,
+    )
+  }
+  const authWarnings = (response.network ?? [])
+    .filter(
+      (event) =>
+        event.type === "auth" &&
+        /unavailable|session only|legacy|not recommended/i.test(event.message),
+    )
+    .map((event) => event.message)
+  const captureResults = execution.captures?.results
+  const assertionResults = execution.assertions?.results
+  const responseSecretValues = [
+    ...lifecycle.secretValues,
+    ...runScope.secretValues(),
+  ]
+  const failureCategories: RunFailureCategory[] = []
+  if (response.status >= 400) failureCategories.push("http")
+  if (captureResults?.some((result) => !result.success)) {
+    failureCategories.push("capture")
+  }
+  if (assertionResults?.some((result) => !result.passed)) {
+    failureCategories.push("assertion")
+  }
+  const result: RequestRunResult = {
+    id: request.id,
+    method: prepared.method,
+    url: redact(prepared.url),
+    response: {
+      status: response.status,
+      statusText: redactKnownSecrets(response.statusText, responseSecretValues),
+      headers: redactResponseHeaders(response.headers, responseSecretValues),
+      body: redactKnownSecrets(response.body, responseSecretValues),
+      timeMs: response.timeMs,
+    },
+    ok:
+      response.status < 400 &&
+      (captureResults?.every((capture) => capture.success) ?? true) &&
+      (assertionResults?.every((assertion) => assertion.passed) ?? true),
+    failureCategories,
+    ...execution,
+    ...(authWarnings.length > 0
+      ? { warnings: [...new Set(authWarnings)] }
+      : {}),
+  }
+  onDetail?.({
+    requestId: request.id,
+    entry: buildTimelineEntry(
+      lifecycle.request,
+      { status: "done", response, execution },
+      environment?.name,
+      undefined,
+      responseSecretValues,
+      true,
+    ),
+  })
+  return result
 }
 
 function summarizeRun(
