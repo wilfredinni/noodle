@@ -3,6 +3,8 @@ import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
 import type { CollectionCookieJar } from "../../src/cookies"
 import { defaultOAuth1Auth } from "../../src/auth/defaults"
+import { executeRequestLifecycle } from "../../src/requestLifecycle"
+import { RunScope } from "../../src/runScope"
 
 const servers: Bun.Server<undefined>[] = []
 
@@ -998,6 +1000,51 @@ describe("send — network trace", () => {
         expect(headers.has("host")).toBe(false)
         expect(headers.has("x-api-key")).toBe(false)
       }
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("strips known secret headers on cross-origin redirects", async () => {
+    const originalFetch = globalThis.fetch
+    const captured: Headers[] = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      captured.push(new Headers(init?.headers))
+      return calls++ === 0
+        ? new Response(null, {
+            status: 302,
+            headers: { location: "https://other.test/next" },
+          })
+        : new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const result = await executeRequestLifecycle({
+        request: makeReq({
+          headers: {
+            "X-Custom": { value: "$SECRET", enabled: true },
+            "X-Trace": { value: "keep", enabled: true },
+          },
+          scripts: {
+            pre: 'request.headers.set("X-Api-Key", env.get("SECRET"))',
+          },
+        }),
+        environment: {
+          name: "test",
+          vars: { SECRET: "synthetic-secret" },
+          secretVars: { SECRET: "keychain" },
+        },
+        runScope: new RunScope(),
+      })
+
+      expect(result.status).toBe("done")
+      expect(captured[0]?.get("x-custom")).toBe("synthetic-secret")
+      expect(captured[0]?.get("x-api-key")).toBe("synthetic-secret")
+      expect(captured[0]?.get("x-trace")).toBe("keep")
+      expect(captured[1]?.has("x-custom")).toBe(false)
+      expect(captured[1]?.has("x-api-key")).toBe(false)
+      expect(captured[1]?.get("x-trace")).toBe("keep")
     } finally {
       globalThis.fetch = originalFetch
     }

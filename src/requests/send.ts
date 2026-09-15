@@ -29,7 +29,13 @@ import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 import { signOAuth1Request, stripOAuth1Credentials } from "./oauth1"
 import { resolveOAuth2Token, type OAuth2Mode } from "./oauth2"
 import type { OAuthBrowserLauncher } from "./oauth2Browser"
-import { sensitiveHeaderValues } from "../secrets/redact"
+import {
+  environmentSecretValues,
+  isSensitiveHeader,
+  redactKnownSecrets,
+  sensitiveHeaderValues,
+  type RedactionSecret,
+} from "../secrets/redact"
 
 function oauth1SensitiveRequestValues(
   url: string,
@@ -66,6 +72,7 @@ export interface TransportExecutionOptions {
   oauthMode?: OAuth2Mode
   openOAuthBrowser?: OAuthBrowserLauncher
   allowCrossOriginRedirects?: boolean
+  knownSensitiveValues?: readonly RedactionSecret[]
 }
 
 export interface RequestExecutionOptions extends TransportExecutionOptions {
@@ -141,7 +148,13 @@ export async function send(
       : req
   return sendPrepared(
     substitute(merged, environment ?? { name: "", vars: {} }, resolveVariables),
-    transport,
+    {
+      ...transport,
+      knownSensitiveValues: [
+        ...(transport.knownSensitiveValues ?? []),
+        ...environmentSecretValues(environment),
+      ],
+    },
   )
 }
 
@@ -160,6 +173,7 @@ export async function sendPrepared(
     oauthMode = "cached-only",
     openOAuthBrowser,
     allowCrossOriginRedirects = true,
+    knownSensitiveValues = [],
   } = options
 
   if (cookies && substituted.sendCookies !== false) {
@@ -601,6 +615,7 @@ export async function sendPrepared(
             substituted.auth?.type === "oauth2"
               ? substituted.auth.token_header
               : ah?.name,
+            knownSensitiveValues,
           ),
         ),
       }
@@ -687,8 +702,17 @@ function parseCookieHeader(header: string | null): CookiePair[] {
 function stripCrossOriginCredentials(
   headers: HeadersInit | undefined,
   authHeaderName: string | undefined,
+  knownSensitiveValues: readonly RedactionSecret[],
 ): Headers {
   const result = new Headers(headers)
+  for (const [name, value] of [...result]) {
+    if (
+      isSensitiveHeader(name) ||
+      redactKnownSecrets(value, knownSensitiveValues) !== value
+    ) {
+      result.delete(name)
+    }
+  }
   for (const name of [
     "authorization",
     "proxy-authorization",

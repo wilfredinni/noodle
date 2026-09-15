@@ -132,6 +132,10 @@ export async function executeRequestLifecycle(options: {
     delete transportRequest.assertions
     const rawResponse = await executor.send(transportRequest, {
       ...transport,
+      knownSensitiveValues: [
+        ...(transport.knownSensitiveValues ?? []),
+        ...secretValues,
+      ],
       onNetworkEvent: transport.onNetworkEvent
         ? (network) =>
             transport.onNetworkEvent?.(
