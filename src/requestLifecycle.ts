@@ -187,7 +187,10 @@ export async function executeRequestLifecycle(options: {
     const aborted = error instanceof DOMException && error.name === "AbortError"
     if (aborted && transport.signal?.aborted) throw error
     secretValues.push(...runtimeSecrets, ...runScope.secretValues())
-    const normalized = error instanceof Error ? error : new Error(String(error))
+    const normalized =
+      error instanceof Error
+        ? error
+        : new Error(String(error), { cause: error })
     const safeError = redactLifecycleError(normalized, secretValues)
     const execution = scriptResult
       ? withScriptResult(
