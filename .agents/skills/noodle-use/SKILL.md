@@ -28,7 +28,7 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre-request scripts, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a successful capture from an earlier request in the same collection run.
@@ -72,13 +72,27 @@ Operators without `value`: `exists`, `notExists`, `isString`, `isNumber`, `isBoo
 
 Every manual send, `request run`, `collection run`, and TUI Runner request uses this order:
 
-1. Resolve the environment and overlay the current RunScope.
-2. Merge, substitute, and execute the request.
-3. Build the supported response views.
-4. Evaluate captures.
-5. Commit successful captures to RunScope.
-6. Evaluate assertions.
-7. Return redacted results and, for a manual send only, persist timeline history with known secrets and sensitive headers redacted from request, response, and assertion data, including compressed body sidecars.
+1. Merge folder overrides.
+2. Overlay the current RunScope for substitution.
+3. Substitute the request once.
+4. Run the request-level inline pre-script against a staged prepared copy.
+5. Commit successful script request and RunScope mutations.
+6. Send the prepared request.
+7. Evaluate and commit captures.
+8. Evaluate assertions.
+
+Use top-level `scripts.pre` only for synchronous request preparation that cannot
+be expressed declaratively. Script source is literal and never variable-
+substituted. The sandbox exposes only `request`, `env`, `run`, `crypto`, and
+captured `console` APIs. Imports, network calls, host APIs, timers, returned
+Promises, and queued async work are unsupported. Script request mutations are
+in-memory only. Script RunScope mutations commit before HTTP and are visible to
+later collection requests even if later phases fail. Read the complete API and
+limits in [schema.md](schema.md#inline-pre-request-script).
+
+Treat collections containing scripts as trusted code. Although the sandbox has
+no network API, a script can read selected-environment secrets with `env.get`
+and place them in the URL, headers, or body sent by the following HTTP request.
 
 For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, and delay, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
 

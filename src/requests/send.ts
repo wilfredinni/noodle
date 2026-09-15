@@ -10,7 +10,7 @@ import type {
   Request,
   Response,
 } from "../schema"
-import { substitute } from "./substitute"
+import { substitute, type SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
@@ -29,7 +29,15 @@ import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 import { signOAuth1Request, stripOAuth1Credentials } from "./oauth1"
 import { resolveOAuth2Token, type OAuth2Mode } from "./oauth2"
 import type { OAuthBrowserLauncher } from "./oauth2Browser"
-import { sensitiveHeaderValues } from "../secrets/redact"
+import {
+  environmentSecretValues,
+  isSensitiveHeader,
+  sensitiveHeaderValues,
+  type RedactionSecret,
+} from "../secrets/redact"
+
+const SENSITIVE_VALUE_CHAR = /[\p{L}\p{N}_]/u
+const SENSITIVE_VALUE_DELIMITER = /[\s"'`=,:;!?&|()[\]{}<>]/u
 
 function oauth1SensitiveRequestValues(
   url: string,
@@ -55,11 +63,8 @@ function oauth1SensitiveRequestValues(
   ]
 }
 
-export interface RequestExecutionOptions {
-  environment?: Environment
+export interface TransportExecutionOptions {
   signal?: AbortSignal
-  collection?: Collection
-  requestPath?: string
   onNetworkEvent?: (network: NetworkEvent[]) => void
   onSensitiveValues?: (values: string[]) => void
   proxyPolicy?: ProxyPolicy
@@ -69,8 +74,20 @@ export interface RequestExecutionOptions {
   oauthMode?: OAuth2Mode
   openOAuthBrowser?: OAuthBrowserLauncher
   allowCrossOriginRedirects?: boolean
+  knownSensitiveValues?: readonly RedactionSecret[]
+}
+
+export interface RequestExecutionOptions extends TransportExecutionOptions {
+  environment?: Environment
+  collection?: Collection
+  requestPath?: string
   resolveVariables?: boolean
 }
+
+export type TransportRequest = Omit<
+  SubstitutedRequest,
+  "scripts" | "captures" | "assertions"
+>
 
 export function interpolatePathParams(
   url: string,
@@ -121,10 +138,34 @@ export async function send(
   options: RequestExecutionOptions = {},
 ): Promise<Response> {
   const {
-    environment: env,
-    signal,
+    environment,
     collection,
     requestPath,
+    resolveVariables = true,
+    ...transport
+  } = options
+  const merged =
+    collection && requestPath
+      ? mergeFolderOverrides(req, collection, requestPath)
+      : req
+  return sendPrepared(
+    substitute(merged, environment ?? { name: "", vars: {} }, resolveVariables),
+    {
+      ...transport,
+      knownSensitiveValues: [
+        ...(transport.knownSensitiveValues ?? []),
+        ...environmentSecretValues(environment),
+      ],
+    },
+  )
+}
+
+export async function sendPrepared(
+  substituted: TransportRequest,
+  options: TransportExecutionOptions = {},
+): Promise<Response> {
+  const {
+    signal,
     onNetworkEvent,
     onSensitiveValues,
     proxyPolicy,
@@ -134,18 +175,8 @@ export async function send(
     oauthMode = "cached-only",
     openOAuthBrowser,
     allowCrossOriginRedirects = true,
-    resolveVariables = true,
+    knownSensitiveValues = [],
   } = options
-  const merged =
-    collection && requestPath
-      ? mergeFolderOverrides(req, collection, requestPath)
-      : req
-
-  const substituted = substitute(
-    merged,
-    env ?? { name: "", vars: {} },
-    resolveVariables,
-  )
 
   if (cookies && substituted.sendCookies !== false) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
@@ -200,8 +231,8 @@ export async function send(
   }
 
   let effectiveSignal = signal
-  if (req.timeout > 0) {
-    const timeoutSignal = AbortSignal.timeout(req.timeout)
+  if (substituted.timeout > 0) {
+    const timeoutSignal = AbortSignal.timeout(substituted.timeout)
     effectiveSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal
@@ -282,8 +313,8 @@ export async function send(
   let oauth1SigningEnabled = substituted.auth?.type === "oauth1"
   let oauth2Enabled = substituted.auth?.type === "oauth2"
   let sentCookies: CookiePair[] = []
-  const maxRedirects = req.maxRedirects ?? 5
-  const followRedirects = req.followRedirects ?? true
+  const maxRedirects = substituted.maxRedirects ?? 5
+  const followRedirects = substituted.followRedirects ?? true
 
   while (true) {
     let proxyRoute
@@ -560,10 +591,30 @@ export async function send(
         onNetworkEvent,
       )
     }
+    const dropsBody =
+      res.status === 303 ||
+      ((res.status === 301 || res.status === 302) &&
+        currentInit.method === "POST")
     if (previousUrl.origin !== nextUrl.origin) {
       if (!allowCrossOriginRedirects) {
         throw networkFailure(
           "requests.send: refusing a cross-origin redirect for a credential-bearing request",
+          undefined,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
+      if (
+        !dropsBody &&
+        bodyContainsKnownSensitiveValue(
+          currentInit.body,
+          substituted.bodyType,
+          knownSensitiveValues,
+        )
+      ) {
+        throw networkFailure(
+          "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
           undefined,
           network,
           start,
@@ -586,6 +637,7 @@ export async function send(
             substituted.auth?.type === "oauth2"
               ? substituted.auth.token_header
               : ah?.name,
+            knownSensitiveValues,
           ),
         ),
       }
@@ -599,11 +651,7 @@ export async function send(
       onNetworkEvent,
     )
 
-    if (
-      res.status === 303 ||
-      ((res.status === 301 || res.status === 302) &&
-        currentInit.method === "POST")
-    ) {
+    if (dropsBody) {
       const newHeaders = new Headers(currentInit.headers)
       newHeaders.delete("content-type")
       newHeaders.delete("content-length")
@@ -672,8 +720,17 @@ function parseCookieHeader(header: string | null): CookiePair[] {
 function stripCrossOriginCredentials(
   headers: HeadersInit | undefined,
   authHeaderName: string | undefined,
+  knownSensitiveValues: readonly RedactionSecret[],
 ): Headers {
   const result = new Headers(headers)
+  for (const [name, value] of [...result]) {
+    if (
+      isSensitiveHeader(name) ||
+      containsKnownSensitiveValue(value, knownSensitiveValues)
+    ) {
+      result.delete(name)
+    }
+  }
   for (const name of [
     "authorization",
     "proxy-authorization",
@@ -685,6 +742,73 @@ function stripCrossOriginCredentials(
     if (name) result.delete(name)
   }
   return result
+}
+
+function bodyContainsKnownSensitiveValue(
+  body: BodyInit | null | undefined,
+  bodyType: Request["bodyType"],
+  knownSensitiveValues: readonly RedactionSecret[],
+): boolean {
+  const contains = (input: string) =>
+    knownSensitiveValues.some((secret) => {
+      const value = typeof secret === "string" ? secret : secret.value
+      return value !== "" && input.includes(value)
+    })
+  const entriesContain = (entries: Iterable<[string, string]>) =>
+    [...entries].some(([name, value]) => contains(name) || contains(value))
+
+  if (typeof body === "string") {
+    return bodyType === "urlencoded"
+      ? entriesContain(new URLSearchParams(body))
+      : contains(body)
+  }
+  if (body instanceof URLSearchParams) {
+    return entriesContain(body)
+  }
+  if (body instanceof FormData) {
+    return [...body].some(
+      ([name, value]) =>
+        contains(name) ||
+        contains(typeof value === "string" ? value : value.name),
+    )
+  }
+  return false
+}
+
+function containsKnownSensitiveValue(
+  input: string,
+  knownSensitiveValues: readonly RedactionSecret[],
+): boolean {
+  return knownSensitiveValues.some((secret) => {
+    const value = typeof secret === "string" ? secret : secret.value
+    if (!value) return false
+    const wordLikeValue = SENSITIVE_VALUE_CHAR.test(value)
+    for (
+      let index = input.indexOf(value);
+      index >= 0;
+      index = input.indexOf(value, index + 1)
+    ) {
+      const before = input[index - 1]
+      const after = input[index + value.length]
+      if (
+        hasSensitiveValueBoundary(before, wordLikeValue) &&
+        hasSensitiveValueBoundary(after, wordLikeValue)
+      ) {
+        return true
+      }
+    }
+    return false
+  })
+}
+
+function hasSensitiveValueBoundary(
+  neighbor: string | undefined,
+  wordLikeValue: boolean,
+): boolean {
+  if (neighbor === undefined) return true
+  return wordLikeValue
+    ? !SENSITIVE_VALUE_CHAR.test(neighbor)
+    : SENSITIVE_VALUE_DELIMITER.test(neighbor)
 }
 
 // User-authored Cookie header entries win; jar cookies fill missing names.

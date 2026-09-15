@@ -206,6 +206,47 @@ describe("human CLI output", () => {
     ).toContain("Assertions: not evaluated")
   })
 
+  it("summarizes scripts without printing captured logs", () => {
+    const output = plain(
+      formatRequestRun({
+        result: {
+          id: "users/get",
+          method: "GET",
+          url: "https://example.com/users/1",
+          ok: false,
+          failureCategories: ["script"],
+          error: "Script failed",
+          scripts: {
+            evaluated: true,
+            results: [
+              {
+                phase: "pre",
+                scope: "request",
+                sourceKind: "inline",
+                success: false,
+                durationMs: 2.5,
+                logs: [{ level: "warn", message: "hidden log" }],
+                error: {
+                  name: "ScriptRuntimeError",
+                  message: "safe failure",
+                  line: 3,
+                  column: 4,
+                },
+              },
+            ],
+          },
+        },
+      }),
+    )
+
+    expect(output).toContain("Failure: script failure")
+    expect(output).toContain("Pre-script: failed, 2.5ms, 1 log")
+    expect(output).toContain(
+      "ScriptRuntimeError: safe failure (pre-request.js:3:4)",
+    )
+    expect(output).not.toContain("hidden log")
+  })
+
   it("summarizes captures without printing captured values", () => {
     const output = plain(
       formatRequestRun({

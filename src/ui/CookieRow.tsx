@@ -195,13 +195,13 @@ export function CookieRow({
         ) : null}
       </box>
       {expanded && details ? (
-        details.map(({ label, value: detailValue }) => {
+        details.map(({ label, value: detailValue }, detailIndex) => {
           const multiline = detailValue.includes("\n")
           const detailColor =
             label === "Value" ? rowValueColor : theme.textMuted
           return (
             <box
-              key={label}
+              key={`${label}-${detailIndex}`}
               style={{
                 flexDirection: "column",
                 paddingLeft: COOKIE_CHEVRON_WIDTH,

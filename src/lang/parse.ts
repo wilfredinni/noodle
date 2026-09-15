@@ -91,6 +91,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "form_data",
     "file_path",
     "tls",
+    "scripts",
     "capture",
     "assert",
   ])
@@ -185,6 +186,7 @@ export function parseRequest(id: string, yamlText: string): Request {
   const auth = parseAuth(raw.auth, "lang.parseRequest", true)
   const tls = parseRequestTls(raw.tls)
   const tags = parseTags(raw.tags, "lang.parseRequest")
+  const scripts = parseScripts(raw.scripts)
   const captures = parseCaptures(raw.capture)
   const assertions = parseAssertions(raw.assert)
 
@@ -243,6 +245,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     formData,
     filePath,
     auth,
+    ...(scripts ? { scripts } : {}),
     ...(captures ? { captures } : {}),
     ...(assertions ? { assertions } : {}),
   }
@@ -251,6 +254,27 @@ export function parseRequest(id: string, yamlText: string): Request {
     return { ...requestWithTls, pathParams }
   }
   return requestWithTls as Request
+}
+
+function parseScripts(value: unknown): Request["scripts"] {
+  if (value === undefined) return undefined
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error('lang.parseRequest: "scripts" must be a mapping')
+  }
+  const keys = Object.keys(value)
+  if (keys.length === 0) {
+    throw new Error('lang.parseRequest: "scripts" must contain "pre"')
+  }
+  for (const key of keys) {
+    if (key !== "pre") {
+      throw new Error(`lang.parseRequest: unknown scripts field "${key}"`)
+    }
+  }
+  const pre = (value as Record<string, unknown>).pre
+  if (typeof pre !== "string") {
+    throw new Error("lang.parseRequest: scripts.pre must be a string")
+  }
+  return { pre }
 }
 
 export function parseTags(

@@ -112,6 +112,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bun scripts/compiled-script-smoke.ts "./noodle-${{ matrix.target }}"
           expected="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
           actual="$(./noodle-${{ matrix.target }} --version)"
           test "$actual" = "$expected" || {

@@ -154,6 +154,58 @@ describe("lang.parseRequest — defaults", () => {
   })
 })
 
+describe("inline pre-request script language", () => {
+  it("round-trips literal source before captures and assertions", () => {
+    const source =
+      'request.url = `$BASE_URL/${run.get("id")}`;\nconsole.log("$TOKEN");\n'
+    const request = makeRequest({
+      scripts: { pre: source },
+      captures: { id: { value: "body.id", enabled: true } },
+      assertions: [{ expression: "status", operator: "equals", value: 200 }],
+    })
+    const serialized = lang.serializeRequest(request)
+
+    expect(serialized.indexOf("scripts:")).toBeLessThan(
+      serialized.indexOf("capture:"),
+    )
+    expect(serialized.indexOf("capture:")).toBeLessThan(
+      serialized.indexOf("assert:"),
+    )
+    expect(serialized).toContain("  pre: |+\n")
+    expect(serialized).toContain("$BASE_URL")
+    expect(lang.parseRequest("x", serialized).scripts).toEqual({ pre: source })
+  })
+
+  it("accepts an empty source and leaves requests without scripts unchanged", () => {
+    const empty = lang.parseRequest(
+      "x",
+      "name: Empty\nmethod: GET\nurl: https://example.com\nscripts:\n  pre: ''\n",
+    )
+    expect(empty.scripts).toEqual({ pre: "" })
+    expect(lang.serializeRequest(empty)).toContain("scripts:\n  pre: |-\n")
+    expect(
+      lang.parseRequest("x", lang.serializeRequest(makeRequest())),
+    ).not.toHaveProperty("scripts")
+  })
+
+  it("strictly validates the scripts mapping", () => {
+    for (const [yaml, message] of [
+      ["scripts: []", '"scripts" must be a mapping'],
+      ["scripts: {}", '"scripts" must contain "pre"'],
+      ["scripts:\n  post: value", 'unknown scripts field "post"'],
+      ["scripts:\n  pre: 1", "scripts.pre must be a string"],
+      ["scripts:\n  pre: ok\n  extra: no", 'unknown scripts field "extra"'],
+    ]) {
+      expect(() =>
+        lang.parseRequest(
+          "x",
+          `name: Test\nmethod: GET\nurl: https://example.com\n${yaml}\n`,
+        ),
+      ).toThrow(message)
+    }
+  })
+})
+
 describe("lang.parseRequest — strictness", () => {
   it("throws on unknown top-level key", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmethd: GET\n`

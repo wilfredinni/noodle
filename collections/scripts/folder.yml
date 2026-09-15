@@ -1,0 +1,7 @@
+meta:
+  name: Pre-request Scripts
+  seq: 2
+tags:
+  - scripts
+auth:
+  type: none

@@ -1,0 +1,48 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
+
+const binary = resolve(process.argv[2] ?? "./noodle")
+const collection = await mkdtemp(join(tmpdir(), "noodle-compiled-script-"))
+const marker = "compiled-quickjs-ok"
+
+try {
+  await writeFile(
+    join(collection, "settings.yml"),
+    "cookies:\n  enabled: false\n",
+  )
+  await writeFile(
+    join(collection, "script.yml"),
+    `name: Script
+method: GET
+url: https://example.com
+scripts:
+  pre: throw new Error("${marker}")
+`,
+  )
+
+  const run = Bun.spawnSync([
+    binary,
+    "request",
+    "run",
+    "script",
+    "--collection",
+    collection,
+    "--json",
+  ])
+  const output = JSON.parse(run.stdout.toString())
+  const result = output.data?.result
+  if (
+    run.exitCode !== 1 ||
+    result?.failureCategories?.[0] !== "script" ||
+    result?.scripts?.results?.[0]?.error?.message !== marker
+  ) {
+    throw new Error(
+      `compiled pre-request script smoke failed: ${run.stderr.toString() || run.stdout.toString()}`,
+    )
+  }
+
+  console.log("Compiled pre-request script smoke passed.")
+} finally {
+  await rm(collection, { recursive: true, force: true })
+}

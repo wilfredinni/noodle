@@ -38,6 +38,13 @@ describe("response Results", () => {
     ).toBe(true)
     expect(
       hasResponseResults({
+        status: "done",
+        response,
+        execution: { scripts: { evaluated: false, results: [] } },
+      }),
+    ).toBe(true)
+    expect(
+      hasResponseResults({
         status: "error",
         request: {
           id: "request",

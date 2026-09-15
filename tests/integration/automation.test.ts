@@ -357,9 +357,8 @@ describe("automation services", () => {
       "name: Request\nmethod: GET\nurl: $BASE_URL\n",
     )
     const send = executor.send
-    executor.send = async (_request, options) => {
-      expect(options?.environment?.name).toBe("development")
-      expect(options?.environment?.vars.BASE_URL).toBe("https://example.com")
+    executor.send = async (request) => {
+      expect(request.url).toBe("https://example.com")
       return {
         status: 200,
         statusText: "OK",
@@ -375,6 +374,401 @@ describe("automation services", () => {
         url: "https://example.com",
         ok: true,
       })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("runs a request pre-script before transport and returns redacted results", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      `name: Request
+method: GET
+url: https://example.com/original
+headers:
+  X-Script: { value: old, enabled: false }
+scripts:
+  pre: |-
+    request.url = "https://example.com/mutated";
+    request.headers.set("X-Script", "yes");
+    request.auth.setBearer("script-secret");
+    console.log("token", "script-secret");
+capture:
+  id: { value: body.id }
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+`,
+    )
+    const send = executor.send
+    executor.send = async (request) => {
+      expect(request.url).toBe("https://example.com/mutated")
+      expect(request.headers).toEqual({ "X-Script": "yes" })
+      expect(request.auth).toEqual({
+        type: "bearer",
+        token: "script-secret",
+      })
+      expect(request).not.toHaveProperty("scripts")
+      expect(request).not.toHaveProperty("captures")
+      expect(request).not.toHaveProperty("assertions")
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"id":7}',
+        timeMs: 1,
+      }
+    }
+    try {
+      const { result } = await requestRun("request", dir)
+      expect(result).toMatchObject({
+        ok: true,
+        url: "https://example.com/mutated",
+        scripts: {
+          evaluated: true,
+          results: [
+            {
+              phase: "pre",
+              scope: "request",
+              sourceKind: "inline",
+              success: true,
+              logs: [{ level: "log", message: "token [REDACTED]" }],
+            },
+          ],
+        },
+        captures: { evaluated: true, results: [{ success: true, value: 7 }] },
+        assertions: { evaluated: true, results: [{ passed: true }] },
+      })
+      const details: RequestRunDetail[] = []
+      await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        [],
+        [],
+        false,
+        (detail) => details.push(detail),
+      )
+      expect(details[0]?.entry.request).toMatchObject({
+        url: "https://example.com/mutated",
+        headers: { "X-Script": { value: "yes", enabled: true } },
+      })
+      expect(JSON.stringify(details[0]?.entry)).not.toContain('"scripts"')
+      expect(JSON.stringify(details[0]?.entry)).not.toContain(
+        "token [REDACTED]",
+      )
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("commits script RunScope changes before a transport failure", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-set.yml"),
+      `name: Set
+method: GET
+url: https://example.com/set
+scripts:
+  pre: run.set("script_value", "committed")
+`,
+    )
+    await writeFile(
+      join(dir, "02-use.yml"),
+      "name: Use\nmethod: GET\nurl: https://example.com/$script_value\n",
+    )
+    const send = executor.send
+    let calls = 0
+    executor.send = async (request) => {
+      calls++
+      if (request.id === "01-set") {
+        const error = Object.assign(new Error("offline"), { network: [] })
+        throw error
+      }
+      expect(request.url).toBe("https://example.com/committed")
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(calls).toBe(2)
+      expect(result.results[0]).toMatchObject({
+        ok: false,
+        failureCategories: ["transport"],
+        scripts: { evaluated: true, results: [{ success: true }] },
+      })
+      expect(result.results[0]?.captures).toBeUndefined()
+      expect(result.results[1]).toMatchObject({ ok: true })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("keeps script-created RunScope secrets redacted in later requests", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-create.yml"),
+      `name: Create
+method: GET
+url: https://example.com/create
+scripts:
+  pre: |-
+    const nonce = crypto.randomBytes(8, "hex");
+    run.set("nonce", nonce);
+    request.headers.set("X-Echo", nonce);
+capture:
+  nonce: { value: body.nonce }
+`,
+    )
+    await writeFile(
+      join(dir, "02-use.yml"),
+      "name: Use\nmethod: GET\nurl: https://example.com/$nonce\n",
+    )
+    const send = executor.send
+    const sent: string[] = []
+    executor.send = async (request) => {
+      sent.push(request.url)
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body:
+          request.id === "01-create"
+            ? JSON.stringify({ nonce: request.headers["X-Echo"] })
+            : "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(sent[1]).toMatch(/^https:\/\/example\.com\/[0-9a-f]{16}$/)
+      expect(result.results[1]?.url).toBe("https://example.com/[REDACTED]")
+      expect(result.results[0]?.captures?.results[0]).toMatchObject({
+        success: true,
+        value: "[REDACTED]",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("redacts short primitive RunScope secrets after request substitution", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-capture.yml"),
+      `name: Capture
+method: GET
+url: https://example.com/capture
+capture:
+  short: { value: body.short, persist: secret }
+  flag: { value: body.flag, persist: secret }
+`,
+    )
+    await writeFile(
+      join(dir, "02-use.yml"),
+      `name: Use
+method: GET
+url: https://example.com/$short/$flag
+scripts:
+  pre: |-
+    console.log(request.url);
+    throw new Error(request.url);
+`,
+    )
+    const send = executor.send
+    let calls = 0
+    executor.send = async () => {
+      calls++
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"short":123,"flag":true}',
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(calls).toBe(1)
+      expect(result.results[1]?.scripts?.results[0]).toMatchObject({
+        success: false,
+        logs: [
+          {
+            level: "log",
+            message: "https://example.com/[REDACTED]/[REDACTED]",
+          },
+        ],
+        error: {
+          name: "ScriptRuntimeError",
+          message: "https://example.com/[REDACTED]/[REDACTED]",
+        },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("redacts property names from secret RunScope object captures", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-capture.yml"),
+      `name: Capture
+method: GET
+url: https://example.com/capture
+capture:
+  payload: { value: body.payload, persist: secret }
+`,
+    )
+    await writeFile(
+      join(dir, "02-use.yml"),
+      `name: Use
+method: GET
+url: https://example.com/use
+scripts:
+  pre: |-
+    const key = Object.keys(run.get("payload"))[0];
+    console.warn(key);
+    throw new Error(key);
+`,
+    )
+    const send = executor.send
+    let calls = 0
+    executor.send = async () => {
+      calls++
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"payload":{"object-key-secret":"public"}}',
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(calls).toBe(1)
+      expect(result.results[1]?.scripts?.results[0]).toMatchObject({
+        success: false,
+        logs: [{ level: "warn", message: "[REDACTED]" }],
+        error: { name: "ScriptRuntimeError", message: "[REDACTED]" },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("rolls back failed scripts, skips HTTP, and honors fail-fast", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-fail.yml"),
+      `name: Fail
+method: GET
+url: https://example.com/fail
+scripts:
+  pre: |-
+    request.url = "https://changed.example";
+    run.set("leak", "no");
+    console.warn("before failure");
+    throw new Error("script failed");
+capture:
+  id: { value: body.id }
+`,
+    )
+    await writeFile(
+      join(dir, "02-next.yml"),
+      "name: Next\nmethod: GET\nurl: https://example.com/next\n",
+    )
+    const send = executor.send
+    let sends = 0
+    const details: RequestRunDetail[] = []
+    executor.send = async () => {
+      sends++
+      throw new Error("should not send")
+    }
+    try {
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        [],
+        [],
+        true,
+        (detail) => details.push(detail),
+      )
+      expect(sends).toBe(0)
+      expect(result.results[0]).toMatchObject({
+        ok: false,
+        url: "https://example.com/fail",
+        failureCategories: ["script"],
+        scripts: {
+          evaluated: true,
+          results: [
+            {
+              success: false,
+              logs: [{ level: "warn", message: "before failure" }],
+              error: { name: "ScriptRuntimeError", message: "script failed" },
+            },
+          ],
+        },
+        captures: { evaluated: false, results: [] },
+      })
+      expect(result.skipped).toEqual([{ id: "02-next", reason: "fail-fast" }])
+      expect(result.summary.failureCategories).toEqual(["script"])
+      expect(details[0]?.entry.request.url).toBe("https://example.com/fail")
+      expect(JSON.stringify(details[0]?.entry)).not.toContain("before failure")
+      expect(JSON.stringify(details[0]?.entry)).not.toContain("run.set")
+      expect(JSON.stringify(details[0]?.entry)).not.toContain('"scripts"')
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("lets a later capture overwrite a script RunScope value", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-capture.yml"),
+      `name: Capture
+method: GET
+url: https://example.com/capture
+scripts:
+  pre: run.set("id", "script")
+capture:
+  id: { value: body.id }
+`,
+    )
+    await writeFile(
+      join(dir, "02-use.yml"),
+      "name: Use\nmethod: GET\nurl: https://example.com/$id\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => {
+      if (request.id === "02-use") {
+        expect(request.url).toBe("https://example.com/captured")
+      }
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: request.id === "01-capture" ? '{"id":"captured"}' : "",
+        timeMs: 1,
+      }
+    }
+    try {
+      expect((await collectionRun(dir)).failed).toBe(false)
     } finally {
       executor.send = send
     }
@@ -791,6 +1185,45 @@ describe("automation services", () => {
           "assertion",
         ],
       })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("reports timeout aborts as transport failures and continues", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-timeout.yml"),
+      "name: Timeout\nmethod: GET\nurl: https://example.com/timeout\ntimeout: 5\n",
+    )
+    await writeFile(
+      join(dir, "02-success.yml"),
+      "name: Success\nmethod: GET\nurl: https://example.com/success\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => {
+      if (request.id === "01-timeout") {
+        throw new DOMException("The operation was aborted", "AbortError")
+      }
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "ok",
+        timeMs: 1,
+      }
+    }
+    try {
+      expect(await requestRun("01-timeout", dir)).toMatchObject({
+        failed: true,
+        result: { ok: false, failureCategories: ["transport"] },
+      })
+
+      const collection = await collectionRun(dir)
+      expect(collection.results).toMatchObject([
+        { id: "01-timeout", ok: false, failureCategories: ["transport"] },
+        { id: "02-success", ok: true, failureCategories: [] },
+      ])
     } finally {
       executor.send = send
     }
@@ -1340,10 +1773,8 @@ describe("automation services", () => {
       join(dir, "03-delete.yml"),
       "name: 3 Delete user\nmethod: DELETE\nurl: $BASE_URL/users/$user_id\nassert:\n  - expression: status\n    operator: equals\n    value: 204\n",
     )
-    const environments: Array<Record<string, string>> = []
     const send = executor.send
-    executor.send = async (request, options) => {
-      environments.push({ ...(options?.environment?.vars ?? {}) })
+    executor.send = async (request) => {
       return {
         status:
           request.id === "01-create"
@@ -1378,9 +1809,6 @@ describe("automation services", () => {
         "https://example.com/users/42",
         "https://example.com/users/42",
       ])
-      expect(environments[0]?.user_id).toBe("environment")
-      expect(environments[1]?.user_id).toBe("42")
-      expect(environments[2]?.user_id).toBe("42")
       expect(
         result.results.flatMap(
           (item) => item.assertions?.results.map(({ passed }) => passed) ?? [],
@@ -1732,7 +2160,7 @@ describe("automation services", () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\ncapture:\n  id: { value: body.id }\n",
+      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\nscripts:\n  pre: request.url = 'https://changed.example'\ncapture:\n  id: { value: body.id }\n",
     )
     const send = executor.send
     let sends = 0
@@ -1745,6 +2173,7 @@ describe("automation services", () => {
       expect(sends).toBe(0)
       expect(result.result).toMatchObject({
         ok: false,
+        scripts: { evaluated: false, results: [] },
         captures: { evaluated: false, results: [] },
       })
       expect(result.result.error).toContain('unresolved variable "MISSING"')
@@ -1777,12 +2206,13 @@ describe("automation services", () => {
         "name: 2 Profile\nmethod: GET\nurl: $BASE_URL/profile\nauth:\n  type: bearer\n  token: $access_token\nassert:\n  - expression: body.id\n    operator: equals\n    value: 7\n",
       )
       let rawCapturedValue: string | undefined
-      executor.send = async (request, options) => {
+      executor.send = async (request) => {
         if (request.id === "02-profile") {
-          rawCapturedValue = options?.environment?.vars.access_token
+          rawCapturedValue =
+            request.auth?.type === "bearer" ? request.auth.token : undefined
           expect(request.auth).toEqual({
             type: "bearer",
-            token: "$access_token",
+            token: "brand-new-token",
           })
         }
         return {

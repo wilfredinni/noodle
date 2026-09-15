@@ -48,21 +48,24 @@ export function buildTimelineEntry(
   envName?: string,
   environment?: Environment | null,
   settingsSecrets: RedactionSecret[] = [],
+  prepared = false,
 ): TimelineEntry {
   const secretValues = [
     ...environmentSecretValues(environment),
     ...settingsSecrets,
   ]
   const resolvePublicVars = (value: string) =>
-    environment
-      ? replaceVariableReferences(value, (key) =>
-          Object.hasOwn(environment.secretVars ?? {}, key)
-            ? REDACTED
-            : Object.hasOwn(environment.vars, key)
-              ? environment.vars[key]!
-              : `$${key}`,
-        )
-      : replaceVariableReferences(value, (key) => `$${key}`)
+    prepared
+      ? value
+      : environment
+        ? replaceVariableReferences(value, (key) =>
+            Object.hasOwn(environment.secretVars ?? {}, key)
+              ? REDACTED
+              : Object.hasOwn(environment.vars, key)
+                ? environment.vars[key]!
+                : `$${key}`,
+          )
+        : replaceVariableReferences(value, (key) => `$${key}`)
   secretValues.push(
     ...requestSensitiveValues(req)
       .map(resolvePublicVars)

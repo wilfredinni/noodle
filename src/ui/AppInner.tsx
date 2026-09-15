@@ -556,6 +556,7 @@ export function AppInner({
       result: SendCompleteResult,
       dispatchEnvironment?: Environment,
       runSecretValues: RedactionSecret[] = [],
+      prepared = false,
     ) => {
       timeline.appendEntry(
         buildTimelineEntry(
@@ -569,6 +570,7 @@ export function AppInner({
             ...Object.values(tlsPassphrases),
             ...runSecretValues,
           ].filter((value) => typeof value !== "string" || Boolean(value)),
+          prepared,
         ),
       )
     },
@@ -866,12 +868,14 @@ export function AppInner({
       overlays.setRunnerDetail({
         entry: detail.entry,
         execution: {
+          ...(row.result.scripts ? { scripts: row.result.scripts } : {}),
           ...(row.result.assertions
             ? { assertions: row.result.assertions }
             : {}),
           ...(row.result.captures ? { captures: row.result.captures } : {}),
         },
         request: {
+          scripts: request.scripts,
           assertions: request.assertions,
           captures: request.captures,
         },

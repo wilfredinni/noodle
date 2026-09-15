@@ -25,7 +25,7 @@ export function ResponseResults({
   onPaneFocus,
 }: {
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "assertions" | "captures">
+  request?: Pick<Request, "scripts" | "assertions" | "captures">
   showCaptures?: boolean
   captureLifetimeNote?: string
   scrollRef?: RefObject<ScrollBoxRenderable | null>
@@ -38,11 +38,16 @@ export function ResponseResults({
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [selectedRowIdx, setSelectedRowIdx] = useState(0)
+  const scripts = execution?.scripts
   const assertions = execution?.assertions
   const captures = execution?.captures
+  const scriptResults = scripts?.evaluated ? scripts.results : []
   const assertionResults = assertions?.evaluated ? assertions.results : []
   const captureResults = captures?.evaluated ? captures.results : []
   const rowIds = [
+    ...(scripts?.evaluated
+      ? scriptResults.map((_, index) => `response-script-${index}`)
+      : []),
     ...(assertions?.evaluated
       ? assertionResults.map((_, index) => `response-assertion-${index}`)
       : []),
@@ -51,6 +56,10 @@ export function ResponseResults({
       : []),
   ]
   const rowKey = [
+    ...scriptResults.map(
+      (result) =>
+        `script:${result.phase}:${result.success}:${result.durationMs}`,
+    ),
     ...assertionResults.map((result) => `assertion:${result.expression}`),
     ...(showCaptures
       ? captureResults.map((result) => `capture:${result.variable}`)
@@ -145,17 +154,104 @@ export function ResponseResults({
   const activeCaptures = Object.entries(request?.captures ?? {}).filter(
     ([, capture]) => capture.enabled,
   )
+  const hasScripts = Boolean(scripts || request?.scripts)
   const hasAssertions = Boolean(assertions || activeAssertions.length)
   const hasCaptures = Boolean(
     showCaptures && (captures || activeCaptures.length > 0),
   )
 
-  if (!hasAssertions && !hasCaptures) {
+  if (!hasScripts && !hasAssertions && !hasCaptures) {
     return <text fg={theme.textMuted}>No execution results.</text>
   }
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
+      {hasScripts ? (
+        <box style={{ flexDirection: "column" }}>
+          <box style={{ flexDirection: "row", gap: 1 }}>
+            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+              Scripts
+            </text>
+            {scripts ? (
+              <text
+                fg={
+                  scripts.evaluated
+                    ? scripts.results.every((result) => result.success)
+                      ? theme.success
+                      : theme.error
+                    : theme.warning
+                }
+              >
+                {scripts.evaluated
+                  ? scripts.results.every((result) => result.success)
+                    ? "Passed"
+                    : "Failed"
+                  : "Not evaluated"}
+              </text>
+            ) : null}
+          </box>
+          {scripts?.evaluated === false ? (
+            <text fg={theme.textMuted}> Pre-request script</text>
+          ) : scripts ? (
+            <box style={{ flexDirection: "column" }}>
+              {scripts.results.map((result, index) => {
+                const id = `response-script-${index}`
+                const logCount = `${result.logs.length} log${result.logs.length === 1 ? "" : "s"}`
+                return (
+                  <CookieRow
+                    id={id}
+                    key={id}
+                    kindLabel={result.success ? "PASS" : "FAIL"}
+                    kindColor={result.success ? theme.success : theme.error}
+                    name="Pre-request"
+                    value={`${result.durationMs}ms, ${logCount}`}
+                    nameWidth={12}
+                    selected={selectedRowIdx === index}
+                    expanded={expandedRow === id}
+                    hovered={hoveredRow === id}
+                    details={[
+                      { label: "Phase", value: result.phase },
+                      { label: "Scope", value: result.scope },
+                      { label: "Source", value: result.sourceKind },
+                      { label: "Duration", value: `${result.durationMs}ms` },
+                      ...(result.error
+                        ? [
+                            { label: "Error", value: result.error.name },
+                            {
+                              label: "Message",
+                              value: result.error.message,
+                            },
+                            ...(result.error.line
+                              ? [
+                                  {
+                                    label: "Location",
+                                    value: `pre-request.js:${result.error.line}${result.error.column ? `:${result.error.column}` : ""}`,
+                                  },
+                                ]
+                              : []),
+                          ]
+                        : []),
+                      ...result.logs.map((entry) => ({
+                        label: entry.level.toUpperCase(),
+                        value: entry.message,
+                      })),
+                    ]}
+                    onSelect={() => setSelectedRowIdx(index)}
+                    onToggleExpanded={() =>
+                      setExpandedRow((prev) => (prev === id ? null : id))
+                    }
+                    onHover={(isHovered) =>
+                      setHoveredRow(isHovered ? id : null)
+                    }
+                    onPaneFocus={onPaneFocus}
+                  />
+                )
+              })}
+            </box>
+          ) : null}
+        </box>
+      ) : null}
+
       {hasAssertions ? (
         <box style={{ flexDirection: "column" }}>
           <box style={{ flexDirection: "row", gap: 1 }}>
@@ -200,7 +296,7 @@ export function ResponseResults({
                     value={` ${result.operator}`}
                     valueWidth={assertionOperatorWidth}
                     nameWidth={assertionNameWidth}
-                    selected={selectedRowIdx === index}
+                    selected={selectedRowIdx === scriptResults.length + index}
                     expanded={expandedRow === id}
                     hovered={hoveredRow === id}
                     details={[
@@ -217,7 +313,9 @@ export function ResponseResults({
                         ? [{ label: "Message", value: result.message }]
                         : []),
                     ]}
-                    onSelect={() => setSelectedRowIdx(index)}
+                    onSelect={() =>
+                      setSelectedRowIdx(scriptResults.length + index)
+                    }
                     onToggleExpanded={() =>
                       setExpandedRow((prev) => (prev === id ? null : id))
                     }
@@ -280,7 +378,8 @@ export function ResponseResults({
                     value={result.expression}
                     nameWidth={captureNameWidth}
                     selected={
-                      selectedRowIdx === assertionResults.length + index
+                      selectedRowIdx ===
+                      scriptResults.length + assertionResults.length + index
                     }
                     expanded={expandedRow === id}
                     hovered={hoveredRow === id}
@@ -304,7 +403,9 @@ export function ResponseResults({
                         : [{ label: "Message", value: result.message }]
                     }
                     onSelect={() =>
-                      setSelectedRowIdx(assertionResults.length + index)
+                      setSelectedRowIdx(
+                        scriptResults.length + assertionResults.length + index,
+                      )
                     }
                     onToggleExpanded={() =>
                       setExpandedRow((prev) => (prev === id ? null : id))

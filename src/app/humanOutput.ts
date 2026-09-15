@@ -33,11 +33,29 @@ function failureLabel(
   return {
     configuration: "configuration error",
     execution: "request error",
+    script: "script failure",
     transport: "transport error",
     http: "HTTP error",
     capture: "capture failure",
     assertion: "assertion failure",
   }[category]
+}
+
+function formatScripts(result: RequestRunResult): string[] {
+  if (!result.scripts) return []
+  if (!result.scripts.evaluated) return ["  Pre-script: not evaluated"]
+  return result.scripts.results.flatMap((script) => {
+    const status = script.success ? "passed" : "failed"
+    const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
+    return [
+      `  Pre-script: ${status}, ${script.durationMs}ms, ${logs}`,
+      ...(script.error
+        ? [
+            `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (pre-request.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
+          ]
+        : []),
+    ]
+  })
 }
 
 function formatAssertions(result: RequestRunResult): string[] {
@@ -183,6 +201,7 @@ export function formatRunResult(result: RequestRunResult): string {
     ...(result.failureCategories.length
       ? [`  Failure: ${result.failureCategories.map(failureLabel).join(", ")}`]
       : []),
+    ...formatScripts(result),
     ...formatCaptures(result),
     ...formatAssertions(result),
     ...(result.warnings ?? []).map(

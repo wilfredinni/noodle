@@ -92,7 +92,7 @@ export function TimelineDetailOverlay({
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "assertions" | "captures">
+  request?: Pick<Request, "scripts" | "assertions" | "captures">
   showCaptures?: boolean
   captureLifetimeNote?: string
   warnings?: string[]
@@ -133,8 +133,10 @@ export function TimelineDetailOverlay({
     execution ??
     (entry?.assertions ? { assertions: entry.assertions } : undefined)
   const hasResults = Boolean(
+    resultExecution?.scripts ||
     resultExecution?.assertions ||
     resultExecution?.captures ||
+    request?.scripts ||
     request?.assertions?.some((assertion) => assertion.enabled !== false) ||
     Object.values(request?.captures ?? {}).some((capture) => capture.enabled),
   )

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   evaluateResponseExecution,
+  redactScriptExecutionResult,
   unevaluatedExecutionResults,
 } from "../../src/executionResults"
 import { RunScope } from "../../src/runScope"
@@ -191,6 +192,30 @@ describe("response execution results", () => {
       captures: { evaluated: false, results: [] },
       assertions: { evaluated: false, results: [] },
     })
+  })
+
+  it("marks an inline script unevaluated only when one is declared", () => {
+    expect(unevaluatedExecutionResults({ scripts: { pre: "" } })).toEqual({
+      scripts: { evaluated: false, results: [] },
+    })
+    expect(unevaluatedExecutionResults({})).toEqual({})
+  })
+
+  it("redacts script error names as well as messages", () => {
+    expect(
+      redactScriptExecutionResult(
+        {
+          phase: "pre",
+          scope: "request",
+          sourceKind: "inline",
+          success: false,
+          durationMs: 1,
+          logs: [],
+          error: { name: "secret-name", message: "secret-message" },
+        },
+        ["secret-name", "secret-message"],
+      ).error,
+    ).toEqual({ name: "[REDACTED]", message: "[REDACTED]" })
   })
 
   it("omits disabled declarations and leaves prior scope values unchanged", () => {

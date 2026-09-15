@@ -65,17 +65,23 @@ function responseResultsStatus(
   state: SendState,
 ): keyof typeof RESULTS_SYMBOLS | null {
   if (state.status !== "done" && state.status !== "error") return null
+  const scripts = state.execution?.scripts
   const assertions = state.execution?.assertions
   const captures = state.execution?.captures
-  if (!assertions && !captures) return null
+  if (!scripts && !assertions && !captures) return null
   if (
+    (scripts?.evaluated && scripts.results.some((result) => !result.success)) ||
     (assertions?.evaluated &&
       assertions.results.some((result) => !result.passed)) ||
     (captures?.evaluated && captures.results.some((result) => !result.success))
   ) {
     return "error"
   }
-  if (assertions?.evaluated === false || captures?.evaluated === false) {
+  if (
+    scripts?.evaluated === false ||
+    assertions?.evaluated === false ||
+    captures?.evaluated === false
+  ) {
     return "warning"
   }
   return "success"
