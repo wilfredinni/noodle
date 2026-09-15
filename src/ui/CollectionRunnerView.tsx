@@ -74,10 +74,6 @@ function resultTimingLabel(row: RunnerResultRow): string {
   return `${Math.round(row.result.response.timeMs)}ms`
 }
 
-function requestTagLabel(tags: string[]): string {
-  return tags.map((tag) => `#${tag}`).join(" ")
-}
-
 interface ResizeClick {
   time: number
   x: number
@@ -216,8 +212,11 @@ export function CollectionRunnerView({
       : resultIndexById.has(row.request.id),
   )
   const requestBaseLabelWidth = Math.max(0, requestContentWidth - 11)
-  const requestTagLabels = runner.requests.map((request) =>
-    requestTagLabel(runner.requestTags.get(request.id) ?? []),
+  const requestTagWidths = runner.requests.map((request) =>
+    (runner.requestTags.get(request.id) ?? []).reduce(
+      (tagWidth, tag) => tagWidth + stringWidth(`#${tag}`) + 3,
+      0,
+    ),
   )
   const requestNamePreferredWidth = Math.max(
     0,
@@ -232,12 +231,7 @@ export function CollectionRunnerView({
     requestBaseLabelWidth,
   )
   const requestTagColumnWidth = Math.min(
-    Math.max(
-      0,
-      ...requestTagLabels.map((label) =>
-        label ? stringWidth(` ${label}`) : 0,
-      ),
-    ),
+    Math.max(0, ...requestTagWidths),
     Math.max(0, requestBaseLabelWidth - requestLabelWidth),
   )
   const resultKindWidth =
@@ -553,7 +547,9 @@ export function CollectionRunnerView({
                                 fg={
                                   tagActive
                                     ? theme.backgroundPanel
-                                    : theme.textMuted
+                                    : tag === null
+                                      ? theme.textMuted
+                                      : theme.accent
                                 }
                               >
                                 {tag === null ? "+ Add tag" : `#${tag}`}
@@ -725,9 +721,7 @@ export function CollectionRunnerView({
 
                     const { request, index } = row
                     const matched = runner.matchedIds.has(request.id)
-                    const tagsLabel = requestTagLabel(
-                      runner.requestTags.get(request.id) ?? [],
-                    )
+                    const tags = runner.requestTags.get(request.id) ?? []
                     const nameWidth = Math.max(
                       0,
                       requestLabelWidth - row.depth * 2,
@@ -777,22 +771,26 @@ export function CollectionRunnerView({
                           {truncateToWidth(request.name, nameWidth, false)}
                         </text>
                         {requestTagColumnWidth > 0 ? (
-                          <text
-                            fg={theme.textMuted}
+                          <box
                             style={{
                               width: requestTagColumnWidth,
                               flexShrink: 0,
+                              flexDirection: "row",
+                              gap: 1,
+                              paddingLeft: 1,
+                              overflow: "hidden",
                             }}
-                            wrapMode="none"
                           >
-                            {tagsLabel
-                              ? truncateToWidth(
-                                  ` ${tagsLabel}`,
-                                  requestTagColumnWidth,
-                                  false,
-                                )
-                              : ""}
-                          </text>
+                            {tags.map((tag, tagIndex) => (
+                              <Badge
+                                key={`${tag}-${tagIndex}`}
+                                bg={theme.backgroundElement}
+                                fg={theme.accent}
+                              >
+                                {`#${tag}`}
+                              </Badge>
+                            ))}
+                          </box>
                         ) : null}
                       </box>
                     )

@@ -4,6 +4,7 @@ import {
   RGBA,
   type BoxRenderable,
   type ScrollBoxRenderable,
+  type TextRenderable,
 } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -206,8 +207,15 @@ describe("CollectionRunnerView", () => {
       render.renderer.root.findDescendantById("runner-row-0")!
     const secondRequest =
       render.renderer.root.findDescendantById("runner-row-1")!
+    const firstRequestTags = firstRequest.getChildren()[3] as BoxRenderable
+    const firstRequestTag = firstRequestTags.getChildren()[0] as BoxRenderable
     expect(firstRequest.height).toBe(1)
     expect(secondRequest.screenY - firstRequest.screenY).toBe(1)
+    expect(
+      firstRequestTag.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
+    ).toBe(true)
     const requestRows = render
       .captureCharFrame()
       .split("\n")
@@ -220,9 +228,23 @@ describe("CollectionRunnerView", () => {
     )
     expect(requestRows[2]).toContain("#a-very-long-regression-tag")
     expect(requestRows.join("\n")).not.toContain("…")
+    expect(
+      render
+        .captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .filter((span) => span.text.includes("#"))
+        .every((span) => span.fg.equals(RGBA.fromHex(THEMES[0]!.accent))),
+    ).toBe(true)
     const tagColumn = requestRows[0]!.indexOf("#smoke")
     await act(async () => current!.setTagFilter("include", 0, "smoke"))
     await render.renderOnce()
+    const includeTag = render.renderer.root.findDescendantById(
+      "runner-include-tag-0",
+    )!
+    const includeTagText = includeTag
+      .getChildren()[0]!
+      .getChildren()[0] as TextRenderable
+    expect(includeTagText.fg.equals(RGBA.fromHex(THEMES[0]!.accent))).toBe(true)
     const filteredRows = render
       .captureCharFrame()
       .split("\n")

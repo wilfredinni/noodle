@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { type BoxRenderable } from "@opentui/core"
+import { RGBA, type BoxRenderable } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { createTestRender } from "../testRender"
@@ -52,11 +52,16 @@ describe("RequestSettingsTab tags", () => {
     const tagsRow = lines.findIndex((line) => line.includes("Tags"))
     const badgesRow = lines.findIndex((line) => line.includes("smoke"))
     const timeoutRow = lines.findIndex((line) => line.includes("Timeout"))
+    const inactiveTag = render
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.trim() === "#users")
     expect(tags.border).toEqual([...LeftBar.border])
+    expect(inactiveTag?.fg.equals(RGBA.fromHex(THEMES[0]!.accent))).toBe(true)
     expect(tagsRow).toBeGreaterThanOrEqual(0)
     expect(badgesRow).toBe(tagsRow)
-    expect(lines[badgesRow]).toContain("smoke")
-    expect(lines[badgesRow]).toContain("users")
+    expect(lines[badgesRow]).toContain("#smoke")
+    expect(lines[badgesRow]).toContain("#users")
     expect(lines[badgesRow]).toContain("+ Add tag")
     expect(timeoutRow).toBeGreaterThan(badgesRow)
     cleanup()
