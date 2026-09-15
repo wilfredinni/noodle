@@ -770,8 +770,7 @@ function containsKnownSensitiveValue(
   return knownSensitiveValues.some((secret) => {
     const value = typeof secret === "string" ? secret : secret.value
     if (!value) return false
-    const startsWithValueChar = SENSITIVE_VALUE_CHAR.test(value[0]!)
-    const endsWithValueChar = SENSITIVE_VALUE_CHAR.test(value.at(-1)!)
+    const wordLikeValue = SENSITIVE_VALUE_CHAR.test(value)
     for (
       let index = input.indexOf(value);
       index >= 0;
@@ -780,8 +779,8 @@ function containsKnownSensitiveValue(
       const before = input[index - 1]
       const after = input[index + value.length]
       if (
-        hasSensitiveValueBoundary(before, startsWithValueChar) &&
-        hasSensitiveValueBoundary(after, endsWithValueChar)
+        hasSensitiveValueBoundary(before, wordLikeValue) &&
+        hasSensitiveValueBoundary(after, wordLikeValue)
       ) {
         return true
       }
@@ -792,10 +791,10 @@ function containsKnownSensitiveValue(
 
 function hasSensitiveValueBoundary(
   neighbor: string | undefined,
-  wordLikeEdge: boolean,
+  wordLikeValue: boolean,
 ): boolean {
   if (neighbor === undefined) return true
-  return wordLikeEdge
+  return wordLikeValue
     ? !SENSITIVE_VALUE_CHAR.test(neighbor)
     : SENSITIVE_VALUE_DELIMITER.test(neighbor)
 }

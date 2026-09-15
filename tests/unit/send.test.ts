@@ -1005,6 +1005,38 @@ describe("send — network trace", () => {
     }
   })
 
+  it("does not forward source cookie-jar cookies across origins", async () => {
+    const originalFetch = globalThis.fetch
+    const captured: Array<string | null> = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      captured.push(new Headers(init?.headers).get("cookie"))
+      return calls++ === 0
+        ? new Response(null, {
+            status: 302,
+            headers: { location: "https://other.test/next" },
+          })
+        : new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+    const cookies = {
+      refresh: async () => {},
+      cookieHeaderFor: (url: string) =>
+        new URL(url).origin === "https://api.example.com"
+          ? "jar-session=secret"
+          : "",
+      storeResponseCookies: () => {},
+    } as unknown as CollectionCookieJar
+
+    try {
+      await send(makeReq({ url: "https://api.example.com/start" }), {
+        cookies,
+      })
+      expect(captured).toEqual(["jar-session=secret", null])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("strips known secret headers on cross-origin redirects", async () => {
     const originalFetch = globalThis.fetch
     const captured: Headers[] = []
@@ -1029,6 +1061,10 @@ describe("send — network trace", () => {
               value: "$PUNCT_SECRET",
               enabled: true,
             },
+            "X-Custom-Mixed": {
+              value: "$MIXED_SECRET/suffix",
+              enabled: true,
+            },
             "X-Route": { value: "contest", enabled: true },
             "X-Trace": { value: "staging", enabled: true },
             "X-Version": { value: "1.2", enabled: true },
@@ -1043,11 +1079,13 @@ describe("send — network trace", () => {
             SHORT_SECRET: "a",
             WORD_SECRET: "test",
             PUNCT_SECRET: ".",
+            MIXED_SECRET: "token-",
           },
           secretVars: {
             SHORT_SECRET: "keychain",
             WORD_SECRET: "keychain",
             PUNCT_SECRET: "keychain",
+            MIXED_SECRET: "keychain",
           },
         },
         runScope: new RunScope(),
@@ -1057,6 +1095,7 @@ describe("send — network trace", () => {
       expect(captured[0]?.get("x-custom")).toBe("a")
       expect(captured[0]?.get("x-custom-word")).toBe("test")
       expect(captured[0]?.get("x-custom-punctuation")).toBe(".")
+      expect(captured[0]?.get("x-custom-mixed")).toBe("token-/suffix")
       expect(captured[0]?.get("x-api-key")).toBe("a")
       expect(captured[0]?.get("x-route")).toBe("contest")
       expect(captured[0]?.get("x-trace")).toBe("staging")
@@ -1064,6 +1103,7 @@ describe("send — network trace", () => {
       expect(captured[1]?.has("x-custom")).toBe(false)
       expect(captured[1]?.has("x-custom-word")).toBe(false)
       expect(captured[1]?.has("x-custom-punctuation")).toBe(false)
+      expect(captured[1]?.has("x-custom-mixed")).toBe(false)
       expect(captured[1]?.has("x-api-key")).toBe(false)
       expect(captured[1]?.get("x-route")).toBe("contest")
       expect(captured[1]?.get("x-trace")).toBe("staging")
