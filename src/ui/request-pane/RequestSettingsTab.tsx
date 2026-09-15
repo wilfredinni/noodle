@@ -143,9 +143,15 @@ export function SettingsSection({
               >
                 <Badge
                   bg={active ? theme.primary : theme.backgroundElement}
-                  fg={active ? theme.backgroundPanel : theme.textMuted}
+                  fg={
+                    active
+                      ? theme.backgroundPanel
+                      : tag === null
+                        ? theme.textMuted
+                        : theme.accent
+                  }
                 >
-                  {tag ?? "+ Add tag"}
+                  {tag === null ? "+ Add tag" : `#${tag}`}
                 </Badge>
               </box>
             )
