@@ -1199,16 +1199,6 @@ describe("send — network trace", () => {
             bodyType: "json",
             body: '{"contest":true,"version":"1.2"}',
           }),
-          {
-            environment: {
-              name: "test",
-              vars: { WORD_SECRET: "test", PUNCT_SECRET: "." },
-              secretVars: {
-                WORD_SECRET: "keychain",
-                PUNCT_SECRET: "keychain",
-              },
-            },
-          },
         )
         expect(captured.map((init) => init.method)).toEqual(["POST", "POST"])
         expect(captured[1]?.body).toBe('{"contest":true,"version":"1.2"}')
@@ -1223,10 +1213,55 @@ describe("send — network trace", () => {
 
   it("rejects cross-origin redirects that preserve secret bodies", async () => {
     const originalFetch = globalThis.fetch
+    const cases: {
+      secret: string
+      request: Partial<Request>
+    }[] = [
+      {
+        secret: "environment-secret",
+        request: { bodyType: "json", body: '"$SECRET"' },
+      },
+      {
+        secret: "script-secret",
+        request: {
+          bodyType: "json",
+          body: '"safe"',
+          scripts: { pre: 'request.body.setText(env.get("SECRET"))' },
+        },
+      },
+      {
+        secret: "!",
+        request: { bodyType: "json", body: '"prefix$SECRET/suffix"' },
+      },
+      {
+        secret: "!",
+        request: {
+          bodyType: "json",
+          body: '"safe"',
+          scripts: {
+            pre: 'request.body.setText("prefix" + env.get("SECRET") + "suffix")',
+          },
+        },
+      },
+      {
+        secret: "!",
+        request: {
+          bodyType: "urlencoded",
+          formData: [
+            {
+              name: "payload",
+              value: "prefix$SECRET/suffix",
+              enabled: true,
+              type: "text",
+            },
+          ],
+        },
+      },
+    ]
 
     try {
       for (const status of [307, 308]) {
-        for (const source of ["environment", "script"] as const) {
+        for (const testCase of cases) {
           let calls = 0
           globalThis.fetch = mock(async () => {
             calls++
@@ -1241,19 +1276,11 @@ describe("send — network trace", () => {
           const result = await executeRequestLifecycle({
             request: makeReq({
               method: "POST",
-              bodyType: "json",
-              body: source === "environment" ? '"$SECRET"' : '"safe"',
-              ...(source === "script"
-                ? {
-                    scripts: {
-                      pre: 'request.body.setText(env.get("SECRET"))',
-                    },
-                  }
-                : {}),
+              ...testCase.request,
             }),
             environment: {
               name: "test",
-              vars: { SECRET: `${source}-secret` },
+              vars: { SECRET: testCase.secret },
               secretVars: { SECRET: "keychain" },
             },
             runScope: new RunScope(),

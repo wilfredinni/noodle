@@ -607,7 +607,11 @@ export async function sendPrepared(
       }
       if (
         !dropsBody &&
-        bodyContainsKnownSensitiveValue(currentInit.body, knownSensitiveValues)
+        bodyContainsKnownSensitiveValue(
+          currentInit.body,
+          substituted.bodyType,
+          knownSensitiveValues,
+        )
       ) {
         throw networkFailure(
           "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
@@ -742,22 +746,30 @@ function stripCrossOriginCredentials(
 
 function bodyContainsKnownSensitiveValue(
   body: BodyInit | null | undefined,
+  bodyType: Request["bodyType"],
   knownSensitiveValues: readonly RedactionSecret[],
 ): boolean {
+  const contains = (input: string) =>
+    knownSensitiveValues.some((secret) => {
+      const value = typeof secret === "string" ? secret : secret.value
+      return value !== "" && input.includes(value)
+    })
+  const entriesContain = (entries: Iterable<[string, string]>) =>
+    [...entries].some(([name, value]) => contains(name) || contains(value))
+
   if (typeof body === "string") {
-    return containsKnownSensitiveValue(body, knownSensitiveValues)
+    return bodyType === "urlencoded"
+      ? entriesContain(new URLSearchParams(body))
+      : contains(body)
   }
   if (body instanceof URLSearchParams) {
-    return containsKnownSensitiveValue(body.toString(), knownSensitiveValues)
+    return entriesContain(body)
   }
   if (body instanceof FormData) {
     return [...body].some(
       ([name, value]) =>
-        containsKnownSensitiveValue(name, knownSensitiveValues) ||
-        containsKnownSensitiveValue(
-          typeof value === "string" ? value : value.name,
-          knownSensitiveValues,
-        ),
+        contains(name) ||
+        contains(typeof value === "string" ? value : value.name),
     )
   }
   return false
