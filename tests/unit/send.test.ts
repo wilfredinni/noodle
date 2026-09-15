@@ -1023,28 +1023,51 @@ describe("send — network trace", () => {
       const result = await executeRequestLifecycle({
         request: makeReq({
           headers: {
-            "X-Custom": { value: "$SECRET", enabled: true },
-            "X-Trace": { value: "keep", enabled: true },
+            "X-Custom": { value: "$SHORT_SECRET", enabled: true },
+            "X-Custom-Word": { value: "$WORD_SECRET", enabled: true },
+            "X-Custom-Punctuation": {
+              value: "$PUNCT_SECRET",
+              enabled: true,
+            },
+            "X-Route": { value: "contest", enabled: true },
+            "X-Trace": { value: "staging", enabled: true },
+            "X-Version": { value: "1.2", enabled: true },
           },
           scripts: {
-            pre: 'request.headers.set("X-Api-Key", env.get("SECRET"))',
+            pre: 'request.headers.set("X-Api-Key", env.get("SHORT_SECRET"))',
           },
         }),
         environment: {
           name: "test",
-          vars: { SECRET: "synthetic-secret" },
-          secretVars: { SECRET: "keychain" },
+          vars: {
+            SHORT_SECRET: "a",
+            WORD_SECRET: "test",
+            PUNCT_SECRET: ".",
+          },
+          secretVars: {
+            SHORT_SECRET: "keychain",
+            WORD_SECRET: "keychain",
+            PUNCT_SECRET: "keychain",
+          },
         },
         runScope: new RunScope(),
       })
 
       expect(result.status).toBe("done")
-      expect(captured[0]?.get("x-custom")).toBe("synthetic-secret")
-      expect(captured[0]?.get("x-api-key")).toBe("synthetic-secret")
-      expect(captured[0]?.get("x-trace")).toBe("keep")
+      expect(captured[0]?.get("x-custom")).toBe("a")
+      expect(captured[0]?.get("x-custom-word")).toBe("test")
+      expect(captured[0]?.get("x-custom-punctuation")).toBe(".")
+      expect(captured[0]?.get("x-api-key")).toBe("a")
+      expect(captured[0]?.get("x-route")).toBe("contest")
+      expect(captured[0]?.get("x-trace")).toBe("staging")
+      expect(captured[0]?.get("x-version")).toBe("1.2")
       expect(captured[1]?.has("x-custom")).toBe(false)
+      expect(captured[1]?.has("x-custom-word")).toBe(false)
+      expect(captured[1]?.has("x-custom-punctuation")).toBe(false)
       expect(captured[1]?.has("x-api-key")).toBe(false)
-      expect(captured[1]?.get("x-trace")).toBe("keep")
+      expect(captured[1]?.get("x-route")).toBe("contest")
+      expect(captured[1]?.get("x-trace")).toBe("staging")
+      expect(captured[1]?.get("x-version")).toBe("1.2")
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -1122,7 +1145,10 @@ describe("send — network trace", () => {
         calls++
         captured.push(init ?? {})
         return calls === 1
-          ? new Response(null, { status, headers: { location: "/next" } })
+          ? new Response(null, {
+              status,
+              headers: { location: "https://other.test/next" },
+            })
           : new Response("ok", { status: 200 })
       }) as unknown as typeof globalThis.fetch
 
@@ -1131,17 +1157,81 @@ describe("send — network trace", () => {
           makeReq({
             method: "POST",
             bodyType: "json",
-            body: '{"ok":true}',
+            body: '{"contest":true,"version":"1.2"}',
           }),
+          {
+            environment: {
+              name: "test",
+              vars: { WORD_SECRET: "test", PUNCT_SECRET: "." },
+              secretVars: {
+                WORD_SECRET: "keychain",
+                PUNCT_SECRET: "keychain",
+              },
+            },
+          },
         )
         expect(captured.map((init) => init.method)).toEqual(["POST", "POST"])
-        expect(captured[1]?.body).toBe('{"ok":true}')
+        expect(captured[1]?.body).toBe('{"contest":true,"version":"1.2"}')
         expect(new Headers(captured[1]?.headers).get("content-type")).toBe(
           "application/json",
         )
       } finally {
         globalThis.fetch = originalFetch
       }
+    }
+  })
+
+  it("rejects cross-origin redirects that preserve secret bodies", async () => {
+    const originalFetch = globalThis.fetch
+
+    try {
+      for (const status of [307, 308]) {
+        for (const source of ["environment", "script"] as const) {
+          let calls = 0
+          globalThis.fetch = mock(async () => {
+            calls++
+            return calls === 1
+              ? new Response(null, {
+                  status,
+                  headers: { location: "https://other.test/next" },
+                })
+              : new Response("ok", { status: 200 })
+          }) as unknown as typeof globalThis.fetch
+
+          const result = await executeRequestLifecycle({
+            request: makeReq({
+              method: "POST",
+              bodyType: "json",
+              body: source === "environment" ? '"$SECRET"' : '"safe"',
+              ...(source === "script"
+                ? {
+                    scripts: {
+                      pre: 'request.body.setText(env.get("SECRET"))',
+                    },
+                  }
+                : {}),
+            }),
+            environment: {
+              name: "test",
+              vars: { SECRET: `${source}-secret` },
+              secretVars: { SECRET: "keychain" },
+            },
+            runScope: new RunScope(),
+          })
+
+          expect(result).toMatchObject({
+            status: "error",
+            failureCategory: "transport",
+            error: {
+              message:
+                "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
+            },
+          })
+          expect(calls).toBe(1)
+        }
+      }
+    } finally {
+      globalThis.fetch = originalFetch
     }
   })
 

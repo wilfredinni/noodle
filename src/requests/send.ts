@@ -32,10 +32,12 @@ import type { OAuthBrowserLauncher } from "./oauth2Browser"
 import {
   environmentSecretValues,
   isSensitiveHeader,
-  redactKnownSecrets,
   sensitiveHeaderValues,
   type RedactionSecret,
 } from "../secrets/redact"
+
+const SENSITIVE_VALUE_CHAR = /[\p{L}\p{N}_]/u
+const SENSITIVE_VALUE_DELIMITER = /[\s"'`=,:;!?&|()[\]{}<>]/u
 
 function oauth1SensitiveRequestValues(
   url: string,
@@ -589,10 +591,26 @@ export async function sendPrepared(
         onNetworkEvent,
       )
     }
+    const dropsBody =
+      res.status === 303 ||
+      ((res.status === 301 || res.status === 302) &&
+        currentInit.method === "POST")
     if (previousUrl.origin !== nextUrl.origin) {
       if (!allowCrossOriginRedirects) {
         throw networkFailure(
           "requests.send: refusing a cross-origin redirect for a credential-bearing request",
+          undefined,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
+      if (
+        !dropsBody &&
+        bodyContainsKnownSensitiveValue(currentInit.body, knownSensitiveValues)
+      ) {
+        throw networkFailure(
+          "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
           undefined,
           network,
           start,
@@ -629,11 +647,7 @@ export async function sendPrepared(
       onNetworkEvent,
     )
 
-    if (
-      res.status === 303 ||
-      ((res.status === 301 || res.status === 302) &&
-        currentInit.method === "POST")
-    ) {
+    if (dropsBody) {
       const newHeaders = new Headers(currentInit.headers)
       newHeaders.delete("content-type")
       newHeaders.delete("content-length")
@@ -708,7 +722,7 @@ function stripCrossOriginCredentials(
   for (const [name, value] of [...result]) {
     if (
       isSensitiveHeader(name) ||
-      redactKnownSecrets(value, knownSensitiveValues) !== value
+      containsKnownSensitiveValue(value, knownSensitiveValues)
     ) {
       result.delete(name)
     }
@@ -724,6 +738,66 @@ function stripCrossOriginCredentials(
     if (name) result.delete(name)
   }
   return result
+}
+
+function bodyContainsKnownSensitiveValue(
+  body: BodyInit | null | undefined,
+  knownSensitiveValues: readonly RedactionSecret[],
+): boolean {
+  if (typeof body === "string") {
+    return containsKnownSensitiveValue(body, knownSensitiveValues)
+  }
+  if (body instanceof URLSearchParams) {
+    return containsKnownSensitiveValue(body.toString(), knownSensitiveValues)
+  }
+  if (body instanceof FormData) {
+    return [...body].some(
+      ([name, value]) =>
+        containsKnownSensitiveValue(name, knownSensitiveValues) ||
+        containsKnownSensitiveValue(
+          typeof value === "string" ? value : value.name,
+          knownSensitiveValues,
+        ),
+    )
+  }
+  return false
+}
+
+function containsKnownSensitiveValue(
+  input: string,
+  knownSensitiveValues: readonly RedactionSecret[],
+): boolean {
+  return knownSensitiveValues.some((secret) => {
+    const value = typeof secret === "string" ? secret : secret.value
+    if (!value) return false
+    const startsWithValueChar = SENSITIVE_VALUE_CHAR.test(value[0]!)
+    const endsWithValueChar = SENSITIVE_VALUE_CHAR.test(value.at(-1)!)
+    for (
+      let index = input.indexOf(value);
+      index >= 0;
+      index = input.indexOf(value, index + 1)
+    ) {
+      const before = input[index - 1]
+      const after = input[index + value.length]
+      if (
+        hasSensitiveValueBoundary(before, startsWithValueChar) &&
+        hasSensitiveValueBoundary(after, endsWithValueChar)
+      ) {
+        return true
+      }
+    }
+    return false
+  })
+}
+
+function hasSensitiveValueBoundary(
+  neighbor: string | undefined,
+  wordLikeEdge: boolean,
+): boolean {
+  if (neighbor === undefined) return true
+  return wordLikeEdge
+    ? !SENSITIVE_VALUE_CHAR.test(neighbor)
+    : SENSITIVE_VALUE_DELIMITER.test(neighbor)
 }
 
 // User-authored Cookie header entries win; jar cookies fill missing names.
