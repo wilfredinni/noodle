@@ -7,7 +7,10 @@ import type {
   TimelineEntry,
 } from "./schema"
 import type { ResponseExecutionResults } from "./executionResults"
-import { redactExecutionValue } from "./executionResults"
+import {
+  redactExecutionValue,
+  redactScriptExecutionResult,
+} from "./executionResults"
 import { interpolatePathParams } from "./requests/send"
 import {
   environmentSecretValues,
@@ -229,6 +232,17 @@ export function buildTimelineEntry(
     id: randomUUID(),
     timestamp: Date.now(),
     envName,
+    scripts: result.execution?.scripts
+      ? {
+          evaluated: result.execution.scripts.evaluated,
+          results: result.execution.scripts.results.map((script) =>
+            redactScriptExecutionResult(
+              script,
+              executionResultSecrets(secretValues),
+            ),
+          ),
+        }
+      : undefined,
     assertions,
     network:
       result.status === "done"

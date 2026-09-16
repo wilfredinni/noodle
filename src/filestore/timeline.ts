@@ -13,6 +13,11 @@ import {
 import { basename, dirname, join, relative } from "node:path"
 import * as yaml from "../yaml"
 import type {
+  ScriptExecutionError,
+  ScriptExecutionResult,
+  ScriptLog,
+} from "../preRequestScript"
+import type {
   JsonValue,
   ParamEntry,
   TimelineBodyRef,
@@ -86,6 +91,48 @@ function boundedAssertionValue(value: JsonValue): JsonValue {
   return byteSize(JSON.stringify(value)) > INLINE_BODY_LIMIT
     ? "[TRUNCATED]"
     : value
+}
+
+function boundedDiagnosticText(value: string): string {
+  return byteSize(value) > INLINE_BODY_LIMIT ? "[TRUNCATED]" : value
+}
+
+function boundedScriptError(error: ScriptExecutionError | undefined) {
+  return error
+    ? {
+        ...error,
+        name: boundedDiagnosticText(error.name),
+        message: boundedDiagnosticText(error.message),
+      }
+    : undefined
+}
+
+function boundedScriptResult(
+  result: ScriptExecutionResult,
+): ScriptExecutionResult {
+  const logs: ScriptLog[] = []
+  let logBytes = 0
+  for (const log of result.logs) {
+    logBytes += byteSize(JSON.stringify(log))
+    if (logBytes > INLINE_BODY_LIMIT) {
+      logs.push({ level: "warn", message: "[TRUNCATED]" })
+      break
+    }
+    logs.push({ ...log })
+  }
+  return {
+    ...result,
+    logs,
+    error: boundedScriptError(result.error),
+    ...(result.persistence
+      ? {
+          persistence: result.persistence.map((outcome) => ({
+            ...outcome,
+            error: boundedScriptError(outcome.error),
+          })),
+        }
+      : {}),
+  }
 }
 
 function bodyFile(entryId: string, kind: "request" | "response"): string {
@@ -204,6 +251,12 @@ async function persistBodies(
   const entry: TimelineEntry = {
     ...source,
     id,
+    scripts: source.scripts
+      ? {
+          evaluated: source.scripts.evaluated,
+          results: source.scripts.results.map(boundedScriptResult),
+        }
+      : undefined,
     assertions: source.assertions
       ? {
           ...source.assertions,

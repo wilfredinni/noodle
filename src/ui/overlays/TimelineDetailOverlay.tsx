@@ -131,7 +131,9 @@ export function TimelineDetailOverlay({
   const hasNetwork = (entry?.network?.length ?? 0) > 0
   const resultExecution =
     execution ??
-    (entry?.assertions ? { assertions: entry.assertions } : undefined)
+    (entry?.scripts || entry?.assertions
+      ? { scripts: entry.scripts, assertions: entry.assertions }
+      : undefined)
   const hasResults = Boolean(
     resultExecution?.scripts ||
     resultExecution?.assertions ||

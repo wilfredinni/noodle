@@ -17,6 +17,7 @@ import {
 import { buildTimelineEntry } from "../src/timelineEntry"
 import type { Auth, Request, TimelineEntry } from "../src/schema"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
+import type { ResponseExecutionResults } from "../src/executionResults"
 
 describe("truncateUrl", () => {
   it("returns full URL when shorter than max", () => {
@@ -590,6 +591,133 @@ describe("buildDetailRequestHeaders", () => {
 })
 
 describe("buildTimelineEntry", () => {
+  it("snapshots redacted pre/post diagnostics without script source or runtime values", () => {
+    const secret = "timeline-script-secret"
+    const req: Request = {
+      id: "script",
+      name: "Script",
+      method: "GET",
+      url: "https://example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+      scripts: { pre: `console.info("${secret}")` },
+      auth: { type: "bearer", token: "literal-token" },
+    }
+    const execution: ResponseExecutionResults = {
+      scripts: {
+        evaluated: true,
+        results: [
+          {
+            phase: "pre",
+            scope: "request",
+            sourceKind: "inline",
+            success: true,
+            durationMs: 3,
+            logs: [{ level: "info", message: `${secret} literal-token` }],
+          },
+          {
+            phase: "post",
+            scope: "request",
+            sourceKind: "inline",
+            success: false,
+            durationMs: 5,
+            logs: [
+              { level: "error", message: "cookie=x session=cookie-secret" },
+            ],
+            error: { name: secret, message: secret, line: 2, column: 3 },
+            persistence: [
+              {
+                variable: "TOKEN",
+                operation: "set",
+                target: "secret",
+                status: "failed",
+                error: { name: secret, message: secret },
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "set-cookie": "session=cookie-secret" },
+          body: "",
+          timeMs: 1,
+        },
+        execution,
+      },
+      "dev",
+      {
+        name: "dev",
+        vars: { TOKEN: secret },
+        secretVars: { TOKEN: "keychain" },
+      },
+      ["x"],
+    )
+
+    expect(entry.scripts?.results.map((result) => result.phase)).toEqual([
+      "pre",
+      "post",
+    ])
+    expect(entry.scripts?.results[0]?.logs[0]?.message).toBe(
+      "[REDACTED] [REDACTED]",
+    )
+    expect(entry.scripts?.results[1]).toMatchObject({
+      success: false,
+      durationMs: 5,
+      logs: [{ level: "error", message: "cookie=[REDACTED] [REDACTED]" }],
+      error: { name: "[REDACTED]", message: "[REDACTED]", line: 2, column: 3 },
+      persistence: [{ error: { name: "[REDACTED]", message: "[REDACTED]" } }],
+    })
+    expect(JSON.stringify(entry)).not.toContain(secret)
+    expect(JSON.stringify(entry.request)).not.toContain("scripts")
+    expect(JSON.stringify(entry)).not.toContain("captures")
+    expect(execution.scripts?.results[0]?.logs[0]?.message).toContain(secret)
+  })
+
+  it("retains failed pre-only and unevaluated diagnostics on error entries", () => {
+    const req: Request = {
+      id: "script",
+      name: "Script",
+      method: "GET",
+      url: "https://example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+    }
+    const scripts: NonNullable<ResponseExecutionResults["scripts"]> = {
+      evaluated: true,
+      results: [
+        {
+          phase: "pre",
+          scope: "request",
+          sourceKind: "inline",
+          success: false,
+          durationMs: 1,
+          logs: [],
+          error: { name: "Error", message: "pre failed", line: 1 },
+        },
+      ],
+    }
+    const result = { status: "error" as const, error: new Error("pre failed") }
+    const entry = buildTimelineEntry(req, { ...result, execution: { scripts } })
+    expect(entry.scripts).toEqual(scripts)
+    expect(entry.response).toBeUndefined()
+    expect(
+      buildTimelineEntry(req, {
+        ...result,
+        execution: { scripts: { evaluated: false, results: [] } },
+      }).scripts,
+    ).toEqual({ evaluated: false, results: [] })
+    expect(buildTimelineEntry(req, result).scripts).toBeUndefined()
+  })
+
   it("redacts OAuth 1 and OAuth 2 credentials and additional parameter values", () => {
     const response = {
       status: 200,
