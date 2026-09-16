@@ -30,9 +30,12 @@ export type CaptureResult =
 export class RunScope {
   private readonly values = new Map<string, JsonValue>()
   private readonly secretVariables = new Set<string>()
+  private readonly suppressedVariables = new Set<string>()
+  private readonly knownSecrets = new Map<string, RedactionSecret>()
 
   set(variable: string, value: JsonValue, secret = false): void {
     this.values.set(variable, value)
+    this.suppressedVariables.delete(variable)
     if (secret) this.secretVariables.add(variable)
     else this.secretVariables.delete(variable)
   }
@@ -55,13 +58,32 @@ export class RunScope {
   unset(variable: string): void {
     this.values.delete(variable)
     this.secretVariables.delete(variable)
+    this.suppressedVariables.delete(variable)
+  }
+
+  suppress(variable: string): void {
+    this.unset(variable)
+    this.suppressedVariables.add(variable)
+  }
+
+  rememberSecrets(values: readonly RedactionSecret[]): void {
+    for (const value of values) {
+      const key =
+        typeof value === "string"
+          ? `text:${value}`
+          : `${value.kind}:${value.value}`
+      this.knownSecrets.set(key, value)
+    }
   }
 
   secretValues(): RedactionSecret[] {
-    const values = [...this.secretVariables].flatMap((variable) => {
-      const value = this.values.get(variable)
-      return value === undefined ? [] : secretRedactionValues(value)
-    })
+    const values = [
+      ...this.knownSecrets.values(),
+      ...[...this.secretVariables].flatMap((variable) => {
+        const value = this.values.get(variable)
+        return value === undefined ? [] : secretRedactionValues(value)
+      }),
+    ]
     return [
       ...new Map(
         values.map((value) => [
@@ -80,6 +102,7 @@ export class RunScope {
 
   environment(base?: Environment): Environment {
     const vars = { ...(base?.vars ?? {}) }
+    for (const variable of this.suppressedVariables) delete vars[variable]
     for (const [variable, value] of this.values) {
       Object.defineProperty(vars, variable, {
         value: typeof value === "string" ? value : JSON.stringify(value),
@@ -92,7 +115,7 @@ export class RunScope {
   }
 }
 
-function secretRedactionValues(value: JsonValue): RedactionSecret[] {
+export function secretRedactionValues(value: JsonValue): RedactionSecret[] {
   const serialized = typeof value === "string" ? value : JSON.stringify(value)
   if (typeof value === "string") return [value]
   if (value === null || typeof value !== "object") {

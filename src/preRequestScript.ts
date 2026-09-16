@@ -10,7 +10,7 @@ import { CookieValidationError, type CollectionCookieJar } from "./cookies"
 import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
-import { RunScope } from "./runScope"
+import { RunScope, secretRedactionValues } from "./runScope"
 import {
   requestSensitiveValues,
   responseSensitiveValues,
@@ -29,6 +29,8 @@ export const SCRIPT_LIMITS = Object.freeze({
   bridgeJsonDepth: 32,
   consoleDepth: 4,
   responseBodyBytes: 5 * 1024 * 1024,
+  persistenceKeys: 100,
+  persistenceBytes: 256 * 1024,
 })
 
 export type ScriptPhase = "pre" | "post"
@@ -218,15 +220,15 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "run",
       "set",
       "method",
-      "set(name, value): void",
-      "Set a run value after success.",
+      'set(name, value, options?: { persist: "environment" | "secret" }): void',
+      "Set a run value after success, optionally persisting its snapshot.",
     ),
     api(
       "run",
       "unset",
       "method",
-      "unset(name): void",
-      "Remove a run value after success.",
+      'unset(name, options?: { persist: "environment" | "secret" }): void',
+      "Remove a run value after success, optionally deleting its stored value.",
     ),
     api(
       "crypto",
@@ -398,12 +400,36 @@ export type ScriptExecutionResult = {
   durationMs: number
   logs: ScriptLog[]
   error?: ScriptExecutionError
+  persistence?: ScriptPersistenceOutcome[]
+}
+
+export type ScriptPersistenceIntent = {
+  variable: string
+  target: "environment" | "secret"
+} & ({ operation: "set"; value: JsonValue } | { operation: "unset" })
+
+export type ScriptPersistenceOutcome = {
+  variable: string
+  target: "environment" | "secret"
+  operation: "set" | "unset"
+  status: "saved" | "transient" | "failed"
+  error?: ScriptExecutionError
+}
+
+export function scriptExecutionSucceeded(
+  result: ScriptExecutionResult,
+): boolean {
+  return (
+    result.success &&
+    !result.persistence?.some((outcome) => outcome.status === "failed")
+  )
 }
 
 export type PreRequestScriptResult = {
   request: SubstitutedRequest
   result: ScriptExecutionResult
   secretValues: string[]
+  persistenceIntents?: ScriptPersistenceIntent[]
 }
 
 const METHODS = new Set<Method>([
@@ -457,6 +483,8 @@ export async function runRequestScript(
   const startedAt = performance.now()
   const stagedRequest = structuredClone(request)
   const runChanges = new Map<string, JsonValue | typeof UNSET>()
+  const suppressedChanges = new Set<string>()
+  const persistenceIntents = new Map<string, ScriptPersistenceIntent>()
   const secretValues = new Set([
     ...requestSensitiveValues(request),
     ...(phase === "post" && post ? responseSensitiveValues(post.response) : []),
@@ -514,6 +542,56 @@ export async function runRequestScript(
       )
     }
     return name
+  }
+  const stagePersistence = (
+    name: string,
+    options: unknown,
+    value?: JsonValue,
+  ) => {
+    if (options === undefined) return
+    if (
+      !options ||
+      typeof options !== "object" ||
+      Array.isArray(options) ||
+      Object.keys(options).length !== 1 ||
+      !Object.hasOwn(options, "persist")
+    )
+      throw apiError(
+        'options must contain only persist: "environment" or "secret"',
+      )
+    const target = (options as { persist: unknown }).persist
+    if (target !== "environment" && target !== "secret")
+      throw apiError('persist must be "environment" or "secret"')
+    if (name === "_color")
+      throw apiError('"_color" is reserved environment metadata')
+    if (target === "secret") {
+      if (value !== undefined) {
+        for (const secret of secretRedactionValues(value))
+          secretValues.add(typeof secret === "string" ? secret : secret.value)
+        if (value === "") throw apiError("secret value must not be empty")
+      }
+      const previous = environment?.vars[name]
+      if (previous !== undefined) secretValues.add(previous)
+      for (const secret of runScope.secretValuesFor(name))
+        secretValues.add(typeof secret === "string" ? secret : secret.value)
+    }
+    const intent: ScriptPersistenceIntent =
+      value === undefined
+        ? { variable: name, target, operation: "unset" }
+        : { variable: name, target, operation: "set", value }
+    const candidate = new Map(persistenceIntents).set(name, intent)
+    if (candidate.size > SCRIPT_LIMITS.persistenceKeys)
+      throw apiError(
+        `persistence exceeds ${SCRIPT_LIMITS.persistenceKeys} distinct keys`,
+      )
+    if (
+      byteLength(JSON.stringify([...candidate.values()])) >
+      SCRIPT_LIMITS.persistenceBytes
+    )
+      throw apiError(
+        `persistence exceeds ${SCRIPT_LIMITS.persistenceBytes} bytes`,
+      )
+    persistenceIntents.set(name, intent)
   }
   const textualBody = (): string | null => {
     if (
@@ -728,12 +806,19 @@ export async function runRequestScript(
       }
       return value
     },
-    "run.set": ([nameValue, value]) => {
+    "run.set": ([nameValue, value, options]) => {
       const name = requireName(nameValue)
-      runChanges.set(name, validateJson(value))
+      const validated = validateJson(value)
+      stagePersistence(name, options, validated)
+      runChanges.set(name, validated)
+      suppressedChanges.delete(name)
     },
-    "run.unset": ([value]) => {
-      runChanges.set(requireName(value), UNSET)
+    "run.unset": ([value, options]) => {
+      const name = requireName(value)
+      stagePersistence(name, options)
+      runChanges.set(name, UNSET)
+      if (options !== undefined) suppressedChanges.add(name)
+      else suppressedChanges.delete(name)
     },
     "crypto.sha256": ([value, encodingValue]) =>
       createHash("sha256")
@@ -938,9 +1023,15 @@ export async function runRequestScript(
 
       if (phase === "pre") validatePreparedRequest(stagedRequest)
       const commitRun = () => {
+        for (const intent of persistenceIntents.values()) {
+          if (intent.target === "secret" && intent.operation === "set")
+            runScope.rememberSecrets(secretRedactionValues(intent.value))
+        }
         for (const [name, value] of runChanges) {
-          if (value === UNSET) runScope.unset(name)
-          else runScope.set(name, value, containsSecret(value, secretValues))
+          if (value === UNSET) {
+            if (suppressedChanges.has(name)) runScope.suppress(name)
+            else runScope.unset(name)
+          } else runScope.set(name, value, containsSecret(value, secretValues))
         }
       }
       if (cookies) cookies.commit(commitRun)
@@ -948,6 +1039,9 @@ export async function runRequestScript(
       return {
         request: stagedRequest,
         secretValues: [...secretValues],
+        ...(persistenceIntents.size
+          ? { persistenceIntents: [...persistenceIntents.values()] }
+          : {}),
         result: baseResult(phase, true, performance.now() - startedAt, logs),
       }
     } finally {
