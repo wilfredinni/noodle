@@ -96,6 +96,8 @@ configuration, keybindings, persistence, or backwards compatibility.
 - **Modal keyboard isolation:** `useModalKeyboardShield` installs a hard-blocking interceptor only for explicitly non-editable overlays. Editable and unknown overlays leave events available to the focused input; unknown names warn and remain input-safe. Modal-owned controls that must receive keys first (for example, an open `Select` menu) use a priority above the shield.
 - **getView reads React state, not keymap:** In `AppInner.tsx`, `getView: () => keymap.getData("app.view")` is stale during render. Use `getView: () => view` where `view` is the React state variable.
 
+- **Script persistence:** `run.set/unset` accept optional `{ persist: "environment" | "secret" }`. The VM stages bounded immutable intents, commits runtime state only on success, and delegates async storage to the shared lifecycle. Manual sends and `request run` flush pre before HTTP, then original capture snapshots before post intents; runners report transient suppression. Storage failures preserve runtime/request/cookie commits while failing overall script diagnostics. Persistent unset suppresses baseline substitution until a later set/capture; plain unset retains old behavior. `env.get` remains a snapshot. Reuse the environment batch/vault transaction helpers, retain historical secret redaction, and never expose raw intents or values in public results.
+
 ## Common pitfalls
 
 - Forgetting `{ cause: e }` on re-throws — breaks error chains

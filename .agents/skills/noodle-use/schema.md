@@ -116,7 +116,8 @@ earlier successful writes, retains logs, rolls back only that invocation's
 staged RunScope/cookie changes, and still evaluates assertions. Successful post
 RunScope writes reach later collection requests even if assertions fail. Capture
 persistence remains manual/`request run` only and still applies after later
-post/assertion failures. Neither phase permanently mutates environment values.
+post/assertion failures. Script writes are transient unless they explicitly
+request persistence on a manual send or `request run`.
 
 Public API:
 
@@ -128,7 +129,7 @@ Public API:
 | `request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
 | `request.auth` | `clear()`, `setBearer(token)`, `setBasic(username, password)`, `setApiKey(key, value, placement)` |
 | `env` | `get(name)` |
-| `run` | `get(name)`, `set(name, value)`, `unset(name)` |
+| `run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" | "secret" }` |
 | `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
 | `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
 | `response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
@@ -139,6 +140,33 @@ Noodle-prepared HTTP leg after signing and cookie/header preparation: effective
 URL, method, query parameters and headers. Every request mutator, including
 URL/method assignment, centrally throws a clear read-only API error. Host
 objects, streams, Bun types and upload buffers are never exposed.
+
+Both phases may pass `{ persist: "environment" }` or `{ persist: "secret" }` to
+`run.set` and `run.unset`. Set creates or updates a stored value using capture
+serialization; unset removes an ordinary entry or both a secret's vault value
+and declaration. CLI `secret delete` still retains its declaration. Missing
+deletions are harmless. Environment operations reject declared secrets; secret
+set may promote ordinary variables, but secret unset cannot delete them. Empty
+secret values and reserved `_color` names are rejected.
+
+Manual sends and `request run` require an existing active environment and honor
+persistence. Collection runs and the TUI Runner apply only runtime changes and
+report persistence as transient. No options retain existing behavior.
+`env.get` keeps its initial snapshot, including resolved secrets; `run.get`
+sees current staged/committed scope writes. Persistent unset suppresses the
+baseline variable for the remaining run until a successful set or capture;
+plain unset removes only the override. There is no second substitution pass.
+
+Script success commits runtime changes before asynchronous host persistence.
+Pre persistence precedes HTTP; existing capture saves precede post persistence,
+so an explicit post intent wins durably. The latest explicit intent per key
+within a phase wins, and later transient writes do not change its saved-value
+snapshot. VM failure discards the phase's intents. Persistence failure attempts
+storage rollback, retains successful runtime/request/cookie changes, reports
+redacted per-operation errors, and makes automation fail in the script category
+without skipping remaining phases. Secrets never use plaintext fallback.
+Staging permits 100 distinct keys and a 256 KiB combined serialized intent batch
+per invocation; host storage runs outside the 500 ms VM deadline.
 
 Response header reads are case-insensitive and missing headers return null.
 Timing is milliseconds. `response.text()` lazily transfers the original VM
@@ -222,7 +250,10 @@ headers, or body that Noodle sends immediately afterward.
 
 Requests with scripts return `scripts: { evaluated, results }` containing only
 executed results in pre/post order with `phase: pre|post`, `scope: request`, `sourceKind: inline`, `success`,
-`durationMs`, redacted `logs`, and an optional normalized error. Preparation
+`durationMs`, redacted `logs`, an optional normalized error, and optional
+`persistence` outcomes with variable, target, operation, status
+(`saved|transient|failed`), and redacted errors only. `success` records VM
+execution; persistence failures also fail the overall request. Preparation
 failures before script execution use `evaluated: false`; requests without a
 script omit the group. Human run output distinguishes Pre-script/Post-script
 and never prints logs. TUI Results uses Pre-request/Post-response rows with

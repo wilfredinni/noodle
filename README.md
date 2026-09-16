@@ -204,7 +204,8 @@ The public API is intentionally small:
 - `request.body` provides `text`, `json`, `setText`, `setJson`, and `clear`.
 - `request.auth` provides `clear`, `setBearer`, `setBasic`, and `setApiKey`.
 - `env.get(name)` reads only the selected environment.
-- `run.get`, `run.set`, and `run.unset` access the current transient RunScope.
+- `run.get`, `run.set`, and `run.unset` access the current RunScope. Both
+  mutations accept optional `{ persist: "environment" | "secret" }`.
 - `crypto.sha256`, `crypto.hmacSha256`, and `crypto.randomBytes` support exact
   `hex` or `base64` output.
 - `console.log`, `info`, `warn`, and `error` capture bounded result logs.
@@ -219,6 +220,41 @@ run, even if transport, HTTP status, capture, or assertion handling later
 fails. A later successful capture can overwrite a script value. Manual sends
 and `request run` use a fresh scope, so `temporary_id` above is temporary unless
 a later request in the same collection run consumes it.
+
+Both phases can explicitly save or delete active-environment values:
+
+```js
+run.set("BASE_URL", "https://api.example.com", { persist: "environment" });
+run.set("ACCESS_TOKEN", token, { persist: "secret" });
+run.unset("BASE_URL", { persist: "environment" });
+run.unset("ACCESS_TOKEN", { persist: "secret" });
+```
+
+Manual sends and `request run` honor these options. Collection runs and the TUI
+Runner keep them transient and report that status. Without options, existing
+transient behavior is unchanged. `env.get` reads the selected-environment
+snapshot, including resolved secrets, rather than new script writes; `run.get`
+reads current staged or committed RunScope values. Persistent deletion hides
+the baseline value for the remaining run until another successful write or
+capture replaces it. Plain `run.unset` only removes the transient override.
+
+Environment operations cannot alter declared secrets. Secret set may promote
+an ordinary variable; secret unset cannot delete an ordinary variable. Secret
+unset removes both its vault value and declaration, unlike CLI `secret delete`,
+which retains the declaration. Values serialize like captures, empty secrets
+and reserved `_color` names are rejected, and an existing active environment is
+required for durable operations. Secret writes never fall back to plaintext.
+
+Successful pre saves happen before HTTP. Capture saves retain their original
+captured values and existing timing; explicit post saves happen afterward, so
+durable precedence is pre, capture, post. Each phase saves its latest explicit
+intent per key, even if a later transient write changes the runtime value.
+Script failure discards that phase's intents. Storage failure attempts storage
+rollback, retains successful runtime/request/cookie changes, and makes automation
+fail without skipping remaining diagnostics. Results distinguish execution from
+persistence failure without exposing saved values. Each invocation allows 100
+distinct persistence keys and a 256 KiB combined serialized intent batch; host
+storage work runs outside the synchronous VM deadline.
 
 Post runs after capture commits and before assertions for every completed HTTP
 response, including HTTP and capture failures. It reads the final Noodle-prepared
