@@ -25,7 +25,7 @@ One request per file. Fields:
 | `file_path` | no | string | n/a | Path to file for binary uploads. `@/` starts at the user's home directory |
 | `auth` | no | map | n/a | Auth config. Omit for no auth |
 | `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
-| `scripts` | no | map | n/a | Inline request scripts. Only string-valued `pre` is supported |
+| `scripts` | no | map | n/a | Optional string-valued inline `pre` and `post` phases |
 | `capture` | no | map | None | Response expressions captured as run-scoped variables |
 | `assert` | no | list | None | Response assertions evaluated by manual TUI sends and non-interactive run commands |
 
@@ -70,10 +70,12 @@ references and must resolve in the active environment before sending.
 
 ### Inline pre-request script
 
-An optional `scripts` mapping may contain exactly one string-valued `pre`
-member. Empty mappings, unknown members, and non-string sources are invalid. An
-empty string is a valid no-op. Canonical YAML writes the source as a literal
-block immediately before `capture` and `assert`:
+An optional `scripts` mapping accepts string-valued `pre` and/or `post` members.
+Empty mappings, unknown members, and non-string sources are invalid. Empty
+strings are valid no-ops. Standalone external-path-looking sources are rejected
+with a phase-specific explanation; Noodle never resolves or reads script files.
+Canonical YAML preserves source whitespace in literal blocks ordered pre then
+post immediately before `capture` and `assert`:
 
 ```yaml
 scripts:
@@ -86,6 +88,10 @@ scripts:
       crypto.hmacSha256(env.get("SIGNING_SECRET"), request.body.text(), "hex"),
     );
     run.set("request_nonce", crypto.randomBytes(16, "base64"));
+  post: |-
+    if (response.status === 201) {
+      run.set("event_id", response.json().id);
+    }
 ```
 
 Script source is never variable-substituted. The script runs synchronously
@@ -96,6 +102,18 @@ prepared copy and RunScope changes commit before HTTP. Those RunScope changes
 remain available to later requests in the same collection run even when HTTP,
 transport, capture, or assertion handling subsequently fails. A later capture
 can overwrite a script value. Manual sends and `request run` use fresh scopes.
+
+The complete order is folder merge, environment/RunScope overlay, one
+substitution pass, pre, HTTP, capture commits, post, assertions. Assertion
+expectations keep the original substitution pass, not a second pass after post.
+Post runs once for every completed response, including HTTP and capture errors,
+but never for intermediate redirects/auth challenges or transport failures. It
+sees successful captures. A post error preserves the response, captures, and
+earlier successful writes, retains logs, rolls back only that invocation's
+staged RunScope/cookie changes, and still evaluates assertions. Successful post
+RunScope writes reach later collection requests even if assertions fail. Capture
+persistence remains manual/`request run` only and still applies after later
+post/assertion failures. Neither phase permanently mutates environment values.
 
 Public API:
 
@@ -110,6 +128,44 @@ Public API:
 | `run` | `get(name)`, `set(name, value)`, `unset(name)` |
 | `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
 | `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
+| `response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
+| `cookies` (post only, when available) | `get(name)`, `set(input)`, `delete(name)` |
+
+The existing pre APIs are unchanged. In post, request readers reflect the final
+Noodle-prepared HTTP leg after signing and cookie/header preparation: effective
+URL, method, query parameters and headers. Every request mutator, including
+URL/method assignment, centrally throws a clear read-only API error. Host
+objects, streams, Bun types and upload buffers are never exposed.
+
+Response header reads are case-insensitive and missing headers return null.
+Timing is milliseconds. `response.text()` lazily transfers the original VM
+string without truncation, capped at 5 MiB of UTF-8 before copying.
+`response.json()` uses the captured native VM JSON parser and caches success or
+failure per invocation; JSON null is preserved. Invalid JSON is a structured
+`ScriptApiValidationError`. Cached JSON objects belong only to that invocation,
+not the host response or the capture/assertion resolver. Ordinary bridge and
+RunScope values still obey the 256 KiB/depth-32 limits, so extract small fields
+instead of copying an entire large response into `run.set`.
+
+`cookies` is absent when the jar is disabled/unavailable or `sendCookies: false`.
+Response Set-Cookie processing happens before post, even under request
+suppression. `get(name)` returns the first applicable matching value in
+tough-cookie order or null. `delete(name)` removes all applicable same-name
+cookies and preserves inaccessible matches. `set(input)` requires string `name`
+and `value`, optional applicable string `path`, optional ISO 8601 date-time
+string `expires`, optional boolean `secure` and `httpOnly`, and optional
+`sameSite: strict|lax|none`. Unknown attributes, including `domain`, are invalid.
+Cookies are host-only for the final effective URL; omitted path uses normal
+default-path rules, omitted expiry means session lifetime, and past expiry is
+allowed. Prefix validation and secure-origin rules reuse tough-cookie,
+including [localhost treatment](https://github.com/salesforce/tough-cookie#potentially-trustworthy-origins-are-considered-secure).
+There is no browser-navigation SameSite context. A complete batch is revalidated
+against the current jar before synchronous publication with RunScope writes.
+Successful operations enter the existing journal and retain deferred saves,
+locking, encryption, and storage warnings. Success does not promise immediate
+disk durability. Applicable, received, read, staged, overwritten, and deleted
+values are registered for redaction even on failure; short values can over-mask
+otherwise public output.
 
 Header names are case-insensitive. `set` preserves the first matching key's
 casing and position while removing duplicate case variants; `delete` removes
@@ -144,6 +200,7 @@ fixed limits:
 | Combined console text | 64 KiB |
 | Random bytes per call | 4 KiB |
 | One bridged value | 256 KiB |
+| Response text, UTF-8 | 5 MiB |
 | Bridged JSON depth | 32 |
 | Console serialization depth | 4 |
 
@@ -157,11 +214,16 @@ Treat collections containing scripts as trusted code. `env.get` can read
 selected-environment secrets, and a script can place them in the prepared URL,
 headers, or body that Noodle sends immediately afterward.
 
-Requests with scripts return a `scripts` group containing `evaluated` and one
-result with `phase: pre`, `scope: request`, `sourceKind: inline`, `success`,
+Requests with scripts return `scripts: { evaluated, results }` containing only
+executed results in pre/post order with `phase: pre|post`, `scope: request`, `sourceKind: inline`, `success`,
 `durationMs`, redacted `logs`, and an optional normalized error. Preparation
 failures before script execution use `evaluated: false`; requests without a
-script omit the group. Human run output never prints logs. Script source,
+script omit the group. Human run output distinguishes Pre-script/Post-script
+and never prints logs. TUI Results uses Pre-request/Post-response rows with
+expandable logs and phase-specific error locations. Script failures participate
+in the fixed failure-category order and collection continuation/fail-fast only
+after available response diagnostics finish. No Console panel or script editor
+is added. Script source,
 status, and logs are never stored in `.timeline`, while a successful manual
 timeline request snapshot reflects the prepared request mutations.
 
@@ -294,11 +356,13 @@ Every manual send and automation request follows this order:
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures in declaration order.
-8. Evaluate assertions against the same response views.
+8. Execute post using committed captures and the final prepared request; commit
+   successful transient RunScope and URL-scoped cookie changes together.
+9. Evaluate assertions against the same response views, including after post failure.
 
 Manual sends and `request run` use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order after target
-and tag filtering. HTTP error responses still run captures before assertions;
+and tag filtering. HTTP/capture errors still reach post; post errors still reach assertions;
 transport failures have no response views to evaluate.
 
 ### Header and param values
