@@ -5,7 +5,9 @@ import {
   newVariant,
   type QuickJSContext,
 } from "quickjs-emscripten-core"
-import type { Environment, JsonValue, Method } from "./schema"
+import type { Environment, JsonValue, Method, Response } from "./schema"
+import { CookieValidationError, type CollectionCookieJar } from "./cookies"
+import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope } from "./runScope"
@@ -22,15 +24,25 @@ export const SCRIPT_LIMITS = Object.freeze({
   bridgeValueBytes: 256 * 1024,
   bridgeJsonDepth: 32,
   consoleDepth: 4,
+  responseBodyBytes: 5 * 1024 * 1024,
 })
 
+export type ScriptPhase = "pre" | "post"
+
 export type ScriptApiDescriptor = Readonly<{
-  global: "request" | "env" | "run" | "crypto" | "console"
+  global:
+    | "request"
+    | "env"
+    | "run"
+    | "crypto"
+    | "console"
+    | "response"
+    | "cookies"
   member: string
   kind: "global" | "property" | "method"
   signature: string
   description: string
-  phases: readonly ["pre"]
+  phases: readonly ScriptPhase[]
 }>
 
 const api = (
@@ -39,6 +51,10 @@ const api = (
   kind: ScriptApiDescriptor["kind"],
   signature: string,
   description: string,
+  phases: readonly ScriptPhase[] = kind === "method" &&
+  isRequestMutation(`${global}.${member}`)
+    ? ["pre"]
+    : ["pre", "post"],
 ): ScriptApiDescriptor =>
   Object.freeze({
     global,
@@ -46,7 +62,7 @@ const api = (
     kind,
     signature,
     description,
-    phases: ["pre"] as const,
+    phases: Object.freeze(phases),
   })
 
 export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
@@ -271,6 +287,91 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "error(...values): void",
       "Capture an error message.",
     ),
+    api(
+      "response",
+      "",
+      "global",
+      "response: Response",
+      "Completed HTTP response.",
+      ["post"],
+    ),
+    ...["status", "statusText", "timeMs"].map((member) =>
+      api(
+        "response",
+        member,
+        "property",
+        member === "statusText" ? "string" : "number",
+        "Response metadata.",
+        ["post"],
+      ),
+    ),
+    api("response", "headers", "property", "Headers", "Response headers.", [
+      "post",
+    ]),
+    api(
+      "response",
+      "headers.get",
+      "method",
+      "get(name): string | null",
+      "Read a case-insensitive header.",
+      ["post"],
+    ),
+    api(
+      "response",
+      "headers.has",
+      "method",
+      "has(name): boolean",
+      "Test a case-insensitive header.",
+      ["post"],
+    ),
+    api(
+      "response",
+      "text",
+      "method",
+      "text(): string",
+      "Read bounded response text.",
+      ["post"],
+    ),
+    api(
+      "response",
+      "json",
+      "method",
+      "json(): JsonValue",
+      "Parse and cache response JSON in the sandbox.",
+      ["post"],
+    ),
+    api(
+      "cookies",
+      "",
+      "global",
+      "cookies: Cookies",
+      "URL-scoped cookie transaction when enabled.",
+      ["post"],
+    ),
+    api(
+      "cookies",
+      "get",
+      "method",
+      "get(name): string | null",
+      "Read the first applicable cookie.",
+      ["post"],
+    ),
+    api(
+      "cookies",
+      "set",
+      "method",
+      "set(input): void",
+      "Stage a host-only cookie.",
+      ["post"],
+    ),
+    api(
+      "cookies",
+      "delete",
+      "method",
+      "delete(name): void",
+      "Stage deletion of all applicable same-name cookies.",
+      ["post"],
+    ),
   ])
 
 export type ScriptLog = {
@@ -286,7 +387,7 @@ export type ScriptExecutionError = {
 }
 
 export type ScriptExecutionResult = {
-  phase: "pre"
+  phase: ScriptPhase
   scope: "request"
   sourceKind: "inline"
   success: boolean
@@ -336,6 +437,19 @@ export async function runPreRequestScript(
   environment: Environment | null | undefined,
   runScope: RunScope,
 ): Promise<PreRequestScriptResult> {
+  return runRequestScript("pre", source, request, environment, runScope)
+}
+
+export async function runRequestScript(
+  phase: ScriptPhase,
+  source: string,
+  request: SubstitutedRequest,
+  environment: Environment | null | undefined,
+  runScope: RunScope,
+  post?: { response: Response; cookies?: CollectionCookieJar },
+): Promise<PreRequestScriptResult> {
+  const label = phase === "pre" ? "Pre-request" : "Post-response"
+  const filename = phase === "pre" ? "pre-request.js" : "post-response.js"
   const startedAt = performance.now()
   const stagedRequest = structuredClone(request)
   const runChanges = new Map<string, JsonValue | typeof UNSET>()
@@ -345,7 +459,20 @@ export async function runPreRequestScript(
       .secretValues()
       .map((secret) => (typeof secret === "string" ? secret : secret.value)),
   ])
+  if (phase === "post") {
+    for (const cookie of [
+      ...(post?.response.cookies ?? []),
+      ...(post?.response.sentCookies ?? []),
+    ])
+      secretValues.add(cookie.value)
+  }
   const logs: ScriptLog[] = []
+  const cookies =
+    phase === "post" && request.sendCookies !== false
+      ? post?.cookies?.scriptTransaction(request.url, (value) =>
+          secretValues.add(value),
+        )
+      : undefined
   let consoleBytes = 0
   let consoleClosed = false
   let openConsoleEntry: ScriptLog | undefined
@@ -353,15 +480,26 @@ export async function runPreRequestScript(
   const failure = (error: ScriptExecutionError): PreRequestScriptResult => ({
     request,
     secretValues: [...secretValues, ...requestSensitiveValues(stagedRequest)],
-    result: baseResult(false, performance.now() - startedAt, logs, error),
+    result: baseResult(
+      phase,
+      false,
+      performance.now() - startedAt,
+      logs,
+      error,
+    ),
   })
 
   if (byteLength(source) > SCRIPT_LIMITS.sourceBytes) {
     return failure({
       name: "ScriptSourceLimitError",
-      message: `Pre-request script exceeds the ${SCRIPT_LIMITS.sourceBytes}-byte source limit`,
+      message: `${label} script exceeds the ${SCRIPT_LIMITS.sourceBytes}-byte source limit`,
     })
   }
+  if (isExternalScriptSource(source))
+    return failure({
+      name: "ScriptApiValidationError",
+      message: `${label} scripts must be inline source; external script paths are not supported`,
+    })
 
   const requireName = (value: unknown): string => {
     const name = requireString(value, "name")
@@ -389,6 +527,28 @@ export async function runPreRequestScript(
   }
 
   const handlers: Record<string, BridgeHandler> = {
+    "response.status:get": () => post!.response.status,
+    "response.statusText:get": () => post!.response.statusText,
+    "response.timeMs:get": () => post!.response.timeMs,
+    "response.headers.get": ([value]) => {
+      const name = requireString(value, "header name").toLowerCase()
+      return (
+        Object.entries(post!.response.headers).find(
+          ([key]) => key.toLowerCase() === name,
+        )?.[1] ?? null
+      )
+    },
+    "response.headers.has": ([value]) => {
+      const name = requireString(value, "header name").toLowerCase()
+      return Object.keys(post!.response.headers).some(
+        (key) => key.toLowerCase() === name,
+      )
+    },
+    "cookies.get": ([value]) =>
+      cookies!.get(requireString(value, "cookie name")),
+    "cookies.set": ([input]) => cookies!.set(input),
+    "cookies.delete": ([value]) =>
+      cookies!.delete(requireString(value, "cookie name")),
     "request.url:get": () => stagedRequest.url,
     "request.url:set": ([value]) => {
       stagedRequest.url = requireUrl(value)
@@ -653,6 +813,22 @@ export async function runPreRequestScript(
             }
             const args = validateJson(JSON.parse(payloadJson))
             if (!Array.isArray(args)) throw apiError("invalid bridge arguments")
+            if (phase === "post" && isRequestMutation(operationName))
+              throw apiError("request is read-only in post-response scripts")
+            if (operationName === "response.text" && phase === "post") {
+              const body = post!.response.body
+              if (
+                Buffer.byteLength(body, "utf8") >
+                SCRIPT_LIMITS.responseBodyBytes
+              )
+                return {
+                  error: context!.newError({
+                    name: "ScriptApiValidationError",
+                    message: `response body exceeds ${SCRIPT_LIMITS.responseBodyBytes} bytes`,
+                  }),
+                }
+              return context!.newString(body)
+            }
             const handler = handlers[operationName]
             if (!handler)
               throw apiError(`unknown API operation "${operationName}"`)
@@ -666,7 +842,8 @@ export async function runPreRequestScript(
               }
           } catch (error) {
             const normalized =
-              error instanceof ScriptApiValidationError
+              error instanceof ScriptApiValidationError ||
+              error instanceof CookieValidationError
                 ? normalizeHostError(error)
                 : {
                     name: "ScriptRuntimeError",
@@ -674,7 +851,10 @@ export async function runPreRequestScript(
                   }
             response = {
               ok: false,
-              name: normalized.name,
+              name:
+                error instanceof CookieValidationError
+                  ? "ScriptApiValidationError"
+                  : normalized.name,
               message: normalized.message,
             }
           }
@@ -695,7 +875,14 @@ export async function runPreRequestScript(
       bridge.dispose()
 
       const bootstrap = context.evalCode(
-        bootstrapSource(SCRIPT_API_CONTRACT),
+        bootstrapSource(
+          SCRIPT_API_CONTRACT.filter(
+            (descriptor) =>
+              (descriptor.global !== "response" || phase === "post") &&
+              (descriptor.global !== "cookies" || cookies),
+          ),
+          filename,
+        ),
         "noodle-script-api.js",
         { type: "global" },
       )
@@ -716,7 +903,7 @@ export async function runPreRequestScript(
         .unwrap()
         .dispose()
 
-      const evaluated = context.evalCode(source, "pre-request.js", {
+      const evaluated = context.evalCode(source, filename, {
         type: "global",
       })
       if (evaluated.error) {
@@ -727,7 +914,7 @@ export async function runPreRequestScript(
         )
         evaluated.error.dispose()
         return failure(
-          classifyScriptError(error, performance.now() >= deadline),
+          classifyScriptError(error, performance.now() >= deadline, label),
         )
       }
       const promiseState = context.getPromiseState(evaluated.value!)
@@ -740,19 +927,23 @@ export async function runPreRequestScript(
       if (returnedPromise || runtime.hasPendingJob()) {
         return failure({
           name: "ScriptAsyncUnsupportedError",
-          message: "Async pre-request script execution is not supported",
+          message: `Async ${label.toLowerCase()} script execution is not supported`,
         })
       }
 
-      validatePreparedRequest(stagedRequest)
-      for (const [name, value] of runChanges) {
-        if (value === UNSET) runScope.unset(name)
-        else runScope.set(name, value, containsSecret(value, secretValues))
+      if (phase === "pre") validatePreparedRequest(stagedRequest)
+      const commitRun = () => {
+        for (const [name, value] of runChanges) {
+          if (value === UNSET) runScope.unset(name)
+          else runScope.set(name, value, containsSecret(value, secretValues))
+        }
       }
+      if (cookies) cookies.commit(commitRun)
+      else commitRun()
       return {
         request: stagedRequest,
         secretValues: [...secretValues],
-        result: baseResult(true, performance.now() - startedAt, logs),
+        result: baseResult(phase, true, performance.now() - startedAt, logs),
       }
     } finally {
       normalizer?.dispose()
@@ -760,12 +951,16 @@ export async function runPreRequestScript(
       runtime.dispose()
     }
   } catch (error) {
-    const classified = classifyScriptError(normalizeHostError(error), false)
+    const classified = classifyScriptError(
+      normalizeHostError(error),
+      false,
+      label,
+    )
     return failure(
       classified.name === "ScriptRuntimeError"
         ? {
             name: "ScriptRuntimeError",
-            message: "Pre-request script execution failed",
+            message: `${label} script execution failed`,
           }
         : classified,
     )
@@ -773,6 +968,13 @@ export async function runPreRequestScript(
 }
 
 const UNSET = Symbol("unset")
+
+function isRequestMutation(operation: string): boolean {
+  return (
+    operation.startsWith("request.") &&
+    !/(?::get|\.(?:get|getAll|has|text|json))$/.test(operation)
+  )
+}
 
 type BridgeResponse =
   | { ok: true; hasValue: false }
@@ -928,13 +1130,14 @@ function validatePreparedRequest(request: SubstitutedRequest): void {
 }
 
 function baseResult(
+  phase: ScriptPhase,
   success: boolean,
   durationMs: number,
   logs: ScriptLog[],
   error?: ScriptExecutionError,
 ): ScriptExecutionResult {
   return {
-    phase: "pre",
+    phase,
     scope: "request",
     sourceKind: "inline",
     success,
@@ -1033,7 +1236,9 @@ function normalizedGuestParts(
     ),
   }
   if (typeof stack === "string") {
-    const location = /pre-request\.js:(\d+)(?::(\d+))?/.exec(stack)
+    const location = /(?:pre-request|post-response)\.js:(\d+)(?::(\d+))?/.exec(
+      stack,
+    )
     if (location) {
       result.line = Number(location[1])
       if (location[2]) result.column = Number(location[2])
@@ -1045,24 +1250,25 @@ function normalizedGuestParts(
 function classifyScriptError(
   error: ScriptExecutionError,
   deadlineExpired: boolean,
+  label: string,
 ): ScriptExecutionError {
   const text = `${error.name} ${error.message}`.toLowerCase()
   if (deadlineExpired || text.includes("interrupted")) {
     return {
       name: "ScriptTimeoutError",
-      message: `Pre-request script exceeded the ${SCRIPT_LIMITS.deadlineMs} ms deadline`,
+      message: `${label} script exceeded the ${SCRIPT_LIMITS.deadlineMs} ms deadline`,
     }
   }
   if (text.includes("out of memory") || text.includes("memory limit")) {
     return {
       name: "ScriptMemoryLimitError",
-      message: "Pre-request script exceeded its memory limit",
+      message: `${label} script exceeded its memory limit`,
     }
   }
   if (text.includes("stack overflow") || text.includes("stack limit")) {
     return {
       name: "ScriptStackLimitError",
-      message: "Pre-request script exceeded its stack limit",
+      message: `${label} script exceeded its stack limit`,
     }
   }
   if (error.name === "SyntaxError") {
@@ -1072,7 +1278,10 @@ function classifyScriptError(
   return { ...error, name: "ScriptRuntimeError" }
 }
 
-function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
+function bootstrapSource(
+  contract: readonly ScriptApiDescriptor[],
+  filename: string,
+): string {
   const shape = contract.map(({ global, member, kind }) => ({
     global,
     member,
@@ -1094,6 +1303,7 @@ function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
   const RegExpCtor = RegExp;
   const SetCtor = Set;
   const StringCtor = String;
+  const SyntaxErrorCtor = SyntaxError;
   const arrayPrototype = ArrayCtor.prototype;
   const objectPrototype = ObjectCtor.prototype;
   const uncurry = (fn) => Function.prototype.call.bind(fn);
@@ -1121,7 +1331,7 @@ function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
   const stringCharCodeAt = uncurry(StringCtor.prototype.charCodeAt);
   const stringIndexOf = uncurry(StringCtor.prototype.indexOf);
   const regexpExec = uncurry(RegExpCtor.prototype.exec);
-  const locationPattern = /pre-request\\.js:(\\d+)(?::(\\d+))?/;
+  const locationPattern = /(?:pre-request|post-response)\\.js:(\\d+)(?::(\\d+))?/;
   const forbidden = ["Bun", "process", "require", "module", "Deno", "fetch", "WebSocket", "Worker", "setTimeout", "setInterval", "setImmediate", "queueMicrotask"];
   for (const name of forbidden) { try { delete globalThis[name]; } catch {} }
   const unsafe = new SetCtor(["__proto__", "prototype", "constructor"]);
@@ -1222,6 +1432,34 @@ function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
     }
     return response.hasValue ? response.value : undefined;
   };
+  let textCached = false;
+  let responseText;
+  let jsonState = "empty";
+  let responseJson;
+  let responseJsonError;
+  const readResponseText = () => {
+    if (!textCached) {
+      responseText = bridge("response.text", "[]");
+      textCached = true;
+    }
+    return responseText;
+  };
+  const readResponseJson = () => {
+    if (jsonState === "empty") {
+      const text = readResponseText();
+      try { responseJson = jsonParse(text); jsonState = "parsed"; }
+      catch (error) {
+        // QuickJS can throw null when native parsing cannot allocate its error.
+        if (error === null) jsonState = "memory";
+        else if (!(error instanceof SyntaxErrorCtor)) { responseJsonError = error; jsonState = "resource"; }
+        else jsonState = "failed";
+      }
+    }
+    if (jsonState === "memory") throw new ErrorCtor("response JSON exceeded its memory limit");
+    if (jsonState === "resource") throw responseJsonError;
+    if (jsonState === "failed") throw apiError("response body is not valid JSON");
+    return responseJson;
+  };
   const callConsole = (operation, message) => {
     if (message.length === 0) {
       call(operation, ["", true]);
@@ -1299,6 +1537,8 @@ function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
     } else {
       const fn = descriptor.global === "console"
         ? (...values) => callConsole(operation, arrayJoin(arrayMap(values, (value) => display(value, 0, new SetCtor())), " "))
+        : operation === "response.text" ? readResponseText
+        : operation === "response.json" ? readResponseJson
         : (...args) => call(operation, args);
       objectDefineProperty(parent, name, { value: fn, enumerable: true });
     }
@@ -1321,7 +1561,7 @@ function bootstrapSource(contract: readonly ScriptApiDescriptor[]): string {
     const rawName = data("name");
     const rawMessage = data("message");
     const rawStack = data("stack");
-    const locationStart = typeof rawStack === "string" ? stringIndexOf(rawStack, "pre-request.js:") : -1;
+    const locationStart = typeof rawStack === "string" ? stringIndexOf(rawStack, ${JSON.stringify(`${filename}:`)}) : -1;
     const locationText = locationStart >= 0 ? stringSlice(rawStack, locationStart, locationStart + 64) : "";
     const location = regexpExec(locationPattern, locationText);
     return jsonStringify({

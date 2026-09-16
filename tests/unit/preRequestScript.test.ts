@@ -58,8 +58,8 @@ describe("pre-request script sandbox", () => {
       forbidden: Array(9).fill("undefined"),
     })
     expect(
-      SCRIPT_API_CONTRACT.every(
-        (entry) => entry.phases.length === 1 && entry.phases[0] === "pre",
+      SCRIPT_API_CONTRACT.every((entry) =>
+        entry.phases.every((phase) => phase === "pre" || phase === "post"),
       ),
     ).toBe(true)
   })
