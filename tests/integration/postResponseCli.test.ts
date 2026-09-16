@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { lang } from "../../src/lang"
@@ -72,6 +72,77 @@ afterEach(async () => {
 })
 
 describe("post-response CLI and compiled smoke", () => {
+  it("persists script environment writes in request runs but keeps collection runs transient", async () => {
+    await mkdir(join(dir, ".environments"))
+    await writeFile(join(dir, ".environments/dev.env"), "VALUE=original\n")
+    await save(
+      request("first", 'run.set("VALUE", "post", { persist: "environment" })', {
+        scripts: {
+          pre: 'run.set("VALUE", "pre", { persist: "environment" })',
+          post: 'run.set("VALUE", "post", { persist: "environment" })',
+        },
+        captures: {
+          VALUE: { value: "body.id", persist: "environment", enabled: true },
+        },
+      }),
+    )
+    const json = await cli(
+      "request",
+      "run",
+      "first",
+      "--collection",
+      dir,
+      "--env",
+      "dev",
+      "--noproxy",
+      "--json",
+    )
+    expect(json.code).toBe(0)
+    expect(json.stderr).toBe("")
+    const result = JSON.parse(json.stdout).data.result
+    expect(
+      result.scripts.results.map(
+        (script: { persistence: { status: string }[] }) =>
+          script.persistence[0]?.status,
+      ),
+    ).toEqual(["saved", "saved"])
+    expect(result.captures.results[0]).toMatchObject({
+      value: 7,
+      persisted: "environment",
+    })
+    expect(await readFile(join(dir, ".environments/dev.env"), "utf8")).toBe(
+      "VALUE=post\n",
+    )
+    const runner = await cli(
+      "collection",
+      "run",
+      dir,
+      "--env",
+      "dev",
+      "--noproxy",
+      "--json",
+    )
+    expect(runner.code).toBe(0)
+    expect(
+      JSON.parse(runner.stdout).data.results[0].scripts.results[0]
+        .persistence[0].status,
+    ).toBe("transient")
+    expect(await readFile(join(dir, ".environments/dev.env"), "utf8")).toBe(
+      "VALUE=post\n",
+    )
+    const human = await cli(
+      "request",
+      "run",
+      "first",
+      "--collection",
+      dir,
+      "--noproxy",
+    )
+    expect(human.code).toBe(1)
+    expect(human.stdout).toContain("execution passed, persistence failed")
+    expect(human.stdout).toContain("no active environment")
+  })
+
   it("preserves both phases and diagnostics in JSON and labels human output without logs", async () => {
     await save(
       request(

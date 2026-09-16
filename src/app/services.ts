@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto"
 import { load as yamlLoad } from "../yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
 import { env } from "../env"
+import { validateEnvironment } from "../env/save"
 import {
   filestore,
   loadSettings,
@@ -52,12 +53,20 @@ import {
   loadCollectionProxyCredentials,
   loadTlsPassphrases,
   setStoredSecret,
+  applySettingsSecretTransaction,
+  type SecretMutation,
 } from "../secrets"
 import { redactKnownSecrets, redactResponseHeaders } from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
 import { type ResponseExecutionResults } from "../executionResults"
-import type { ScriptExecutionResult } from "../preRequestScript"
+import {
+  scriptExecutionSucceeded,
+  SCRIPT_LIMITS,
+  type ScriptExecutionResult,
+  type ScriptPersistenceIntent,
+  type ScriptPersistenceOutcome,
+} from "../preRequestScript"
 import { executeRequestLifecycle } from "../requestLifecycle"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
@@ -702,6 +711,20 @@ async function runRequest(
     environment,
     collection,
     requestPath: request.id,
+    ...(persistCaptures
+      ? {
+          persistScriptChanges: (intents) =>
+            persistScriptChanges(intents, environment?.name, collectionDir),
+          persistCaptures: (prepared, rawCaptures, execution) =>
+            persistResponseCaptures(
+              prepared,
+              rawCaptures,
+              execution,
+              environment?.name,
+              collectionDir,
+            ),
+        }
+      : {}),
     transport: {
       proxyPolicy,
       tlsPolicy,
@@ -724,7 +747,14 @@ async function runRequest(
       url: redact(lifecycle.prepared?.url ?? request.url),
       error: redact(lifecycle.error.message),
       ok: false,
-      failureCategories: [lifecycle.failureCategory],
+      failureCategories: RUN_FAILURE_CATEGORIES.filter(
+        (category) =>
+          category === lifecycle.failureCategory ||
+          (category === "script" &&
+            lifecycle.execution.scripts?.results.some(
+              (script) => !scriptExecutionSucceeded(script),
+            )),
+      ),
       ...lifecycle.execution,
     }
     onDetail?.({
@@ -746,16 +776,7 @@ async function runRequest(
   }
 
   const { response, prepared } = lifecycle
-  let execution = lifecycle.execution
-  if (persistCaptures) {
-    execution = await persistResponseCaptures(
-      prepared,
-      lifecycle.rawCaptures,
-      execution,
-      environment?.name,
-      collectionDir,
-    )
-  }
+  const execution = lifecycle.execution
   const authWarnings = (response.network ?? [])
     .filter(
       (event) =>
@@ -770,7 +791,11 @@ async function runRequest(
     ...runScope.secretValues(),
   ]
   const failureCategories: RunFailureCategory[] = []
-  if (execution.scripts?.results.some((result) => !result.success))
+  if (
+    execution.scripts?.results.some(
+      (result) => !scriptExecutionSucceeded(result),
+    )
+  )
     failureCategories.push("script")
   if (response.status >= 400) failureCategories.push("http")
   if (captureResults?.some((result) => !result.success)) {
@@ -791,7 +816,7 @@ async function runRequest(
       timeMs: response.timeMs,
     },
     ok:
-      (execution.scripts?.results.every((script) => script.success) ?? true) &&
+      (execution.scripts?.results.every(scriptExecutionSucceeded) ?? true) &&
       response.status < 400 &&
       (captureResults?.every((capture) => capture.success) ?? true) &&
       (assertionResults?.every((assertion) => assertion.passed) ?? true),
@@ -1282,6 +1307,148 @@ export async function persistResponseCaptures(
   return {
     ...execution,
     captures: { ...execution.captures, results },
+  }
+}
+
+const scriptPersistenceQueues = new Map<string, Promise<unknown>>()
+
+export async function persistScriptChanges(
+  intents: ScriptPersistenceIntent[],
+  environmentName: string | undefined,
+  collectionDir: string | undefined,
+): Promise<{ outcomes: ScriptPersistenceOutcome[]; secretValues: string[] }> {
+  const secretValues: string[] = intents.flatMap((intent) =>
+    intent.target === "secret" && intent.operation === "set"
+      ? [
+          typeof intent.value === "string"
+            ? intent.value
+            : JSON.stringify(intent.value),
+        ]
+      : [],
+  )
+  const outcome = (
+    intent: ScriptPersistenceIntent,
+    status: ScriptPersistenceOutcome["status"],
+  ): ScriptPersistenceOutcome => ({
+    variable: intent.variable,
+    target: intent.target,
+    operation: intent.operation,
+    status,
+  })
+  try {
+    if (!environmentName || !collectionDir)
+      throw new Error("no active environment")
+    if (
+      intents.length > SCRIPT_LIMITS.persistenceKeys ||
+      Buffer.byteLength(JSON.stringify(intents)) >
+        SCRIPT_LIMITS.persistenceBytes
+    )
+      throw new Error("script persistence batch exceeds its limits")
+    const root = await requireCollectionRoot(collectionDir)
+    const queueKey = `${root}\0${environmentName}`
+    // ponytail: in-process serialization only; use file locking if cross-process coordination is required.
+    const task = (scriptPersistenceQueues.get(queueKey) ?? Promise.resolve())
+      .catch(() => {})
+      .then(async () => {
+        const directory = join(root, ".environments")
+        const current = await env.loadEnvironment(directory, environmentName, {
+          resolveSecrets: false,
+        })
+        const vars = { ...current.vars }
+        const disabledVars = { ...(current.disabledVars ?? {}) }
+        const secretVars = { ...(current.secretVars ?? {}) }
+        const mutations: SecretMutation[] = []
+        for (const intent of intents) {
+          const key = intent.variable
+          validateSecretKey(key)
+          if (intent.target === "environment") {
+            if (Object.hasOwn(secretVars, key))
+              throw new Error(`"${key}" is a secret; use persist: "secret"`)
+            if (intent.operation === "set") {
+              vars[key] =
+                typeof intent.value === "string"
+                  ? intent.value
+                  : JSON.stringify(intent.value)
+            } else delete vars[key]
+            delete disabledVars[key]
+            continue
+          }
+          if (
+            intent.operation === "unset" &&
+            !Object.hasOwn(secretVars, key) &&
+            (Object.hasOwn(vars, key) || Object.hasOwn(disabledVars, key))
+          )
+            throw new Error(
+              `"${key}" is an ordinary variable; use persist: "environment"`,
+            )
+          const value =
+            intent.operation === "set"
+              ? typeof intent.value === "string"
+                ? intent.value
+                : JSON.stringify(intent.value)
+              : undefined
+          if (value === "") throw new Error("secret value must not be empty")
+          if (intent.operation === "set" || Object.hasOwn(secretVars, key)) {
+            mutations.push({
+              get: async () => {
+                const previous = await getStoredSecret(
+                  root,
+                  environmentName,
+                  key,
+                )
+                if (previous !== null) secretValues.push(previous)
+                return previous
+              },
+              set: (next) => setStoredSecret(root, environmentName, key, next),
+              delete: () => deleteStoredSecret(root, environmentName, key),
+              value,
+            })
+          }
+          const disabled =
+            secretVars[key] === "disabled" || Object.hasOwn(disabledVars, key)
+          delete vars[key]
+          delete disabledVars[key]
+          if (intent.operation === "set")
+            secretVars[key] = disabled ? "disabled" : "keychain"
+          else delete secretVars[key]
+        }
+        const next: Environment = {
+          ...current,
+          vars,
+          disabledVars: Object.keys(disabledVars).length
+            ? disabledVars
+            : undefined,
+          secretVars: Object.keys(secretVars).length ? secretVars : undefined,
+        }
+        // Validate public values before touching the vault.
+        validateEnvironment(next)
+        await applySettingsSecretTransaction(mutations, () =>
+          env.saveEnvironment(directory, next),
+        )
+      })
+    scriptPersistenceQueues.set(queueKey, task)
+    try {
+      await task
+    } finally {
+      if (scriptPersistenceQueues.get(queueKey) === task)
+        scriptPersistenceQueues.delete(queueKey)
+    }
+    return {
+      outcomes: intents.map((intent) => outcome(intent, "saved")),
+      secretValues,
+    }
+  } catch (error) {
+    const safeError = {
+      name: "ScriptPersistenceError",
+      message: redactKnownSecrets(errorMessage(error), secretValues),
+    }
+    return {
+      outcomes: intents.map((intent) => ({
+        ...outcome(intent, "failed"),
+        error: safeError,
+      })),
+      secretValues,
+    }
   }
 }
 
