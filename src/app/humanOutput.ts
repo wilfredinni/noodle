@@ -43,15 +43,15 @@ function failureLabel(
 
 function formatScripts(result: RequestRunResult): string[] {
   if (!result.scripts) return []
-  if (!result.scripts.evaluated) return ["  Pre-script: not evaluated"]
+  if (!result.scripts.evaluated) return ["  Scripts: not evaluated"]
   return result.scripts.results.flatMap((script) => {
     const status = script.success ? "passed" : "failed"
     const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
     return [
-      `  Pre-script: ${status}, ${script.durationMs}ms, ${logs}`,
+      `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}`,
       ...(script.error
         ? [
-            `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (pre-request.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
+            `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.phase === "pre" ? "pre-request" : "post-response"}.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
           ]
         : []),
     ]

@@ -14,7 +14,12 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { Cookie, CookieJar, type SerializedCookieJar } from "tough-cookie"
+import {
+  Cookie,
+  CookieJar,
+  pathMatch,
+  type SerializedCookieJar,
+} from "tough-cookie"
 import { getAppSettingSecret, setAppSettingSecret } from "../secrets"
 import type { ResponseCookie } from "../schema"
 
@@ -234,6 +239,177 @@ export class CollectionCookieJar {
   cookieHeaderFor(url: string): string {
     if (this.currentStatus.state === "unavailable") return ""
     return this.jar.getCookieStringSync(url)
+  }
+
+  scriptTransaction(url: string, registerSecret: (value: string) => void) {
+    if (
+      this.closed ||
+      this.currentStatus.state === "unavailable" ||
+      this.currentStatus.state === "disabled"
+    )
+      return undefined
+    const target = new URL(url)
+    let staged = CookieJar.deserializeSync(this.jar.serializeSync()!)
+    const operations: CookieMutation[] = []
+    const applicable = (jar: CookieJar) => {
+      const cookies = jar.getCookiesSync(url, { sort: true })
+      for (const cookie of cookies) registerSecret(cookie.value)
+      return cookies
+    }
+    applicable(staged)
+    const apply = (jar: CookieJar, operation: CookieMutation) => {
+      if (operation.type === "response") {
+        const cookie = jar.setCookieSync(operation.setCookie, url, {
+          ignoreError: false,
+          now: operation.now,
+        })
+        if (
+          !cookie ||
+          !jar
+            .getCookiesSync(url, { expire: false, sort: true })
+            .some(
+              (entry) =>
+                entry.key === cookie.key &&
+                entry.domain === cookie.domain &&
+                entry.path === cookie.path,
+            )
+        ) {
+          throw new CookieValidationError(
+            "cookie is not applicable to the response URL",
+          )
+        }
+      } else if (operation.type === "delete") {
+        jar.store.removeCookie(
+          operation.domain,
+          operation.path,
+          operation.name,
+          (error) => {
+            if (error) throw error
+          },
+        )
+      }
+    }
+    return {
+      get: (name: string) =>
+        applicable(staged).find((cookie) => cookie.key === name)?.value ?? null,
+      set: (input: unknown) => {
+        if (!input || typeof input !== "object" || Array.isArray(input))
+          throw new CookieValidationError("cookie input must be an object")
+        const fields = input as Record<string, unknown>
+        if (typeof fields.value === "string") registerSecret(fields.value)
+        for (const key of Object.keys(fields)) {
+          if (
+            ![
+              "name",
+              "value",
+              "path",
+              "expires",
+              "secure",
+              "httpOnly",
+              "sameSite",
+            ].includes(key)
+          )
+            throw new CookieValidationError(`unknown cookie attribute "${key}"`)
+        }
+        if (
+          typeof fields.name !== "string" ||
+          typeof fields.value !== "string" ||
+          !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(fields.name) ||
+          !/^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]*$/.test(fields.value)
+        )
+          throw new CookieValidationError(
+            "cookie contains an invalid name or value",
+          )
+        if (
+          Object.hasOwn(fields, "path") &&
+          (typeof fields.path !== "string" ||
+            !fields.path.startsWith("/") ||
+            /[;\s\p{Cc}]/u.test(fields.path) ||
+            !pathMatch(target.pathname || "/", fields.path))
+        )
+          throw new CookieValidationError(
+            "cookie path must apply to the response URL",
+          )
+        for (const flag of ["secure", "httpOnly"]) {
+          if (Object.hasOwn(fields, flag) && typeof fields[flag] !== "boolean")
+            throw new CookieValidationError(`${flag} must be a boolean`)
+        }
+        if (
+          Object.hasOwn(fields, "sameSite") &&
+          !["strict", "lax", "none"].includes(fields.sameSite as string)
+        )
+          throw new CookieValidationError(
+            "sameSite must be strict, lax, or none",
+          )
+        let expires: Date | undefined
+        if (Object.hasOwn(fields, "expires")) {
+          if (
+            typeof fields.expires !== "string" ||
+            !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+              fields.expires,
+            ) ||
+            !Number.isFinite((expires = new Date(fields.expires)).getTime()) ||
+            new Date(`${fields.expires.slice(0, 10)}T00:00:00Z`)
+              .toISOString()
+              .slice(0, 10) !== fields.expires.slice(0, 10)
+          )
+            throw new CookieValidationError(
+              "expires must be an ISO 8601 date-time",
+            )
+        }
+        applicable(staged)
+        const cookie = new Cookie({
+          key: fields.name,
+          value: fields.value,
+          ...(fields.path !== undefined ? { path: fields.path as string } : {}),
+          ...(expires ? { expires } : {}),
+          secure: fields.secure as boolean | undefined,
+          httpOnly: fields.httpOnly as boolean | undefined,
+          sameSite: fields.sameSite as string | undefined,
+        })
+        const operation: CookieMutation = {
+          type: "response",
+          url,
+          setCookie: cookie.toString(),
+          now: new Date(),
+        }
+        const candidate = CookieJar.deserializeSync(staged.serializeSync()!)
+        apply(candidate, operation)
+        staged = candidate
+        operations.push(operation)
+      },
+      delete: (name: string) => {
+        for (const cookie of applicable(staged).filter(
+          (entry) => entry.key === name,
+        )) {
+          const operation: CookieMutation = {
+            type: "delete",
+            domain: cookie.domain!,
+            path: cookie.path!,
+            name,
+          }
+          apply(staged, operation)
+          operations.push(operation)
+        }
+      },
+      commit: (commitRun: () => void) => {
+        if (this.closed || this.currentStatus.state === "unavailable")
+          throw new CookieValidationError("cookie jar is unavailable")
+        const candidate = CookieJar.deserializeSync(this.jar.serializeSync()!)
+        applicable(candidate)
+        for (const operation of operations) apply(candidate, operation)
+        commitRun()
+        if (operations.length > 0) {
+          this.jar = candidate
+          this.journal.push(...operations)
+          this.scheduleSave()
+          // Notification failures cannot roll back a committed transaction.
+          try {
+            this.emit()
+          } catch {}
+        }
+      },
+    }
   }
 
   subscribe(listener: () => void): () => void {

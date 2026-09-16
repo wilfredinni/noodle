@@ -28,10 +28,10 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre-request scripts, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre/post scripts, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
-`$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a successful capture from an earlier request in the same collection run.
+`$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a committed capture/script RunScope value from an earlier request in the same collection run.
 
 ### Response capture
 Use a top-level `capture` mapping to pass response values to later requests in one ordered `collection run`:
@@ -48,7 +48,7 @@ capture:
     enabled: false
 ```
 
-Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before assertions. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status or a later assertion fails. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values and captures from sensitive response headers are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
+Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture or script write wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before post and assertions, so the same request's post script can read them. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status, post, or a later assertion fails, using the captured value rather than a post overwrite. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values and captures from sensitive response headers are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
 
 ### Assertions and declarative execution
 Use a top-level `assert` list for response contracts:
@@ -79,16 +79,31 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures.
-8. Evaluate assertions.
+8. Run optional post-response processing and atomically commit successful
+   RunScope and URL-scoped cookie changes.
+9. Evaluate assertions, including after post failure.
 
-Use top-level `scripts.pre` only for synchronous request preparation that cannot
-be expressed declaratively. Script source is literal and never variable-
-substituted. The sandbox exposes only `request`, `env`, `run`, `crypto`, and
+Use `scripts.pre` for synchronous request preparation and `scripts.post` for
+response extraction or conditional processing that cannot be expressed
+declaratively. Script source is literal and never variable-
+substituted. Pre exposes only `request`, `env`, `run`, `crypto`, and
 captured `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
-in-memory only. Script RunScope mutations commit before HTTP and are visible to
-later collection requests even if later phases fail. Read the complete API and
-limits in [schema.md](schema.md#inline-pre-request-script).
+in-memory only. Successful pre RunScope mutations commit before HTTP and are
+visible to later collection requests even if later phases fail. Read the complete API and
+limits in [schema.md](schema.md#inline-request-scripts).
+
+Post sees captures and the completed response, including HTTP/capture failures.
+It adds bounded `response.text/json`, metadata, case-insensitive response headers,
+and optional final-URL-scoped `cookies.get/set/delete`. Request readers reflect
+the final prepared HTTP leg; all request mutations are rejected. Post failure
+rolls back only staged post RunScope/cookie changes, preserves captures and the
+response, and still runs assertions. Successful post values remain transient
+and reach later collection requests even after assertion failure. Capture
+persistence uses the captured value, not post overwrites, and survives post
+failure. Cookie writes
+retain deferred durability. The capability is absent for unavailable/disabled
+jars and `sendCookies: false`; response Set-Cookie capture remains enabled.
 
 Treat collections containing scripts as trusted code. Although the sandbox has
 no network API, a script can read selected-environment secrets with `env.get`

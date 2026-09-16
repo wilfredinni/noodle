@@ -272,7 +272,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
-  scripts?: { pre: string }
+  scripts?: { pre: string; post?: string } | { pre?: string; post: string }
   captures?: Record<string, CaptureEntry>
   assertions?: ResponseAssertion[]
 }

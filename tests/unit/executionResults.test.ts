@@ -16,9 +16,41 @@ const response: Response = {
 }
 
 describe("response execution results", () => {
-  it("commits captures before assertions and redacts capture values", () => {
+  it("runs one async post callback after captures and before assertions and outward redaction", async () => {
     const scope = new RunScope()
-    const results = evaluateResponseExecution(
+    const secrets: string[] = []
+    const current = { ...response }
+    let calls = 0
+    const results = await evaluateResponseExecution(
+      {
+        captures: { token: { value: "body.token", enabled: true } },
+        assertions: [
+          { expression: "status", operator: "equals", value: 201 },
+          { expression: "body.token", operator: "isString" },
+        ],
+      },
+      current,
+      scope,
+      secrets,
+      undefined,
+      async () => {
+        calls++
+        expect(scope.get("token")).toBe("secret")
+        secrets.push("secret")
+        current.status = 201
+      },
+    )
+    expect(calls).toBe(1)
+    expect(results.captures?.results[0]).toMatchObject({ value: "[REDACTED]" })
+    expect(results.assertions?.results.map((result) => result.passed)).toEqual([
+      true,
+      true,
+    ])
+    expect(results.assertions?.results[1]?.actual).toBe("[REDACTED]")
+  })
+  it("commits captures before assertions and redacts capture values", async () => {
+    const scope = new RunScope()
+    const results = await evaluateResponseExecution(
       {
         captures: {
           id: { value: "body.id", enabled: true },
@@ -40,9 +72,9 @@ describe("response execution results", () => {
     expect(results.assertions?.results[0]?.passed).toBe(true)
   })
 
-  it("fully redacts declared secret captures while retaining raw scope values", () => {
+  it("fully redacts declared secret captures while retaining raw scope values", async () => {
     const scope = new RunScope()
-    const results = evaluateResponseExecution(
+    const results = await evaluateResponseExecution(
       {
         captures: {
           token: {
@@ -72,9 +104,9 @@ describe("response execution results", () => {
     })
   })
 
-  it("redacts structured secret paths without masking public primitives", () => {
+  it("redacts structured secret paths without masking public primitives", async () => {
     const scope = new RunScope()
-    const results = evaluateResponseExecution(
+    const results = await evaluateResponseExecution(
       {
         captures: {
           credentials: {
@@ -131,9 +163,9 @@ describe("response execution results", () => {
     ])
   })
 
-  it("redacts distinctive primitive secrets across responses", () => {
+  it("redacts distinctive primitive secrets across responses", async () => {
     const scope = new RunScope()
-    evaluateResponseExecution(
+    await evaluateResponseExecution(
       {
         captures: {
           otp: { value: "body.otp", persist: "secret", enabled: true },
@@ -143,7 +175,7 @@ describe("response execution results", () => {
       scope,
     )
 
-    const results = evaluateResponseExecution(
+    const results = await evaluateResponseExecution(
       {
         assertions: [
           { expression: "body.otp", operator: "isNumber" },
@@ -163,9 +195,9 @@ describe("response execution results", () => {
     ])
   })
 
-  it("treats captures from sensitive response headers as secret", () => {
+  it("treats captures from sensitive response headers as secret", async () => {
     const scope = new RunScope()
-    const results = evaluateResponseExecution(
+    const results = await evaluateResponseExecution(
       {
         captures: {
           session: { value: "headers.Set-Cookie", enabled: true },
@@ -218,7 +250,7 @@ describe("response execution results", () => {
     ).toEqual({ name: "[REDACTED]", message: "[REDACTED]" })
   })
 
-  it("omits disabled declarations and leaves prior scope values unchanged", () => {
+  it("omits disabled declarations and leaves prior scope values unchanged", async () => {
     const scope = new RunScope()
     scope.set("id", "prior")
     const request: Pick<Request, "captures" | "assertions"> = {
@@ -236,7 +268,7 @@ describe("response execution results", () => {
       ],
     }
 
-    const results = evaluateResponseExecution(request, response, scope)
+    const results = await evaluateResponseExecution(request, response, scope)
     expect(scope.get("id")).toBe("prior")
     expect(results.captures?.results.map((result) => result.variable)).toEqual([
       "token",
@@ -246,7 +278,7 @@ describe("response execution results", () => {
     ).toEqual(["status"])
   })
 
-  it("treats disabled-only declarations as absent", () => {
+  it("treats disabled-only declarations as absent", async () => {
     const request: Pick<Request, "captures" | "assertions"> = {
       captures: { id: { value: "body.id", enabled: false } },
       assertions: [
@@ -256,7 +288,7 @@ describe("response execution results", () => {
 
     expect(unevaluatedExecutionResults(request)).toEqual({})
     expect(
-      evaluateResponseExecution(request, response, new RunScope()),
+      await evaluateResponseExecution(request, response, new RunScope()),
     ).toEqual({})
   })
 })

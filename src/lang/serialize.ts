@@ -94,13 +94,14 @@ export function serializeRequest(req: Request): string {
 
   if (req.scripts) {
     out += "scripts:\n"
-    const endsWithNewline = req.scripts.pre.endsWith("\n")
-    out += `  pre: |${endsWithNewline ? "+" : "-"}\n`
-    const source = endsWithNewline
-      ? req.scripts.pre.slice(0, -1)
-      : req.scripts.pre
-    const lines = source.split("\n")
-    for (const line of lines) out += `    ${line}\n`
+    for (const phase of ["pre", "post"] as const) {
+      const script = req.scripts[phase]
+      if (script === undefined) continue
+      const endsWithNewline = script.endsWith("\n")
+      out += `  ${phase}: |2${endsWithNewline ? "+" : "-"}\n`
+      const source = endsWithNewline ? script.slice(0, -1) : script
+      for (const line of source.split("\n")) out += `    ${line}\n`
+    }
   }
 
   if (req.captures && Object.keys(req.captures).length > 0) {

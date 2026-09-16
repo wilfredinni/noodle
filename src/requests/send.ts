@@ -3,6 +3,7 @@ import type {
   CookiePair,
   Collection,
   Environment,
+  Method,
   NetworkError,
   NetworkEvent,
   NetworkEventType,
@@ -67,6 +68,7 @@ export interface TransportExecutionOptions {
   signal?: AbortSignal
   onNetworkEvent?: (network: NetworkEvent[]) => void
   onSensitiveValues?: (values: string[]) => void
+  onPreparedRequest?: (request: TransportRequest) => void
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
   cookies?: CollectionCookieJar
@@ -392,6 +394,10 @@ export async function sendPrepared(
       }
       if (cookies && substituted.sendCookies !== false) {
         const jarHeader = cookies.cookieHeaderFor(currentUrl)
+        if (options.onPreparedRequest)
+          onSensitiveValues?.(
+            parseCookieHeader(jarHeader).map((cookie) => cookie.value),
+          )
         if (jarHeader) {
           const existing = legHeaders.get("cookie")
           legHeaders.set(
@@ -438,6 +444,26 @@ export async function sendPrepared(
             : []),
           ...(oauth2Token ? [oauth2Token] : []),
         ])
+        options.onPreparedRequest?.({
+          ...substituted,
+          url: requestUrl,
+          method: (signedInit.method ?? substituted.method) as Method,
+          headers: headersToObject(new Headers(signedInit.headers)),
+          params: [...new URL(requestUrl).searchParams].map(
+            ([name, value]) => ({ name, value, enabled: true }),
+          ),
+          ...(signedInit.body == null
+            ? {
+                body: undefined,
+                bodyType: "none",
+                formData: undefined,
+                filePath: undefined,
+              }
+            : typeof signedInit.body === "string" &&
+                substituted.bodyType !== "urlencoded"
+              ? { body: signedInit.body }
+              : { body: undefined }),
+        })
         if (ntlmEnabled) {
           ntlmConnection ??= await createNtlmConnection(
             currentUrl,
@@ -472,6 +498,10 @@ export async function sendPrepared(
       if (cookies) {
         cookies.storeResponseCookies(currentUrl, response.headers)
       }
+      if (options.onPreparedRequest)
+        onSensitiveValues?.(
+          parseResponseCookies(response.headers).map((cookie) => cookie.value),
+        )
       return response
     }
 

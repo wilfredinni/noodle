@@ -191,7 +191,7 @@ export function ResponseResults({
             ) : null}
           </box>
           {scripts?.evaluated === false ? (
-            <text fg={theme.textMuted}> Pre-request script</text>
+            <text fg={theme.textMuted}> Request scripts</text>
           ) : scripts ? (
             <box style={{ flexDirection: "column" }}>
               {scripts.results.map((result, index) => {
@@ -203,9 +203,17 @@ export function ResponseResults({
                     key={id}
                     kindLabel={result.success ? "PASS" : "FAIL"}
                     kindColor={result.success ? theme.success : theme.error}
-                    name="Pre-request"
+                    name={
+                      result.phase === "pre" ? "Pre-request" : "Post-response"
+                    }
                     value={`${result.durationMs}ms, ${logCount}`}
-                    nameWidth={12}
+                    nameWidth={
+                      execution?.scripts?.results.some(
+                        (script) => script.phase === "post",
+                      )
+                        ? 14
+                        : 12
+                    }
                     selected={selectedRowIdx === index}
                     expanded={expandedRow === id}
                     hovered={hoveredRow === id}
@@ -225,7 +233,7 @@ export function ResponseResults({
                               ? [
                                   {
                                     label: "Location",
-                                    value: `pre-request.js:${result.error.line}${result.error.column ? `:${result.error.column}` : ""}`,
+                                    value: `${result.phase === "pre" ? "pre-request" : "post-response"}.js:${result.error.line}${result.error.column ? `:${result.error.column}` : ""}`,
                                   },
                                 ]
                               : []),

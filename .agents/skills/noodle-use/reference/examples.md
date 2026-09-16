@@ -54,7 +54,7 @@ A failed assertion makes the command exit nonzero. Read structured results from
 `data.result.assertions`; known secrets are redacted from expected and actual
 values, but arbitrary server data remains visible.
 
-## Request with a sandboxed pre-request script
+## Request with sandboxed inline scripts
 
 Request (`signed/create.yml`):
 
@@ -75,6 +75,15 @@ scripts:
     );
     run.set("temporary_nonce", crypto.randomBytes(12, "base64"));
     console.info("prepared", timestamp);
+  post: |-
+    if (response.status === 201) {
+      const event = response.json();
+      run.set("event_id", event.id);
+      if (typeof cookies !== "undefined") {
+        cookies.set({ name: "last_event", value: String(event.id), httpOnly: true });
+      }
+      console.info("created", event.id, response.timeMs);
+    }
 assert:
   - expression: status
     operator: equals
@@ -84,14 +93,23 @@ assert:
 Declare `signing_secret` as a secret in the selected environment. The script
 source is literal, so `$name` text inside it is not environment substitution.
 The body and header changes apply only to the prepared request. During a
-collection run, `temporary_nonce` is available only to later requests and is
-discarded when the run ends. Human output reports the script status and log
-count without printing `console` messages; JSON places redacted logs in the
-request's `scripts` group.
+collection run, `temporary_nonce` is available to this request's post script
+and later requests and is discarded when the run ends. Human output reports the
+script status and log count without printing `console` messages; JSON places
+redacted logs in the request's `scripts` group.
 
 Use only synchronous `request`, `env`, `run`, `crypto`, and `console` APIs.
+Post also exposes bounded response text/JSON, metadata and headers, with the
+final prepared request read-only. Capture commits happen before post and
+assertions after it, even on post failure. `event_id` reaches later collection
+requests but stays transient. Cookies are optional, host-only and scoped to the
+final URL; domains and inaccessible paths are rejected. Omitted expiry is
+session lifetime and cookie saves remain deferred. Both phases stage changes
+and roll back only the failing invocation. Pre failure prevents HTTP; post
+failure preserves the response and captures. Prefer a declarative capture when
+conditional processing is unnecessary.
 Imports, fetch, timers, host modules, and Promises are unavailable. See
-[schema.md](../schema.md#inline-pre-request-script) for exact methods and fixed
+[schema.md](../schema.md#inline-request-scripts) for exact methods and fixed
 resource limits.
 
 ## Chained requests with response capture

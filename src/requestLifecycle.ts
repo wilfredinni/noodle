@@ -18,7 +18,11 @@ import {
   unevaluatedExecutionResults,
   type ResponseExecutionResults,
 } from "./executionResults"
-import { runPreRequestScript } from "./preRequestScript"
+import {
+  runPreRequestScript,
+  runRequestScript,
+  type ScriptExecutionResult,
+} from "./preRequestScript"
 import {
   executionResultSecrets,
   redactKnownSecrets,
@@ -79,7 +83,7 @@ export async function executeRequestLifecycle(options: {
   ]
   let prepared: SubstitutedRequest | undefined
   let timeline = request
-  let scriptResult: Awaited<ReturnType<typeof runPreRequestScript>> | undefined
+  const scriptResults: ScriptExecutionResult[] = []
   const runtimeSecrets: string[] = []
 
   try {
@@ -91,18 +95,19 @@ export async function executeRequestLifecycle(options: {
     timeline = timelineRequest(merged, prepared)
     secretValues.push(...requestSensitiveValues(prepared))
 
-    if (merged.scripts) {
-      scriptResult = await runPreRequestScript(
+    if (merged.scripts?.pre !== undefined) {
+      const scriptResult = await runPreRequestScript(
         merged.scripts.pre,
         prepared,
         environment,
         runScope,
       )
       secretValues.push(...scriptResult.secretValues)
+      scriptResults.push(scriptResult.result)
       if (!scriptResult.result.success) {
-        const execution = withScriptResult(
+        const execution = withScriptResults(
           unevaluatedExecutionResults(merged),
-          scriptResult.result,
+          scriptResults,
           secretValues,
         )
         const scriptError = new Error(
@@ -130,6 +135,7 @@ export async function executeRequestLifecycle(options: {
     delete transportRequest.scripts
     delete transportRequest.captures
     delete transportRequest.assertions
+    let sentRequest = transportRequest
     const rawResponse = await executor.send(transportRequest, {
       ...transport,
       knownSensitiveValues: [
@@ -149,13 +155,20 @@ export async function executeRequestLifecycle(options: {
         runtimeSecrets.push(...values)
         transport.onSensitiveValues?.(values)
       },
+      onPreparedRequest:
+        merged.scripts?.post !== undefined
+          ? (snapshot) => {
+              sentRequest = snapshot
+              transport.onPreparedRequest?.(snapshot)
+            }
+          : transport.onPreparedRequest,
     })
     secretValues.push(
       ...runtimeSecrets,
       ...responseSensitiveValues(rawResponse),
     )
     let rawCaptures: CaptureResult[] = []
-    const responseExecution = evaluateResponseExecution(
+    const responseExecution = await evaluateResponseExecution(
       prepared,
       rawResponse,
       runScope,
@@ -163,11 +176,25 @@ export async function executeRequestLifecycle(options: {
       (results) => {
         rawCaptures = results
       },
+      async () => {
+        if (merged.scripts?.post === undefined) return
+        const post = await runRequestScript(
+          "post",
+          merged.scripts.post,
+          sentRequest,
+          environment,
+          runScope,
+          { response: rawResponse, cookies: transport.cookies },
+        )
+        scriptResults.push(post.result)
+        secretValues.push(...post.secretValues)
+      },
     )
     secretValues.push(...runScope.secretValues())
-    const execution = scriptResult
-      ? withScriptResult(responseExecution, scriptResult.result, secretValues)
-      : responseExecution
+    const execution =
+      scriptResults.length > 0
+        ? withScriptResults(responseExecution, scriptResults, secretValues)
+        : responseExecution
     const response = {
       ...rawResponse,
       ...(rawResponse.network
@@ -192,13 +219,14 @@ export async function executeRequestLifecycle(options: {
         ? error
         : new Error(String(error), { cause: error })
     const safeError = redactLifecycleError(normalized, secretValues)
-    const execution = scriptResult
-      ? withScriptResult(
-          unevaluatedExecutionResults(request),
-          scriptResult.result,
-          secretValues,
-        )
-      : unevaluatedExecutionResults(request)
+    const execution =
+      scriptResults.length > 0
+        ? withScriptResults(
+            unevaluatedExecutionResults(request),
+            scriptResults,
+            secretValues,
+          )
+        : unevaluatedExecutionResults(request)
     return {
       status: "error",
       request: timeline,
@@ -244,21 +272,21 @@ function redactNetworkEvents(
   }))
 }
 
-function withScriptResult(
+function withScriptResults(
   execution: ResponseExecutionResults,
-  result: Awaited<ReturnType<typeof runPreRequestScript>>["result"],
+  results: ScriptExecutionResult[],
   secretValues: readonly RedactionSecret[],
 ): ResponseExecutionResults {
   return {
     ...execution,
     scripts: {
       evaluated: true,
-      results: [
+      results: results.map((result) =>
         redactScriptExecutionResult(
           result,
           executionResultSecrets(secretValues),
         ),
-      ],
+      ),
     },
   }
 }

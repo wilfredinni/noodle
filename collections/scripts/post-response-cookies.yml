@@ -1,0 +1,32 @@
+name: Scoped Post-response Cookie
+method: GET
+url: $base_url/posts/1
+timeout: 0
+body_type: none
+scripts:
+  post: |-
+    if (response.status === 200 && typeof cookies !== "undefined") {
+      const name = "noodle_post_response";
+      const value = "demo-post-" + response.json().id;
+      console.info("Previous cookie", cookies.get(name));
+      // Delete only applicable matches, then stage a host-only session cookie.
+      // Omitted path defaults to /posts here; domain overrides are forbidden.
+      cookies.delete(name);
+      cookies.set({ name, value, httpOnly: true, sameSite: "lax" });
+      if (cookies.get(name) !== value) {
+        throw Error("Expected the staged cookie to be readable");
+      }
+      console.info("Staged cookie", cookies.get(name));
+      // Cookie and RunScope writes commit together; disk saves remain deferred.
+      run.set("post_response_cookie_ready", true);
+    } else {
+      // Disabled/unavailable jars and sendCookies: false omit this capability.
+      console.warn("Skipped cookie update", response.status, typeof cookies);
+    }
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: equals
+    value: 1

@@ -1,5 +1,5 @@
 meta:
-  name: Pre-request Scripts
+  name: Inline Scripts
   seq: 2
 tags:
   - scripts

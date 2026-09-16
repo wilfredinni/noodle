@@ -383,25 +383,58 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      1. Merge folder overrides
      2. Overlay RunScope values for substitution
      3. Substitute the request once
-     4. Run an optional staged request-level pre-script in preRequestScript.ts
-     5. Commit successful script request and RunScope mutations
+     4. Run optional scripts.pre through the phase-aware runner in preRequestScript.ts
+     5. Commit successful pre request and RunScope mutations
      6. Pass only the prepared transport request to executor.send()
      7. Evaluate and commit captures in executionResults.ts
-     8. Evaluate assertions against the same response views
+     8. Run optional scripts.post with captures, response, and final-leg request readers;
+        atomically commit successful post RunScope and URL-scoped cookie writes
+     9. Evaluate assertions against the same response resolver, even after post failure
   → requests/send.ts transport-only executor pipeline:
      1. Build URL with path and query params
      2. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop
      3. Resolve proxy and TLS policy for each leg
      4. Merge matching jar cookies unless `sendCookies: false`; explicit request cookies win by name
      5. Apply OAuth 2 tokens, AWS SigV4 signing, OAuth 1.0a signing, or the NTLM handshake path as required
-     6. fetch() with proxy/TLS options; classify request timeouts as transport failures and preserve caller cancellation
-     7. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
-     8. Manually follow HTTP(S) redirects; block downgrades, strip sensitive and known-secret headers across origins, disable auth signers, and reject preserved bodies containing known secrets while allowing body-dropping redirects
+     6. Emit the internal onPreparedRequest snapshot after signing and cookie/header preparation;
+        the last completed leg supplies effective URL, method, query, headers, and supported body reads
+     7. fetch() with proxy/TLS options; classify request timeouts as transport failures and preserve caller cancellation
+     8. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
+     9. Manually follow HTTP(S) redirects; block downgrades, strip sensitive and known-secret headers across origins, disable auth signers, and reject preserved bodies containing known secrets while allowing body-dropping redirects
   → ResponseExecutionResults contains optional script, capture, and assertion groups
      Script source, results, and logs stay transient; successful manual timeline request snapshots use the mutated prepared request
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
+
+Pre failure skips HTTP and response phases. Post runs once for each completed
+response, including HTTP/capture failures, never for intermediate or failed
+transport legs. All post request mutators throw a central read-only API error.
+Post failure retains the response, committed captures/pre writes, and logs,
+discarding only its own staged RunScope/cookie changes before assertions run.
+Successful post values are transient and reach later collection requests even
+after assertion failure. Manual/`request run` capture persistence uses the
+original captured value, not later post overwrites.
+
+Async `evaluateResponseExecution()` reuses one response resolver and invokes one
+post callback after capture commits, deferring outward result redaction until
+post-discovered secrets are registered. Each phase uses a fresh bounded VM;
+post response text transfers lazily as a VM string up to 5 MiB UTF-8, with native
+VM JSON parsing and explicit success/failure caching that preserves null.
+Ordinary bridge/RunScope limits remain 256 KiB and depth 32. Expose no host
+objects, streams, upload buffers, or Bun types.
+
+`cookies/index.ts` owns private final-URL-scoped post transactions. Validate the
+complete batch against the current jar before one synchronous cookie/RunScope
+commit; reuse the journal, encrypted storage, locking, warnings, and deferred
+persistence. Host-only scope, applicable paths, tough-cookie prefix/secure rules,
+and strict input attributes apply. Disabled/unavailable jars and
+`sendCookies: false` omit the capability without suppressing received Set-Cookie
+processing. Applicable/received/read/staged/overwritten/deleted values, including
+short values and failed invocations, join redaction; ordinary cookie policy is
+unchanged. See [the public contract](../noodle-use/schema.md#inline-request-scripts)
+for API details and [testing.md](testing.md#inline-scripting-regressions) for
+resource, transaction, and execution-parity regressions.
 
 ## Component tree
 
@@ -515,7 +548,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same shared lifecycle runs pre-request scripts, captures, and assertions, records ordered fail-fast skips, and aggregates fixed failure categories without aggregate script counters. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` script/capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `script`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same shared lifecycle runs pre → HTTP → captures → post → assertions after merging, environment/RunScope overlay, and one substitution pass; it records ordered fail-fast skips after response diagnostics finish and aggregates fixed failure categories without aggregate script counters. HTTP/capture errors still reach post; post errors still reach assertions and can coexist with HTTP/capture/assertion failures. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` script/capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `script`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 ### Extending assertions and response expressions
 

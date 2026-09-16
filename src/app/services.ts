@@ -770,6 +770,8 @@ async function runRequest(
     ...runScope.secretValues(),
   ]
   const failureCategories: RunFailureCategory[] = []
+  if (execution.scripts?.results.some((result) => !result.success))
+    failureCategories.push("script")
   if (response.status >= 400) failureCategories.push("http")
   if (captureResults?.some((result) => !result.success)) {
     failureCategories.push("capture")
@@ -789,6 +791,7 @@ async function runRequest(
       timeMs: response.timeMs,
     },
     ok:
+      (execution.scripts?.results.every((script) => script.success) ?? true) &&
       response.status < 400 &&
       (captureResults?.every((capture) => capture.success) ?? true) &&
       (assertionResults?.every((assertion) => assertion.passed) ?? true),

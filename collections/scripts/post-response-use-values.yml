@@ -1,0 +1,31 @@
+# Run post-response-extract first in the same collection run or Runner selection.
+# Manual sends have isolated scopes and cannot reuse that request's values.
+name: Use Post-response Values
+method: GET
+url: $base_url/users/$post_response_user_id
+timeout: 0
+tags:
+  - post-response-chain
+body_type: none
+headers:
+  X-Noodle-Post-Title: $post_response_title
+params:
+  - name: post_id
+    value: $post_response_post_id
+scripts:
+  post: |-
+    if (request.params.get("post_id") !== String(run.get("post_response_post_id"))) {
+      throw Error("Expected the earlier post value in the final request");
+    }
+    if (response.status === 200) {
+      console.info("Fetched post author", response.json().name, response.timeMs);
+    }
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: equals
+    value: 1
+  - expression: body.name
+    operator: isString

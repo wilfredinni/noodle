@@ -84,13 +84,14 @@ export function redactScriptExecutionResult(
   }
 }
 
-export function evaluateResponseExecution(
+export async function evaluateResponseExecution(
   request: Pick<Request, "assertions" | "captures">,
   response: Response,
   runScope: RunScope,
   secretValues: RedactionSecret[] = [],
   onRawCaptures?: (results: CaptureResult[]) => void,
-): ResponseExecutionResults {
+  afterCaptures?: () => Promise<void>,
+): Promise<ResponseExecutionResults> {
   const resolve = createResponseResolver(response)
   const redact = (value: string) =>
     redactKnownSecrets(value, [...secretValues, ...runScope.secretValues()])
@@ -134,6 +135,8 @@ export function evaluateResponseExecution(
       executionResultSecrets([...secretValues, ...runScope.secretValues()]),
     )
   if (rawCaptures) onRawCaptures?.(rawCaptures)
+  secretValues.push(...runScope.secretValues())
+  await afterCaptures?.()
   const captures = rawCaptures?.map((result): CaptureResult =>
     result.success
       ? {

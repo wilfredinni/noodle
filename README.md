@@ -163,10 +163,10 @@ array member. `matches` is a case-sensitive JavaScript regular expression with
 no flags; it is unanchored unless `^` or `$` is supplied and rejects unsafe or
 unsupported regex syntax.
 
-### Sandboxed pre-request scripts
+### Sandboxed inline scripts
 
-A request can run one synchronous inline script after folder merging and
-variable substitution, but before HTTP transport:
+A request can run synchronous inline `pre` preparation and `post` response
+processing through the same sandbox and lifecycle:
 
 ```yaml
 scripts:
@@ -179,16 +179,24 @@ scripts:
     );
     request.body.setJson({ ...request.body.json(), sentAt: timestamp });
     run.set("temporary_id", crypto.randomBytes(12, "hex"));
+  post: |-
+    if (response.status < 400 && response.headers.has("Content-Type")) {
+      run.set("event_id", response.json().id);
+      if (typeof cookies !== "undefined") {
+        cookies.set({ name: "last_event", value: String(response.json().id) });
+      }
+    }
 ```
 
-`scripts` must be a mapping containing only the string-valued `pre` member. An
-empty string is a valid no-op. Script source is emitted as a literal YAML block
-before `capture` and `assert`, and `$` references inside the source are never
-substituted.
+`scripts` accepts optional string-valued `pre` and `post` members. Empty
+mappings, unknown keys, and external script paths are rejected; files are never
+read. Empty strings are valid no-ops. Literal YAML blocks preserve source
+whitespace in pre/post order before `capture` and `assert`. `$` references inside
+source are never substituted.
 
 The public API is intentionally small:
 
-- `request.url` and `request.method` are readable and writable.
+- `request.url` and `request.method` are readable, and writable in pre only.
 - `request.headers` provides `get`, `has`, `set`, and `delete`; names are
   case-insensitive.
 - `request.params` provides `get`, `getAll`, `set`, `append`, and `delete` for
@@ -200,6 +208,9 @@ The public API is intentionally small:
 - `crypto.sha256`, `crypto.hmacSha256`, and `crypto.randomBytes` support exact
   `hex` or `base64` output.
 - `console.log`, `info`, `warn`, and `error` capture bounded result logs.
+- Post adds `response.status`, `statusText`, `timeMs`, case-insensitive
+  `response.headers.get/has`, `response.text()`, and cached `response.json()`.
+  Missing headers return null; invalid JSON throws a structured API error.
 
 Request and RunScope changes commit only after the complete script succeeds.
 Request changes affect only the prepared in-memory copy. RunScope changes are
@@ -209,11 +220,41 @@ fails. A later successful capture can overwrite a script value. Manual sends
 and `request run` use a fresh scope, so `temporary_id` above is temporary unless
 a later request in the same collection run consumes it.
 
+Post runs after capture commits and before assertions for every completed HTTP
+response, including HTTP and capture failures. It reads the final Noodle-prepared
+HTTP leg after redirects, signing, and cookie/header preparation. Request
+mutators remain present but always throw a read-only API error in post.
+`request.body.text()` returns null for absent, multipart, URL-encoded, or binary
+bodies. No host response, streams, or upload buffers enter the sandbox.
+Successful post RunScope writes are transient and available to later collection
+requests even when assertions fail. Post failures discard only that invocation's
+staged writes, retain the response and captures, and still run assertions. Pre
+failure prevents HTTP and all response phases.
+
+When the jar is available and cookies are enabled for the request, post also
+exposes URL-scoped `cookies.get(name)`, `set(input)`, and `delete(name)`. `get`
+returns the first applicable value or null; `delete` removes every applicable
+same-name cookie, preserving inaccessible matches. `set` requires string `name`
+and `value`, accepts optional applicable `path`, ISO 8601 date-time `expires`,
+boolean `secure`/`httpOnly`, and `sameSite: strict|lax|none`. Unknown attributes,
+including `domain`, are rejected. Cookies are host-only for the final URL;
+omitted paths use normal default-path rules and omitted expiry means session
+lifetime. Past expiry is supported. Validation uses tough-cookie's secure-origin
+rules, including localhost, without browser-navigation SameSite context.
+Cookie and RunScope changes commit together after complete batch validation;
+cookie encryption, locking, warnings, and deferred persistence stay unchanged.
+`sendCookies: false` removes the capability but still captures response cookies.
+Applicable, received, read, staged, overwritten, and deleted values are known
+secrets even on script failure. Short cookie values can cause over-redaction.
+
 Scripts run in a fresh QuickJS runtime and context with a fixed 64 MiB WASM
 memory, 32 MiB runtime memory, 512 KiB stack, 500 ms deadline, and 256 KiB UTF-8
 source limit. One bridged JSON value is limited to 256 KiB and depth 32. Random
 generation is limited to 4 KiB per call. Console capture keeps at most 100
 entries and 64 KiB of combined text, with serialization depth 4.
+Response text is copied lazily as a VM string with a separate 5 MiB UTF-8 limit,
+without truncation or JSON-envelope expansion. JSON parsing and its cached value
+stay inside the VM; extracted RunScope values retain ordinary bridge limits.
 
 The sandbox exposes no Bun, process, filesystem, shell, network, timer, worker,
 or host module APIs. Imports, returned Promises, and queued async work are not
@@ -228,7 +269,10 @@ headers, or body, and disclose them through the HTTP request that follows.
 The Results view shows script status, duration, log count, normalized error,
 and expandable redacted logs. Human CLI output reports status, duration, log
 count, and a redacted failure without printing log contents. `--json` includes
-the full redacted `scripts` result group. Script source, status, and logs are
+the full redacted `scripts: { evaluated, results }` group in executed pre/post
+order. Results labels are Pre-request/Post-response; human output labels are
+Pre-script/Post-script. Failed scripts make automation fail after all available
+response diagnostics finish. Script source, status, and logs are
 transient and are never stored in `.timeline`; successful manual timeline
 snapshots reflect the prepared request mutations.
 
@@ -270,7 +314,9 @@ Every send follows one execution contract:
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request through the HTTP transport.
 7. Evaluate and commit captures.
-8. Evaluate assertions.
+8. Run post against the response and committed captures; commit successful
+   transient RunScope and URL-scoped cookie changes.
+9. Evaluate assertions, including after post failure.
 
 Results are redacted using declared secrets, secret RunScope values,
 credentials, sensitive headers, script-created secrets, and secrets discovered

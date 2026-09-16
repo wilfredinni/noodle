@@ -5,7 +5,7 @@
 `bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
 
 ```bash
-bun test                                    # all 3230 tests across 207 files
+bun test                                    # all tests
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```
@@ -98,6 +98,8 @@ Mount the visible hard-blocking overlay before pressing keys. Its shield has hig
 | Cookie request flow and automation    | `tests/integration/cookies-loopback.test.ts`, `tests/integration/automation.test.ts`, `tests/unit/send.test.ts`  |
 | Cookie TUI and keymap                 | `tests/unit/CookieJarView.test.tsx`, `tests/unit/CookieFormOverlay.test.tsx`, `tests/unit/appKeymapLayers.test.ts` |
 | HTTP execution, substitution         | `tests/requests.test.ts`                                                                                         |
+| Inline pre/post sandbox, limits, response isolation | `tests/unit/preRequestScript.test.ts`, `tests/unit/postResponseScript.test.ts`, `tests/lang.test.ts` |
+| Post lifecycle, cookie transactions, CLI/Results parity | `tests/integration/postResponseScript.test.ts`, `tests/integration/postResponseCli.test.ts`, `tests/unit/postResponseExecution.test.tsx`, `tests/unit/executionResults.test.ts` |
 | Response expressions, captures, RunScope, assertions, suite tags, filtering, summaries, and exit codes | `tests/unit/responseExpression.test.ts`, `tests/unit/runScope.test.ts`, `tests/unit/assertions.test.ts`, `tests/lang.test.ts`, `tests/folder-lang.test.ts`, `tests/integration/automation.test.ts`, `tests/humanOutput.test.ts`, `tests/cli.test.ts` |
 | Folder overrides                     | `tests/unit/mergeFolderOverrides.test.ts`                                                                        |
 | Pure helper function                 | `tests/unit/<name>.test.ts`                                                                                      |
@@ -139,3 +141,38 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
 - **Cleanup** — `afterEach` removes temp dirs; no leaked state between tests
 - **Naming** — `it("should parse basic auth headers from YAML")` — descriptive, starts with "should"
 - **Inline JSON editor** — use stored compact JSON when asserting browse rendering; assert formatted indentation explicitly. Use a real `binary`, `multipart`, or `urlencoded` request when testing non-JSON bodies.
+
+## Inline scripting regressions
+
+- Preserve pre-only/no-script behavior and strict pre/post parser round trips,
+  literal whitespace, empty-string no-ops, unknown-key rejection, and external
+  path rejection without file reads.
+- Prove merge → environment/RunScope → substitute once → pre → HTTP → captures
+  → post → assertions, same-request capture visibility, isolated manual/request
+  scopes, ordered collection propagation, and capture persistence independent
+  of post failure/overwrites. HTTP/capture errors reach post; post errors still
+  reach assertions and collection fail-fast waits for all response diagnostics.
+- Check final-leg readers after redirects, signing, and cookie/header
+  preparation; reject every post request mutator and keep VM JSON objects
+  isolated from the host response and capture/assertion resolver.
+- Cover status/statusText/timing, case-insensitive headers and missing nulls, cached
+  JSON success/failure and null, exact 5 MiB UTF-8 acceptance, multibyte and
+  escape-heavy bodies, oversize rejection, and fresh-invocation recovery after
+  memory/deadline failures under fixed WASM memory. RunScope/ordinary bridge
+  values still have 256 KiB/depth-32 limits.
+- Cover atomic cookie/RunScope rollback, preserved received Set-Cookie state,
+  final-URL path/host scope, duplicate deletion, expiry, prefixes, secure and
+  localhost rules, suppression, failed-invocation and short-value redaction,
+  journal replay, and concurrent jar persistence. Durability remains deferred.
+- Verify manual send, request/collection CLI, Runner, human/JSON output, and
+  rendered Results through loopback servers only. Finish fixture I/O before
+  mount, await actual async producers inside `act()`, and render/assert the
+  resulting state without sleeps. Rerun every changed async file ten times
+  with `bun test <file> --rerun-each=10`.
+- After runtime or TUI scripting changes, request read-only
+  `request_security_reviewer` and `tui_reviewer` reviews; verify actionable
+  findings before narrow fixes. Run the full repository checks in AGENTS.md.
+  After `bun run build:bin`, rerun `tests/integration/postResponseCli.test.ts`
+  with `NOODLE_TEST_BINARY` set to the compiled binary's absolute path to
+  exercise post processing and hostile-allocation recovery without changing
+  release scripts.
