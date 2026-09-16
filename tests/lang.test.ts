@@ -171,7 +171,7 @@ describe("inline pre-request script language", () => {
     expect(serialized.indexOf("capture:")).toBeLessThan(
       serialized.indexOf("assert:"),
     )
-    expect(serialized).toContain("  pre: |+\n")
+    expect(serialized).toContain("  pre: |2+\n")
     expect(serialized).toContain("$BASE_URL")
     expect(lang.parseRequest("x", serialized).scripts).toEqual({ pre: source })
   })
@@ -182,7 +182,7 @@ describe("inline pre-request script language", () => {
       "name: Empty\nmethod: GET\nurl: https://example.com\nscripts:\n  pre: ''\n",
     )
     expect(empty.scripts).toEqual({ pre: "" })
-    expect(lang.serializeRequest(empty)).toContain("scripts:\n  pre: |-\n")
+    expect(lang.serializeRequest(empty)).toContain("scripts:\n  pre: |2-\n")
     expect(
       lang.parseRequest("x", lang.serializeRequest(makeRequest())),
     ).not.toHaveProperty("scripts")
@@ -192,7 +192,7 @@ describe("inline pre-request script language", () => {
     for (const [yaml, message] of [
       ["scripts: []", '"scripts" must be a mapping'],
       ["scripts: {}", '"scripts" must contain "pre"'],
-      ["scripts:\n  post: value", 'unknown scripts field "post"'],
+      ["scripts:\n  post: 1", "scripts.post must be a string"],
       ["scripts:\n  pre: 1", "scripts.pre must be a string"],
       ["scripts:\n  pre: ok\n  extra: no", 'unknown scripts field "extra"'],
     ]) {
@@ -202,6 +202,47 @@ describe("inline pre-request script language", () => {
           `name: Test\nmethod: GET\nurl: https://example.com\n${yaml}\n`,
         ),
       ).toThrow(message)
+    }
+  })
+
+  it("round-trips both phases in canonical order with literal whitespace", () => {
+    for (const source of [
+      "",
+      "\n",
+      "\n\n",
+      "  const literal = '$TOKEN';  \n\n",
+      "console.log('literal');",
+    ]) {
+      const req = lang.parseRequest(
+        "x",
+        "name: X\nmethod: GET\nurl: https://example.com\n",
+      )
+      req.scripts = { post: source, pre: source }
+      const yaml = lang.serializeRequest(req)
+      expect(yaml.indexOf("  pre:")).toBeLessThan(yaml.indexOf("  post:"))
+      expect(lang.parseRequest("x", yaml).scripts).toEqual(req.scripts)
+      req.scripts = { post: source }
+      expect(
+        lang.parseRequest("x", lang.serializeRequest(req)).scripts,
+      ).toEqual({ post: source })
+    }
+    for (const phase of ["pre", "post"]) {
+      for (const path of [
+        "./script.js",
+        "/tmp/script.js",
+        "script.ts",
+        "@/script.js",
+        "C:\\script.js",
+        "./scripts/post",
+        "/tmp/post.txt",
+      ]) {
+        expect(() =>
+          lang.parseRequest(
+            "x",
+            `name: X\nmethod: GET\nurl: https://example.com\nscripts:\n  ${phase}: '${path}'\n`,
+          ),
+        ).toThrow(`scripts.${phase} must be inline source`)
+      }
     }
   })
 })

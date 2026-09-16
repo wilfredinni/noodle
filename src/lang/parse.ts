@@ -23,6 +23,7 @@ import {
 import { isValidVariableName } from "../requests/substitute"
 import { isValidTag } from "../tags"
 import { parseAuth } from "./auth"
+import { isExternalScriptSource } from "./scriptSource"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -263,18 +264,32 @@ function parseScripts(value: unknown): Request["scripts"] {
   }
   const keys = Object.keys(value)
   if (keys.length === 0) {
-    throw new Error('lang.parseRequest: "scripts" must contain "pre"')
+    throw new Error('lang.parseRequest: "scripts" must contain "pre" or "post"')
   }
   for (const key of keys) {
-    if (key !== "pre") {
+    if (key !== "pre" && key !== "post") {
       throw new Error(`lang.parseRequest: unknown scripts field "${key}"`)
     }
   }
-  const pre = (value as Record<string, unknown>).pre
-  if (typeof pre !== "string") {
-    throw new Error("lang.parseRequest: scripts.pre must be a string")
+  for (const key of keys) {
+    const source = (value as Record<string, unknown>)[key]
+    if (typeof source !== "string") {
+      throw new Error(`lang.parseRequest: scripts.${key} must be a string`)
+    }
+    if (isExternalScriptSource(source)) {
+      throw new Error(
+        `lang.parseRequest: scripts.${key} must be inline source; external script paths are not supported`,
+      )
+    }
   }
-  return { pre }
+  return {
+    ...(Object.hasOwn(value, "pre")
+      ? { pre: (value as { pre: string }).pre }
+      : {}),
+    ...(Object.hasOwn(value, "post")
+      ? { post: (value as { post: string }).post }
+      : {}),
+  }
 }
 
 export function parseTags(
