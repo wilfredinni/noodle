@@ -27,8 +27,6 @@ export async function withEnvironmentLock<T>(
     .then(async () => {
       const lock = await acquireFileLock(join(directory, ".mutation"), {
         lockTimeoutMs: 5000,
-        // Never reclaim a live vault transaction by age. An abandoned lock requires explicit recovery.
-        staleLockMs: Infinity,
         minBackoffMs: 10,
         maxBackoffMs: 50,
       })

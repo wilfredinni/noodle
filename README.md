@@ -283,6 +283,10 @@ cookie encryption, locking, warnings, and deferred persistence stay unchanged.
 Applicable, received, read, staged, overwritten, and deleted values are known
 secrets even on script failure. Short cookie values can cause over-redaction.
 
+Storage locks are never reclaimed by age. After an interrupted writer, confirm
+that no writer is active before manually removing the abandoned lock directory;
+timeout errors identify its exact path.
+
 Scripts run in a fresh QuickJS runtime and context with a fixed 64 MiB WASM
 memory, 32 MiB runtime memory, 512 KiB stack, 500 ms deadline, and 256 KiB UTF-8
 source limit. One bridged JSON value is limited to 256 KiB and depth 32. Random

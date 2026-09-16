@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
 export interface LockHandle {
@@ -15,7 +15,7 @@ export class FileLockError extends Error {
     super(
       code === "write"
         ? `Storage lock could not be created: ${file}.lock`
-        : `Storage is busy; retry after the writer finishes. If it was interrupted, inspect the abandoned lock: ${file}.lock`,
+        : `Storage is busy; retry after the writer finishes. Remove an abandoned lock only after confirming no writer is active: ${file}.lock`,
       options,
     )
   }
@@ -25,7 +25,6 @@ export async function acquireFileLock(
   file: string,
   timing: {
     lockTimeoutMs: number
-    staleLockMs: number
     minBackoffMs: number
     maxBackoffMs: number
   },
@@ -62,29 +61,9 @@ export async function acquireFileLock(
 
     if (Date.now() - started >= timing.lockTimeoutMs)
       throw new FileLockError("lock-timeout", file)
-    if (await recoverStaleLock(lockDir, timing.staleLockMs)) continue
+    // Age cannot establish abandonment; recovery requires confirming no writer is active.
     const spread = timing.maxBackoffMs - timing.minBackoffMs
     const delay = timing.minBackoffMs + Math.floor(Math.random() * (spread + 1))
     await new Promise((resolve) => setTimeout(resolve, delay))
   }
-}
-
-async function recoverStaleLock(
-  lockDir: string,
-  staleLockMs: number,
-): Promise<boolean> {
-  try {
-    const details = await stat(lockDir)
-    if (Date.now() - details.mtimeMs <= staleLockMs) return false
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT"
-  }
-  const stale = `${lockDir}.stale-${randomUUID()}`
-  try {
-    await rename(lockDir, stale)
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT"
-  }
-  await rm(stale, { recursive: true, force: true })
-  return true
 }

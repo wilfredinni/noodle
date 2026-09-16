@@ -121,14 +121,12 @@ const ENC_PREFIX = "enc:v1:"
 
 interface CookieJarTiming {
   lockTimeoutMs: number
-  staleLockMs: number
   minBackoffMs: number
   maxBackoffMs: number
 }
 
 const DEFAULT_TIMING: CookieJarTiming = {
   lockTimeoutMs: 5000,
-  staleLockMs: 30_000,
   minBackoffMs: 25,
   maxBackoffMs: 250,
 }
@@ -917,7 +915,7 @@ async function acquireLock(file: string): Promise<LockHandle> {
       error.code,
       error.code === "write"
         ? "Cookie storage lock could not be created."
-        : "Cookie storage is busy in another process; retry after that process finishes.",
+        : error.message,
       file,
       { cause: error },
     )
