@@ -86,12 +86,20 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 Use `scripts.pre` for synchronous request preparation and `scripts.post` for
 response extraction or conditional processing that cannot be expressed
 declaratively. Script source is literal and never variable-
-substituted. Pre exposes only `request`, `env`, `run`, `crypto`, and
+substituted. Pre exposes only `request`, `env`, `run`, `crypto`, `random`, and
 captured `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
 visible to later collection requests even if later phases fail. Read the complete API and
 limits in [schema.md](schema.md#inline-request-scripts).
+
+Both phases expose frozen `random.*()` English test-data generators with bounded
+options. Each invocation has independent Faker 10.5.0 state; `random.seed` resets
+only its sequence. Use `run.set` to share values, and an explicit `refDate` plus
+seed for reproducible relative dates. Passwords are automatically known secrets;
+other generated data stays visible. IDs and passwords are test data without
+cryptographic security or guaranteed uniqueness. JSON placeholders are deferred.
+See [the catalog and options](schema.md#script-random-api).
 
 Post sees captures and the completed response, including HTTP/capture failures.
 It adds bounded `response.text/json`, metadata, case-insensitive response headers,

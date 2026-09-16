@@ -194,7 +194,7 @@ read. Empty strings are valid no-ops. Literal YAML blocks preserve source
 whitespace in pre/post order before `capture` and `assert`. `$` references inside
 source are never substituted.
 
-The public API is intentionally small:
+The public script API includes:
 
 - `request.url` and `request.method` are readable, and writable in pre only.
 - `request.headers` provides `get`, `has`, `set`, and `delete`; names are
@@ -208,10 +208,37 @@ The public API is intentionally small:
   mutations accept optional `{ persist: "environment" | "secret" }`.
 - `crypto.sha256`, `crypto.hmacSha256`, and `crypto.randomBytes` support exact
   `hex` or `base64` output.
+- Frozen `random.*()` methods generate English test data in both phases: IDs,
+  names, contact details, dates, addresses, commerce, finance, files and images.
+  See the [complete catalog and options](.agents/skills/noodle-use/schema.md#script-random-api).
 - `console.log`, `info`, `warn`, and `error` capture bounded result logs.
 - Post adds `response.status`, `statusText`, `timeMs`, case-insensitive
   `response.headers.get/has`, `response.text()`, and cached `response.json()`.
   Missing headers return null; invalid JSON throws a structured API error.
+
+```js
+random.seed(42);
+run.set("testUser", {
+  id: random.uuid(),
+  name: random.name(),
+  email: random.exampleEmail(),
+  age: random.number({ min: 18, max: 80 }),
+  status: random.pick(["pending", "active"]),
+});
+```
+
+Each script invocation has its own random sequence. `seed` resets only that
+sequence; reuse data across phases or requests with `run.set`. Seeded results
+are reproducible within pinned Faker 10.5.0. Relative dates also need an explicit
+ISO `refDate` with a timezone for reproducibility; otherwise they use the
+invocation's start time. `timestamp` (Unix seconds) and `isoTimestamp` use the
+current clock. Passwords are immediately registered for secret redaction,
+including after script failure; other generated data remains visible by default.
+IDs and passwords are test data, with no security or uniqueness guarantee.
+Image URLs, SVG data URIs and paths are generated without network or file access.
+JSON body placeholders remain deferred. See the ordered
+[`random-1-create-user.yml`](collections/scripts/random-1-create-user.yml) and
+[`random-2-next-user.yml`](collections/scripts/random-2-next-user.yml) examples.
 
 Request and RunScope changes commit only after the complete script succeeds.
 Request changes affect only the prepared in-memory copy. RunScope changes are
@@ -289,8 +316,9 @@ timeout errors identify its exact path.
 
 Scripts run in a fresh QuickJS runtime and context with a fixed 64 MiB WASM
 memory, 32 MiB runtime memory, 512 KiB stack, 500 ms deadline, and 256 KiB UTF-8
-source limit. One bridged JSON value is limited to 256 KiB and depth 32. Random
-generation is limited to 4 KiB per call. Console capture keeps at most 100
+source limit. One bridged JSON value is limited to 256 KiB and depth 32.
+`crypto.randomBytes` is limited to 4 KiB per call; `random` options have separate
+length/count ceilings. Console capture keeps at most 100
 entries and 64 KiB of combined text, with serialization depth 4.
 Response text is copied lazily as a VM string with a separate 5 MiB UTF-8 limit,
 without truncation or JSON-envelope expansion. JSON parsing and its cached value

@@ -106,6 +106,69 @@ afterEach(async () => {
 })
 
 describe("post-response lifecycle", () => {
+  it("sends generated pre data, carries post data forward and preserves lifecycle rollback", async () => {
+    const scope = new RunScope()
+    const first = await send(
+      {
+        ...base(),
+        method: "POST",
+        scripts: {
+          pre: `random.seed(42); const user = { id: random.uuid(), name: random.name(), email: random.exampleEmail() }; run.set("user", user); request.body.setJson(user);`,
+          post: `random.seed(7); run.set("nextId", random.id());`,
+        },
+      },
+      scope,
+    )
+    expect(
+      first.execution.scripts?.results.map((result) => result.success),
+    ).toEqual([true, true])
+    expect(JSON.parse(seen[0]!.body)).toEqual(scope.get("user"))
+    const nextId = scope.get("nextId")
+    await send(
+      { ...base(), headers: { "X-Next": { value: "$nextId", enabled: true } } },
+      scope,
+    )
+    expect(seen[1]!.headers["x-next"]).toBe(nextId as string)
+
+    const failedPre = await send(
+      {
+        ...base(),
+        scripts: {
+          pre: `run.set("nextId", "discarded"); request.headers.set("X-Staged", "discarded"); random.id({length: 4097});`,
+        },
+      },
+      scope,
+    )
+    expect(failedPre.status).toBe("error")
+    if (failedPre.status !== "error") throw Error("Expected a script failure")
+    expect(failedPre.failureCategory).toBe("script")
+    expect(seen).toHaveLength(2)
+    expect(scope.get("nextId")).toBe(nextId)
+
+    const failedPost = await send(
+      {
+        ...base(),
+        captures: { capturedId: { value: "body.id", enabled: true } },
+        assertions: [{ expression: "status", operator: "equals", value: 200 }],
+        scripts: {
+          post: `random.seed(42); const password = random.password(); console.log(password); run.set("nextId", random.uuid()); throw Error(password);`,
+        },
+      },
+      scope,
+    )
+    expect(failedPost.status).toBe("done")
+    if (failedPost.status !== "done") throw Error("Expected a response")
+    expect(failedPost.response.status).toBe(200)
+    expect(failedPost.execution.assertions?.results[0]?.passed).toBe(true)
+    expect(scope.get("capturedId")).toBe(7)
+    expect(scope.get("nextId")).toBe(nextId)
+    expect(failedPost.execution.scripts?.results[0]).toMatchObject({
+      success: false,
+      logs: [{ message: "[REDACTED]" }],
+      error: { message: "[REDACTED]" },
+    })
+  })
+
   it("keeps sensitive response values secret in post writes and later request output", async () => {
     const scope = new RunScope()
     const first = await send(

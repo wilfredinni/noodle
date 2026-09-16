@@ -11,6 +11,7 @@ import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope, secretRedactionValues } from "./runScope"
+import { createRandomHandlers, RANDOM_GENERATORS } from "./scriptRandom"
 import {
   requestSensitiveValues,
   responseSensitiveValues,
@@ -41,6 +42,7 @@ export type ScriptApiDescriptor = Readonly<{
     | "env"
     | "run"
     | "crypto"
+    | "random"
     | "console"
     | "response"
     | "cookies"
@@ -73,6 +75,16 @@ const api = (
 
 export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
   Object.freeze([
+    api(
+      "random",
+      "",
+      "global",
+      "random: Random",
+      "Bounded English test-data generators.",
+    ),
+    ...RANDOM_GENERATORS.map(({ name, signature, description }) =>
+      api("random", name, "method", signature, description),
+    ),
     api("request", "", "global", "request: Request", "Prepared request."),
     api("request", "url", "property", "string", "Request URL."),
     api("request", "method", "property", "Method", "HTTP method."),
@@ -481,6 +493,7 @@ export async function runRequestScript(
   const label = phase === "pre" ? "Pre-request" : "Post-response"
   const filename = phase === "pre" ? "pre-request.js" : "post-response.js"
   const startedAt = performance.now()
+  const invocationDate = new Date().toISOString()
   const stagedRequest = structuredClone(request)
   const runChanges = new Map<string, JsonValue | typeof UNSET>()
   const suppressedChanges = new Set<string>()
@@ -610,6 +623,11 @@ export async function runRequestScript(
   }
 
   const handlers: Record<string, BridgeHandler> = {
+    ...createRandomHandlers(
+      apiError,
+      (value) => secretValues.add(value),
+      invocationDate,
+    ),
     "response.status:get": () => post!.response.status,
     "response.statusText:get": () => post!.response.statusText,
     "response.timeMs:get": () => post!.response.timeMs,
@@ -1639,6 +1657,7 @@ function bootstrapSource(
         : operation === "response.text" ? readResponseText
         : operation === "response.json" ? readResponseJson
         : (...args) => call(operation, args);
+      if (descriptor.global === "random") objectFreeze(fn);
       objectDefineProperty(parent, name, { value: fn, enumerable: true });
     }
   }

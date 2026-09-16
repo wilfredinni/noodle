@@ -98,7 +98,7 @@ and later requests and is discarded when the run ends. Human output reports the
 script status and log count without printing `console` messages; JSON places
 redacted logs in the request's `scripts` group.
 
-Use only synchronous `request`, `env`, `run`, `crypto`, and `console` APIs.
+Use only synchronous `request`, `env`, `run`, `crypto`, `random`, and `console` APIs.
 Post also exposes bounded response text/JSON, metadata and headers, with the
 final prepared request read-only. Capture commits happen before post and
 assertions after it, even on post failure. `event_id` reaches later collection
@@ -111,6 +111,53 @@ conditional processing is unnecessary.
 Imports, fetch, timers, host modules, and Promises are unavailable. See
 [schema.md](../schema.md#inline-request-scripts) for exact methods and fixed
 resource limits.
+
+## Random data across script phases and requests
+
+First request (`random/1-create.yml`):
+
+```yaml
+name: Create random user
+method: POST
+url: $base_url/users
+body_type: json
+body: '{}'
+scripts:
+  pre: |-
+    random.seed(42);
+    request.body.setJson({
+      id: random.uuid(),
+      name: random.name(),
+      email: random.exampleEmail(),
+      age: random.number({ min: 18, max: 80 }),
+    });
+  post: |-
+    if (response.status === 201) {
+      run.set("next_user", { id: random.uuid(), name: random.name() });
+    }
+```
+
+Later request (`random/2-create.yml`):
+
+```yaml
+name: Create prepared user
+method: POST
+url: $base_url/users
+body_type: json
+body: '{}'
+scripts:
+  pre: |-
+    const user = run.get("next_user");
+    if (!user) throw Error("Run random/1-create first in the same collection run");
+    request.body.setJson(user);
+```
+
+Run these in collection order to share transient values. A separate manual send
+or `request run` has its own scope. Pre's seed does not seed post or the later
+request; each invocation starts independently. Use `random.seed` in each phase
+that needs reproducibility, plus explicit `refDate` for relative dates. Generated
+passwords are automatically masked in Results; ordinary random data remains
+visible. See [the full catalog](../schema.md#script-random-api) for bounded options.
 
 ## Chained requests with response capture
 

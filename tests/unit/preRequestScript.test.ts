@@ -138,8 +138,8 @@ describe("pre-request script sandbox", () => {
           : [path];
       });
       run.set("surface", {
-        globals: ["request", "env", "run", "crypto", "console"].map(name => [name, members(globalThis[name])]),
-        frozen: [request, request.headers, request.params, request.body, request.auth, env, run, crypto, console].every(Object.isFrozen),
+        globals: ["request", "env", "run", "crypto", "console", "random"].map(name => [name, members(globalThis[name])]),
+        frozen: [request, request.headers, request.params, request.body, request.auth, env, run, crypto, console, random].every(Object.isFrozen),
         forbidden: [typeof Bun, typeof process, typeof require, typeof module, typeof Deno, typeof fetch, typeof WebSocket, typeof Worker, typeof setTimeout]
       })`,
       request(),
@@ -148,14 +148,19 @@ describe("pre-request script sandbox", () => {
     )
 
     expect(execution.result.success).toBe(true)
-    const expected = ["request", "env", "run", "crypto", "console"].map(
-      (global) => [
-        global,
-        SCRIPT_API_CONTRACT.filter(
-          (entry) => entry.global === global && entry.member,
-        ).map((entry) => entry.member),
-      ],
-    )
+    const expected = [
+      "request",
+      "env",
+      "run",
+      "crypto",
+      "console",
+      "random",
+    ].map((global) => [
+      global,
+      SCRIPT_API_CONTRACT.filter(
+        (entry) => entry.global === global && entry.member,
+      ).map((entry) => entry.member),
+    ])
     expect(scope.get("surface")).toEqual({
       globals: expected,
       frozen: true,

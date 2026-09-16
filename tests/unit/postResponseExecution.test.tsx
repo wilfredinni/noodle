@@ -27,7 +27,8 @@ describe("rendered post-response parity", () => {
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
-      fetch: () => Response.json({ id: 7 }),
+      fetch: (req) =>
+        Response.json({ id: 7, generated: req.headers.get("X-Random") }),
     })
     const request: Request = {
       id: "manual",
@@ -38,8 +39,8 @@ describe("rendered post-response parity", () => {
       params: [],
       timeout: 0,
       scripts: {
-        pre: `console.info("pre log")`,
-        post: `if (run.get("id") !== 7) throw Error("capture order"); console.warn("post log");\nthrow Error("post failed")`,
+        pre: `random.seed(42); run.set("generated", random.uuid()); request.headers.set("X-Random", run.get("generated")); console.info("pre log")`,
+        post: `if (run.get("id") !== 7) throw Error("capture order"); if (response.json().generated !== run.get("generated")) throw Error("random body"); console.warn("post log"); console.log(random.password());\nthrow Error("post failed")`,
       },
       captures: { id: { value: "body.id", enabled: true } },
       assertions: [{ expression: "status", operator: "equals", value: 200 }],
@@ -88,6 +89,7 @@ describe("rendered post-response parity", () => {
       await render.renderOnce()
       expect(render.captureCharFrame()).toContain("post-response.js:2")
       expect(render.captureCharFrame()).toContain("post log")
+      expect(render.captureCharFrame()).toContain("[REDACTED]")
       expect(render.captureCharFrame()).not.toContain("pre log")
     } finally {
       server.stop(true)
@@ -99,7 +101,8 @@ describe("rendered post-response parity", () => {
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
-      fetch: () => Response.json({ id: 7 }),
+      fetch: (req) =>
+        Response.json({ id: 7, generated: req.headers.get("X-Random") }),
     })
     try {
       await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
@@ -114,7 +117,8 @@ describe("rendered post-response parity", () => {
           params: [],
           timeout: 0,
           scripts: {
-            post: `run.set("id", response.json().id); console.info("runner log")`,
+            pre: `random.seed(42); run.set("generated", random.uuid()); request.headers.set("X-Random", run.get("generated"));`,
+            post: `if (response.json().generated !== run.get("generated")) throw Error("runner random data"); run.set("id", response.json().id); console.info("runner log"); console.log(random.password());`,
           },
         }),
       )
@@ -151,9 +155,11 @@ describe("rendered post-response parity", () => {
       expect(runner!.phase).toBe("results")
       expect(runner!.result?.results[0]?.ok).toBe(true)
       expect(render.captureCharFrame()).toMatch(/PASS\s+Post-response/)
+      await act(async () => host.press("down"))
       await act(async () => host.press("return"))
       await render.renderOnce()
       expect(render.captureCharFrame()).toContain("runner log")
+      expect(render.captureCharFrame()).toContain("[REDACTED]")
     } finally {
       server.stop(true)
       await rm(dir, { recursive: true, force: true })

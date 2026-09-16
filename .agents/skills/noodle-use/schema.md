@@ -131,6 +131,7 @@ Public API:
 | `env` | `get(name)` |
 | `run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" \| "secret" }` |
 | `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
+| `random` | Frozen synchronous English test-data generators; see [catalog and options](#script-random-api) |
 | `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
 | `response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
 | `cookies` (post only, when available) | `get(name)`, `set(input)`, `delete(name)` |
@@ -214,12 +215,102 @@ textual body and throws for absent or invalid JSON. `setText`, `setJson`, and
 compact JSON with `body_type: json`; `clear` sets `body_type: none`.
 
 Auth helpers replace the complete prepared auth config. `setApiKey` placement
-is `header` or `query`. Auth arguments, HMAC secrets, and generated random
-values are known secrets. `env.get` reads only the selected environment and
+is `header` or `query`. Auth arguments, HMAC secrets, `crypto.randomBytes`
+outputs and generated passwords are known secrets. Other `random` data is
+visible by default. `env.get` reads only the selected environment and
 never RunScope overrides. `env` and `run` names match `^\w+$` and reject unsafe
 prototype names. `run.set` accepts only bounded JSON-compatible values. Crypto
 inputs are UTF-8 strings; encoding is exactly `hex` or `base64`; random size is
 an integer from 0 through 4096.
+
+### Script random API
+
+`random` is a frozen synchronous global in both pre and post. Every generator
+works without arguments; `seed(value)` and `pick(values)` require one argument.
+Configurable methods accept one optional options object. Unknown fields, invalid
+types and extra arguments throw `ScriptApiValidationError` before generation.
+
+All names below use the `random.` prefix:
+
+| Category | Methods |
+| --- | --- |
+| Identifiers | `uuid()`, `id()`, `nanoId()` |
+| Primitives | `number()`, `float()`, `boolean()`, `alphaNumeric()`, `abbreviation()` |
+| Names | `name()`, `firstName()`, `lastName()`, `namePrefix()`, `nameSuffix()` |
+| Contact | `email()`, `exampleEmail()`, `username()`, `password()`, `phone()`, `phoneWithExtension()` |
+| Location | `address()`, `streetName()`, `city()`, `country()`, `countryCode()`, `latitude()`, `longitude()` |
+| Internet | `ipv4()`, `ipv6()`, `macAddress()`, `url()`, `domainName()`, `domainSuffix()`, `domainWord()`, `userAgent()`, `protocol()` |
+| Language/version | `locale()`, `semver()` |
+| Dates/time | `datePast()`, `dateFuture()`, `dateRecent()`, `weekday()`, `month()`, `timestamp()`, `isoTimestamp()` |
+| Colors | `color()`, `hexColor()` |
+| Words/grammar | `word()`, `words()`, `noun()`, `verb()`, `ingVerb()`, `adjective()`, `phrase()` |
+| Lorem ipsum | `loremWord()`, `loremWords()`, `loremSentence()`, `loremSentences()`, `loremParagraph()`, `loremParagraphs()`, `loremText()`, `loremSlug()`, `loremLines()` |
+| Companies | `companyName()`, `companySuffix()` |
+| Business language | `businessPhrase()`, `businessAdjective()`, `businessBuzzword()`, `businessNoun()`, `catchPhrase()`, `catchPhraseAdjective()`, `catchPhraseDescriptor()`, `catchPhraseNoun()` |
+| Jobs | `jobTitle()`, `jobArea()`, `jobDescriptor()`, `jobType()` |
+| Commerce | `product()`, `productName()`, `productAdjective()`, `productMaterial()`, `department()`, `price()` |
+| Finance | `bankAccount()`, `bankAccountName()`, `creditCardMask()`, `bic()`, `iban()`, `transactionType()`, `currencyCode()`, `currencyName()`, `currencySymbol()`, `bitcoinAddress()` |
+| Database metadata | `databaseColumn()`, `databaseType()`, `databaseCollation()`, `databaseEngine()` |
+| Files | `fileName()`, `fileExtension()`, `fileType()`, `commonFileName()`, `commonFileExtension()`, `commonFileType()`, `filePath()`, `directoryPath()`, `mimeType()` |
+| Images | `avatarUrl()`, `imageUrl()`, `imageDataUri()` |
+| Utilities | `seed(value)`, `pick(values)` |
+
+`number`, `float`, `latitude`, `longitude` and `timestamp` return numbers.
+`boolean` returns a boolean, `pick` returns a copied JSON value, and `seed`
+returns nothing. All other methods return strings, including decimal prices
+and ISO dates. `uuid` generates UUID v4, `name` generates a full name, `address`
+generates a street address, and `locale` generates a two-letter language code.
+`timestamp` returns current Unix seconds; `isoTimestamp` returns current ISO UTC
+time. `hexColor` is lowercase RGB hex. Images use current Faker URL providers
+or SVG data URIs; generation performs no network or filesystem operations.
+
+| Methods | Options and defaults |
+| --- | --- |
+| `number` | `{ min, max }`; inclusive safe integers, default `0..1000` |
+| `float` | `{ min, max, fractionDigits }`; default `0..1`, max exclusive unless precision is supplied, following Faker |
+| `id`, `alphaNumeric`, `nanoId`, `password`, `bankAccount` | `{ length }`; defaults `12`, `1`, `21`, `15`, `8` respectively |
+| `words`, `loremWords`, `loremSentence`, `loremSentences`, `loremParagraph`, `loremParagraphs`, `loremSlug`, `loremLines` | `{ count }`; corresponding words, sentences, paragraphs or lines; unspecified counts follow Faker 10.5.0 |
+| `datePast`, `dateFuture` | `{ years, refDate }`; default one year, reference defaults to invocation start |
+| `dateRecent` | `{ days, refDate }`; default one day, reference defaults to invocation start |
+| `price` | `{ min, max, fractionDigits }`; default `0..1000`, two decimal places |
+| `imageUrl`, `imageDataUri` | `{ width, height }`; default `640 × 480` |
+
+Other methods accept no options. Lengths and image dimensions must be integers
+`1..4096`; counts `1..100`; fraction digits `0..15`; years `1..100`; days
+`1..36500`. Numeric bounds must be finite and ordered, and float ranges must not
+overflow. `refDate` must be a valid ISO timestamp with a timezone, for example
+`2026-01-01T00:00:00Z`. `pick` requires a non-empty JSON-compatible array of at
+most 1,000 elements, within the usual 256 KiB/depth-32 bridge limits; unsafe
+keys, cycles, non-finite numbers, accessors and unsupported values are rejected.
+
+Each invocation lazily creates an independent English/base Faker 10.5.0 instance
+with a fresh random seed. `seed` accepts an integer `0..4294967295` and resets
+only that invocation's sequence. Pre, post, different requests and concurrent
+runs never share generator state. Share generated values with `run.set` instead.
+Seeded results are reproducible within the pinned Faker version. Relative dates
+also need an explicit `refDate`; current timestamps remain clock-based.
+
+```js
+random.seed(42);
+run.set("testUser", {
+  id: random.uuid(),
+  name: random.name(),
+  email: random.exampleEmail(),
+  age: random.number({ min: 18, max: 80 }),
+  status: random.pick(["pending", "active"]),
+});
+run.set("createdAt", random.dateRecent({
+  days: 7,
+  refDate: "2026-01-01T00:00:00Z",
+}));
+```
+
+IDs and passwords are seeded alphanumeric test data, without cryptographic
+security or guaranteed uniqueness. Passwords are registered as known secrets
+immediately, even if a later operation fails; ordinary generated data stays
+visible by default. Faker remains on the host; the guest receives only frozen
+methods and bounded JSON results. JSON placeholders, locale selection and image
+category options are deferred.
 
 The sandbox uses a fresh QuickJS runtime and context for each script with these
 fixed limits:
