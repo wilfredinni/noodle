@@ -4,6 +4,35 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-16
+
+Noodle 0.9.0 adds sandboxed inline pre-request scripts for synchronous request preparation across manual sends, CLI automation, and the TUI Runner. Scripts can mutate prepared requests and transient RunScope values through a bounded API, with redacted Results output, compiled-binary verification, safer redirect handling, clearer timeout failures, and easier-to-scan request tags.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-0-scripts-before-the-send/)
+
+### ✨ Features
+
+- Add strict request-level `scripts.pre` YAML with a fresh synchronous QuickJS runtime and context for each invocation. Scripts can update the prepared URL, method, headers, parameters, body, and auth; read the selected environment; share transient RunScope values; use bounded SHA-256, HMAC-SHA256, random-byte, and console APIs; and commit mutations only after complete success.
+- Run pre-request scripts through manual TUI sends, `request run`, `collection run`, and the TUI Runner before HTTP, captures, and assertions. Script failures skip transport, participate in fail-fast, and appear as redacted status, duration, errors, and expandable logs in Results and structured output without entering timeline history.
+
+### 🐞 Fixes
+
+- Strip sensitive headers and headers containing known secrets before cross-origin redirects, and refuse redirect legs that would preserve a known secret in the request body. Redirects that discard the body continue normally.
+- Classify request timeouts as transport failures while keeping caller-triggered cancellation propagating, and preserve causes when non-Error lifecycle failures are normalized.
+- Render request tags as accent badges with a `#` prefix in request Settings and the collection Runner, including filters and request rows.
+
+### 🔧 Refactors
+
+- Centralize folder merging, substitution, pre-scripts, transport, captures, assertions, redaction, and timeline preparation in one shared request lifecycle while keeping `requests/send.ts` transport-only.
+- Verify the sandboxed scripting runtime in compiled binaries during local builds and each release target before version and checksum validation.
+
+### 📚 Documentation
+
+- Document pre-request script syntax, API, limits, execution order, Results behavior, and trust boundary across the README, `AGENTS.md`, in-app tips, and a dedicated Scripting section on the documentation site, and add two audited sample requests under `collections/scripts/`.
+- Update `noodle-dev` with the shared request lifecycle, transport boundary, script result groups, automation failure category, cross-origin secret handling, timeout classification, and shared tag-badge treatment.
+- Update `noodle-use` with inline script authoring, fixed limits, examples, automation output, import boundaries, secret-handling guidance, redirect safety, and timeout behavior.
+- Update `noodle-release` to distinguish skill changes already committed since the base tag from additional release-preparation edits.
+
 ## [0.8.7] - 2026-09-14
 
 Noodle 0.8.7 keeps your place while the sidebar changes: toggling it now preserves focus in the active URL, request, response, or folder pane. Response Visualization also stays clean during sidebar resizing, avoiding transient scrollbar artifacts in stacked and side-by-side layouts.

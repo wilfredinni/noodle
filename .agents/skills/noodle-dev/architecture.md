@@ -394,9 +394,9 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      3. Resolve proxy and TLS policy for each leg
      4. Merge matching jar cookies unless `sendCookies: false`; explicit request cookies win by name
      5. Apply OAuth 2 tokens, AWS SigV4 signing, OAuth 1.0a signing, or the NTLM handshake path as required
-     6. fetch() with proxy/TLS options and AbortSignal timeout
+     6. fetch() with proxy/TLS options; classify request timeouts as transport failures and preserve caller cancellation
      7. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
-     8. Manually follow HTTP(S) redirects; block downgrades, strip cross-origin credentials, and reapply allowed auth per leg
+     8. Manually follow HTTP(S) redirects; block downgrades, strip sensitive and known-secret headers across origins, disable auth signers, and reject preserved bodies containing known secrets while allowing body-dropping redirects
   → ResponseExecutionResults contains optional script, capture, and assertion groups
      Script source, results, and logs stay transient; successful manual timeline request snapshots use the mutated prepared request
   → useResponse: SendState FSM → idle → sending → done | error

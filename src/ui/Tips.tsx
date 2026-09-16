@@ -18,6 +18,7 @@ const TIPS = [
   "reveal empty {Assert} or {Capture} tabs from the request pane's {+} menu",
   "press {g} then {o} to focus the request pane's {+} menu",
   "response {Results} shows {✓}/{✗}/{–} for passed, failed, or unevaluated outcomes",
+  "author {scripts.pre} in request YAML; inspect redacted status and logs in response {Results}",
   "revert all fields with {^R} in request or folder browse mode",
   "edit request details with {^E}",
   "change the color theme with {^T}",

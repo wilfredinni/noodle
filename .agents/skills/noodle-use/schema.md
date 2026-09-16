@@ -11,9 +11,9 @@ One request per file. Fields:
 | `name` | yes | string | n/a | Display name for the request |
 | `method` | yes | string | n/a | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` |
 | `url` | yes | string | n/a | Full URL. May contain `$var` references |
-| `timeout` | yes | number | `0` | Request timeout in ms. `0` = no timeout |
+| `timeout` | yes | number | `0` | Request timeout in ms. `0` = no timeout. Expiry is a transport failure. |
 | `tags` | no | list of strings | n/a | Case-sensitive suite tags. Every item must be non-empty and already trimmed. |
-| `followRedirects` | no | boolean | `true` | Whether to follow HTTP redirects |
+| `followRedirects` | no | boolean | `true` | Follow redirects with downgrade and cross-origin secret protections |
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
 | `sendCookies` | no | boolean | `true` | Send matching cookies from the collection jar. `false` still captures response cookies. |
 | `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `xml`, `multipart`, `urlencoded`, `binary` |
@@ -28,6 +28,12 @@ One request per file. Fields:
 | `scripts` | no | map | n/a | Inline request scripts. Only string-valued `pre` is supported |
 | `capture` | no | map | None | Response expressions captured as run-scoped variables |
 | `assert` | no | list | None | Response assertions evaluated by manual TUI sends and non-interactive run commands |
+
+Noodle rejects HTTPS-to-HTTP redirects. On an origin change it disables request
+auth, strips sensitive headers and headers containing known secret values, and
+refuses a redirect that would preserve a body containing a known secret.
+Redirect responses that switch to `GET` and discard the body may continue.
+Caller-triggered cancellation propagates instead of being reported as a timeout.
 
 ### Params
 

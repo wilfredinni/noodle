@@ -94,6 +94,14 @@ Treat collections containing scripts as trusted code. Although the sandbox has
 no network API, a script can read selected-environment secrets with `env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
+### Redirect and timeout safety
+Noodle rejects HTTPS-to-HTTP redirects. When a redirect changes origin, it
+removes sensitive headers and headers containing known secrets, disables request
+auth, and refuses to preserve a body containing a known secret. Redirects that
+discard the body may continue. A configured request timeout is a transport
+failure; caller-triggered cancellation remains owned by the caller. Keep
+credentials in declared secret variables so Noodle can apply these protections.
+
 For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, and delay, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
 
 ### File extension
