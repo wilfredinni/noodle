@@ -24,6 +24,110 @@ function request(
 }
 
 describe("pre-request script sandbox", () => {
+  it("stages durable snapshots without changing baseline reads or transient semantics", async () => {
+    const scope = new RunScope()
+    const environment = {
+      name: "dev",
+      vars: { REMOVE: "baseline", TOKEN: "old-secret" },
+      secretVars: { TOKEN: "keychain" as const },
+    }
+    const execution = await runPreRequestScript(
+      `
+      run.set("VALUE", { count: 1 }, { persist: "environment" });
+      run.set("VALUE", 2);
+      run.set("TOKEN", "new-secret", { persist: "secret" });
+      run.set("TOKEN", "public");
+      run.unset("REMOVE", { persist: "environment" });
+      if (env.get("REMOVE") !== "baseline" || run.get("REMOVE") !== undefined) throw Error("read semantics");
+    `,
+      request(),
+      environment,
+      scope,
+    )
+    expect(execution.result.success).toBe(true)
+    expect(execution.persistenceIntents).toEqual([
+      {
+        variable: "VALUE",
+        target: "environment",
+        operation: "set",
+        value: { count: 1 },
+      },
+      {
+        variable: "TOKEN",
+        target: "secret",
+        operation: "set",
+        value: "new-secret",
+      },
+      { variable: "REMOVE", target: "environment", operation: "unset" },
+    ])
+    expect(scope.get("VALUE")).toBe(2)
+    expect(scope.get("TOKEN")).toBe("public")
+    expect(scope.secretValues()).toContain("new-secret")
+    expect(scope.environment(environment).vars).not.toHaveProperty("REMOVE")
+    scope.set("REMOVE", "capture")
+    expect(scope.environment(environment).vars.REMOVE).toBe("capture")
+    scope.unset("REMOVE")
+    expect(scope.environment(environment).vars.REMOVE).toBe("baseline")
+  })
+
+  it("keeps the latest explicit intent and discards all intents on script failure", async () => {
+    for (const suffix of ["", '; throw Error("failed")']) {
+      const scope = new RunScope()
+      const execution = await runPreRequestScript(
+        `
+        run.set("KEY", "first", { persist: "environment" });
+        run.unset("KEY", { persist: "environment" });
+        run.set("KEY", "latest", { persist: "secret" });
+        console.log("latest");
+      ${suffix}`,
+        request(),
+        undefined,
+        scope,
+      )
+      expect(execution.result.success).toBe(!suffix)
+      expect(execution.persistenceIntents).toEqual(
+        suffix
+          ? undefined
+          : [
+              {
+                variable: "KEY",
+                target: "secret",
+                operation: "set",
+                value: "latest",
+              },
+            ],
+      )
+      expect(scope.get("KEY")).toBe(suffix ? undefined : "latest")
+      expect(execution.secretValues).toContain("latest")
+    }
+  })
+
+  it("validates persistence options and bounds keys and aggregate values", async () => {
+    for (const source of [
+      'run.set("KEY", 1, {})',
+      'run.set("KEY", 1, { persist: "wrong" })',
+      'run.set("KEY", 1, { persist: "secret", extra: true })',
+      'run.unset("KEY", null)',
+      'run.set("_color", "red", { persist: "environment" })',
+      'run.set("KEY", "", { persist: "secret" })',
+      'for (let i = 0; i < 101; i++) run.set("key" + i, 1, { persist: "environment" })',
+      'run.set("a", "x".repeat(140000), { persist: "environment" }); run.set("b", "y".repeat(140000), { persist: "environment" })',
+      'run.set("KEY", "secret", { persist: "secret" }); while(true) {}',
+    ]) {
+      const scope = new RunScope()
+      const execution = await runPreRequestScript(
+        source,
+        request(),
+        undefined,
+        scope,
+      )
+      expect(execution.result.success).toBe(false)
+      expect(execution.persistenceIntents).toBeUndefined()
+      expect(scope.get("KEY")).toBeUndefined()
+      expect(scope.get("key0")).toBeUndefined()
+    }
+  })
+
   it("exposes exactly the documented API and no host capabilities", async () => {
     const scope = new RunScope()
     const execution = await runPreRequestScript(

@@ -18,7 +18,7 @@ import {
 } from "../ui/sendState"
 import type { ResponseExecutionResults } from "../executionResults"
 import { RunScope } from "../runScope"
-import { persistResponseCaptures } from "../app/services"
+import { persistResponseCaptures, persistScriptChanges } from "../app/services"
 import type { RedactionSecret } from "../secrets/redact"
 import { executeRequestLifecycle } from "../requestLifecycle"
 
@@ -176,6 +176,17 @@ async function runSend(
       environment: env,
       collection,
       requestPath,
+      persistScriptChanges: (intents) =>
+        persistScriptChanges(intents, env?.name, collectionDir),
+      persistCaptures: (prepared, rawCaptures, execution) =>
+        persistResponseCaptures(
+          prepared,
+          rawCaptures,
+          execution,
+          env?.name,
+          collectionDir,
+        ),
+      onEnvironmentPersisted,
       transport: {
         signal,
         onNetworkEvent: (network: NetworkEvent[]) => {
@@ -214,21 +225,7 @@ async function runSend(
       return
     }
 
-    let execution = lifecycle.execution
-    execution = await persistResponseCaptures(
-      lifecycle.prepared,
-      lifecycle.rawCaptures,
-      execution,
-      env?.name,
-      collectionDir,
-    )
-    if (
-      execution.captures?.results.some(
-        (capture) => capture.success && capture.persisted,
-      )
-    ) {
-      await onEnvironmentPersisted?.().catch(() => {})
-    }
+    const execution = lifecycle.execution
     const result = {
       status: "done" as const,
       response: lifecycle.response,
@@ -248,7 +245,7 @@ async function runSend(
       setState({ status: "idle" })
       return
     }
-    const err = e instanceof Error ? e : new Error(String(e))
+    const err = e instanceof Error ? e : new Error(String(e), { cause: e })
     const result = {
       status: "error" as const,
       request: req,

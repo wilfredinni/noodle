@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import type { Environment } from "../schema"
 import { VALID_COLORS } from "./constants"
 import { isValidVariableName } from "../variableReference"
+import { withEnvironmentLock } from "./lock"
 
 export interface SaveEnvironmentOptions {
   mode?: "replace" | "create"
@@ -54,57 +55,59 @@ export async function saveEnvironment(
 ): Promise<void> {
   validateEnvironment(env)
 
-  const lines: string[] = []
+  return withEnvironmentLock(dir, async () => {
+    const lines: string[] = []
 
-  if (env.color) {
-    lines.push(`_color=${env.color}`)
-  }
-
-  const secretKeys = new Set(Object.keys(env.secretVars ?? {}))
-
-  for (const [key, value] of Object.entries(env.vars)) {
-    if (secretKeys.has(key)) continue
-    lines.push(`${key}=${value}`)
-  }
-
-  const disabledVars = env.disabledVars ?? {}
-  for (const [key, value] of Object.entries(disabledVars)) {
-    if (secretKeys.has(key)) continue
-    lines.push(`# ${key}=${value}`)
-  }
-
-  for (const [key, status] of Object.entries(env.secretVars ?? {})) {
-    lines.push(`# @secret ${key}`)
-    lines.push(status === "disabled" ? `# ${key}=` : `${key}=`)
-  }
-
-  lines.push("")
-
-  await mkdir(dir, { recursive: true })
-
-  const filePath = join(dir, `${env.name}.env`)
-  const tmpPath = join(dir, `.${env.name}.${randomUUID()}.tmp`)
-  await writeFile(tmpPath, lines.join("\n"), "utf8")
-  try {
-    if (options.mode === "create") {
-      await link(tmpPath, filePath)
-    } else {
-      await rename(tmpPath, filePath)
+    if (env.color) {
+      lines.push(`_color=${env.color}`)
     }
-  } catch (e) {
-    await unlink(tmpPath).catch(() => {})
-    if ((e as NodeJS.ErrnoException).code === "EEXIST") {
-      const error = new Error(
-        `env.save: environment "${env.name}" already exists`,
+
+    const secretKeys = new Set(Object.keys(env.secretVars ?? {}))
+
+    for (const [key, value] of Object.entries(env.vars)) {
+      if (secretKeys.has(key)) continue
+      lines.push(`${key}=${value}`)
+    }
+
+    const disabledVars = env.disabledVars ?? {}
+    for (const [key, value] of Object.entries(disabledVars)) {
+      if (secretKeys.has(key)) continue
+      lines.push(`# ${key}=${value}`)
+    }
+
+    for (const [key, status] of Object.entries(env.secretVars ?? {})) {
+      lines.push(`# @secret ${key}`)
+      lines.push(status === "disabled" ? `# ${key}=` : `${key}=`)
+    }
+
+    lines.push("")
+
+    await mkdir(dir, { recursive: true })
+
+    const filePath = join(dir, `${env.name}.env`)
+    const tmpPath = join(dir, `.${env.name}.${randomUUID()}.tmp`)
+    await writeFile(tmpPath, lines.join("\n"), "utf8")
+    try {
+      if (options.mode === "create") {
+        await link(tmpPath, filePath)
+      } else {
+        await rename(tmpPath, filePath)
+      }
+    } catch (e) {
+      await unlink(tmpPath).catch(() => {})
+      if ((e as NodeJS.ErrnoException).code === "EEXIST") {
+        const error = new Error(
+          `env.save: environment "${env.name}" already exists`,
+          { cause: e },
+        ) as NodeJS.ErrnoException
+        error.code = "EEXIST"
+        throw error
+      }
+      throw new Error(
+        `env.save: ${options.mode === "create" ? "create" : "rename"} failed`,
         { cause: e },
-      ) as NodeJS.ErrnoException
-      error.code = "EEXIST"
-      throw error
+      )
     }
-    throw new Error(
-      `env.save: ${options.mode === "create" ? "create" : "rename"} failed`,
-      { cause: e },
-    )
-  }
-  if (options.mode === "create") await unlink(tmpPath).catch(() => {})
+    if (options.mode === "create") await unlink(tmpPath).catch(() => {})
+  })
 }

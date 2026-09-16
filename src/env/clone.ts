@@ -1,5 +1,6 @@
 import { loadEnvironment } from "./load"
 import { saveEnvironment } from "./save"
+import { withEnvironmentLock } from "./lock"
 
 export async function cloneEnvironment(
   dir: string,
@@ -14,18 +15,20 @@ export async function cloneEnvironment(
     throw new Error("env.clone: invalid target name")
   }
 
-  const source = await loadEnvironment(dir, sourceName, {
-    resolveSecrets: false,
+  return withEnvironmentLock(dir, async () => {
+    const source = await loadEnvironment(dir, sourceName, {
+      resolveSecrets: false,
+    })
+    await saveEnvironment(
+      dir,
+      {
+        name: targetName,
+        vars: source.vars,
+        color: source.color,
+        disabledVars: source.disabledVars,
+        secretVars: source.secretVars,
+      },
+      { mode: "create" },
+    )
   })
-  await saveEnvironment(
-    dir,
-    {
-      name: targetName,
-      vars: source.vars,
-      color: source.color,
-      disabledVars: source.disabledVars,
-      secretVars: source.secretVars,
-    },
-    { mode: "create" },
-  )
 }

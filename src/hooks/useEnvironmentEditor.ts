@@ -290,6 +290,7 @@ export function useEnvironmentEditor({
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
   const createEnvPendingRef = useRef<Promise<void> | null>(null)
+  const savePendingRef = useRef(false)
 
   const publishEnvNames = useCallback((names: string[]) => {
     localNamesRef.current = names
@@ -706,6 +707,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const save = useCallback(async () => {
+    if (savePendingRef.current) return
     const curDraft = draftRef.current
     const curOriginal = originalRef.current
     if (!curDraft) return
@@ -726,213 +728,241 @@ export function useEnvironmentEditor({
       return
     }
 
+    savePendingRef.current = true
     setSaving(true)
     setError(null)
 
     try {
-      const collectionDir = dirname(environmentsDir)
-      const duplicate = curDraft.varRows.find(
-        (row, index) =>
-          row.key &&
-          curDraft.varRows.findIndex(
-            (candidate) => candidate.key === row.key,
-          ) !== index,
-      )
-      if (duplicate) throw new Error(`Duplicate variable "${duplicate.key}"`)
-      const invalid = curDraft.varRows.find(
-        (row) =>
-          row.key !== "" &&
-          (row.key === "_color" || !isValidVariableName(row.key)),
-      )
-      if (invalid) throw new Error(`Invalid variable name "${invalid.key}"`)
-
-      const originalById = new Map(
-        (curOriginal?.varRows ?? []).map((row) => [row.id, row]),
-      )
-
-      const written: {
-        environment: string
-        key: string
-        previous: string | null
-      }[] = []
-      const deleted: {
-        environment: string
-        key: string
-        previous: string
-      }[] = []
-      const cleanup: { environment: string; key: string }[] = []
-      try {
-        for (const row of curDraft.varRows) {
-          const before = originalById.get(row.id)
-          if (row.secret) {
-            const destinationChanged =
-              !before?.secret ||
-              before.key !== row.key ||
-              curOriginal?.name !== curDraft.name
-            if (
-              destinationChanged &&
-              before?.secretStatus === "process" &&
-              !row.valueChanged
-            ) {
-              throw new Error(
-                `Enter a replacement value before renaming process-sourced secret "${before.key}"`,
-              )
-            }
-            let value: string | undefined
-            if (row.valueChanged || !before?.secret) value = row.value
-            else if (destinationChanged && before.secretStatus === "keychain") {
-              value = before.value
-            }
-            if (value) {
-              const previous = await getStoredSecret(
-                collectionDir,
-                curDraft.name,
-                row.key,
-              )
-              await setStoredSecret(
-                collectionDir,
-                curDraft.name,
-                row.key,
-                value,
-              )
-              written.push({
-                environment: curDraft.name,
-                key: row.key,
-                previous,
-              })
-              row.secretStatus = row.enabled
-                ? Object.hasOwn(process.env, row.key)
-                  ? "process"
-                  : "keychain"
-                : "disabled"
-            } else if (Object.hasOwn(process.env, row.key)) {
-              row.secretStatus = row.enabled ? "process" : "disabled"
-            } else if (!before?.secret || row.valueChanged) {
-              throw new Error(`Secret "${row.key}" must not be empty`)
-            }
-            if (
-              before?.secret &&
-              (before.key !== row.key || curOriginal?.name !== curDraft.name)
-            ) {
-              cleanup.push({
-                environment: curOriginal!.name,
-                key: before.key,
-              })
-            }
-          } else if (before?.secret) {
-            const canReuseStoredValue =
-              before.secretStatus === "keychain" && row.value !== ""
-            if (!row.valueChanged && !canReuseStoredValue) {
-              throw new Error(
-                `Enter a plaintext value before unmarking "${row.key}"`,
-              )
-            }
-            cleanup.push({ environment: curOriginal!.name, key: before.key })
-          }
-        }
-
+      await env.withEnvironmentLock(environmentsDir, async () => {
+        if (curOriginal)
+          await env.assertEnvironmentUnchanged(environmentsDir, curOriginal)
+        const collectionDir = dirname(environmentsDir)
         for (const before of curOriginal?.varRows ?? []) {
           if (
             before.secret &&
-            !curDraft.varRows.some((row) => row.id === before.id)
-          ) {
-            cleanup.push({ environment: curOriginal!.name, key: before.key })
-          }
+            before.secretStatus === "keychain" &&
+            (await getStoredSecret(
+              collectionDir,
+              curOriginal!.name,
+              before.key,
+            )) !== before.value
+          )
+            throw new Error(
+              "Environment changed on disk; reopen it before saving",
+            )
         }
+        const duplicate = curDraft.varRows.find(
+          (row, index) =>
+            row.key &&
+            curDraft.varRows.findIndex(
+              (candidate) => candidate.key === row.key,
+            ) !== index,
+        )
+        if (duplicate) throw new Error(`Duplicate variable "${duplicate.key}"`)
+        const invalid = curDraft.varRows.find(
+          (row) =>
+            row.key !== "" &&
+            (row.key === "_color" || !isValidVariableName(row.key)),
+        )
+        if (invalid) throw new Error(`Invalid variable name "${invalid.key}"`)
 
-        const { vars, disabledVars, secretVars } = varRowsToEnv(
-          curDraft.varRows,
+        const originalById = new Map(
+          (curOriginal?.varRows ?? []).map((row) => [row.id, row]),
         )
 
-        for (const target of cleanup) {
-          const previous = await getStoredSecret(
-            collectionDir,
-            target.environment,
-            target.key,
-          )
-          const removed = await deleteStoredSecret(
-            collectionDir,
-            target.environment,
-            target.key,
-          )
-          if (removed && previous !== null) {
-            deleted.push({ ...target, previous })
+        const written: {
+          environment: string
+          key: string
+          previous: string | null
+        }[] = []
+        const deleted: {
+          environment: string
+          key: string
+          previous: string
+        }[] = []
+        const cleanup: { environment: string; key: string }[] = []
+        try {
+          for (const row of curDraft.varRows) {
+            const before = originalById.get(row.id)
+            if (row.secret) {
+              const destinationChanged =
+                !before?.secret ||
+                before.key !== row.key ||
+                curOriginal?.name !== curDraft.name
+              if (
+                destinationChanged &&
+                before?.secretStatus === "process" &&
+                !row.valueChanged
+              ) {
+                throw new Error(
+                  `Enter a replacement value before renaming process-sourced secret "${before.key}"`,
+                )
+              }
+              let value: string | undefined
+              if (row.valueChanged || !before?.secret) value = row.value
+              else if (
+                destinationChanged &&
+                before.secretStatus === "keychain"
+              ) {
+                value = before.value
+              }
+              if (value) {
+                const previous = await getStoredSecret(
+                  collectionDir,
+                  curDraft.name,
+                  row.key,
+                )
+                await setStoredSecret(
+                  collectionDir,
+                  curDraft.name,
+                  row.key,
+                  value,
+                )
+                written.push({
+                  environment: curDraft.name,
+                  key: row.key,
+                  previous,
+                })
+                row.secretStatus = row.enabled
+                  ? Object.hasOwn(process.env, row.key)
+                    ? "process"
+                    : "keychain"
+                  : "disabled"
+              } else if (Object.hasOwn(process.env, row.key)) {
+                row.secretStatus = row.enabled ? "process" : "disabled"
+              } else if (!before?.secret || row.valueChanged) {
+                throw new Error(`Secret "${row.key}" must not be empty`)
+              }
+              if (
+                before?.secret &&
+                (before.key !== row.key || curOriginal?.name !== curDraft.name)
+              ) {
+                cleanup.push({
+                  environment: curOriginal!.name,
+                  key: before.key,
+                })
+              }
+            } else if (before?.secret) {
+              const canReuseStoredValue =
+                before.secretStatus === "keychain" && row.value !== ""
+              if (!row.valueChanged && !canReuseStoredValue) {
+                throw new Error(
+                  `Enter a plaintext value before unmarking "${row.key}"`,
+                )
+              }
+              cleanup.push({ environment: curOriginal!.name, key: before.key })
+            }
           }
-        }
 
-        await env.saveEnvironment(
-          environmentsDir,
-          {
+          for (const before of curOriginal?.varRows ?? []) {
+            if (
+              before.secret &&
+              !curDraft.varRows.some((row) => row.id === before.id)
+            ) {
+              cleanup.push({ environment: curOriginal!.name, key: before.key })
+            }
+          }
+
+          const { vars, disabledVars, secretVars } = varRowsToEnv(
+            curDraft.varRows,
+          )
+
+          for (const target of cleanup) {
+            const previous = await getStoredSecret(
+              collectionDir,
+              target.environment,
+              target.key,
+            )
+            const removed = await deleteStoredSecret(
+              collectionDir,
+              target.environment,
+              target.key,
+            )
+            if (removed && previous !== null) {
+              deleted.push({ ...target, previous })
+            }
+          }
+
+          await env.saveEnvironment(
+            environmentsDir,
+            {
+              name: curDraft.name,
+              vars,
+              color: curDraft.color,
+              disabledVars,
+              secretVars,
+            },
+            { mode: oldName || !curOriginal ? "create" : "replace" },
+          )
+
+          if (oldName) {
+            try {
+              await env.deleteEnvironment(environmentsDir, oldName)
+            } catch {
+              // old file may already be gone
+            }
+          }
+
+          const savedRows = curDraft.varRows.map((row) => ({
+            ...row,
+            originSecret: row.secret,
+            secretStatus: row.secret ? row.secretStatus : undefined,
+            valueChanged: false,
+          }))
+          const nextOriginal = {
             name: curDraft.name,
-            vars,
             color: curDraft.color,
+            vars,
             disabledVars,
             secretVars,
-          },
-          { mode: oldName || !curOriginal ? "create" : "replace" },
-        )
-
-        if (oldName) {
-          try {
-            await env.deleteEnvironment(environmentsDir, oldName)
-          } catch {
-            // old file may already be gone
+            varRows: savedRows.map((row) => ({ ...row })),
           }
-        }
-
-        const savedRows = curDraft.varRows.map((row) => ({
-          ...row,
-          originSecret: row.secret,
-          secretStatus: row.secret ? row.secretStatus : undefined,
-          valueChanged: false,
-        }))
-        const nextOriginal = {
-          name: curDraft.name,
-          color: curDraft.color,
-          vars,
-          disabledVars,
-          secretVars,
-          varRows: savedRows.map((row) => ({ ...row })),
-        }
-        const nextDraft = { ...curDraft, varRows: savedRows }
-        draftRef.current = nextDraft
-        setDraft(nextDraft)
-        originalRef.current = nextOriginal
-        setOriginal(nextOriginal)
-      } catch (error) {
-        const rollbackFailures: unknown[] = []
-        for (const item of deleted.reverse()) {
-          await attemptRollback(rollbackFailures, () =>
-            setStoredSecret(
-              collectionDir,
-              item.environment,
-              item.key,
-              item.previous,
-            ),
-          )
-        }
-        for (const item of written.reverse()) {
-          const previous = item.previous
-          if (previous !== null) {
+          const nextDraft = { ...curDraft, varRows: savedRows }
+          if (originalRef.current === curOriginal && draftRef.current) {
+            if (draftRef.current === curDraft) {
+              draftRef.current = nextDraft
+              setDraft(nextDraft)
+            }
+            originalRef.current = nextOriginal
+            setOriginal(nextOriginal)
+          }
+        } catch (error) {
+          const rollbackFailures: unknown[] = []
+          for (const item of deleted.reverse()) {
             await attemptRollback(rollbackFailures, () =>
               setStoredSecret(
                 collectionDir,
                 item.environment,
                 item.key,
-                previous,
+                item.previous,
               ),
             )
-          } else {
-            await attemptRollback(rollbackFailures, () =>
-              deleteStoredSecret(collectionDir, item.environment, item.key),
-            )
           }
+          for (const item of written.reverse()) {
+            const previous = item.previous
+            if (previous !== null) {
+              await attemptRollback(rollbackFailures, () =>
+                setStoredSecret(
+                  collectionDir,
+                  item.environment,
+                  item.key,
+                  previous,
+                ),
+              )
+            } else {
+              await attemptRollback(rollbackFailures, () =>
+                deleteStoredSecret(collectionDir, item.environment, item.key),
+              )
+            }
+          }
+          throw withRollbackFailures(error, rollbackFailures)
         }
-        throw withRollbackFailures(error, rollbackFailures)
-      }
+      })
 
-      setSelectedEnvName(curDraft.name)
-      loadedEnvNameRef.current = curDraft.name
+      if (originalRef.current?.name === curDraft.name) {
+        setSelectedEnvName(curDraft.name)
+        loadedEnvNameRef.current = curDraft.name
+      }
       const nextNames = oldName
         ? localNamesRef.current.map((name) =>
             name === oldName ? curDraft.name : name,
@@ -952,6 +982,7 @@ export function useEnvironmentEditor({
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
     } finally {
+      savePendingRef.current = false
       setSaving(false)
     }
   }, [environmentsDir, activeEnvName, publishEnvNames])
@@ -1033,48 +1064,55 @@ export function useEnvironmentEditor({
     setSaving(true)
     setError(null)
     const deleted: { key: string; previous: string }[] = []
-    try {
-      const current = await env.loadEnvironment(environmentsDir, name, {
-        resolveSecrets: false,
+    await env
+      .withEnvironmentLock(environmentsDir, async () => {
+        try {
+          const current = await env.loadEnvironment(environmentsDir, name, {
+            resolveSecrets: false,
+          })
+          for (const key of Object.keys(current.secretVars ?? {})) {
+            const previous = await getStoredSecret(
+              dirname(environmentsDir),
+              name,
+              key,
+            )
+            const removed = await deleteStoredSecret(
+              dirname(environmentsDir),
+              name,
+              key,
+            )
+            if (removed && previous !== null) deleted.push({ key, previous })
+          }
+          await env.deleteEnvironment(environmentsDir, name)
+          const remaining = localNamesRef.current.filter(
+            (candidate) => candidate !== name,
+          )
+          publishEnvNames(remaining)
+          if (activeEnvName === name) {
+            onActiveEnvChangedRef.current?.(remaining[0] ?? "")
+          }
+          closeEditor()
+        } catch (e: unknown) {
+          const rollbackFailures: unknown[] = []
+          for (const item of deleted.reverse()) {
+            await attemptRollback(rollbackFailures, () =>
+              setStoredSecret(
+                dirname(environmentsDir),
+                name,
+                item.key,
+                item.previous,
+              ),
+            )
+          }
+          setError(withRollbackFailures(e, rollbackFailures).message)
+        } finally {
+          setSaving(false)
+        }
       })
-      for (const key of Object.keys(current.secretVars ?? {})) {
-        const previous = await getStoredSecret(
-          dirname(environmentsDir),
-          name,
-          key,
-        )
-        const removed = await deleteStoredSecret(
-          dirname(environmentsDir),
-          name,
-          key,
-        )
-        if (removed && previous !== null) deleted.push({ key, previous })
-      }
-      await env.deleteEnvironment(environmentsDir, name)
-      const remaining = localNamesRef.current.filter(
-        (candidate) => candidate !== name,
-      )
-      publishEnvNames(remaining)
-      if (activeEnvName === name) {
-        onActiveEnvChangedRef.current?.(remaining[0] ?? "")
-      }
-      closeEditor()
-    } catch (e: unknown) {
-      const rollbackFailures: unknown[] = []
-      for (const item of deleted.reverse()) {
-        await attemptRollback(rollbackFailures, () =>
-          setStoredSecret(
-            dirname(environmentsDir),
-            name,
-            item.key,
-            item.previous,
-          ),
-        )
-      }
-      setError(withRollbackFailures(e, rollbackFailures).message)
-    } finally {
-      setSaving(false)
-    }
+      .catch((error: unknown) => {
+        setError(errorMessage(error))
+        setSaving(false)
+      })
   }, [
     environmentsDir,
     activeEnvName,
@@ -1090,18 +1128,20 @@ export function useEnvironmentEditor({
       setSaving(true)
       setError(null)
       try {
-        const source = await env.loadEnvironment(environmentsDir, name, {
-          resolveSecrets: false,
+        await env.withEnvironmentLock(environmentsDir, async () => {
+          const source = await env.loadEnvironment(environmentsDir, name, {
+            resolveSecrets: false,
+          })
+          if (Object.keys(source.secretVars ?? {}).length > 0) {
+            setClonePrompt({ source: name, target: targetName })
+            return
+          }
+          await env.cloneEnvironment(environmentsDir, name, targetName)
+          const updatedNames = [...localNamesRef.current, targetName]
+          publishEnvNames(updatedNames)
+          setSelectedEnvName(targetName)
+          await loadEnv(targetName)
         })
-        if (Object.keys(source.secretVars ?? {}).length > 0) {
-          setClonePrompt({ source: name, target: targetName })
-          return
-        }
-        await env.cloneEnvironment(environmentsDir, name, targetName)
-        const updatedNames = [...localNamesRef.current, targetName]
-        publishEnvNames(updatedNames)
-        setSelectedEnvName(targetName)
-        await loadEnv(targetName)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         setError(msg)
@@ -1121,56 +1161,67 @@ export function useEnvironmentEditor({
       setError(null)
       const copied: string[] = []
       let cloned = false
-      try {
-        const source = await env.loadEnvironment(
-          environmentsDir,
-          pending.source,
-          { resolveSecrets: false },
-        )
-        await env.cloneEnvironment(
-          environmentsDir,
-          pending.source,
-          pending.target,
-        )
-        cloned = true
-        if (copySecrets) {
-          for (const key of Object.keys(source.secretVars ?? {})) {
-            if (Object.hasOwn(process.env, key)) continue
-            const value = await getStoredSecret(
-              dirname(environmentsDir),
+      await env
+        .withEnvironmentLock(environmentsDir, async () => {
+          try {
+            const source = await env.loadEnvironment(
+              environmentsDir,
               pending.source,
-              key,
+              { resolveSecrets: false },
             )
-            if (!value) continue
-            await setStoredSecret(
-              dirname(environmentsDir),
+            await env.cloneEnvironment(
+              environmentsDir,
+              pending.source,
               pending.target,
-              key,
-              value,
             )
-            copied.push(key)
+            cloned = true
+            if (copySecrets) {
+              for (const key of Object.keys(source.secretVars ?? {})) {
+                if (Object.hasOwn(process.env, key)) continue
+                const value = await getStoredSecret(
+                  dirname(environmentsDir),
+                  pending.source,
+                  key,
+                )
+                if (!value) continue
+                await setStoredSecret(
+                  dirname(environmentsDir),
+                  pending.target,
+                  key,
+                  value,
+                )
+                copied.push(key)
+              }
+            }
+            const updatedNames = [...localNamesRef.current, pending.target]
+            publishEnvNames(updatedNames)
+            setSelectedEnvName(pending.target)
+            await loadEnv(pending.target)
+          } catch (e: unknown) {
+            const rollbackFailures: unknown[] = []
+            for (const key of copied.reverse()) {
+              await attemptRollback(rollbackFailures, () =>
+                deleteStoredSecret(
+                  dirname(environmentsDir),
+                  pending.target,
+                  key,
+                ),
+              )
+            }
+            if (cloned) {
+              await attemptRollback(rollbackFailures, () =>
+                env.deleteEnvironment(environmentsDir, pending.target),
+              )
+            }
+            setError(withRollbackFailures(e, rollbackFailures).message)
+          } finally {
+            setSaving(false)
           }
-        }
-        const updatedNames = [...localNamesRef.current, pending.target]
-        publishEnvNames(updatedNames)
-        setSelectedEnvName(pending.target)
-        await loadEnv(pending.target)
-      } catch (e: unknown) {
-        const rollbackFailures: unknown[] = []
-        for (const key of copied.reverse()) {
-          await attemptRollback(rollbackFailures, () =>
-            deleteStoredSecret(dirname(environmentsDir), pending.target, key),
-          )
-        }
-        if (cloned) {
-          await attemptRollback(rollbackFailures, () =>
-            env.deleteEnvironment(environmentsDir, pending.target),
-          )
-        }
-        setError(withRollbackFailures(e, rollbackFailures).message)
-      } finally {
-        setSaving(false)
-      }
+        })
+        .catch((error: unknown) => {
+          setError(errorMessage(error))
+          setSaving(false)
+        })
     },
     [clonePrompt, environmentsDir, loadEnv, publishEnvNames],
   )

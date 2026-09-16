@@ -81,6 +81,65 @@ export function redactScriptExecutionResult(
           },
         }
       : {}),
+    ...(result.persistence
+      ? {
+          persistence: result.persistence.map((outcome) => ({
+            ...outcome,
+            ...(outcome.error
+              ? {
+                  error: {
+                    ...outcome.error,
+                    name: redact(outcome.error.name),
+                    message: redact(outcome.error.message),
+                  },
+                }
+              : {}),
+          })),
+        }
+      : {}),
+  }
+}
+
+export function redactResponseExecution(
+  execution: ResponseExecutionResults,
+  secrets: readonly RedactionSecret[],
+): ResponseExecutionResults {
+  const redact = (value: string) =>
+    redactKnownSecrets(value, executionResultSecrets(secrets))
+  return {
+    ...execution,
+    ...(execution.captures
+      ? {
+          captures: {
+            ...execution.captures,
+            results: execution.captures.results.map((result) =>
+              result.success
+                ? {
+                    ...result,
+                    value: redactExecutionValue(result.value, redact),
+                  }
+                : { ...result, message: redact(result.message) },
+            ),
+          },
+        }
+      : {}),
+    ...(execution.assertions
+      ? {
+          assertions: {
+            ...execution.assertions,
+            results: execution.assertions.results.map((result) => ({
+              ...result,
+              ...(Object.hasOwn(result, "expected")
+                ? { expected: redactExecutionValue(result.expected!, redact) }
+                : {}),
+              ...(Object.hasOwn(result, "actual")
+                ? { actual: redactExecutionValue(result.actual!, redact) }
+                : {}),
+              message: redact(result.message),
+            })),
+          },
+        }
+      : {}),
   }
 }
 

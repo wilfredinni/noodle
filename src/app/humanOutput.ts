@@ -7,6 +7,7 @@ import type {
   RequestRunResult,
   WorkspaceAuditResult,
 } from "./services"
+import { scriptExecutionSucceeded } from "../preRequestScript"
 
 type Color = "red" | "green" | "yellow" | "cyan" | "dim"
 
@@ -45,7 +46,11 @@ function formatScripts(result: RequestRunResult): string[] {
   if (!result.scripts) return []
   if (!result.scripts.evaluated) return ["  Scripts: not evaluated"]
   return result.scripts.results.flatMap((script) => {
-    const status = script.success ? "passed" : "failed"
+    const status = scriptExecutionSucceeded(script)
+      ? "passed"
+      : script.success
+        ? "execution passed, persistence failed"
+        : "failed"
     const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
     return [
       `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}`,
@@ -54,6 +59,10 @@ function formatScripts(result: RequestRunResult): string[] {
             `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.phase === "pre" ? "pre-request" : "post-response"}.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
           ]
         : []),
+      ...(script.persistence ?? []).map(
+        (outcome) =>
+          `    Persistence: ${outcome.operation} ${outcome.variable} (${outcome.target}): ${outcome.status}${outcome.error ? `: ${outcome.error.message}` : ""}`,
+      ),
     ]
   })
 }

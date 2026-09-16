@@ -48,6 +48,7 @@ import {
   type VisualSession,
 } from "./ResponseVisualBody"
 import { parseVisualBody } from "./responseVisual"
+import { scriptExecutionSucceeded } from "../preRequestScript"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -70,7 +71,8 @@ function responseResultsStatus(
   const captures = state.execution?.captures
   if (!scripts && !assertions && !captures) return null
   if (
-    (scripts?.evaluated && scripts.results.some((result) => !result.success)) ||
+    (scripts?.evaluated &&
+      scripts.results.some((result) => !scriptExecutionSucceeded(result))) ||
     (assertions?.evaluated &&
       assertions.results.some((result) => !result.passed)) ||
     (captures?.evaluated && captures.results.some((result) => !result.success))

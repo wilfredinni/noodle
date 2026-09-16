@@ -15,6 +15,7 @@ import {
   evaluateResponseExecution,
   executionSecretValues,
   redactScriptExecutionResult,
+  redactResponseExecution,
   unevaluatedExecutionResults,
   type ResponseExecutionResults,
 } from "./executionResults"
@@ -22,6 +23,8 @@ import {
   runPreRequestScript,
   runRequestScript,
   type ScriptExecutionResult,
+  type ScriptPersistenceIntent,
+  type ScriptPersistenceOutcome,
 } from "./preRequestScript"
 import {
   executionResultSecrets,
@@ -63,6 +66,16 @@ export async function executeRequestLifecycle(options: {
   collection?: Collection
   requestPath?: string
   transport?: TransportExecutionOptions
+  persistScriptChanges?: (intents: ScriptPersistenceIntent[]) => Promise<{
+    outcomes: ScriptPersistenceOutcome[]
+    secretValues: string[]
+  }>
+  persistCaptures?: (
+    request: Request,
+    rawCaptures: CaptureResult[],
+    execution: ResponseExecutionResults,
+  ) => Promise<ResponseExecutionResults>
+  onEnvironmentPersisted?: () => Promise<void>
 }): Promise<RequestLifecycleResult> {
   const {
     request,
@@ -85,6 +98,41 @@ export async function executeRequestLifecycle(options: {
   let timeline = request
   const scriptResults: ScriptExecutionResult[] = []
   const runtimeSecrets: string[] = []
+  runScope.rememberSecrets(secretValues)
+  const persistScripts = async (
+    result: ScriptExecutionResult,
+    intents: ScriptPersistenceIntent[] = [],
+  ) => {
+    if (!intents.length) return
+    if (!options.persistScriptChanges) {
+      result.persistence = intents.map(({ variable, target, operation }) => ({
+        variable,
+        target,
+        operation,
+        status: "transient",
+      }))
+      return
+    }
+    try {
+      const batch = await options.persistScriptChanges(intents)
+      result.persistence = batch.outcomes
+      secretValues.push(...batch.secretValues)
+      runScope.rememberSecrets(batch.secretValues)
+    } catch (error) {
+      result.persistence = intents.map(({ variable, target, operation }) => ({
+        variable,
+        target,
+        operation,
+        status: "failed",
+        error: {
+          name: "ScriptPersistenceError",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      }))
+    }
+    if (result.persistence.some((outcome) => outcome.status === "saved"))
+      await options.onEnvironmentPersisted?.().catch(() => {})
+  }
 
   try {
     const merged =
@@ -103,6 +151,7 @@ export async function executeRequestLifecycle(options: {
         runScope,
       )
       secretValues.push(...scriptResult.secretValues)
+      runScope.rememberSecrets(scriptResult.secretValues)
       scriptResults.push(scriptResult.result)
       if (!scriptResult.result.success) {
         const execution = withScriptResults(
@@ -129,6 +178,7 @@ export async function executeRequestLifecycle(options: {
       prepared = scriptResult.request
       timeline = timelineRequest(merged, prepared)
       secretValues.push(...requestSensitiveValues(prepared))
+      await persistScripts(scriptResult.result, scriptResult.persistenceIntents)
     }
 
     const transportRequest = { ...prepared }
@@ -168,7 +218,8 @@ export async function executeRequestLifecycle(options: {
       ...responseSensitiveValues(rawResponse),
     )
     let rawCaptures: CaptureResult[] = []
-    const responseExecution = await evaluateResponseExecution(
+    let postIntents: ScriptPersistenceIntent[] = []
+    let responseExecution = await evaluateResponseExecution(
       prepared,
       rawResponse,
       runScope,
@@ -188,9 +239,27 @@ export async function executeRequestLifecycle(options: {
         )
         scriptResults.push(post.result)
         secretValues.push(...post.secretValues)
+        runScope.rememberSecrets(post.secretValues)
+        postIntents = post.persistenceIntents ?? []
       },
     )
+    if (options.persistCaptures) {
+      responseExecution = await options.persistCaptures(
+        timeline,
+        rawCaptures,
+        responseExecution,
+      )
+      if (
+        responseExecution.captures?.results.some(
+          (capture) => capture.success && capture.persisted,
+        )
+      )
+        await options.onEnvironmentPersisted?.().catch(() => {})
+    }
+    const postResult = scriptResults.find((result) => result.phase === "post")
+    if (postResult) await persistScripts(postResult, postIntents)
     secretValues.push(...runScope.secretValues())
+    responseExecution = redactResponseExecution(responseExecution, secretValues)
     const execution =
       scriptResults.length > 0
         ? withScriptResults(responseExecution, scriptResults, secretValues)

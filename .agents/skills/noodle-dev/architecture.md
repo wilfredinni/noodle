@@ -412,7 +412,7 @@ response, including HTTP/capture failures, never for intermediate or failed
 transport legs. All post request mutators throw a central read-only API error.
 Post failure retains the response, committed captures/pre writes, and logs,
 discarding only its own staged RunScope/cookie changes before assertions run.
-Successful post values are transient and reach later collection requests even
+Successful post values are transient by default and reach later collection requests even
 after assertion failure. Manual/`request run` capture persistence uses the
 original captured value, not later post overwrites.
 
@@ -423,6 +423,16 @@ post response text transfers lazily as a VM string up to 5 MiB UTF-8, with nativ
 VM JSON parsing and explicit success/failure caching that preserves null.
 Ordinary bridge/RunScope limits remain 256 KiB and depth 32. Expose no host
 objects, streams, upload buffers, or Bun types.
+
+Both phases stage optional persistence intents through `run.set/unset`.
+The shared lifecycle flushes successful pre batches before HTTP, then existing
+capture persistence before successful post batches. Manual sends and
+`request run` inject the environment/capture storage helpers; collection runs
+and Runner report transient suppression. Storage failures retain runtime and
+cookie commits but fail overall script diagnostics. Persistent unset suppresses
+baseline variables until a later set/capture; `env.get` remains a snapshot.
+Each environment's script batches serialize in-process, reuse atomic saves and
+vault rollback, and load unresolved values to prevent plaintext secret copying.
 
 `cookies/index.ts` owns private final-URL-scoped post transactions. Validate the
 complete batch against the current jar before one synchronous cookie/RunScope

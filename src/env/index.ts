@@ -3,9 +3,12 @@ import { listEnvironments } from "./list"
 import { saveEnvironment, type SaveEnvironmentOptions } from "./save"
 import { deleteEnvironment } from "./delete"
 import { cloneEnvironment } from "./clone"
+import { assertEnvironmentUnchanged, withEnvironmentLock } from "./lock"
 import type { Environment } from "../schema"
 
 export interface Env {
+  withEnvironmentLock: typeof withEnvironmentLock
+  assertEnvironmentUnchanged: typeof assertEnvironmentUnchanged
   loadEnvironment(
     dir: string,
     name: string,
@@ -22,6 +25,8 @@ export interface Env {
 }
 
 export const env: Env = {
+  withEnvironmentLock,
+  assertEnvironmentUnchanged,
   loadEnvironment,
   listEnvironments,
   saveEnvironment,

@@ -3,6 +3,7 @@ import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import type { JsonValue, Request } from "../schema"
 import type { ResponseExecutionResults } from "../executionResults"
+import { scriptExecutionSucceeded } from "../preRequestScript"
 import { CookieRow, cookieNameWidth } from "./CookieRow"
 import { useTheme } from "./theme"
 
@@ -58,7 +59,7 @@ export function ResponseResults({
   const rowKey = [
     ...scriptResults.map(
       (result) =>
-        `script:${result.phase}:${result.success}:${result.durationMs}`,
+        `script:${result.phase}:${scriptExecutionSucceeded(result)}:${result.durationMs}:${JSON.stringify(result.persistence ?? [])}`,
     ),
     ...assertionResults.map((result) => `assertion:${result.expression}`),
     ...(showCaptures
@@ -176,14 +177,14 @@ export function ResponseResults({
               <text
                 fg={
                   scripts.evaluated
-                    ? scripts.results.every((result) => result.success)
+                    ? scripts.results.every(scriptExecutionSucceeded)
                       ? theme.success
                       : theme.error
                     : theme.warning
                 }
               >
                 {scripts.evaluated
-                  ? scripts.results.every((result) => result.success)
+                  ? scripts.results.every(scriptExecutionSucceeded)
                     ? "Passed"
                     : "Failed"
                   : "Not evaluated"}
@@ -197,16 +198,18 @@ export function ResponseResults({
               {scripts.results.map((result, index) => {
                 const id = `response-script-${index}`
                 const logCount = `${result.logs.length} log${result.logs.length === 1 ? "" : "s"}`
+                const passed = scriptExecutionSucceeded(result)
+                const persistenceCount = result.persistence?.length
                 return (
                   <CookieRow
                     id={id}
                     key={id}
-                    kindLabel={result.success ? "PASS" : "FAIL"}
-                    kindColor={result.success ? theme.success : theme.error}
+                    kindLabel={passed ? "PASS" : "FAIL"}
+                    kindColor={passed ? theme.success : theme.error}
                     name={
                       result.phase === "pre" ? "Pre-request" : "Post-response"
                     }
-                    value={`${result.durationMs}ms, ${logCount}`}
+                    value={`${result.durationMs}ms, ${logCount}${persistenceCount ? `, ${result.persistence?.some((outcome) => outcome.status === "failed") ? "persistence failed" : result.persistence?.every((outcome) => outcome.status === "transient") ? `${persistenceCount} transient` : `${persistenceCount} saved`}` : ""}`}
                     nameWidth={
                       execution?.scripts?.results.some(
                         (script) => script.phase === "post",
@@ -222,6 +225,18 @@ export function ResponseResults({
                       { label: "Scope", value: result.scope },
                       { label: "Source", value: result.sourceKind },
                       { label: "Duration", value: `${result.durationMs}ms` },
+                      ...(result.persistence
+                        ? [
+                            {
+                              label: "Execution",
+                              value: result.success ? "Passed" : "Failed",
+                            },
+                            ...result.persistence.map((outcome) => ({
+                              label: "Persistence",
+                              value: `${outcome.operation} ${outcome.variable} (${outcome.target}): ${outcome.status}${outcome.error ? `: ${outcome.error.message}` : ""}`,
+                            })),
+                          ]
+                        : []),
                       ...(result.error
                         ? [
                             { label: "Error", value: result.error.name },

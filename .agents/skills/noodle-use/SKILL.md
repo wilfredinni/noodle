@@ -98,12 +98,24 @@ It adds bounded `response.text/json`, metadata, case-insensitive response header
 and optional final-URL-scoped `cookies.get/set/delete`. Request readers reflect
 the final prepared HTTP leg; all request mutations are rejected. Post failure
 rolls back only staged post RunScope/cookie changes, preserves captures and the
-response, and still runs assertions. Successful post values remain transient
-and reach later collection requests even after assertion failure. Capture
+response, and still runs assertions. Successful post values reach later
+collection requests even after assertion failure. Capture
 persistence uses the captured value, not post overwrites, and survives post
 failure. Cookie writes
 retain deferred durability. The capability is absent for unavailable/disabled
 jars and `sendCookies: false`; response Set-Cookie capture remains enabled.
+
+Both phases support `run.set(name, value, { persist: "environment" | "secret" })`
+and `run.unset(name, { persist: "environment" | "secret" })`. Manual sends and
+`request run` save to an existing active environment; collection runs and Runner
+keep changes transient and report suppression. No options keep old semantics.
+`env.get` remains an initial selected-environment snapshot; `run.get` sees scope
+writes. Persistent unset suppresses the baseline until a later set/capture and
+secret unset removes both the vault value and declaration. Environment targets
+cannot change declared secrets; secret set can promote ordinary entries.
+Explicit durable precedence is pre, capture, post. Later transient writes do
+not change a saved snapshot. VM failure discards intents; storage failure keeps
+runtime changes but fails automation with redacted persistence diagnostics.
 
 Treat collections containing scripts as trusted code. Although the sandbox has
 no network API, a script can read selected-environment secrets with `env.get`

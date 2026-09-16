@@ -1,5 +1,6 @@
 import { unlink } from "node:fs/promises"
 import { join } from "node:path"
+import { withEnvironmentLock } from "./lock"
 
 export async function deleteEnvironment(
   dir: string,
@@ -9,16 +10,18 @@ export async function deleteEnvironment(
     throw new Error("env.delete: invalid environment name")
   }
 
-  const filePath = join(dir, `${name}.env`)
-  try {
-    await unlink(filePath)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`env.delete: environment not found: ${name}`, {
-        cause: e,
-      })
+  return withEnvironmentLock(dir, async () => {
+    const filePath = join(dir, `${name}.env`)
+    try {
+      await unlink(filePath)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new Error(`env.delete: environment not found: ${name}`, {
+          cause: e,
+        })
+      }
+      throw new Error(`env.delete: ${msg}`, { cause: e })
     }
-    throw new Error(`env.delete: ${msg}`, { cause: e })
-  }
+  })
 }

@@ -18,6 +18,7 @@ import {
   setCookieJarTimingForTests,
 } from "../src/cookies"
 import { setSecretBackendForTests, type SecretBackend } from "../src/secrets"
+import { acquireFileLock } from "../src/fileLock"
 
 function memoryBackend(): SecretBackend & { values: Map<string, string> } {
   const values = new Map<string, string>()
@@ -376,25 +377,43 @@ describe("CollectionCookieJar", () => {
     expect(sets).toBe(1)
   })
 
-  it("times out on an active lock and retries retained mutations", async () => {
+  it("preserves an aged active lock and retries retained mutations", async () => {
     setCookieJarTimingForTests({
       lockTimeoutMs: 20,
       minBackoffMs: 1,
       maxBackoffMs: 2,
     })
     const jar = await CollectionCookieJar.open(configDir, "locked")
+    jar.put({ name: "existing", value: "1", domain: "example.com" })
+    await jar.saveNow()
     jar.put({ name: "pending", value: "1", domain: "example.com" })
     const lockDir = `${jar.file}.lock`
-    await mkdir(lockDir, { recursive: true })
-
-    await expect(jar.saveNow()).rejects.toMatchObject({
-      code: "lock-timeout",
+    const holder = await acquireFileLock(jar.file, {
+      lockTimeoutMs: 20,
+      minBackoffMs: 1,
+      maxBackoffMs: 2,
     })
-    await rm(lockDir, { recursive: true })
+    const owner = await readFile(join(lockDir, "owner"), "utf8")
+    const stored = await readFile(jar.file, "utf8")
+    const old = new Date(Date.now() - 60_000)
+    await utimes(lockDir, old, old)
+
+    try {
+      await expect(jar.saveNow()).rejects.toMatchObject({
+        code: "lock-timeout",
+      })
+      expect(await readFile(join(lockDir, "owner"), "utf8")).toBe(owner)
+      expect(await readFile(jar.file, "utf8")).toBe(stored)
+    } finally {
+      await holder.release()
+    }
     await jar.saveNow()
 
     const reopened = await CollectionCookieJar.open(configDir, "locked")
-    expect(reopened.list().map((cookie) => cookie.name)).toEqual(["pending"])
+    expect(reopened.list().map((cookie) => cookie.name)).toEqual([
+      "existing",
+      "pending",
+    ])
   })
 
   it("unregisters a closed handle when its final save fails", async () => {
@@ -414,17 +433,31 @@ describe("CollectionCookieJar", () => {
     await rm(lockDir, { recursive: true, force: true })
   })
 
-  it("recovers a stale lock without leaving shared temporary files", async () => {
-    setCookieJarTimingForTests({ staleLockMs: 10 })
+  it("requires explicit abandoned-lock recovery and retains pending writes", async () => {
+    setCookieJarTimingForTests({
+      lockTimeoutMs: 20,
+      minBackoffMs: 1,
+      maxBackoffMs: 2,
+    })
     const jar = await CollectionCookieJar.open(configDir, "stale")
     jar.put({ name: "saved", value: "1", domain: "example.com" })
     const lockDir = `${jar.file}.lock`
     await mkdir(lockDir, { recursive: true })
     await writeFile(join(lockDir, "owner"), "abandoned")
-    const old = new Date(Date.now() - 1000)
+    const old = new Date(Date.now() - 60_000)
     await utimes(lockDir, old, old)
 
+    await expect(jar.saveNow()).rejects.toMatchObject({
+      code: "lock-timeout",
+      message: expect.stringContaining(lockDir),
+    })
+    expect(await readFile(join(lockDir, "owner"), "utf8")).toBe("abandoned")
+    await expect(stat(jar.file)).rejects.toMatchObject({ code: "ENOENT" })
+
+    await rm(lockDir, { recursive: true })
     await jar.saveNow()
+    const reopened = await CollectionCookieJar.open(configDir, "stale")
+    expect(reopened.list().map((cookie) => cookie.name)).toEqual(["saved"])
 
     const entries = await readdir(join(configDir, "cookies"))
     expect(entries.some((entry) => entry.includes(".lock"))).toBe(false)
