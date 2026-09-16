@@ -4,15 +4,7 @@ import {
   randomBytes,
   randomUUID,
 } from "node:crypto"
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises"
+import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import {
   Cookie,
@@ -22,6 +14,7 @@ import {
 } from "tough-cookie"
 import { getAppSettingSecret, setAppSettingSecret } from "../secrets"
 import type { ResponseCookie } from "../schema"
+import { acquireFileLock, FileLockError } from "../fileLock"
 
 export interface JarCookie {
   name: string
@@ -916,74 +909,19 @@ async function backupExistingJar(file: string): Promise<string | undefined> {
 }
 
 async function acquireLock(file: string): Promise<LockHandle> {
-  const lockDir = `${file}.lock`
-  const ownerFile = join(lockDir, "owner")
-  const owner = `${process.pid}:${randomUUID()}`
-  const started = Date.now()
-  await mkdir(dirname(file), { recursive: true })
-
-  while (true) {
-    try {
-      await mkdir(lockDir)
-      try {
-        await writeFile(ownerFile, owner, { encoding: "utf8", mode: 0o600 })
-      } catch (error) {
-        await rm(lockDir, { recursive: true, force: true }).catch(() => {})
-        throw error
-      }
-      return {
-        async release() {
-          try {
-            if ((await readFile(ownerFile, "utf8")) !== owner) return
-            await rm(lockDir, { recursive: true, force: true })
-          } catch (error) {
-            if (!hasCode(error, "ENOENT")) throw error
-          }
-        },
-      }
-    } catch (error) {
-      if (!hasCode(error, "EEXIST")) {
-        throw new CookieJarStorageError(
-          "write",
-          "Cookie storage lock could not be created.",
-          file,
-          { cause: error },
-        )
-      }
-    }
-
-    if (Date.now() - started >= timing.lockTimeoutMs) {
-      throw new CookieJarStorageError(
-        "lock-timeout",
-        "Cookie storage is busy in another process; retry after that process finishes.",
-        file,
-      )
-    }
-    if (await recoverStaleLock(lockDir)) continue
-    const spread = timing.maxBackoffMs - timing.minBackoffMs
-    const delay = timing.minBackoffMs + Math.floor(Math.random() * (spread + 1))
-    await new Promise((resolve) => setTimeout(resolve, delay))
-  }
-}
-
-async function recoverStaleLock(lockDir: string): Promise<boolean> {
   try {
-    const details = await stat(lockDir)
-    if (Date.now() - details.mtimeMs <= timing.staleLockMs) return false
+    return await acquireFileLock(file, timing)
   } catch (error) {
-    if (hasCode(error, "ENOENT")) return true
-    return false
+    if (!(error instanceof FileLockError)) throw error
+    throw new CookieJarStorageError(
+      error.code,
+      error.code === "write"
+        ? "Cookie storage lock could not be created."
+        : "Cookie storage is busy in another process; retry after that process finishes.",
+      file,
+      { cause: error },
+    )
   }
-
-  const stale = `${lockDir}.stale-${randomUUID()}`
-  try {
-    await rename(lockDir, stale)
-  } catch (error) {
-    if (hasCode(error, "ENOENT")) return true
-    return false
-  }
-  await rm(stale, { recursive: true, force: true })
-  return true
 }
 
 function asStorageError(

@@ -15,6 +15,7 @@ import { dirname, join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
 import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
+import { secretSet } from "../src/app/services"
 import { loadTimeline, saveTimelineEntry } from "../src/filestore/timeline"
 import {
   getStoredSecret,
@@ -170,6 +171,151 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     }
 
     expect(ref.current!.envNames).toEqual(["development"])
+  })
+
+  it("preserves external updates and the draft when saving a stale environment", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    const vaultWrite = spyOn(backend, "set")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    function StaleDraftHarness() {
+      ref.current = useEnvironmentEditor({
+        environmentsDir: dir,
+        envNames: ["alpha"],
+        activeEnvName: "alpha",
+        onEnvsChanged: () => {},
+        onActiveEnvChanged: () => {},
+      })
+      return <box />
+    }
+    const { renderOnce } = await testRender(<StaleDraftHarness />, {
+      width: 40,
+      height: 12,
+    })
+    await act(async () => {
+      await ref.current!.openEditor("alpha")
+    })
+    await act(async () => {
+      ref.current!.setColor("warning")
+      ref.current!.toggleSecret(0)
+    })
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: { key: "val", EXTERNAL: "preserved" },
+    })
+    await act(async () => {
+      await ref.current!.save()
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe(
+      "Environment changed on disk; reopen it before saving",
+    )
+    expect(ref.current!.draft?.color).toBe("warning")
+    expect(ref.current!.dirty).toBe(true)
+    expect(ref.current!.saving).toBe(false)
+    expect(vaultWrite).not.toHaveBeenCalled()
+    expect((await env.loadEnvironment(dir, "alpha")).vars).toEqual({
+      key: "val",
+      EXTERNAL: "preserved",
+    })
+    vaultWrite.mockRestore()
+  })
+
+  it("rejects a stale secret snapshot before renaming its environment", async () => {
+    setSecretBackendForTests(memoryBackend())
+    await setStoredSecret(root, "alpha", "TOKEN", "old-token")
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    function SecretSnapshotHarness() {
+      ref.current = useEnvironmentEditor({
+        environmentsDir: dir,
+        envNames: ["alpha"],
+        activeEnvName: "alpha",
+        onEnvsChanged: () => {},
+        onActiveEnvChanged: () => {},
+      })
+      return <box />
+    }
+    await testRender(<SecretSnapshotHarness />, { width: 40, height: 12 })
+    await act(async () => {
+      await ref.current!.openEditor("alpha")
+    })
+    await act(async () => {
+      ref.current!.setName("renamed")
+    })
+    await secretSet("TOKEN", "new-token", "alpha", root)
+    await act(async () => {
+      await ref.current!.save()
+    })
+    expect(ref.current!.error).toBe(
+      "Environment changed on disk; reopen it before saving",
+    )
+    expect(await env.listEnvironments(dir)).toContain("alpha")
+    expect(await env.listEnvironments(dir)).not.toContain("renamed")
+    expect(await getStoredSecret(root, "alpha", "TOKEN")).toBe("new-token")
+    expect(await getStoredSecret(root, "renamed", "TOKEN")).toBeNull()
+  })
+
+  it("keeps edits made while a save waits for the environment lock", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    function PendingSaveHarness() {
+      ref.current = useEnvironmentEditor({
+        environmentsDir: dir,
+        envNames: ["alpha"],
+        activeEnvName: "alpha",
+        onEnvsChanged: () => {},
+        onActiveEnvChanged: () => {},
+      })
+      return <box />
+    }
+    await testRender(<PendingSaveHarness />, { width: 40, height: 12 })
+    await act(async () => {
+      await ref.current!.openEditor("alpha")
+    })
+    let release!: () => void
+    let acquired!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const ready = new Promise<void>((resolve) => {
+      acquired = resolve
+    })
+    const blocker = env.withEnvironmentLock(dir, async () => {
+      acquired()
+      await gate
+    })
+    await ready
+    let pending!: Promise<void>
+    try {
+      await act(async () => {
+        ref.current!.setColor("warning")
+        pending = ref.current!.save()
+      })
+      await act(async () => {
+        ref.current!.setColor("primary")
+      })
+    } finally {
+      await act(async () => {
+        release()
+        await blocker
+        await pending
+      })
+    }
+    expect((await env.loadEnvironment(dir, "alpha")).color).toBe("warning")
+    expect(ref.current!.draft?.color).toBe("primary")
+    expect(ref.current!.dirty).toBe(true)
+    expect(ref.current!.saving).toBe(false)
+    expect(ref.current!.error).toBeNull()
   })
 
   it("calls onEnvsChanged after cloneEnv", async () => {

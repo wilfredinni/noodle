@@ -4,10 +4,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   collectionRun,
+  environmentSet,
   persistResponseCaptures,
   persistScriptChanges,
   requestRun,
   secretDelete,
+  secretSet,
 } from "../../src/app/services"
 import { formatRequestRun } from "../../src/app/humanOutput"
 import { env } from "../../src/env"
@@ -425,6 +427,67 @@ describe("script persistence", () => {
     expect(await readFile(file(), "utf8")).toContain("VALUE=saved")
   })
 
+  it("coordinates script, capture, environment and secret writes", async () => {
+    const results = await Promise.all([
+      persistScriptChanges(
+        [
+          {
+            variable: "SCRIPT",
+            target: "environment",
+            operation: "set",
+            value: "script",
+          },
+        ],
+        "dev",
+        dir,
+      ),
+      environmentSet("CLI", "cli", "dev", dir),
+      secretSet("TOKEN", "stored-token", "dev", dir),
+      persistResponseCaptures(
+        {
+          captures: {
+            CAPTURE: { value: "status", persist: "environment", enabled: true },
+          },
+        },
+        [
+          {
+            variable: "CAPTURE",
+            expression: "status",
+            success: true,
+            type: "number",
+            value: 200,
+          },
+        ],
+        {
+          captures: {
+            evaluated: true,
+            results: [
+              {
+                variable: "CAPTURE",
+                expression: "status",
+                success: true,
+                type: "number",
+                value: 200,
+              },
+            ],
+          },
+        },
+        "dev",
+        dir,
+      ),
+    ])
+    expect(results[0]).toMatchObject({ outcomes: [{ status: "saved" }] })
+    const stored = await env.loadEnvironment(directory(), "dev")
+    expect(stored.vars).toMatchObject({
+      SCRIPT: "script",
+      CLI: "cli",
+      CAPTURE: "200",
+      TOKEN: "stored-token",
+      KEEP: "unchanged",
+    })
+    expect(stored.secretVars?.TOKEN).toBe("keychain")
+  })
+
   it("serializes concurrent batches and preserves changes from each caller", async () => {
     const results = await Promise.all(
       Array.from({ length: 8 }, (_, index) =>
@@ -449,6 +512,57 @@ describe("script persistence", () => {
     for (let index = 0; index < 8; index++)
       expect(saved.vars[`KEY${index}`]).toBe(String(index))
     expect(saved.vars.KEEP).toBe("unchanged")
+  })
+
+  it("preserves writes from concurrent request run processes", async () => {
+    const requests = Array.from({ length: 4 }, (_, index) =>
+      request(
+        {
+          pre: Array.from(
+            { length: 8 },
+            (_, key) =>
+              `run.set("PROCESS_${index}_${key}", "${index}:${key}", { persist: "environment" });`,
+          ).join("\n"),
+        },
+        `process-${index}`,
+      ),
+    )
+    await Promise.all(requests.map(save))
+    await Promise.all(
+      requests.map(async (req) => {
+        const child = Bun.spawn(
+          [
+            process.execPath,
+            join(import.meta.dir, "../../src/app/cli.ts"),
+            "request",
+            "run",
+            req.id,
+            "--collection",
+            dir,
+            "--env",
+            "dev",
+            "--noproxy",
+            "--json",
+          ],
+          { stdout: "pipe", stderr: "pipe" },
+        )
+        const [stdout, stderr, exit] = await Promise.all([
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+          child.exited,
+        ])
+        expect({ exit, stderr, result: JSON.parse(stdout).status }).toEqual({
+          exit: 0,
+          stderr: "",
+          result: "success",
+        })
+      }),
+    )
+    const stored = await env.loadEnvironment(directory(), "dev")
+    expect(stored.vars.KEEP).toBe("unchanged")
+    for (let index = 0; index < requests.length; index++)
+      for (let key = 0; key < 8; key++)
+        expect(stored.vars[`PROCESS_${index}_${key}`]).toBe(`${index}:${key}`)
   })
 
   it("retains post cookie and scope commits and runs assertions after storage failure", async () => {

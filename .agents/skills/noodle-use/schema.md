@@ -129,7 +129,7 @@ Public API:
 | `request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
 | `request.auth` | `clear()`, `setBearer(token)`, `setBasic(username, password)`, `setApiKey(key, value, placement)` |
 | `env` | `get(name)` |
-| `run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" | "secret" }` |
+| `run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" \| "secret" }` |
 | `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
 | `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
 | `response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |

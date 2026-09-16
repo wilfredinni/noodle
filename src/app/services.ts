@@ -538,23 +538,28 @@ async function auditFile(
       return
     }
     if (path.endsWith(".env")) {
-      const parsed = await env.loadEnvironment(
-        join(path, ".."),
-        name.slice(0, -4),
-        { resolveSecrets: false },
-      )
-      if (fix) {
-        if (Object.keys(parsed.secretVars ?? {}).length > 0) {
-          await ensureCollectionId(root)
+      const inspectEnvironment = async () => {
+        const parsed = await env.loadEnvironment(
+          join(path, ".."),
+          name.slice(0, -4),
+          { resolveSecrets: false },
+        )
+        if (fix) {
+          if (Object.keys(parsed.secretVars ?? {}).length > 0) {
+            await ensureCollectionId(root)
+          }
+          await env.saveEnvironment(join(path, ".."), parsed)
+          issues.push({
+            path: rel,
+            kind: "environment",
+            message: "canonicalized",
+            fixed: true,
+          })
         }
-        await env.saveEnvironment(join(path, ".."), parsed)
-        issues.push({
-          path: rel,
-          kind: "environment",
-          message: "canonicalized",
-          fixed: true,
-        })
       }
+      if (fix)
+        await env.withEnvironmentLock(join(path, ".."), inspectEnvironment)
+      else await inspectEnvironment()
       return
     }
     const id = rel.slice(0, -4)
@@ -1234,22 +1239,24 @@ export async function environmentSet(
     throw new Error(`invalid environment key "${key}"`)
   const collectionRoot = await requireCollectionRoot(collectionDir)
   const dir = join(collectionRoot, ".environments")
-  const current = await env.loadEnvironment(dir, name, {
-    resolveSecrets: false,
+  return env.withEnvironmentLock(dir, async () => {
+    const current = await env.loadEnvironment(dir, name, {
+      resolveSecrets: false,
+    })
+    if (Object.hasOwn(current.secretVars ?? {}, key)) {
+      throw new Error(
+        `"${key}" is a secret; use "noodle secret set ${key} --env ${name}"`,
+      )
+    }
+    const disabled = { ...(current.disabledVars ?? {}) }
+    delete disabled[key]
+    await env.saveEnvironment(dir, {
+      ...current,
+      vars: { ...current.vars, [key]: value },
+      disabledVars: Object.keys(disabled).length ? disabled : undefined,
+    })
+    return { environment: name, key }
   })
-  if (Object.hasOwn(current.secretVars ?? {}, key)) {
-    throw new Error(
-      `"${key}" is a secret; use "noodle secret set ${key} --env ${name}"`,
-    )
-  }
-  const disabled = { ...(current.disabledVars ?? {}) }
-  delete disabled[key]
-  await env.saveEnvironment(dir, {
-    ...current,
-    vars: { ...current.vars, [key]: value },
-    disabledVars: Object.keys(disabled).length ? disabled : undefined,
-  })
-  return { environment: name, key }
 }
 
 export async function persistResponseCaptures(
@@ -1346,86 +1353,92 @@ export async function persistScriptChanges(
       throw new Error("script persistence batch exceeds its limits")
     const root = await requireCollectionRoot(collectionDir)
     const queueKey = `${root}\0${environmentName}`
-    // ponytail: in-process serialization only; use file locking if cross-process coordination is required.
     const task = (scriptPersistenceQueues.get(queueKey) ?? Promise.resolve())
       .catch(() => {})
-      .then(async () => {
-        const directory = join(root, ".environments")
-        const current = await env.loadEnvironment(directory, environmentName, {
-          resolveSecrets: false,
-        })
-        const vars = { ...current.vars }
-        const disabledVars = { ...(current.disabledVars ?? {}) }
-        const secretVars = { ...(current.secretVars ?? {}) }
-        const mutations: SecretMutation[] = []
-        for (const intent of intents) {
-          const key = intent.variable
-          validateSecretKey(key)
-          if (intent.target === "environment") {
-            if (Object.hasOwn(secretVars, key))
-              throw new Error(`"${key}" is a secret; use persist: "secret"`)
-            if (intent.operation === "set") {
-              vars[key] =
-                typeof intent.value === "string"
+      .then(() =>
+        env.withEnvironmentLock(join(root, ".environments"), async () => {
+          const directory = join(root, ".environments")
+          const current = await env.loadEnvironment(
+            directory,
+            environmentName,
+            {
+              resolveSecrets: false,
+            },
+          )
+          const vars = { ...current.vars }
+          const disabledVars = { ...(current.disabledVars ?? {}) }
+          const secretVars = { ...(current.secretVars ?? {}) }
+          const mutations: SecretMutation[] = []
+          for (const intent of intents) {
+            const key = intent.variable
+            validateSecretKey(key)
+            if (intent.target === "environment") {
+              if (Object.hasOwn(secretVars, key))
+                throw new Error(`"${key}" is a secret; use persist: "secret"`)
+              if (intent.operation === "set") {
+                vars[key] =
+                  typeof intent.value === "string"
+                    ? intent.value
+                    : JSON.stringify(intent.value)
+              } else delete vars[key]
+              delete disabledVars[key]
+              continue
+            }
+            if (
+              intent.operation === "unset" &&
+              !Object.hasOwn(secretVars, key) &&
+              (Object.hasOwn(vars, key) || Object.hasOwn(disabledVars, key))
+            )
+              throw new Error(
+                `"${key}" is an ordinary variable; use persist: "environment"`,
+              )
+            const value =
+              intent.operation === "set"
+                ? typeof intent.value === "string"
                   ? intent.value
                   : JSON.stringify(intent.value)
-            } else delete vars[key]
+                : undefined
+            if (value === "") throw new Error("secret value must not be empty")
+            if (intent.operation === "set" || Object.hasOwn(secretVars, key)) {
+              mutations.push({
+                get: async () => {
+                  const previous = await getStoredSecret(
+                    root,
+                    environmentName,
+                    key,
+                  )
+                  if (previous !== null) secretValues.push(previous)
+                  return previous
+                },
+                set: (next) =>
+                  setStoredSecret(root, environmentName, key, next),
+                delete: () => deleteStoredSecret(root, environmentName, key),
+                value,
+              })
+            }
+            const disabled =
+              secretVars[key] === "disabled" || Object.hasOwn(disabledVars, key)
+            delete vars[key]
             delete disabledVars[key]
-            continue
+            if (intent.operation === "set")
+              secretVars[key] = disabled ? "disabled" : "keychain"
+            else delete secretVars[key]
           }
-          if (
-            intent.operation === "unset" &&
-            !Object.hasOwn(secretVars, key) &&
-            (Object.hasOwn(vars, key) || Object.hasOwn(disabledVars, key))
+          const next: Environment = {
+            ...current,
+            vars,
+            disabledVars: Object.keys(disabledVars).length
+              ? disabledVars
+              : undefined,
+            secretVars: Object.keys(secretVars).length ? secretVars : undefined,
+          }
+          // Validate public values before touching the vault.
+          validateEnvironment(next)
+          await applySettingsSecretTransaction(mutations, () =>
+            env.saveEnvironment(directory, next),
           )
-            throw new Error(
-              `"${key}" is an ordinary variable; use persist: "environment"`,
-            )
-          const value =
-            intent.operation === "set"
-              ? typeof intent.value === "string"
-                ? intent.value
-                : JSON.stringify(intent.value)
-              : undefined
-          if (value === "") throw new Error("secret value must not be empty")
-          if (intent.operation === "set" || Object.hasOwn(secretVars, key)) {
-            mutations.push({
-              get: async () => {
-                const previous = await getStoredSecret(
-                  root,
-                  environmentName,
-                  key,
-                )
-                if (previous !== null) secretValues.push(previous)
-                return previous
-              },
-              set: (next) => setStoredSecret(root, environmentName, key, next),
-              delete: () => deleteStoredSecret(root, environmentName, key),
-              value,
-            })
-          }
-          const disabled =
-            secretVars[key] === "disabled" || Object.hasOwn(disabledVars, key)
-          delete vars[key]
-          delete disabledVars[key]
-          if (intent.operation === "set")
-            secretVars[key] = disabled ? "disabled" : "keychain"
-          else delete secretVars[key]
-        }
-        const next: Environment = {
-          ...current,
-          vars,
-          disabledVars: Object.keys(disabledVars).length
-            ? disabledVars
-            : undefined,
-          secretVars: Object.keys(secretVars).length ? secretVars : undefined,
-        }
-        // Validate public values before touching the vault.
-        validateEnvironment(next)
-        await applySettingsSecretTransaction(mutations, () =>
-          env.saveEnvironment(directory, next),
-        )
-      })
+        }),
+      )
     scriptPersistenceQueues.set(queueKey, task)
     try {
       await task
@@ -1476,35 +1489,40 @@ export async function secretSet(
   if (!value) throw new Error("secret value must not be empty")
   const collectionRoot = await requireCollectionRoot(collectionDir)
   const directory = join(collectionRoot, ".environments")
-  const current = await env.loadEnvironment(directory, name, {
-    resolveSecrets: false,
-  })
-
-  const previous = await getStoredSecret(collectionRoot, name, key)
-  await setStoredSecret(collectionRoot, name, key, value)
-  const wasDisabled =
-    current.secretVars?.[key] === "disabled" ||
-    Object.hasOwn(current.disabledVars ?? {}, key)
-  const vars = { ...current.vars }
-  const disabledVars = { ...(current.disabledVars ?? {}) }
-  delete vars[key]
-  delete disabledVars[key]
-  try {
-    await env.saveEnvironment(directory, {
-      ...current,
-      vars,
-      disabledVars: Object.keys(disabledVars).length ? disabledVars : undefined,
-      secretVars: {
-        ...(current.secretVars ?? {}),
-        [key]: wasDisabled ? "disabled" : "keychain",
-      },
+  return env.withEnvironmentLock(directory, async () => {
+    const current = await env.loadEnvironment(directory, name, {
+      resolveSecrets: false,
     })
-  } catch (error) {
-    if (previous) await setStoredSecret(collectionRoot, name, key, previous)
-    else await deleteStoredSecret(collectionRoot, name, key).catch(() => false)
-    throw error
-  }
-  return { environment: name, key, status: "stored" }
+
+    const previous = await getStoredSecret(collectionRoot, name, key)
+    await setStoredSecret(collectionRoot, name, key, value)
+    const wasDisabled =
+      current.secretVars?.[key] === "disabled" ||
+      Object.hasOwn(current.disabledVars ?? {}, key)
+    const vars = { ...current.vars }
+    const disabledVars = { ...(current.disabledVars ?? {}) }
+    delete vars[key]
+    delete disabledVars[key]
+    try {
+      await env.saveEnvironment(directory, {
+        ...current,
+        vars,
+        disabledVars: Object.keys(disabledVars).length
+          ? disabledVars
+          : undefined,
+        secretVars: {
+          ...(current.secretVars ?? {}),
+          [key]: wasDisabled ? "disabled" : "keychain",
+        },
+      })
+    } catch (error) {
+      if (previous) await setStoredSecret(collectionRoot, name, key, previous)
+      else
+        await deleteStoredSecret(collectionRoot, name, key).catch(() => false)
+      throw error
+    }
+    return { environment: name, key, status: "stored" }
+  })
 }
 
 export async function secretList(
@@ -1535,14 +1553,19 @@ export async function secretDelete(
 ): Promise<{ environment: string; key: string; deleted: boolean }> {
   validateSecretKey(key)
   const collectionRoot = await requireCollectionRoot(collectionDir)
-  const current = await env.loadEnvironment(
+  return env.withEnvironmentLock(
     join(collectionRoot, ".environments"),
-    name,
-    { resolveSecrets: false },
+    async () => {
+      const current = await env.loadEnvironment(
+        join(collectionRoot, ".environments"),
+        name,
+        { resolveSecrets: false },
+      )
+      if (!Object.hasOwn(current.secretVars ?? {}, key)) {
+        throw new Error(`secret "${key}" is not declared in ${name}`)
+      }
+      const deleted = await deleteStoredSecret(collectionRoot, name, key)
+      return { environment: name, key, deleted }
+    },
   )
-  if (!Object.hasOwn(current.secretVars ?? {}, key)) {
-    throw new Error(`secret "${key}" is not declared in ${name}`)
-  }
-  const deleted = await deleteStoredSecret(collectionRoot, name, key)
-  return { environment: name, key, deleted }
 }
