@@ -1,0 +1,44 @@
+# Run with post-response-use-values in one collection run to share these values.
+name: Extract Post-response Values
+method: GET
+url: $base_url/posts/1
+timeout: 0
+tags:
+  - post-response-chain
+body_type: none
+scripts:
+  pre: |-
+    request.headers.set("Accept", "application/json");
+    console.info("Prepared", request.method, request.url);
+  post: |-
+    if (response.status === 200) {
+      if (!response.headers.has("Content-Type") ||
+          !response.headers.get("content-type").includes("application/json")) {
+        throw Error("Expected a JSON response");
+      }
+      const post = response.json();
+      if (run.get("post_response_user_id") !== post.userId) {
+        throw Error("Expected the capture to commit before post");
+      }
+      run.set("post_response_post_id", post.id);
+      run.set("post_response_title", post.title);
+      console.info("Extracted post", post.id, {
+        statusText: response.statusText,
+        timeMs: response.timeMs,
+        textLength: response.text().length,
+      });
+    } else {
+      console.warn("Skipping extraction", response.status, response.statusText);
+    }
+capture:
+  post_response_user_id:
+    value: body.userId
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: equals
+    value: 1
+  - expression: body.userId
+    operator: isNumber
