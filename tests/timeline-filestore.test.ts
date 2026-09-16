@@ -116,6 +116,66 @@ describe("loadTimeline", () => {
 })
 
 describe("saveTimelineEntry", () => {
+  it("round-trips bounded script diagnostics alongside legacy entries", async () => {
+    const oversized = "🙂".repeat(3_000)
+    const entry = makeEntry({
+      scripts: {
+        evaluated: true,
+        results: [
+          {
+            phase: "post",
+            scope: "request",
+            sourceKind: "inline",
+            success: false,
+            durationMs: 7,
+            logs: [
+              { level: "info", message: "ready" },
+              { level: "error", message: oversized },
+              { level: "info", message: "omitted" },
+            ],
+            error: { name: oversized, message: oversized, line: 3, column: 4 },
+            persistence: [
+              {
+                variable: "TOKEN",
+                operation: "set",
+                target: "secret",
+                status: "failed",
+                error: { name: "Error", message: oversized },
+              },
+            ],
+          },
+        ],
+      },
+    })
+    await saveTimelineEntry(dir, "scripts", makeEntry())
+    const persisted = await saveTimelineEntry(dir, "scripts", entry)
+    const loaded = await loadTimeline(dir, "scripts")
+
+    expect(loaded[0]?.scripts).toEqual(persisted.scripts)
+    expect(loaded[1]?.scripts).toBeUndefined()
+    expect(loaded[0]?.scripts?.results[0]).toMatchObject({
+      phase: "post",
+      success: false,
+      durationMs: 7,
+      logs: [
+        { level: "info", message: "ready" },
+        { level: "warn", message: "[TRUNCATED]" },
+      ],
+      error: {
+        name: "[TRUNCATED]",
+        message: "[TRUNCATED]",
+        line: 3,
+        column: 4,
+      },
+      persistence: [{ error: { name: "Error", message: "[TRUNCATED]" } }],
+    })
+    expect(
+      await readFile(join(dir, ".timeline", "scripts.yml"), "utf8"),
+    ).not.toContain(oversized)
+    expect(entry.scripts?.results[0]?.logs).toHaveLength(3)
+    expect(entry.scripts?.results[0]?.error?.message).toBe(oversized)
+  })
+
   it("stores bodies larger than 10KB in compressed sidecars", async () => {
     const requestBody = "request-".repeat(2_000)
     const responseBody = JSON.stringify({ data: "response-".repeat(2_000) })

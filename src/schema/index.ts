@@ -1,3 +1,5 @@
+import type { ResponseExecutionResults } from "../executionResults"
+
 export type Method =
   | "GET"
   | "POST"
@@ -346,6 +348,7 @@ export interface TimelineEntry {
   timestamp: number
   envName?: string
   network?: NetworkEvent[]
+  scripts?: ResponseExecutionResults["scripts"]
   assertions?: {
     evaluated: boolean
     results: AssertionResult[]

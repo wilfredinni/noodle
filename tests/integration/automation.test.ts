@@ -459,10 +459,13 @@ assert:
         url: "https://example.com/mutated",
         headers: { "X-Script": { value: "yes", enabled: true } },
       })
-      expect(JSON.stringify(details[0]?.entry)).not.toContain('"scripts"')
-      expect(JSON.stringify(details[0]?.entry)).not.toContain(
-        "token [REDACTED]",
-      )
+      expect(details[0]?.entry.scripts?.results[0]).toMatchObject({
+        phase: "pre",
+        success: true,
+        logs: [{ level: "log", message: "token [REDACTED]" }],
+      })
+      expect(details[0]?.entry.request).not.toHaveProperty("scripts")
+      expect(JSON.stringify(details[0]?.entry)).not.toContain("script-secret")
     } finally {
       executor.send = send
     }
@@ -729,9 +732,9 @@ capture:
       expect(result.skipped).toEqual([{ id: "02-next", reason: "fail-fast" }])
       expect(result.summary.failureCategories).toEqual(["script"])
       expect(details[0]?.entry.request.url).toBe("https://example.com/fail")
-      expect(JSON.stringify(details[0]?.entry)).not.toContain("before failure")
+      expect(details[0]?.entry.scripts).toEqual(result.results[0]?.scripts)
       expect(JSON.stringify(details[0]?.entry)).not.toContain("run.set")
-      expect(JSON.stringify(details[0]?.entry)).not.toContain('"scripts"')
+      expect(details[0]?.entry.request).not.toHaveProperty("scripts")
     } finally {
       executor.send = send
     }

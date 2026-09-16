@@ -197,6 +197,62 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("renders historical pre/post results and expands logs and error locations", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        scripts: {
+          evaluated: true,
+          results: [
+            {
+              phase: "pre",
+              scope: "request",
+              sourceKind: "inline",
+              success: true,
+              durationMs: 3,
+              logs: [{ level: "info", message: "ready [REDACTED]" }],
+            },
+            {
+              phase: "post",
+              scope: "request",
+              sourceKind: "inline",
+              success: false,
+              durationMs: 5,
+              logs: [],
+              error: {
+                name: "Error",
+                message: "post failed",
+                line: 2,
+                column: 3,
+              },
+            },
+          ],
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Results/)
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Scripts Failed")
+    expect(captureCharFrame()).toContain("Pre-request")
+    expect(captureCharFrame()).toContain("Post-response")
+    expect(captureCharFrame()).toContain("3ms, 1 log")
+    expect(captureCharFrame()).not.toContain("ready [REDACTED]")
+
+    await act(async () => host.press("return"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("ready [REDACTED]")
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("post failed")
+    expect(captureCharFrame()).toContain("post-response.js:2:3")
+    expect(captureCharFrame()).not.toContain("Captures")
+    cleanup()
+  })
+
   it("shows transient script-only results in Runner detail", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry(),

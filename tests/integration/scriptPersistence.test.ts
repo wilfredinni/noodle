@@ -658,7 +658,8 @@ describe("script persistence", () => {
       true,
     )
     expect(JSON.stringify(timeline)).not.toContain("response-secret")
-    expect(timeline).not.toHaveProperty("scripts")
+    expect(timeline.scripts).toEqual(first.execution.scripts)
+    expect(timeline.request).not.toHaveProperty("scripts")
     const foreignHeaders: Headers[] = []
     const foreign = Bun.serve({
       hostname: "127.0.0.1",
