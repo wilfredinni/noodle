@@ -48,7 +48,7 @@ capture:
     enabled: false
 ```
 
-Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before assertions. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status or a later assertion fails. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values and captures from sensitive response headers are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
+Names use `^\w+$`. Every entry is an object with required `value`, optional `persist: secret|environment`, and optional `enabled: false`; scalar shorthand is invalid. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions and are not variable-substituted. Disabled declarations produce no results, failures, summary counts, timeline outcomes, RunScope mutations, or writes. Environment values load first, RunScope values override them, and the latest successful capture or script write wins. Missing or invalid traversal fails without creating or replacing a variable. Successful values from the same block still commit before post and assertions, so the same request's post script can read them. On manual TUI sends and CLI `request run`, successful captures with `persist` update the active or selected environment even when HTTP status, post, or a later assertion fails, using the captured value rather than a post overwrite. Missing environments and write failures fail that capture while preserving the response and other successful writes. `collection run` and the TUI collection Runner always keep captures transient. Secret capture values and captures from sensitive response headers are fully redacted from TUI and JSON capture results. Human users edit persistence with the Capture row Select; Run Collection remains a transient result inspector.
 
 ### Assertions and declarative execution
 Use a top-level `assert` list for response contracts:
@@ -91,7 +91,7 @@ captured `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
 visible to later collection requests even if later phases fail. Read the complete API and
-limits in [schema.md](schema.md#inline-pre-request-script).
+limits in [schema.md](schema.md#inline-request-scripts).
 
 Post sees captures and the completed response, including HTTP/capture failures.
 It adds bounded `response.text/json`, metadata, case-insensitive response headers,

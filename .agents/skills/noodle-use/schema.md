@@ -68,7 +68,9 @@ path_params:
 Noodle synchronizes path-param names with URL tokens. Values can use `$var`
 references and must resolve in the active environment before sending.
 
-### Inline pre-request script
+<a id="inline-pre-request-script"></a>
+
+### Inline request scripts
 
 An optional `scripts` mapping accepts string-valued `pre` and/or `post` members.
 Empty mappings, unknown members, and non-string sources are invalid. Empty
@@ -94,14 +96,15 @@ scripts:
     }
 ```
 
-Script source is never variable-substituted. The script runs synchronously
+Script source is never variable-substituted. Pre runs synchronously
 after folder overrides and one substitution pass, but before HTTP. Request and
 RunScope changes are staged and all are discarded on an uncaught script
 failure. On complete success, request mutations apply only to the in-memory
 prepared copy and RunScope changes commit before HTTP. Those RunScope changes
 remain available to later requests in the same collection run even when HTTP,
-transport, capture, or assertion handling subsequently fails. A later capture
-can overwrite a script value. Manual sends and `request run` use fresh scopes.
+transport, capture, post, or assertion handling subsequently fails. A later
+capture can overwrite a script value. Manual sends and `request run` use fresh
+scopes.
 
 The complete order is folder merge, environment/RunScope overlay, one
 substitution pass, pre, HTTP, capture commits, post, assertions. Assertion
@@ -119,7 +122,7 @@ Public API:
 
 | Global | Members |
 | --- | --- |
-| `request` | Read/write `url: string` and `method: Method` |
+| `request` | `url: string` and `method: Method`; read/write in pre, read-only in post |
 | `request.headers` | `get(name)`, `has(name)`, `set(name, value)`, `delete(name)` |
 | `request.params` | `get(name)`, `getAll(name)`, `set(name, value)`, `append(name, value)`, `delete(name)` |
 | `request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
@@ -141,11 +144,14 @@ Response header reads are case-insensitive and missing headers return null.
 Timing is milliseconds. `response.text()` lazily transfers the original VM
 string without truncation, capped at 5 MiB of UTF-8 before copying.
 `response.json()` uses the captured native VM JSON parser and caches success or
-failure per invocation; JSON null is preserved. Invalid JSON is a structured
-`ScriptApiValidationError`. Cached JSON objects belong only to that invocation,
-not the host response or the capture/assertion resolver. Ordinary bridge and
-RunScope values still obey the 256 KiB/depth-32 limits, so extract small fields
-instead of copying an entire large response into `run.set`.
+failure per invocation; JSON null is preserved. The text cap applies when either
+body reader is called, not to metadata-only post processing. Invalid JSON is a
+structured `ScriptApiValidationError`. Cached JSON objects belong only to that
+invocation, not the host response or the capture/assertion resolver. Ordinary
+bridge and RunScope values still obey the 256 KiB/depth-32 limits, so extract
+small fields instead of copying an entire large response into `run.set`. VM allocation and
+deadline failures remain resource errors rather than invalid-JSON API errors;
+later invocations use fresh runtimes.
 
 `cookies` is absent when the jar is disabled/unavailable or `sendCookies: false`.
 Response Set-Cookie processing happens before post, even under request
@@ -258,17 +264,18 @@ invalid persistence values, and scalar shorthand are rejected. Omitted
 produce no result, failure, summary count, RunScope mutation, or write.
 
 Environment values and resolved declared secrets load first. RunScope values
-then override same-named values, and the latest successful capture wins. String
-values substitute verbatim. Numbers, booleans, null, arrays, and objects use
-`JSON.stringify()`. Missing is a failed capture that creates no binding;
-explicit JSON null is a successful value that substitutes as `null`.
+then override same-named values, and the latest successful capture or script
+write wins. String values substitute verbatim. Numbers, booleans, null, arrays,
+and objects use `JSON.stringify()`. Missing is a failed capture that creates no
+binding; explicit JSON null is a successful value that substitutes as `null`.
 
-Captures are evaluated after the response arrives and before assertions. Every
-successful result commits, even when another capture, the HTTP status, or a
-later assertion fails. Failed recaptures leave the prior successful value
-unchanged. Captures only affect later requests, never the request that produced
-them. A capture failure fails the request and command, but a collection run
-continues in collection order.
+Captures are evaluated after the response arrives and before post and assertions.
+Every successful result commits, even when another capture, the HTTP status, or
+a later post script or assertion fails. Failed recaptures leave the prior
+successful value unchanged. Captures are visible to the same request's post
+script and later requests, but never change the already-sent request or
+resubstitute assertion expectations. A capture failure fails the request and
+command, but a collection run continues in collection order.
 
 One scope exists for each top-level `request run`, `collection run`, or manual
 TUI send. Transient values are discarded when it returns and never modify

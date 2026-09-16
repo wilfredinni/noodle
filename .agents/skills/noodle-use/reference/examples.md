@@ -93,10 +93,10 @@ assert:
 Declare `signing_secret` as a secret in the selected environment. The script
 source is literal, so `$name` text inside it is not environment substitution.
 The body and header changes apply only to the prepared request. During a
-collection run, `temporary_nonce` is available only to later requests and is
-discarded when the run ends. Human output reports the script status and log
-count without printing `console` messages; JSON places redacted logs in the
-request's `scripts` group.
+collection run, `temporary_nonce` is available to this request's post script
+and later requests and is discarded when the run ends. Human output reports the
+script status and log count without printing `console` messages; JSON places
+redacted logs in the request's `scripts` group.
 
 Use only synchronous `request`, `env`, `run`, `crypto`, and `console` APIs.
 Post also exposes bounded response text/JSON, metadata and headers, with the
@@ -109,7 +109,7 @@ and roll back only the failing invocation. Pre failure prevents HTTP; post
 failure preserves the response and captures. Prefer a declarative capture when
 conditional processing is unnecessary.
 Imports, fetch, timers, host modules, and Promises are unavailable. See
-[schema.md](../schema.md#inline-pre-request-script) for exact methods and fixed
+[schema.md](../schema.md#inline-request-scripts) for exact methods and fixed
 resource limits.
 
 ## Chained requests with response capture
