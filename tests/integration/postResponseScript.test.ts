@@ -88,6 +88,9 @@ beforeEach(async () => {
           headers: {
             "x-response": "yes",
             "set-cookie": "received=r; Path=/; HttpOnly",
+            ...(path === "/sensitive"
+              ? { authorization: "Bearer opaque-value" }
+              : {}),
           },
         },
       )
@@ -103,6 +106,40 @@ afterEach(async () => {
 })
 
 describe("post-response lifecycle", () => {
+  it("keeps sensitive response values secret in post writes and later request output", async () => {
+    const scope = new RunScope()
+    const first = await send(
+      {
+        ...base(),
+        url: `${url}/sensitive`,
+        scripts: {
+          post: `run.set("copied", response.headers.get("AUTHORIZATION").slice(7)); run.set("public", response.headers.get("x-response"));`,
+        },
+      },
+      scope,
+    )
+    expect(first.execution.scripts?.results[0]?.success).toBe(true)
+    expect(scope.get("copied")).toBe("opaque-value")
+    expect(scope.isSecret("copied")).toBe(true)
+    expect(scope.isSecret("public")).toBe(false)
+
+    const second = await send(
+      {
+        ...base(),
+        headers: { "X-Public": { value: "$copied", enabled: true } },
+        scripts: {
+          post: `console.log(request.headers.get("X-Public"));`,
+        },
+      },
+      scope,
+    )
+    expect(seen[1]?.headers["x-public"]).toBe("opaque-value")
+    expect(second.execution.scripts?.results[0]).toMatchObject({
+      success: true,
+      logs: [{ message: "[REDACTED]" }],
+    })
+  })
+
   it("restricts cookie scope, deletes applicable duplicates, and supports expiry and secure prefixes", async () => {
     const jar = await openJar()
     for (const [path, value] of [

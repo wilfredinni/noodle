@@ -282,14 +282,15 @@ function parseScripts(value: unknown): Request["scripts"] {
       )
     }
   }
-  return {
-    ...(Object.hasOwn(value, "pre")
-      ? { pre: (value as { pre: string }).pre }
-      : {}),
-    ...(Object.hasOwn(value, "post")
-      ? { post: (value as { post: string }).post }
-      : {}),
+  if (Object.hasOwn(value, "pre")) {
+    return {
+      pre: (value as { pre: string }).pre,
+      ...(Object.hasOwn(value, "post")
+        ? { post: (value as { post: string }).post }
+        : {}),
+    }
   }
+  return { post: (value as { post: string }).post }
 }
 
 export function parseTags(

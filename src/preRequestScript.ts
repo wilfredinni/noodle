@@ -11,7 +11,11 @@ import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope } from "./runScope"
-import { requestSensitiveValues, sensitiveHeaderValues } from "./secrets/redact"
+import {
+  requestSensitiveValues,
+  responseSensitiveValues,
+  sensitiveHeaderValues,
+} from "./secrets/redact"
 
 export const SCRIPT_LIMITS = Object.freeze({
   deadlineMs: 500,
@@ -455,6 +459,7 @@ export async function runRequestScript(
   const runChanges = new Map<string, JsonValue | typeof UNSET>()
   const secretValues = new Set([
     ...requestSensitiveValues(request),
+    ...(phase === "post" && post ? responseSensitiveValues(post.response) : []),
     ...runScope
       .secretValues()
       .map((secret) => (typeof secret === "string" ? secret : secret.value)),
