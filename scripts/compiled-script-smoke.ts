@@ -17,7 +17,10 @@ try {
 method: GET
 url: https://example.com
 scripts:
-  pre: throw new Error("${marker}")
+  pre: |-
+    noodle.run.set("id", noodle.crypto.randomBytes(8, "hex"));
+    noodle.request.headers.set("X-Request-ID", noodle.run.get("id"));
+    throw new Error("${marker}")
 `,
   )
 

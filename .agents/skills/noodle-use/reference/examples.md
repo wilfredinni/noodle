@@ -67,22 +67,22 @@ body: '{"name":"deploy"}'
 scripts:
   pre: |-
     const timestamp = new Date().toISOString();
-    request.body.setJson({ ...request.body.json(), timestamp });
-    request.headers.set("X-Timestamp", timestamp);
-    request.headers.set(
+    noodle.request.body.setJson({ ...noodle.request.body.json(), timestamp });
+    noodle.request.headers.set("X-Timestamp", timestamp);
+    noodle.request.headers.set(
       "X-Signature",
-      crypto.hmacSha256(env.get("signing_secret"), request.body.text(), "hex"),
+      noodle.crypto.hmacSha256(noodle.env.get("signing_secret"), noodle.request.body.text(), "hex"),
     );
-    run.set("temporary_nonce", crypto.randomBytes(12, "base64"));
+    noodle.run.set("temporary_nonce", noodle.crypto.randomBytes(12, "base64"));
     console.info("prepared", timestamp);
   post: |-
-    if (response.status === 201) {
-      const event = response.json();
-      run.set("event_id", event.id);
-      if (typeof cookies !== "undefined") {
-        cookies.set({ name: "last_event", value: String(event.id), httpOnly: true });
+    if (noodle.response.status === 201) {
+      const event = noodle.response.json();
+      noodle.run.set("event_id", event.id);
+      if (typeof noodle.cookies !== "undefined") {
+        noodle.cookies.set({ name: "last_event", value: String(event.id), httpOnly: true });
       }
-      console.info("created", event.id, response.timeMs);
+      console.info("created", event.id, noodle.response.timeMs);
     }
 assert:
   - expression: status
@@ -98,7 +98,8 @@ and later requests and is discarded when the run ends. Human output reports the
 script status and log count without printing `console` messages; JSON places
 redacted logs in the request's `scripts` group.
 
-Use only synchronous `request`, `env`, `run`, `crypto`, `random`, and `console` APIs.
+Use only synchronous `noodle.request`, `noodle.env`, `noodle.run`,
+`noodle.crypto`, `noodle.random`, and global `console` APIs.
 Post also exposes bounded response text/JSON, metadata and headers, with the
 final prepared request read-only. Capture commits happen before post and
 assertions after it, even on post failure. `event_id` reaches later collection
@@ -124,16 +125,16 @@ body_type: json
 body: '{}'
 scripts:
   pre: |-
-    random.seed(42);
-    request.body.setJson({
-      id: random.uuid(),
-      name: random.name(),
-      email: random.exampleEmail(),
-      age: random.number({ min: 18, max: 80 }),
+    noodle.random.seed(42);
+    noodle.request.body.setJson({
+      id: noodle.random.uuid(),
+      name: noodle.random.name(),
+      email: noodle.random.exampleEmail(),
+      age: noodle.random.number({ min: 18, max: 80 }),
     });
   post: |-
-    if (response.status === 201) {
-      run.set("next_user", { id: random.uuid(), name: random.name() });
+    if (noodle.response.status === 201) {
+      noodle.run.set("next_user", { id: noodle.random.uuid(), name: noodle.random.name() });
     }
 ```
 
@@ -147,14 +148,14 @@ body_type: json
 body: '{}'
 scripts:
   pre: |-
-    const user = run.get("next_user");
+    const user = noodle.run.get("next_user");
     if (!user) throw Error("Run random/1-create first in the same collection run");
-    request.body.setJson(user);
+    noodle.request.body.setJson(user);
 ```
 
 Run these in collection order to share transient values. A separate manual send
 or `request run` has its own scope. Pre's seed does not seed post or the later
-request; each invocation starts independently. Use `random.seed` in each phase
+request; each invocation starts independently. Use `noodle.random.seed` in each phase
 that needs reproducibility, plus explicit `refDate` for relative dates. Generated
 passwords are automatically masked in Results; ordinary random data remains
 visible. See [the full catalog](../schema.md#script-random-api) for bounded options.

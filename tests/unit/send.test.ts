@@ -1070,7 +1070,7 @@ describe("send — network trace", () => {
             "X-Version": { value: "1.2", enabled: true },
           },
           scripts: {
-            pre: 'request.headers.set("X-Api-Key", env.get("SHORT_SECRET"))',
+            pre: 'noodle.request.headers.set("X-Api-Key", noodle.env.get("SHORT_SECRET"))',
           },
         }),
         environment: {
@@ -1226,7 +1226,9 @@ describe("send — network trace", () => {
         request: {
           bodyType: "json",
           body: '"safe"',
-          scripts: { pre: 'request.body.setText(env.get("SECRET"))' },
+          scripts: {
+            pre: 'noodle.request.body.setText(noodle.env.get("SECRET"))',
+          },
         },
       },
       {
@@ -1239,7 +1241,7 @@ describe("send — network trace", () => {
           bodyType: "json",
           body: '"safe"',
           scripts: {
-            pre: 'request.body.setText("prefix" + env.get("SECRET") + "suffix")',
+            pre: 'noodle.request.body.setText("prefix" + noodle.env.get("SECRET") + "suffix")',
           },
         },
       },

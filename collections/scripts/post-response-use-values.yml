@@ -14,11 +14,11 @@ params:
     value: $post_response_post_id
 scripts:
   post: |-
-    if (request.params.get("post_id") !== String(run.get("post_response_post_id"))) {
+    if (noodle.request.params.get("post_id") !== String(noodle.run.get("post_response_post_id"))) {
       throw Error("Expected the earlier post value in the final request");
     }
-    if (response.status === 200) {
-      console.info("Fetched post author", response.json().name, response.timeMs);
+    if (noodle.response.status === 200) {
+      console.info("Fetched post author", noodle.response.json().name, noodle.response.timeMs);
     }
 assert:
   - expression: status

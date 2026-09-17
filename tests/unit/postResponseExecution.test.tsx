@@ -39,8 +39,8 @@ describe("rendered post-response parity", () => {
       params: [],
       timeout: 0,
       scripts: {
-        pre: `random.seed(42); run.set("generated", random.uuid()); request.headers.set("X-Random", run.get("generated")); console.info("pre log")`,
-        post: `if (run.get("id") !== 7) throw Error("capture order"); if (response.json().generated !== run.get("generated")) throw Error("random body"); console.warn("post log"); console.log(random.password());\nthrow Error("post failed")`,
+        pre: `noodle.random.seed(42); noodle.run.set("generated", noodle.random.uuid()); noodle.request.headers.set("X-Random", noodle.run.get("generated")); console.info("pre log")`,
+        post: `if (noodle.run.get("id") !== 7) throw Error("capture order"); if (noodle.response.json().generated !== noodle.run.get("generated")) throw Error("random body"); console.warn("post log"); console.log(noodle.random.password());\nthrow Error("post failed")`,
       },
       captures: { id: { value: "body.id", enabled: true } },
       assertions: [{ expression: "status", operator: "equals", value: 200 }],
@@ -117,8 +117,8 @@ describe("rendered post-response parity", () => {
           params: [],
           timeout: 0,
           scripts: {
-            pre: `random.seed(42); run.set("generated", random.uuid()); request.headers.set("X-Random", run.get("generated"));`,
-            post: `if (response.json().generated !== run.get("generated")) throw Error("runner random data"); run.set("id", response.json().id); console.info("runner log"); console.log(random.password());`,
+            pre: `noodle.random.seed(42); noodle.run.set("generated", noodle.random.uuid()); noodle.request.headers.set("X-Random", noodle.run.get("generated"));`,
+            post: `if (noodle.response.json().generated !== noodle.run.get("generated")) throw Error("runner random data"); noodle.run.set("id", noodle.response.json().id); console.info("runner log"); console.log(noodle.random.password());`,
           },
         }),
       )

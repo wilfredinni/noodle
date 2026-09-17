@@ -157,7 +157,7 @@ describe("lang.parseRequest — defaults", () => {
 describe("inline pre-request script language", () => {
   it("round-trips literal source before captures and assertions", () => {
     const source =
-      'request.url = `$BASE_URL/${run.get("id")}`;\nconsole.log("$TOKEN");\n'
+      'noodle.request.url = `$BASE_URL/${noodle.run.get("id")}`;\nconsole.log("$TOKEN");\n'
     const request = makeRequest({
       scripts: { pre: source },
       captures: { id: { value: "body.id", enabled: true } },

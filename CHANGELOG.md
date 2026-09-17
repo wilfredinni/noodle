@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Move scripting APIs to the frozen `noodle` namespace: `noodle.request`,
+  `noodle.response`, `noodle.env`, `noodle.run`, `noodle.crypto`, `noodle.random`,
+  and `noodle.cookies`. Update existing scripts by adding `noodle.` to API
+  accesses. The previous bare API globals are removed; `console` and JavaScript
+  built-ins remain global. Execution phases, mutations, persistence, and sandbox
+  limits retain their existing behavior.
+
 All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]

@@ -138,8 +138,8 @@ async function mountManual(req: Request) {
 describe("script persistence Results and manual execution", () => {
   it("refreshes the active environment without changing dirty drafts or focus", async () => {
     const req = request({
-      pre: 'run.set("HOST", "pre", { persist: "environment" })',
-      post: 'run.set("HOST", "post", { persist: "environment" })',
+      pre: 'noodle.run.set("HOST", "pre", { persist: "environment" })',
+      post: 'noodle.run.set("HOST", "post", { persist: "environment" })',
     })
     req.captures = {
       HOST: { value: "body.host", persist: "environment", enabled: true },
@@ -167,7 +167,7 @@ describe("script persistence Results and manual execution", () => {
 
   it("refreshes a successful pre save even after a transport failure", async () => {
     const req = request({
-      pre: 'run.set("HOST", "pre", { persist: "environment" })',
+      pre: 'noodle.run.set("HOST", "pre", { persist: "environment" })',
     })
     server.stop(true)
     const harness = await mountManual(req)
@@ -190,7 +190,7 @@ describe("script persistence Results and manual execution", () => {
       },
     })
     const req = request({
-      pre: 'run.set("HOST", "before-cancel", { persist: "environment" })',
+      pre: 'noodle.run.set("HOST", "before-cancel", { persist: "environment" })',
     })
     const harness = await mountManual(req)
     let pendingSend: ReturnType<typeof executor.send> | undefined
@@ -219,7 +219,7 @@ describe("script persistence Results and manual execution", () => {
 
   it("does not reload an old environment after selection changes during storage", async () => {
     const req = request({
-      pre: 'run.set("HOST", "saved-dev", { persist: "environment" })',
+      pre: 'noodle.run.set("HOST", "saved-dev", { persist: "environment" })',
     })
     const harness = await mountManual(req)
     const entered = Promise.withResolvers<void>()
@@ -254,7 +254,7 @@ describe("script persistence Results and manual execution", () => {
 
   it("renders persistence failure separately from passed VM execution", async () => {
     const req = request({
-      pre: 'run.set("HOST", "runtime", { persist: "environment" })',
+      pre: 'noodle.run.set("HOST", "runtime", { persist: "environment" })',
     })
     let manual: UseResponseResult
     const complete = Promise.withResolvers<void>()
@@ -296,7 +296,7 @@ describe("script persistence Results and manual execution", () => {
 
   it("renders transient runner writes without changing environment storage", async () => {
     const req = request({
-      post: 'run.set("HOST", "runtime", { persist: "environment" }); run.set("TOKEN", "runner-secret", { persist: "secret" }); console.log("runner-secret")',
+      post: 'noodle.run.set("HOST", "runtime", { persist: "environment" }); noodle.run.set("TOKEN", "runner-secret", { persist: "secret" }); console.log("runner-secret")',
     })
     await writeFile(join(dir, "manual.yml"), lang.serializeRequest(req))
     const collection = await filestore.loadCollection(dir)

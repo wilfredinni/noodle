@@ -675,9 +675,9 @@ method: GET
 url: https://example.com
 scripts:
   pre: |-
-    request.headers.set("Authorization", "Bearer cli-script-secret");
+    noodle.request.headers.set("Authorization", "Bearer cli-script-secret");
     console.warn("hidden", "cli-script-secret");
-    request.headers.delete("Authorization");
+    noodle.request.headers.delete("Authorization");
     throw new Error("failed cli-script-secret");
 `,
       )

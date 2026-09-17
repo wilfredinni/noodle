@@ -83,16 +83,16 @@ post immediately before `capture` and `assert`:
 scripts:
   pre: |-
     const timestamp = new Date().toISOString();
-    const body = request.body.json();
-    request.body.setJson({ ...body, timestamp });
-    request.headers.set(
+    const body = noodle.request.body.json();
+    noodle.request.body.setJson({ ...body, timestamp });
+    noodle.request.headers.set(
       "X-Signature",
-      crypto.hmacSha256(env.get("SIGNING_SECRET"), request.body.text(), "hex"),
+      noodle.crypto.hmacSha256(noodle.env.get("SIGNING_SECRET"), noodle.request.body.text(), "hex"),
     );
-    run.set("request_nonce", crypto.randomBytes(16, "base64"));
+    noodle.run.set("request_nonce", noodle.crypto.randomBytes(16, "base64"));
   post: |-
-    if (response.status === 201) {
-      run.set("event_id", response.json().id);
+    if (noodle.response.status === 201) {
+      noodle.run.set("event_id", noodle.response.json().id);
     }
 ```
 
@@ -121,29 +121,33 @@ request persistence on a manual send or `request run`.
 
 Public API:
 
-| Global | Members |
-| --- | --- |
-| `request` | `url: string` and `method: Method`; read/write in pre, read-only in post |
-| `request.headers` | `get(name)`, `has(name)`, `set(name, value)`, `delete(name)` |
-| `request.params` | `get(name)`, `getAll(name)`, `set(name, value)`, `append(name, value)`, `delete(name)` |
-| `request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
-| `request.auth` | `clear()`, `setBearer(token)`, `setBasic(username, password)`, `setApiKey(key, value, placement)` |
-| `env` | `get(name)` |
-| `run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" \| "secret" }` |
-| `crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
-| `random` | Frozen synchronous English test-data generators; see [catalog and options](#script-random-api) |
-| `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
-| `response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
-| `cookies` (post only, when available) | `get(name)`, `set(input)`, `delete(name)` |
+Noodle APIs are properties of the frozen, null-prototype `noodle` global.
+`console` and JavaScript built-ins remain global. Existing scripts must prefix
+API accesses with `noodle.`; the old bare API globals are unavailable.
 
-The existing pre APIs are unchanged. In post, request readers reflect the final
+| API | Members |
+| --- | --- |
+| `noodle.request` | `url: string` and `method: Method`; read/write in pre, read-only in post |
+| `noodle.request.headers` | `get(name)`, `has(name)`, `set(name, value)`, `delete(name)` |
+| `noodle.request.params` | `get(name)`, `getAll(name)`, `set(name, value)`, `append(name, value)`, `delete(name)` |
+| `noodle.request.body` | `text()`, `json()`, `setText(value)`, `setJson(value)`, `clear()` |
+| `noodle.request.auth` | `clear()`, `setBearer(token)`, `setBasic(username, password)`, `setApiKey(key, value, placement)` |
+| `noodle.env` | `get(name)` |
+| `noodle.run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" \| "secret" }` |
+| `noodle.crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
+| `noodle.random` | Frozen synchronous English test-data generators; see [catalog and options](#script-random-api) |
+| `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
+| `noodle.response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
+| `noodle.cookies` (post only, when available) | `get(name)`, `set(input)`, `delete(name)` |
+
+In post, request readers reflect the final
 Noodle-prepared HTTP leg after signing and cookie/header preparation: effective
 URL, method, query parameters and headers. Every request mutator, including
 URL/method assignment, centrally throws a clear read-only API error. Host
 objects, streams, Bun types and upload buffers are never exposed.
 
 Both phases may pass `{ persist: "environment" }` or `{ persist: "secret" }` to
-`run.set` and `run.unset`. Set creates or updates a stored value using capture
+`noodle.run.set` and `noodle.run.unset`. Set creates or updates a stored value using capture
 serialization; unset removes an ordinary entry or both a secret's vault value
 and declaration. CLI `secret delete` still retains its declaration. Missing
 deletions are harmless. Environment operations reject declared secrets; secret
@@ -153,7 +157,7 @@ secret values and reserved `_color` names are rejected.
 Manual sends and `request run` require an existing active environment and honor
 persistence. Collection runs and the TUI Runner apply only runtime changes and
 report persistence as transient. No options retain existing behavior.
-`env.get` keeps its initial snapshot, including resolved secrets; `run.get`
+`noodle.env.get` keeps its initial snapshot, including resolved secrets; `noodle.run.get`
 sees current staged/committed scope writes. Persistent unset suppresses the
 baseline variable for the remaining run until a successful set or capture;
 plain unset removes only the override. There is no second substitution pass.
@@ -170,19 +174,19 @@ Staging permits 100 distinct keys and a 256 KiB combined serialized intent batch
 per invocation; host storage runs outside the 500 ms VM deadline.
 
 Response header reads are case-insensitive and missing headers return null.
-Timing is milliseconds. `response.text()` lazily transfers the original VM
+Timing is milliseconds. `noodle.response.text()` lazily transfers the original VM
 string without truncation, capped at 5 MiB of UTF-8 before copying.
-`response.json()` uses the captured native VM JSON parser and caches success or
+`noodle.response.json()` uses the captured native VM JSON parser and caches success or
 failure per invocation; JSON null is preserved. The text cap applies when either
 body reader is called, not to metadata-only post processing. Invalid JSON is a
 structured `ScriptApiValidationError`. Cached JSON objects belong only to that
 invocation, not the host response or the capture/assertion resolver. Ordinary
 bridge and RunScope values still obey the 256 KiB/depth-32 limits, so extract
-small fields instead of copying an entire large response into `run.set`. VM allocation and
+small fields instead of copying an entire large response into `noodle.run.set`. VM allocation and
 deadline failures remain resource errors rather than invalid-JSON API errors;
 later invocations use fresh runtimes.
 
-`cookies` is absent when the jar is disabled/unavailable or `sendCookies: false`.
+`noodle.cookies` is absent when the jar is disabled/unavailable or `sendCookies: false`.
 Response Set-Cookie processing happens before post, even under request
 suppression. `get(name)` returns the first applicable matching value in
 tough-cookie order or null. `delete(name)` removes all applicable same-name
@@ -208,29 +212,29 @@ all case variants. Parameter names are case-sensitive. Parameter operations
 affect only enabled declarations, preserve duplicate order, leave disabled
 declarations untouched, and append new entries at the end.
 
-`body.text()` returns JSON, XML, or raw text, and returns null for absent,
-multipart, URL-encoded, or binary bodies. `body.json()` parses the current
+`noodle.request.body.text()` returns JSON, XML, or raw text, and returns null for absent,
+multipart, URL-encoded, or binary bodies. `noodle.request.body.json()` parses the current
 textual body and throws for absent or invalid JSON. `setText`, `setJson`, and
 `clear` replace incompatible body, form-data, and file fields. `setJson` stores
 compact JSON with `body_type: json`; `clear` sets `body_type: none`.
 
 Auth helpers replace the complete prepared auth config. `setApiKey` placement
-is `header` or `query`. Auth arguments, HMAC secrets, `crypto.randomBytes`
-outputs and generated passwords are known secrets. Other `random` data is
-visible by default. `env.get` reads only the selected environment and
-never RunScope overrides. `env` and `run` names match `^\w+$` and reject unsafe
-prototype names. `run.set` accepts only bounded JSON-compatible values. Crypto
+is `header` or `query`. Auth arguments, HMAC secrets, `noodle.crypto.randomBytes`
+outputs and generated passwords are known secrets. Other `noodle.random` data is
+visible by default. `noodle.env.get` reads only the selected environment and
+never RunScope overrides. `noodle.env` and `noodle.run` names match `^\w+$` and reject unsafe
+prototype names. `noodle.run.set` accepts only bounded JSON-compatible values. Crypto
 inputs are UTF-8 strings; encoding is exactly `hex` or `base64`; random size is
 an integer from 0 through 4096.
 
 ### Script random API
 
-`random` is a frozen synchronous global in both pre and post. Every generator
+`noodle.random` is a frozen synchronous API in both pre and post. Every generator
 works without arguments; `seed(value)` and `pick(values)` require one argument.
 Configurable methods accept one optional options object. Unknown fields, invalid
 types and extra arguments throw `ScriptApiValidationError` before generation.
 
-All names below use the `random.` prefix:
+All names below use the `noodle.random.` prefix:
 
 | Category | Methods |
 | --- | --- |
@@ -286,20 +290,20 @@ keys, cycles, non-finite numbers, accessors and unsupported values are rejected.
 Each invocation lazily creates an independent English/base Faker 10.5.0 instance
 with a fresh random seed. `seed` accepts an integer `0..4294967295` and resets
 only that invocation's sequence. Pre, post, different requests and concurrent
-runs never share generator state. Share generated values with `run.set` instead.
+runs never share generator state. Share generated values with `noodle.run.set` instead.
 Seeded results are reproducible within the pinned Faker version. Relative dates
 also need an explicit `refDate`; current timestamps remain clock-based.
 
 ```js
-random.seed(42);
-run.set("testUser", {
-  id: random.uuid(),
-  name: random.name(),
-  email: random.exampleEmail(),
-  age: random.number({ min: 18, max: 80 }),
-  status: random.pick(["pending", "active"]),
+noodle.random.seed(42);
+noodle.run.set("testUser", {
+  id: noodle.random.uuid(),
+  name: noodle.random.name(),
+  email: noodle.random.exampleEmail(),
+  age: noodle.random.number({ min: 18, max: 80 }),
+  status: noodle.random.pick(["pending", "active"]),
 });
-run.set("createdAt", random.dateRecent({
+noodle.run.set("createdAt", noodle.random.dateRecent({
   days: 7,
   refDate: "2026-01-01T00:00:00Z",
 }));
@@ -335,7 +339,7 @@ and dynamic imports, returned Promises, queued jobs, and other async execution
 are unsupported. Bridged objects must be plain or null-prototype JSON without
 cycles, unsafe keys, non-finite numbers, or unsupported members.
 
-Treat collections containing scripts as trusted code. `env.get` can read
+Treat collections containing scripts as trusted code. `noodle.env.get` can read
 selected-environment secrets, and a script can place them in the prepared URL,
 headers, or body that Noodle sends immediately afterward.
 
@@ -875,8 +879,8 @@ Each entry has:
 The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment, proxy, and TLS secrets; substituted and literal credentials; cookie credentials; known captured secrets; and assertion result metadata are recursively redacted from request and response history. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction at save time also covers compressed request and response sidecars. Marking or updating a secret does not rewrite existing history. Unknown server data can remain visible, so timeline files are sensitive. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
-- Average response time for a request: sum all `response.timeMs` / count
-- Success rate: count entries with `response.status` in 2xx range / total count
+- Average response time for a request: sum all `noodle.response.timeMs` / count
+- Success rate: count entries with `noodle.response.status` in 2xx range / total count
 - Recent errors: filter entries where `error` is present
 - Response size trend: compare `response.size` across entries
 - Which environment was used: `envName` on each entry

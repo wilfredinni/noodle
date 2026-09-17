@@ -75,10 +75,10 @@ describe("script random API", () => {
       const scope = new RunScope()
       const result = await run(
         `
-        random.seed(42);
-        const values = Object.fromEntries(Object.keys(random).filter(key => key !== "seed" && key !== "pick").map(key => [key, random[key]()]));
-        run.set("values", values);
-        run.set("surface", { names: Object.keys(random), frozen: Object.isFrozen(random), methodsFrozen: Object.values(random).every(Object.isFrozen), nullPrototype: Object.getPrototypeOf(random) === null });
+        noodle.random.seed(42);
+        const values = Object.fromEntries(Object.keys(noodle.random).filter(key => key !== "seed" && key !== "pick").map(key => [key, noodle.random[key]()]));
+        noodle.run.set("values", values);
+        noodle.run.set("surface", { names: Object.keys(noodle.random), frozen: Object.isFrozen(noodle.random), methodsFrozen: Object.values(noodle.random).every(Object.isFrozen), nullPrototype: Object.getPrototypeOf(noodle.random) === null });
       `,
         scope,
         phase,
@@ -142,14 +142,16 @@ describe("script random API", () => {
       expect(result.secretValues).not.toContain(values.id as string)
     }
     expect(
-      SCRIPT_API_CONTRACT.filter((d) => d.global === "random" && d.member).map(
-        (d) => d.member,
-      ),
+      SCRIPT_API_CONTRACT.filter(
+        (d) => d.global === "noodle" && d.member.startsWith("random."),
+      ).map((d) => d.member.slice("random.".length)),
     ).toEqual(names)
     expect(
-      SCRIPT_API_CONTRACT.filter((d) => d.global === "random").every(
-        (d) => d.phases.join() === "pre,post",
-      ),
+      SCRIPT_API_CONTRACT.filter(
+        (d) =>
+          d.global === "noodle" &&
+          (d.member === "random" || d.member.startsWith("random.")),
+      ).every((d) => d.phases.join() === "pre,post"),
     ).toBe(true)
   })
 
@@ -158,15 +160,15 @@ describe("script random API", () => {
     const before = Date.now()
     const execution = await run(
       `
-      random.seed(0);
+      noodle.random.seed(0);
       const original = [{ nested: { value: 1 } }];
-      const picked = random.pick(original); picked.nested.value = 2;
-      run.set("options", {
-        integer: random.number({min: -7, max: -7}), float: random.float({min: 3.25, max: 3.25, fractionDigits: 2}), price: random.price({min: 12, max: 12, fractionDigits: 3}),
-        lengths: [random.id({length: 4096}), random.nanoId({length: 1}), random.password({length: 1}), random.alphaNumeric({length: 7}), random.bankAccount({length: 11})].map(value => value.length),
-        words: random.words({count: 4}), loremWords: random.loremWords({count: 5}), sentence: random.loremSentence({count: 3}), sentences: random.loremSentences({count: 2}), paragraph: random.loremParagraph({count: 2}), paragraphs: random.loremParagraphs({count: 2}), lines: random.loremLines({count: 2}), slug: random.loremSlug({count: 4}),
-        image: random.imageUrl({width: 128, height: 256}), svg: random.imageDataUri({width: 128, height: 256}),
-        picked, original, null: random.pick([null]), boolean: random.pick([true]), timestamp: random.timestamp(), iso: random.isoTimestamp(), seed: typeof random.seed(4294967295)
+      const picked = noodle.random.pick(original); picked.nested.value = 2;
+      noodle.run.set("options", {
+        integer: noodle.random.number({min: -7, max: -7}), float: noodle.random.float({min: 3.25, max: 3.25, fractionDigits: 2}), price: noodle.random.price({min: 12, max: 12, fractionDigits: 3}),
+        lengths: [noodle.random.id({length: 4096}), noodle.random.nanoId({length: 1}), noodle.random.password({length: 1}), noodle.random.alphaNumeric({length: 7}), noodle.random.bankAccount({length: 11})].map(value => value.length),
+        words: noodle.random.words({count: 4}), loremWords: noodle.random.loremWords({count: 5}), sentence: noodle.random.loremSentence({count: 3}), sentences: noodle.random.loremSentences({count: 2}), paragraph: noodle.random.loremParagraph({count: 2}), paragraphs: noodle.random.loremParagraphs({count: 2}), lines: noodle.random.loremLines({count: 2}), slug: noodle.random.loremSlug({count: 4}),
+        image: noodle.random.imageUrl({width: 128, height: 256}), svg: noodle.random.imageDataUri({width: 128, height: 256}),
+        picked, original, null: noodle.random.pick([null]), boolean: noodle.random.pick([true]), timestamp: noodle.random.timestamp(), iso: noodle.random.isoTimestamp(), seed: typeof noodle.random.seed(4294967295)
       });
     `,
       scope,
@@ -219,21 +221,21 @@ describe("script random API", () => {
     const scope = new RunScope()
     const result = await run(
       `
-      random.seed(4294967295);
+      noodle.random.seed(4294967295);
       for (const name of ["id", "alphaNumeric", "nanoId", "password", "bankAccount"])
-        if (random[name]({length: 4096}).length !== 4096) throw Error(name);
+        if (noodle.random[name]({length: 4096}).length !== 4096) throw Error(name);
       for (const name of ["words", "loremWords", "loremSentence", "loremSentences", "loremParagraph", "loremParagraphs", "loremSlug", "loremLines"])
-        if (!random[name]({count: 100})) throw Error(name);
-      run.set("bounds", {
-        integer: random.number({min: -9007199254740991, max: -9007199254740991}),
-        float: random.float({min: 0, max: 0, fractionDigits: 15}),
-        price: random.price({min: -7, max: -7, fractionDigits: 15}),
-        past: random.datePast({years: 100, refDate: "2026-01-01T00:00:00Z"}),
-        future: random.dateFuture({years: 100, refDate: "2026-01-01T00:00:00Z"}),
-        recent: random.dateRecent({days: 36500, refDate: "2026-01-01T00:00:00Z"}),
-        image: random.imageUrl({width: 4096, height: 1}),
-        svg: random.imageDataUri({width: 1, height: 4096}),
-        pick: random.pick(Array(1000).fill("same")),
+        if (!noodle.random[name]({count: 100})) throw Error(name);
+      noodle.run.set("bounds", {
+        integer: noodle.random.number({min: -9007199254740991, max: -9007199254740991}),
+        float: noodle.random.float({min: 0, max: 0, fractionDigits: 15}),
+        price: noodle.random.price({min: -7, max: -7, fractionDigits: 15}),
+        past: noodle.random.datePast({years: 100, refDate: "2026-01-01T00:00:00Z"}),
+        future: noodle.random.dateFuture({years: 100, refDate: "2026-01-01T00:00:00Z"}),
+        recent: noodle.random.dateRecent({days: 36500, refDate: "2026-01-01T00:00:00Z"}),
+        image: noodle.random.imageUrl({width: 4096, height: 1}),
+        svg: noodle.random.imageDataUri({width: 1, height: 4096}),
+        pick: noodle.random.pick(Array(1000).fill("same")),
       });
     `,
       scope,
@@ -271,19 +273,19 @@ describe("script random API", () => {
       "pick",
     ])
     for (const name of names.filter((name) => !options.has(name)))
-      expect((await run(`random.${name}({});`)).result.error?.name).toBe(
+      expect((await run(`noodle.random.${name}({});`)).result.error?.name).toBe(
         "ScriptApiValidationError",
       )
     for (const source of [
-      "const a=[]; a.push(a); random.pick(a);",
-      "random.pick([,]);",
-      "let a=0; for(let i=0;i<33;i++) a={value:a}; random.pick([a]);",
-      "random.pick([new Date()]);",
-      "random.pick([() => 1]);",
-      "random.pick([1], 2);",
-      "random.number(undefined);",
-      "random.id({length: 1.5});",
-      'random.datePast({refDate: "2026-01-01T00:00:00+25:00"});',
+      "const a=[]; a.push(a); noodle.random.pick(a);",
+      "noodle.random.pick([,]);",
+      "let a=0; for(let i=0;i<33;i++) a={value:a}; noodle.random.pick([a]);",
+      "noodle.random.pick([new Date()]);",
+      "noodle.random.pick([() => 1]);",
+      "noodle.random.pick([1], 2);",
+      "noodle.random.number(undefined);",
+      "noodle.random.id({length: 1.5});",
+      'noodle.random.datePast({refDate: "2026-01-01T00:00:00+25:00"});',
     ])
       expect((await run(source)).result.error?.name).toBe(
         "ScriptApiValidationError",
@@ -291,7 +293,7 @@ describe("script random API", () => {
   })
 
   it("reproduces sequences and fixed dates without sharing state between phases or invocations", async () => {
-    const source = `random.seed(42); run.set("sequence", [random.uuid(), random.name(), random.number(), random.datePast({years: 2, refDate: "2026-01-01T00:00:00Z"}), random.dateFuture({refDate: "2026-01-01T00:00:00+00:00"}), random.dateRecent({days: 7, refDate: "2026-01-01T00:00:00Z"}), random.pick([1, 2, 3])]);`
+    const source = `noodle.random.seed(42); noodle.run.set("sequence", [noodle.random.uuid(), noodle.random.name(), noodle.random.number(), noodle.random.datePast({years: 2, refDate: "2026-01-01T00:00:00Z"}), noodle.random.dateFuture({refDate: "2026-01-01T00:00:00+00:00"}), noodle.random.dateRecent({days: 7, refDate: "2026-01-01T00:00:00Z"}), noodle.random.pick([1, 2, 3])]);`
     const scopes = Array.from({ length: 4 }, () => new RunScope())
     const results = await Promise.all(
       scopes.map((scope, index) =>
@@ -313,15 +315,18 @@ describe("script random API", () => {
     expect(
       (
         await run(
-          `random.seed(42); const first = random.uuid(); random.uuid(); random.seed(42); run.set("same", first === random.uuid());`,
+          `noodle.random.seed(42); const first = noodle.random.uuid(); noodle.random.uuid(); noodle.random.seed(42); noodle.run.set("same", first === noodle.random.uuid());`,
           scope,
         )
       ).result.success,
     ).toBe(true)
     expect(scope.get("same")).toBe(true)
     const shared = new RunScope()
-    await run('random.seed(42); run.set("preId", random.uuid());', shared)
-    await run('run.set("postId", random.uuid());', shared, "post")
+    await run(
+      'noodle.random.seed(42); noodle.run.set("preId", noodle.random.uuid());',
+      shared,
+    )
+    await run('noodle.run.set("postId", noodle.random.uuid());', shared, "post")
     expect(shared.get("postId")).not.toBe(shared.get("preId"))
   })
 
@@ -388,14 +393,15 @@ describe("script random API", () => {
     for (const expression of invalid) {
       const scope = new RunScope()
       const result = await run(
-        `run.set("staged", true); random.${expression};`,
+        `noodle.run.set("staged", true); noodle.random.${expression};`,
         scope,
       )
       expect(result.result.error?.name).toBe("ScriptApiValidationError")
       expect(scope.get("staged")).toBeUndefined()
     }
     expect(
-      (await run('run.set("recovered", random.uuid());')).result.success,
+      (await run('noodle.run.set("recovered", noodle.random.uuid());')).result
+        .success,
     ).toBe(true)
   })
 
@@ -404,7 +410,7 @@ describe("script random API", () => {
       for (const fail of [false, true]) {
         const scope = new RunScope()
         const result = await run(
-          `random.seed(42); const password = random.password(); const id = random.id(); run.set("password", password); console.log(password); console.log(id); ${fail ? "throw Error(password)" : ""}`,
+          `noodle.random.seed(42); const password = noodle.random.password(); const id = noodle.random.id(); noodle.run.set("password", password); console.log(password); console.log(id); ${fail ? "throw Error(password)" : ""}`,
           scope,
           phase,
         )

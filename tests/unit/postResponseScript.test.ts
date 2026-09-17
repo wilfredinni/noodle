@@ -51,12 +51,12 @@ describe("post-response sandbox", () => {
   it("reads metadata, headers, final request readers and isolated frozen APIs", async () => {
     const scope = new RunScope()
     const result = await runPost(
-      `run.set("read", {
-      status: response.status, statusText: response.statusText, time: response.timeMs,
-      header: response.headers.get("CONTENT-type"), exists: response.headers.has("x-TEST"), missing: response.headers.get("missing"),
-      url: request.url, method: request.method, requestHeader: request.headers.get("x-read"), param: request.params.get("x"), body: request.body.json(),
-      frozen: Object.isFrozen(response) && Object.isFrozen(response.headers), nullPrototype: Object.getPrototypeOf(response) === null,
-      cookies: typeof cookies, host: [typeof Bun, typeof fetch, typeof process]
+      `noodle.run.set("read", {
+      status: noodle.response.status, statusText: noodle.response.statusText, time: noodle.response.timeMs,
+      header: noodle.response.headers.get("CONTENT-type"), exists: noodle.response.headers.has("x-TEST"), missing: noodle.response.headers.get("missing"),
+      url: noodle.request.url, method: noodle.request.method, requestHeader: noodle.request.headers.get("x-read"), param: noodle.request.params.get("x"), body: noodle.request.body.json(),
+      frozen: Object.isFrozen(noodle.response) && Object.isFrozen(noodle.response.headers), nullPrototype: Object.getPrototypeOf(noodle.response) === null,
+      cookies: typeof noodle.cookies, host: [typeof Bun, typeof fetch, typeof process]
     });`,
       response.body,
       scope,
@@ -86,7 +86,7 @@ describe("post-response sandbox", () => {
     expect(
       (
         await runPost(
-          `JSON.parse = () => { throw Error("tampered") }; const first = response.json(); first.id = 9; run.set("cached", response.json() === first); run.set("id", response.json().id);`,
+          `JSON.parse = () => { throw Error("tampered") }; const first = noodle.response.json(); first.id = 9; noodle.run.set("cached", noodle.response.json() === first); noodle.run.set("id", noodle.response.json().id);`,
           response.body,
           scope,
         )
@@ -98,7 +98,7 @@ describe("post-response sandbox", () => {
     expect(
       (
         await runPost(
-          `run.set("null_value", response.json()); if (response.json() !== null) throw Error("cache");`,
+          `noodle.run.set("null_value", noodle.response.json()); if (noodle.response.json() !== null) throw Error("cache");`,
           "null",
           scope,
         )
@@ -108,7 +108,7 @@ describe("post-response sandbox", () => {
     expect(
       (
         await runPost(
-          `let errors = []; for (let i=0;i<2;i++) { try { response.json() } catch (e) { errors.push(e.name + ":" + e.message) } } run.set("errors", errors);`,
+          `let errors = []; for (let i=0;i<2;i++) { try { noodle.response.json() } catch (e) { errors.push(e.name + ":" + e.message) } } noodle.run.set("errors", errors);`,
           "invalid",
           scope,
         )
@@ -118,12 +118,12 @@ describe("post-response sandbox", () => {
       Array(2).fill("ScriptApiValidationError:response body is not valid JSON"),
     )
     expect(
-      (await runPost("response.json()", "invalid")).result.error,
+      (await runPost("noodle.response.json()", "invalid")).result.error,
     ).toMatchObject({ name: "ScriptApiValidationError", line: 1 })
     expect(
       (
         await runPost(
-          `if (response.json().id !== 7) throw Error("leaked cache")`,
+          `if (noodle.response.json().id !== 7) throw Error("leaked cache")`,
         )
       ).result.success,
     ).toBe(true)
@@ -131,25 +131,25 @@ describe("post-response sandbox", () => {
 
   it("centrally rejects every request mutator and rolls back only staged run values", async () => {
     for (const mutation of [
-      `request.url = "https://elsewhere.test"`,
-      `request.method = "POST"`,
-      `request.headers.set("x", "y")`,
-      `request.headers.delete("x")`,
-      `request.params.set("x", "y")`,
-      `request.params.append("x", "y")`,
-      `request.params.delete("x")`,
-      `request.body.setText("x")`,
-      `request.body.setJson({x:1})`,
-      `request.body.clear()`,
-      `request.auth.clear()`,
-      `request.auth.setBearer("x")`,
-      `request.auth.setBasic("x", "y")`,
-      `request.auth.setApiKey("x", "y", "header")`,
+      `noodle.request.url = "https://elsewhere.test"`,
+      `noodle.request.method = "POST"`,
+      `noodle.request.headers.set("x", "y")`,
+      `noodle.request.headers.delete("x")`,
+      `noodle.request.params.set("x", "y")`,
+      `noodle.request.params.append("x", "y")`,
+      `noodle.request.params.delete("x")`,
+      `noodle.request.body.setText("x")`,
+      `noodle.request.body.setJson({x:1})`,
+      `noodle.request.body.clear()`,
+      `noodle.request.auth.clear()`,
+      `noodle.request.auth.setBearer("x")`,
+      `noodle.request.auth.setBasic("x", "y")`,
+      `noodle.request.auth.setApiKey("x", "y", "header")`,
     ]) {
       const scope = new RunScope()
       scope.set("prior", 1)
       const result = await runPost(
-        `console.log("before"); run.set("prior", 2); run.set("staged", 1); ${mutation}`,
+        `console.log("before"); noodle.run.set("prior", 2); noodle.run.set("staged", 1); ${mutation}`,
         response.body,
         scope,
       )
@@ -178,7 +178,7 @@ describe("post-response sandbox", () => {
       expect(
         (
           await runPost(
-            `run.set("length", response.text().length); if (response.text() !== response.text()) throw Error("cache")`,
+            `noodle.run.set("length", noodle.response.text().length); if (noodle.response.text() !== noodle.response.text()) throw Error("cache")`,
             body,
             scope,
           )
@@ -191,21 +191,23 @@ describe("post-response sandbox", () => {
     expect(
       (
         await runPost(
-          `if (response.json().padding.length !== ${limit - 14}) throw Error("truncated")`,
+          `if (noodle.response.json().padding.length !== ${limit - 14}) throw Error("truncated")`,
           json,
         )
       ).result.success,
     ).toBe(true)
     for (const body of ["x".repeat(limit + 1), "😀".repeat(limit / 4) + "é"]) {
       expect(
-        (await runPost("response.text()", body)).result.error?.message,
+        (await runPost("noodle.response.text()", body)).result.error?.message,
       ).toContain(`exceeds ${limit} bytes`)
-      expect((await runPost("response.status", body)).result.success).toBe(true)
+      expect(
+        (await runPost("noodle.response.status", body)).result.success,
+      ).toBe(true)
     }
     expect(
       (
         await runPost(
-          "run.set('large', response.text())",
+          "noodle.run.set('large', noodle.response.text())",
           "x".repeat(256 * 1024),
         )
       ).result.success,
@@ -215,9 +217,9 @@ describe("post-response sandbox", () => {
   it("recovers after post memory and deadline failures with fixed WASM memory", async () => {
     const hostileJson = "[" + "{},".repeat(1_000_000) + "{}]"
     expect(
-      (await runPost("response.json()", hostileJson)).result.error?.name,
+      (await runPost("noodle.response.json()", hostileJson)).result.error?.name,
     ).toBe("ScriptMemoryLimitError")
-    expect((await runPost("response.json()")).result.success).toBe(true)
+    expect((await runPost("noodle.response.json()")).result.success).toBe(true)
     for (const source of [
       `const a=[]; while(true) a.push("x".repeat(1024*1024));`,
       `while(true) {}`,
@@ -228,8 +230,11 @@ describe("post-response sandbox", () => {
         /Script(?:MemoryLimit|Timeout)Error/,
       )
       expect(
-        (await runPost(`if (response.json().id !== 7) throw Error("recovery")`))
-          .result.success,
+        (
+          await runPost(
+            `if (noodle.response.json().id !== 7) throw Error("recovery")`,
+          )
+        ).result.success,
       ).toBe(true)
       expect(scriptWasmMemoryForTests().buffer.byteLength).toBe(
         64 * 1024 * 1024,

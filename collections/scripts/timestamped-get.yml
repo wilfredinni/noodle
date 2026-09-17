@@ -7,10 +7,10 @@ maxRedirects: 5
 scripts:
   pre: |-
     const timestamp = new Date().toISOString();
-    request.headers.set("X-Noodle-Timestamp", timestamp);
-    request.headers.set(
+    noodle.request.headers.set("X-Noodle-Timestamp", timestamp);
+    noodle.request.headers.set(
       "X-Noodle-Digest",
-      crypto.sha256(timestamp + ":" + request.url, "hex"),
+      noodle.crypto.sha256(timestamp + ":" + noodle.request.url, "hex"),
     );
     console.info("Added timestamp and request digest");
 assert:

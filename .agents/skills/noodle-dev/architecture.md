@@ -424,13 +424,13 @@ VM JSON parsing and explicit success/failure caching that preserves null.
 Ordinary bridge/RunScope limits remain 256 KiB and depth 32. Expose no host
 objects, streams, upload buffers, or Bun types.
 
-Both phases stage optional persistence intents through `run.set/unset`.
+Both phases stage optional persistence intents through `noodle.run.set/unset`.
 The shared lifecycle flushes successful pre batches before HTTP, then existing
 capture persistence before successful post batches. Manual sends and
 `request run` inject the environment/capture storage helpers; collection runs
 and Runner report transient suppression. Storage failures retain runtime and
 cookie commits but fail overall script diagnostics. Persistent unset suppresses
-baseline variables until a later set/capture; `env.get` remains a snapshot.
+baseline variables until a later set/capture; `noodle.env.get` remains a snapshot.
 Each environment's script batches serialize in-process, reuse atomic saves and
 vault rollback, and load unresolved values to prevent plaintext secret copying.
 

@@ -123,15 +123,15 @@ describe("script persistence", () => {
     await save(
       request({
         pre: `
-        if (env.get("KEEP") !== "unchanged") throw Error("read");
-        run.set("VALUE", "pre", { persist: "environment" });
-        run.set("DISABLED", true, { persist: "environment" });
-        run.unset("REMOVE", { persist: "environment" });
+        if (noodle.env.get("KEEP") !== "unchanged") throw Error("read");
+        noodle.run.set("VALUE", "pre", { persist: "environment" });
+        noodle.run.set("DISABLED", true, { persist: "environment" });
+        noodle.run.unset("REMOVE", { persist: "environment" });
       `,
         post: `
-        if (env.get("REMOVE") !== "baseline" || run.get("VALUE") !== "pre") throw Error("snapshot");
-        run.set("VALUE", { count: 2 }, { persist: "environment" });
-        run.unset("ABSENT", { persist: "environment" });
+        if (noodle.env.get("REMOVE") !== "baseline" || noodle.run.get("VALUE") !== "pre") throw Error("snapshot");
+        noodle.run.set("VALUE", { count: 2 }, { persist: "environment" });
+        noodle.run.unset("ABSENT", { persist: "environment" });
       `,
       }),
     )
@@ -159,7 +159,7 @@ describe("script persistence", () => {
   it("creates, updates, reads and fully removes secrets without plaintext storage", async () => {
     await save(
       request({
-        pre: 'run.set("KEEP", "first-secret", { persist: "secret" })',
+        pre: 'noodle.run.set("KEEP", "first-secret", { persist: "secret" })',
       }),
     )
     expect((await run()).ok).toBe(true)
@@ -169,9 +169,9 @@ describe("script persistence", () => {
     await save(
       request({
         post: `
-      if (env.get("KEEP") !== "first-secret") throw Error("secret read");
-      run.set("KEEP", response.json().token, { persist: "secret" });
-      console.log(response.json().token);
+      if (noodle.env.get("KEEP") !== "first-secret") throw Error("secret read");
+      noodle.run.set("KEEP", noodle.response.json().token, { persist: "secret" });
+      console.log(noodle.response.json().token);
     `,
       }),
     )
@@ -182,8 +182,8 @@ describe("script persistence", () => {
     expect(JSON.stringify(updated)).not.toContain("response-secret")
     await save(
       request({
-        pre: 'run.unset("KEEP", { persist: "secret" })',
-        post: 'run.unset("MISSING", { persist: "secret" })',
+        pre: 'noodle.run.unset("KEEP", { persist: "secret" })',
+        post: 'noodle.run.unset("MISSING", { persist: "secret" })',
       }),
     )
     expect((await run()).ok).toBe(true)
@@ -195,7 +195,7 @@ describe("script persistence", () => {
     await writeFile(file(), "# @secret TOKEN\n# TOKEN=\nKEEP=unchanged\n")
     await setStoredSecret(dir, "dev", "TOKEN", "old")
     await save(
-      request({ pre: 'run.set("TOKEN", "new", { persist: "secret" })' }),
+      request({ pre: 'noodle.run.set("TOKEN", "new", { persist: "secret" })' }),
     )
     expect((await run()).ok).toBe(true)
     expect(await readFile(file(), "utf8")).toContain(
@@ -203,20 +203,22 @@ describe("script persistence", () => {
     )
     await secretDelete("TOKEN", "dev", dir)
     expect(await readFile(file(), "utf8")).toContain("# @secret TOKEN")
-    await save(request({ post: 'run.unset("TOKEN", { persist: "secret" })' }))
+    await save(
+      request({ post: 'noodle.run.unset("TOKEN", { persist: "secret" })' }),
+    )
     expect((await run()).ok).toBe(true)
     expect(await readFile(file(), "utf8")).not.toContain("TOKEN")
   })
 
   it("saves pre, then captured snapshots, then explicit post intents", async () => {
     for (const post of [
-      'run.set("VALUE", "post", { persist: "environment" }); run.set("VALUE", "transient")',
-      'run.unset("VALUE", { persist: "environment" })',
-      'run.set("VALUE", "transient")',
-      'run.set("VALUE", "failed", { persist: "environment" }); throw Error("post failed")',
+      'noodle.run.set("VALUE", "post", { persist: "environment" }); noodle.run.set("VALUE", "transient")',
+      'noodle.run.unset("VALUE", { persist: "environment" })',
+      'noodle.run.set("VALUE", "transient")',
+      'noodle.run.set("VALUE", "failed", { persist: "environment" }); throw Error("post failed")',
     ]) {
       const req = request({
-        pre: 'run.set("VALUE", "pre", { persist: "environment" })',
+        pre: 'noodle.run.set("VALUE", "pre", { persist: "environment" })',
         post,
       })
       req.captures = {
@@ -235,7 +237,8 @@ describe("script persistence", () => {
       })
       expect(result.assertions?.results[0]?.passed).toBe(true)
       const saved = await env.loadEnvironment(directory(), "dev")
-      if (post.includes("run.unset")) expect(saved.vars.VALUE).toBeUndefined()
+      if (post.includes("noodle.run.unset"))
+        expect(saved.vars.VALUE).toBeUndefined()
       else
         expect(saved.vars.VALUE).toBe(
           post.includes('"post"') ? "post" : "capture-value",
@@ -247,13 +250,15 @@ describe("script persistence", () => {
   it("keeps runners transient and suppresses deleted baseline values until a capture replaces them", async () => {
     await save(
       request({
-        pre: 'run.unset("REMOVE", { persist: "environment" }); run.set("VALUE", "runner-secret", { persist: "secret" })',
-        post: 'if (run.get("REMOVE") !== undefined) throw Error("unset"); run.set("VALUE", "public")',
+        pre: 'noodle.run.unset("REMOVE", { persist: "environment" }); noodle.run.set("VALUE", "runner-secret", { persist: "secret" })',
+        post: 'if (noodle.run.get("REMOVE") !== undefined) throw Error("unset"); noodle.run.set("VALUE", "public")',
       }),
     )
     await save({
       ...request(
-        { pre: 'console.log(env.get("REMOVE")); console.log("runner-secret")' },
+        {
+          pre: 'console.log(noodle.env.get("REMOVE")); console.log("runner-secret")',
+        },
         "second",
       ),
       captures: { REMOVE: { value: "body.value", enabled: true } },
@@ -296,10 +301,10 @@ describe("script persistence", () => {
       const result = await send(
         request({
           pre: `
-        run.set("PUBLIC", "runtime", { persist: "environment" });
-        run.set("TOKEN", "new-secret", { persist: "secret" });
+        noodle.run.set("PUBLIC", "runtime", { persist: "environment" });
+        noodle.run.set("TOKEN", "new-secret", { persist: "secret" });
       `,
-          post: 'console.log(run.get("PUBLIC")); console.log(run.get("TOKEN"))',
+          post: 'console.log(noodle.run.get("PUBLIC")); console.log(noodle.run.get("TOKEN"))',
         }),
         scope,
       )
@@ -324,8 +329,8 @@ describe("script persistence", () => {
     rejectValue = "reject-secret"
     await save(
       request({
-        pre: 'run.set("TOKEN", "reject-secret", { persist: "secret" })',
-        post: 'console.log(run.get("TOKEN"))',
+        pre: 'noodle.run.set("TOKEN", "reject-secret", { persist: "secret" })',
+        post: 'console.log(noodle.run.get("TOKEN"))',
       }),
     )
     const rejected = await run()
@@ -342,7 +347,7 @@ describe("script persistence", () => {
     try {
       await save(
         request({
-          post: 'run.set("TOKEN", "new-secret", { persist: "secret" })',
+          post: 'noodle.run.set("TOKEN", "new-secret", { persist: "secret" })',
         }),
       )
       const result = await run()
@@ -360,9 +365,9 @@ describe("script persistence", () => {
     await writeFile(file(), "KEEP=unchanged\n# @secret TOKEN\nTOKEN=\n")
     await setStoredSecret(dir, "dev", "TOKEN", "old-secret")
     for (const source of [
-      'run.set("TOKEN", "public", { persist: "environment" })',
-      'run.unset("TOKEN", { persist: "environment" })',
-      'run.unset("KEEP", { persist: "secret" })',
+      'noodle.run.set("TOKEN", "public", { persist: "environment" })',
+      'noodle.run.unset("TOKEN", { persist: "environment" })',
+      'noodle.run.unset("KEEP", { persist: "secret" })',
     ]) {
       await save(request({ post: source }))
       const result = await run()
@@ -377,7 +382,7 @@ describe("script persistence", () => {
   it("reports missing environments and combines pre persistence errors with transport failures", async () => {
     await save(
       request({
-        pre: 'run.set("VALUE", "runtime", { persist: "environment" })',
+        pre: 'noodle.run.set("VALUE", "runtime", { persist: "environment" })',
       }),
     )
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
@@ -389,7 +394,7 @@ describe("script persistence", () => {
       "no active environment",
     )
     const req = request({
-      pre: 'run.set("VALUE", "runtime", { persist: "environment" })',
+      pre: 'noodle.run.set("VALUE", "runtime", { persist: "environment" })',
     })
     await save(req)
     server.stop(true)
@@ -411,7 +416,7 @@ describe("script persistence", () => {
   it("discards failed VM intents but preserves pre saves across later failures", async () => {
     await save(
       request({
-        pre: 'run.set("VALUE", "discarded", { persist: "environment" }); throw Error("pre failed")',
+        pre: 'noodle.run.set("VALUE", "discarded", { persist: "environment" }); throw Error("pre failed")',
       }),
     )
     expect((await run()).ok).toBe(false)
@@ -419,7 +424,7 @@ describe("script persistence", () => {
     expect(await readFile(file(), "utf8")).not.toContain("VALUE")
     await save(
       request({
-        pre: 'run.set("VALUE", "saved", { persist: "environment" })',
+        pre: 'noodle.run.set("VALUE", "saved", { persist: "environment" })',
         post: 'throw Error("post failed")',
       }),
     )
@@ -521,7 +526,7 @@ describe("script persistence", () => {
           pre: Array.from(
             { length: 8 },
             (_, key) =>
-              `run.set("PROCESS_${index}_${key}", "${index}:${key}", { persist: "environment" });`,
+              `noodle.run.set("PROCESS_${index}_${key}", "${index}:${key}", { persist: "environment" });`,
           ).join("\n"),
         },
         `process-${index}`,
@@ -574,8 +579,8 @@ describe("script persistence", () => {
     try {
       const req = request({
         post: `
-        cookies.set({ name: "session", value: "cookie-secret" });
-        run.set("TOKEN", "post-secret", { persist: "secret" });
+        noodle.cookies.set({ name: "session", value: "cookie-secret" });
+        noodle.run.set("TOKEN", "post-secret", { persist: "secret" });
       `,
       })
       req.assertions = [
@@ -611,7 +616,7 @@ describe("script persistence", () => {
 
   it("collects script, HTTP, capture and assertion failures together", async () => {
     const req = request({
-      post: 'run.set("VALUE", "runtime", { persist: "environment" })',
+      post: 'noodle.run.set("VALUE", "runtime", { persist: "environment" })',
     })
     req.url += "http-error"
     req.captures = { missing: { value: "body.absent", enabled: true } }
@@ -638,8 +643,8 @@ describe("script persistence", () => {
     const scope = new RunScope()
     const first = await send(
       request({
-        pre: 'run.set("TOKEN", "response-secret", { persist: "secret" })',
-        post: 'run.unset("TOKEN", { persist: "secret" }); console.log("response-secret")',
+        pre: 'noodle.run.set("TOKEN", "response-secret", { persist: "secret" })',
+        post: 'noodle.run.unset("TOKEN", { persist: "secret" }); console.log("response-secret")',
       }),
       scope,
     )
