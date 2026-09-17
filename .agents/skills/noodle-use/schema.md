@@ -879,8 +879,8 @@ Each entry has:
 The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment, proxy, and TLS secrets; substituted and literal credentials; cookie credentials; known captured secrets; and assertion result metadata are recursively redacted from request and response history. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction at save time also covers compressed request and response sidecars. Marking or updating a secret does not rewrite existing history. Unknown server data can remain visible, so timeline files are sensitive. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
-- Average response time for a request: sum all `noodle.response.timeMs` / count
-- Success rate: count entries with `noodle.response.status` in 2xx range / total count
+- Average response time for a request: sum all `response.timeMs` / count
+- Success rate: count entries with `response.status` in 2xx range / total count
 - Recent errors: filter entries where `error` is present
 - Response size trend: compare `response.size` across entries
 - Which environment was used: `envName` on each entry

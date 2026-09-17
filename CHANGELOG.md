@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+All notable changes to Noodle are documented in this file.
+
+## [Unreleased]
 
 ### Breaking changes
 
@@ -10,10 +12,6 @@
   accesses. The previous bare API globals are removed; `console` and JavaScript
   built-ins remain global. Execution phases, mutations, persistence, and sandbox
   limits retain their existing behavior.
-
-All notable changes to Noodle are documented in this file.
-
-## [Unreleased]
 
 ## [0.9.0] - 2026-09-16
 

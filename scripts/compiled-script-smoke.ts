@@ -18,6 +18,9 @@ method: GET
 url: https://example.com
 scripts:
   pre: |-
+    noodle.random.seed(42);
+    if (noodle.random.uuid() !== "5fb9220d-9b0f-4d32-a248-6492457c3890")
+      throw new Error("compiled-faker-seed-failed");
     noodle.run.set("id", noodle.crypto.randomBytes(8, "hex"));
     noodle.request.headers.set("X-Request-ID", noodle.run.get("id"));
     throw new Error("${marker}")
