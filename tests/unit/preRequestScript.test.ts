@@ -33,12 +33,12 @@ describe("pre-request script sandbox", () => {
     }
     const execution = await runPreRequestScript(
       `
-      run.set("VALUE", { count: 1 }, { persist: "environment" });
-      run.set("VALUE", 2);
-      run.set("TOKEN", "new-secret", { persist: "secret" });
-      run.set("TOKEN", "public");
-      run.unset("REMOVE", { persist: "environment" });
-      if (env.get("REMOVE") !== "baseline" || run.get("REMOVE") !== undefined) throw Error("read semantics");
+      noodle.run.set("VALUE", { count: 1 }, { persist: "environment" });
+      noodle.run.set("VALUE", 2);
+      noodle.run.set("TOKEN", "new-secret", { persist: "secret" });
+      noodle.run.set("TOKEN", "public");
+      noodle.run.unset("REMOVE", { persist: "environment" });
+      if (noodle.env.get("REMOVE") !== "baseline" || noodle.run.get("REMOVE") !== undefined) throw Error("read semantics");
     `,
       request(),
       environment,
@@ -75,9 +75,9 @@ describe("pre-request script sandbox", () => {
       const scope = new RunScope()
       const execution = await runPreRequestScript(
         `
-        run.set("KEY", "first", { persist: "environment" });
-        run.unset("KEY", { persist: "environment" });
-        run.set("KEY", "latest", { persist: "secret" });
+        noodle.run.set("KEY", "first", { persist: "environment" });
+        noodle.run.unset("KEY", { persist: "environment" });
+        noodle.run.set("KEY", "latest", { persist: "secret" });
         console.log("latest");
       ${suffix}`,
         request(),
@@ -104,15 +104,15 @@ describe("pre-request script sandbox", () => {
 
   it("validates persistence options and bounds keys and aggregate values", async () => {
     for (const source of [
-      'run.set("KEY", 1, {})',
-      'run.set("KEY", 1, { persist: "wrong" })',
-      'run.set("KEY", 1, { persist: "secret", extra: true })',
-      'run.unset("KEY", null)',
-      'run.set("_color", "red", { persist: "environment" })',
-      'run.set("KEY", "", { persist: "secret" })',
-      'for (let i = 0; i < 101; i++) run.set("key" + i, 1, { persist: "environment" })',
-      'run.set("a", "x".repeat(140000), { persist: "environment" }); run.set("b", "y".repeat(140000), { persist: "environment" })',
-      'run.set("KEY", "secret", { persist: "secret" }); while(true) {}',
+      'noodle.run.set("KEY", 1, {})',
+      'noodle.run.set("KEY", 1, { persist: "wrong" })',
+      'noodle.run.set("KEY", 1, { persist: "secret", extra: true })',
+      'noodle.run.unset("KEY", null)',
+      'noodle.run.set("_color", "red", { persist: "environment" })',
+      'noodle.run.set("KEY", "", { persist: "secret" })',
+      'for (let i = 0; i < 101; i++) noodle.run.set("key" + i, 1, { persist: "environment" })',
+      'noodle.run.set("a", "x".repeat(140000), { persist: "environment" }); noodle.run.set("b", "y".repeat(140000), { persist: "environment" })',
+      'noodle.run.set("KEY", "secret", { persist: "secret" }); while(true) {}',
     ]) {
       const scope = new RunScope()
       const execution = await runPreRequestScript(
@@ -137,9 +137,13 @@ describe("pre-request script sandbox", () => {
           ? [path, ...members(value[key], path)]
           : [path];
       });
-      run.set("surface", {
-        globals: ["request", "env", "run", "crypto", "console"].map(name => [name, members(globalThis[name])]),
-        frozen: [request, request.headers, request.params, request.body, request.auth, env, run, crypto, console].every(Object.isFrozen),
+      noodle.run.set("surface", {
+        globals: ["noodle", "console"].map(name => [name, members(globalThis[name])]),
+        frozen: [noodle, noodle.request, noodle.request.headers, noodle.request.params, noodle.request.body, noodle.request.auth, noodle.env, noodle.run, noodle.crypto, console, noodle.random].every(Object.isFrozen),
+        legacy: [typeof request, typeof response, typeof env, typeof run, typeof crypto, typeof random, typeof cookies],
+        postOnly: [typeof noodle.response, typeof noodle.cookies],
+        nullPrototype: Object.getPrototypeOf(noodle) === null,
+        globalDescriptor: Object.getOwnPropertyDescriptor(globalThis, "noodle").writable === false && Object.getOwnPropertyDescriptor(globalThis, "noodle").configurable === false,
         forbidden: [typeof Bun, typeof process, typeof require, typeof module, typeof Deno, typeof fetch, typeof WebSocket, typeof Worker, typeof setTimeout]
       })`,
       request(),
@@ -148,17 +152,22 @@ describe("pre-request script sandbox", () => {
     )
 
     expect(execution.result.success).toBe(true)
-    const expected = ["request", "env", "run", "crypto", "console"].map(
-      (global) => [
-        global,
-        SCRIPT_API_CONTRACT.filter(
-          (entry) => entry.global === global && entry.member,
-        ).map((entry) => entry.member),
-      ],
-    )
+    const expected = ["noodle", "console"].map((global) => [
+      global,
+      SCRIPT_API_CONTRACT.filter(
+        (entry) =>
+          entry.global === global &&
+          entry.member &&
+          entry.phases.includes("pre"),
+      ).map((entry) => entry.member),
+    ])
     expect(scope.get("surface")).toEqual({
       globals: expected,
       frozen: true,
+      legacy: Array(7).fill("undefined"),
+      postOnly: Array(2).fill("undefined"),
+      nullPrototype: true,
+      globalDescriptor: true,
       forbidden: Array(9).fill("undefined"),
     })
     expect(
@@ -166,6 +175,26 @@ describe("pre-request script sandbox", () => {
         entry.phases.every((phase) => phase === "pre" || phase === "post"),
       ),
     ).toBe(true)
+  })
+
+  it("rejects bare APIs and replacing the namespace without committing writes", async () => {
+    for (const source of [
+      'run.set("staged", true)',
+      "random.uuid()",
+      "noodle = {}",
+      "noodle.env = {}",
+      "noodle.run.set = () => {}",
+    ]) {
+      const scope = new RunScope()
+      const execution = await runPreRequestScript(
+        `"use strict"; noodle.run.set("staged", true); ${source}`,
+        request(),
+        undefined,
+        scope,
+      )
+      expect(execution.result.success).toBe(false)
+      expect(scope.get("staged")).toBeUndefined()
+    }
   })
 
   it("mutates a staged request with documented header and parameter semantics", async () => {
@@ -180,12 +209,12 @@ describe("pre-request script sandbox", () => {
     })
     const execution = await runPreRequestScript(
       `
-        if (request.headers.get("DUPLICATE") !== "old") throw new Error("header get");
-        request.headers.set("DuPlIcAtE", "new");
-        request.headers.delete("last");
-        request.params.set("x", "new");
-        request.params.append("x", "later");
-        request.params.delete("y");
+        if (noodle.request.headers.get("DUPLICATE") !== "old") throw new Error("header get");
+        noodle.request.headers.set("DuPlIcAtE", "new");
+        noodle.request.headers.delete("last");
+        noodle.request.params.set("x", "new");
+        noodle.request.params.append("x", "later");
+        noodle.request.params.delete("y");
       `,
       original,
       undefined,
@@ -207,14 +236,14 @@ describe("pre-request script sandbox", () => {
     scope.set("old", "value")
     const execution = await runPreRequestScript(
       `
-        if (env.get("VISIBLE") !== "yes" || env.get("old") !== undefined) throw new Error("env");
-        if (request.body.json().one !== 1) throw new Error("body");
-        request.body.setJson({ok: true});
-        request.auth.setApiKey("x-key", "top-secret", "header");
-        run.set("digest", crypto.sha256("value", "hex"));
-        run.set("old", {replaced: true});
-        run.set("temporary", 1);
-        run.unset("temporary");
+        if (noodle.env.get("VISIBLE") !== "yes" || noodle.env.get("old") !== undefined) throw new Error("env");
+        if (noodle.request.body.json().one !== 1) throw new Error("body");
+        noodle.request.body.setJson({ok: true});
+        noodle.request.auth.setApiKey("x-key", "top-secret", "header");
+        noodle.run.set("digest", noodle.crypto.sha256("value", "hex"));
+        noodle.run.set("old", {replaced: true});
+        noodle.run.set("temporary", 1);
+        noodle.run.unset("temporary");
         console.log("hello", {nested: {value: true}});
       `,
       request({ body: '{"one":1}', bodyType: "json" }),
@@ -245,7 +274,7 @@ describe("pre-request script sandbox", () => {
     const scope = new RunScope()
     const original = request()
     const execution = await runPreRequestScript(
-      `request.url = "https://changed.example"; run.set("value", 1); console.warn("before failure"); throw new Error("boom")`,
+      `noodle.request.url = "https://changed.example"; noodle.run.set("value", 1); console.warn("before failure"); throw new Error("boom")`,
       original,
       undefined,
       scope,
@@ -264,15 +293,15 @@ describe("pre-request script sandbox", () => {
     const scope = new RunScope()
     scope.set("prior", { token: "prior-secret" }, true)
     const execution = await runPreRequestScript(
-      `run.set("random", crypto.randomBytes(8, "hex"));
-       run.set("environmentCopy", env.get("SECRET"));
-       run.set("scopeCopy", run.get("prior").token);
-       request.headers.set("Authorization", "Bearer new-header-secret");
-       run.set("headerCopy", request.headers.get("Authorization").split(" ")[1]);
-       request.headers.delete("Authorization");
-       run.set("initialHeaderCopy", request.headers.get("X-Token"));
-       request.headers.delete("X-Token");
-       run.unset("prior")`,
+      `noodle.run.set("random", noodle.crypto.randomBytes(8, "hex"));
+       noodle.run.set("environmentCopy", noodle.env.get("SECRET"));
+       noodle.run.set("scopeCopy", noodle.run.get("prior").token);
+       noodle.request.headers.set("Authorization", "Bearer new-header-secret");
+       noodle.run.set("headerCopy", noodle.request.headers.get("Authorization").split(" ")[1]);
+       noodle.request.headers.delete("Authorization");
+       noodle.run.set("initialHeaderCopy", noodle.request.headers.get("X-Token"));
+       noodle.request.headers.delete("X-Token");
+       noodle.run.unset("prior")`,
       request({ headers: { "X-Token": "initial-header-secret" } }),
       {
         name: "test",
@@ -294,68 +323,74 @@ describe("pre-request script sandbox", () => {
 
   it("rejects unsafe values, async work, oversized sources, and invalid API input", async () => {
     const cases: Array<[string, string]> = [
-      [`run.set("x", {constructor: 1})`, "ScriptApiValidationError"],
+      [`noodle.run.set("x", {constructor: 1})`, "ScriptApiValidationError"],
       [
-        `run.set("x", Object.create({unsafe: true}))`,
+        `noodle.run.set("x", Object.create({unsafe: true}))`,
         "ScriptApiValidationError",
       ],
       [
-        `const x = []; Object.setPrototypeOf(x, {}); run.set("x", x)`,
+        `const x = []; Object.setPrototypeOf(x, {}); noodle.run.set("x", x)`,
         "ScriptApiValidationError",
       ],
       [
-        `const x = Object.create({unsafe: true}); Object.getPrototypeOf = () => Object.prototype; run.set("x", x)`,
-        "ScriptApiValidationError",
-      ],
-      [`const x = {}; x.self = x; run.set("x", x)`, "ScriptApiValidationError"],
-      [
-        `const x = {}; x.self = x; Set.prototype.has = () => false; run.set("x", x)`,
-        "ScriptApiValidationError",
-      ],
-      [`run.set("x", Array(1))`, "ScriptApiValidationError"],
-      [
-        `const a = []; Object.defineProperty(a, "constructor", {value: 1, enumerable: true}); run.set("x", {nested: a})`,
+        `const x = Object.create({unsafe: true}); Object.getPrototypeOf = () => Object.prototype; noodle.run.set("x", x)`,
         "ScriptApiValidationError",
       ],
       [
-        `const a = []; a.extra = undefined; run.set("x", {nested: a})`,
+        `const x = {}; x.self = x; noodle.run.set("x", x)`,
         "ScriptApiValidationError",
       ],
       [
-        `const a = []; Object.defineProperty(a, "0", {get() { return 1 }, enumerable: true}); run.set("x", {nested: a})`,
+        `const x = {}; x.self = x; Set.prototype.has = () => false; noodle.run.set("x", x)`,
         "ScriptApiValidationError",
       ],
-      [`run.set("x", {missing: undefined})`, "ScriptApiValidationError"],
+      [`noodle.run.set("x", Array(1))`, "ScriptApiValidationError"],
       [
-        `Object.getOwnPropertyDescriptor = () => ({enumerable: true, value: null}); run.set("x", {missing: undefined})`,
-        "ScriptApiValidationError",
-      ],
-      [
-        `Array.prototype[Symbol.iterator] = function* () {}; run.set("x", {constructor: 1})`,
+        `const a = []; Object.defineProperty(a, "constructor", {value: 1, enumerable: true}); noodle.run.set("x", {nested: a})`,
         "ScriptApiValidationError",
       ],
       [
-        `Array.prototype[Symbol.iterator] = function* () {}; run.set("x", {missing: undefined})`,
-        "ScriptApiValidationError",
-      ],
-      [`run.set("x", {callable() {}})`, "ScriptApiValidationError"],
-      [`run.set("x", {symbol: Symbol("x")})`, "ScriptApiValidationError"],
-      [
-        `const x = {}; x[Symbol("member")] = true; run.set("x", x)`,
+        `const a = []; a.extra = undefined; noodle.run.set("x", {nested: a})`,
         "ScriptApiValidationError",
       ],
       [
-        `run.set("x", "x".repeat(${SCRIPT_LIMITS.bridgeValueBytes}))`,
+        `const a = []; Object.defineProperty(a, "0", {get() { return 1 }, enumerable: true}); noodle.run.set("x", {nested: a})`,
+        "ScriptApiValidationError",
+      ],
+      [`noodle.run.set("x", {missing: undefined})`, "ScriptApiValidationError"],
+      [
+        `Object.getOwnPropertyDescriptor = () => ({enumerable: true, value: null}); noodle.run.set("x", {missing: undefined})`,
+        "ScriptApiValidationError",
+      ],
+      [
+        `Array.prototype[Symbol.iterator] = function* () {}; noodle.run.set("x", {constructor: 1})`,
+        "ScriptApiValidationError",
+      ],
+      [
+        `Array.prototype[Symbol.iterator] = function* () {}; noodle.run.set("x", {missing: undefined})`,
+        "ScriptApiValidationError",
+      ],
+      [`noodle.run.set("x", {callable() {}})`, "ScriptApiValidationError"],
+      [
+        `noodle.run.set("x", {symbol: Symbol("x")})`,
+        "ScriptApiValidationError",
+      ],
+      [
+        `const x = {}; x[Symbol("member")] = true; noodle.run.set("x", x)`,
+        "ScriptApiValidationError",
+      ],
+      [
+        `noodle.run.set("x", "x".repeat(${SCRIPT_LIMITS.bridgeValueBytes}))`,
         "ScriptApiValidationError",
       ],
       [`Promise.resolve(1)`, "ScriptAsyncUnsupportedError"],
       [`Promise.resolve().then(() => 1)`, "ScriptAsyncUnsupportedError"],
       [`import value from "host"`, "ScriptSyntaxError"],
       [`import("host")`, "ScriptAsyncUnsupportedError"],
-      [`request.url = "ftp://example.com"`, "ScriptApiValidationError"],
-      [`request.url = ""`, "ScriptApiValidationError"],
-      [`request.method = "TRACE"`, "ScriptApiValidationError"],
-      [`crypto.randomBytes(4097, "hex")`, "ScriptApiValidationError"],
+      [`noodle.request.url = "ftp://example.com"`, "ScriptApiValidationError"],
+      [`noodle.request.url = ""`, "ScriptApiValidationError"],
+      [`noodle.request.method = "TRACE"`, "ScriptApiValidationError"],
+      [`noodle.crypto.randomBytes(4097, "hex")`, "ScriptApiValidationError"],
     ]
     for (const [source, name] of cases) {
       const execution = await runPreRequestScript(
@@ -375,7 +410,7 @@ describe("pre-request script sandbox", () => {
     expect(oversized.result.error?.name).toBe("ScriptSourceLimitError")
 
     const oversizedBridge = await runPreRequestScript(
-      `run.set("x", "x".repeat(5 * 1024 * 1024))`,
+      `noodle.run.set("x", "x".repeat(5 * 1024 * 1024))`,
       request(),
       undefined,
       new RunScope(),
@@ -383,8 +418,8 @@ describe("pre-request script sandbox", () => {
     expect(oversizedBridge.result.error?.name).toBe("ScriptApiValidationError")
 
     const recovered = await runPreRequestScript(
-      `try { request.url = "ftp://example.com" } catch {}
-       request.url = "localhost:3000/recovered"`,
+      `try { noodle.request.url = "ftp://example.com" } catch {}
+       noodle.request.url = "localhost:3000/recovered"`,
       request(),
       undefined,
       new RunScope(),
@@ -437,7 +472,7 @@ describe("pre-request script sandbox", () => {
     expect(oversizedThrown.result.error?.message.length).toBe(4096)
 
     const recovered = await runPreRequestScript(
-      `request.headers.set("x-clean", "yes")`,
+      `noodle.request.headers.set("x-clean", "yes")`,
       request(),
       undefined,
       new RunScope(),
@@ -510,7 +545,7 @@ describe("pre-request script sandbox", () => {
       )
       expect(attacked.result.error?.name).toBe(name)
       const clean = await runPreRequestScript(
-        'request.headers.set("x-clean", "yes")',
+        'noodle.request.headers.set("x-clean", "yes")',
         request(),
         undefined,
         new RunScope(),

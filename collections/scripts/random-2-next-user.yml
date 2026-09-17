@@ -1,0 +1,20 @@
+# Run after random-1-create-user in a collection run to share the RunScope.
+name: Consume the prepared random user
+method: POST
+url: $base_url/posts
+timeout: 0
+body_type: json
+body: '{}'
+scripts:
+  pre: |-
+    const user = noodle.run.get("next_random_user");
+    if (!user) throw Error("Run random-1-create-user first in the same collection run");
+    noodle.request.body.setJson(user);
+    noodle.request.headers.set("X-Request-ID", user.id);
+    console.info("Using the prepared user", user);
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+auth:
+  type: none

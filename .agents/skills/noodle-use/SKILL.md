@@ -86,16 +86,25 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 Use `scripts.pre` for synchronous request preparation and `scripts.post` for
 response extraction or conditional processing that cannot be expressed
 declaratively. Script source is literal and never variable-
-substituted. Pre exposes only `request`, `env`, `run`, `crypto`, and
-captured `console` APIs. Imports, network calls, host APIs, timers, returned
+substituted. All Noodle APIs live under the frozen `noodle` namespace; bare API
+globals are unavailable. Pre exposes `noodle.request`, `noodle.env`, `noodle.run`,
+`noodle.crypto`, `noodle.random`, and captured global `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
 visible to later collection requests even if later phases fail. Read the complete API and
 limits in [schema.md](schema.md#inline-request-scripts).
 
+Both phases expose frozen `noodle.random.*()` English test-data generators with bounded
+options. Each invocation has independent Faker 10.5.0 state; `noodle.random.seed` resets
+only its sequence. Use `noodle.run.set` to share values, and an explicit `refDate` plus
+seed for reproducible relative dates. Passwords are automatically known secrets;
+other generated data stays visible. IDs and passwords are test data without
+cryptographic security or guaranteed uniqueness. JSON placeholders are deferred.
+See [the catalog and options](schema.md#script-random-api).
+
 Post sees captures and the completed response, including HTTP/capture failures.
-It adds bounded `response.text/json`, metadata, case-insensitive response headers,
-and optional final-URL-scoped `cookies.get/set/delete`. Request readers reflect
+It adds bounded `noodle.response.text/json`, metadata, case-insensitive response headers,
+and optional final-URL-scoped `noodle.cookies.get/set/delete`. Request readers reflect
 the final prepared HTTP leg; all request mutations are rejected. Post failure
 rolls back only staged post RunScope/cookie changes, preserves captures and the
 response, and still runs assertions. Successful post values reach later
@@ -105,11 +114,11 @@ failure. Cookie writes
 retain deferred durability. The capability is absent for unavailable/disabled
 jars and `sendCookies: false`; response Set-Cookie capture remains enabled.
 
-Both phases support `run.set(name, value, { persist: "environment" | "secret" })`
-and `run.unset(name, { persist: "environment" | "secret" })`. Manual sends and
+Both phases support `noodle.run.set(name, value, { persist: "environment" | "secret" })`
+and `noodle.run.unset(name, { persist: "environment" | "secret" })`. Manual sends and
 `request run` save to an existing active environment; collection runs and Runner
 keep changes transient and report suppression. No options keep old semantics.
-`env.get` remains an initial selected-environment snapshot; `run.get` sees scope
+`noodle.env.get` remains an initial selected-environment snapshot; `noodle.run.get` sees scope
 writes. Persistent unset suppresses the baseline until a later set/capture and
 secret unset removes both the vault value and declaration. Environment targets
 cannot change declared secrets; secret set can promote ordinary entries.
@@ -118,7 +127,7 @@ not change a saved snapshot. VM failure discards intents; storage failure keeps
 runtime changes but fails automation with redacted persistence diagnostics.
 
 Treat collections containing scripts as trusted code. Although the sandbox has
-no network API, a script can read selected-environment secrets with `env.get`
+no network API, a script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
 ### Redirect and timeout safety

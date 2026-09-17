@@ -390,9 +390,9 @@ headers:
   X-Script: { value: old, enabled: false }
 scripts:
   pre: |-
-    request.url = "https://example.com/mutated";
-    request.headers.set("X-Script", "yes");
-    request.auth.setBearer("script-secret");
+    noodle.request.url = "https://example.com/mutated";
+    noodle.request.headers.set("X-Script", "yes");
+    noodle.request.auth.setBearer("script-secret");
     console.log("token", "script-secret");
 capture:
   id: { value: body.id }
@@ -479,7 +479,7 @@ assert:
 method: GET
 url: https://example.com/set
 scripts:
-  pre: run.set("script_value", "committed")
+  pre: noodle.run.set("script_value", "committed")
 `,
     )
     await writeFile(
@@ -527,9 +527,9 @@ method: GET
 url: https://example.com/create
 scripts:
   pre: |-
-    const nonce = crypto.randomBytes(8, "hex");
-    run.set("nonce", nonce);
-    request.headers.set("X-Echo", nonce);
+    const nonce = noodle.crypto.randomBytes(8, "hex");
+    noodle.run.set("nonce", nonce);
+    noodle.request.headers.set("X-Echo", nonce);
 capture:
   nonce: { value: body.nonce }
 `,
@@ -585,8 +585,8 @@ method: GET
 url: https://example.com/$short/$flag
 scripts:
   pre: |-
-    console.log(request.url);
-    throw new Error(request.url);
+    console.log(noodle.request.url);
+    throw new Error(noodle.request.url);
 `,
     )
     const send = executor.send
@@ -640,7 +640,7 @@ method: GET
 url: https://example.com/use
 scripts:
   pre: |-
-    const key = Object.keys(run.get("payload"))[0];
+    const key = Object.keys(noodle.run.get("payload"))[0];
     console.warn(key);
     throw new Error(key);
 `,
@@ -679,8 +679,8 @@ method: GET
 url: https://example.com/fail
 scripts:
   pre: |-
-    request.url = "https://changed.example";
-    run.set("leak", "no");
+    noodle.request.url = "https://changed.example";
+    noodle.run.set("leak", "no");
     console.warn("before failure");
     throw new Error("script failed");
 capture:
@@ -733,7 +733,7 @@ capture:
       expect(result.summary.failureCategories).toEqual(["script"])
       expect(details[0]?.entry.request.url).toBe("https://example.com/fail")
       expect(details[0]?.entry.scripts).toEqual(result.results[0]?.scripts)
-      expect(JSON.stringify(details[0]?.entry)).not.toContain("run.set")
+      expect(JSON.stringify(details[0]?.entry)).not.toContain("noodle.run.set")
       expect(details[0]?.entry.request).not.toHaveProperty("scripts")
     } finally {
       executor.send = send
@@ -748,7 +748,7 @@ capture:
 method: GET
 url: https://example.com/capture
 scripts:
-  pre: run.set("id", "script")
+  pre: noodle.run.set("id", "script")
 capture:
   id: { value: body.id }
 `,
@@ -2163,7 +2163,7 @@ capture:
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
       join(dir, "request.yml"),
-      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\nscripts:\n  pre: request.url = 'https://changed.example'\ncapture:\n  id: { value: body.id }\n",
+      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\nscripts:\n  pre: noodle.request.url = 'https://changed.example'\ncapture:\n  id: { value: body.id }\n",
     )
     const send = executor.send
     let sends = 0

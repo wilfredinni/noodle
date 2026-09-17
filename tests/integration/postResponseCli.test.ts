@@ -72,19 +72,93 @@ afterEach(async () => {
 })
 
 describe("post-response CLI and compiled smoke", () => {
+  it("generates deterministic data in request runs and forwards post values in collection runs", async () => {
+    const checkCatalog = `
+      for (const name of Object.keys(noodle.random).filter(name => name !== "seed" && name !== "pick")) {
+        const value = noodle.random[name]();
+        const type = ["number", "float", "latitude", "longitude", "timestamp"].includes(name) ? "number" : name === "boolean" ? "boolean" : "string";
+        if (typeof value !== type) throw Error("random catalog: " + name);
+      }
+      if (noodle.random.pick([null]) !== null) throw Error("random pick");
+      noodle.random.seed(42);
+      if (noodle.random.uuid() !== "5fb9220d-9b0f-4d32-a248-6492457c3890") throw Error("pinned Faker sequence");
+      const fixed = noodle.random.dateRecent({refDate: "2026-01-01T00:00:00Z"});
+      noodle.random.seed(42);
+      noodle.random.uuid();
+      if (fixed !== noodle.random.dateRecent({refDate: "2026-01-01T00:00:00Z"})) throw Error("random date seed");
+    `
+    await save(
+      request(
+        "1-producer",
+        `noodle.random.seed(7); noodle.run.set("next", noodle.random.uuid());`,
+        {
+          scripts: {
+            pre: `${checkCatalog} noodle.random.seed(42); noodle.request.params.set("id", noodle.random.id()); console.log(noodle.random.password());`,
+            post: `${checkCatalog} noodle.random.seed(7); noodle.run.set("next", noodle.random.uuid()); console.log(noodle.response.json().forwarded);`,
+          },
+        },
+      ),
+    )
+    await save(
+      request(
+        "2-consumer",
+        `noodle.random.seed(7); if (noodle.response.json().forwarded !== noodle.random.uuid()) throw Error("random propagation");`,
+        { url: `${url}?id=$next` },
+      ),
+    )
+    const args = [
+      "request",
+      "run",
+      "1-producer",
+      "--collection",
+      dir,
+      "--noproxy",
+      "--json",
+    ]
+    const first = await cli(...args)
+    const repeated = await cli(...args)
+    expect(first.code).toBe(0)
+    expect(first.stderr).toBe("")
+    expect(repeated.code).toBe(0)
+    const scripts = JSON.parse(first.stdout).data.result.scripts.results
+    expect(scripts[0].logs[0].message).toBe("[REDACTED]")
+    expect(scripts[1].logs[0].message).toMatch(/^[a-zA-Z0-9]{12}$/)
+    expect(
+      JSON.parse(repeated.stdout).data.result.scripts.results[1].logs,
+    ).toEqual(scripts[1].logs)
+    const collection = await cli(
+      "collection",
+      "run",
+      dir,
+      "--noproxy",
+      "--json",
+    )
+    expect(collection.code).toBe(0)
+    expect(collection.stderr).toBe("")
+    expect(
+      JSON.parse(collection.stdout).data.results.map(
+        (item: { ok: boolean }) => item.ok,
+      ),
+    ).toEqual([true, true])
+  })
+
   it("persists script environment writes in request runs but keeps collection runs transient", async () => {
     await mkdir(join(dir, ".environments"))
     await writeFile(join(dir, ".environments/dev.env"), "VALUE=original\n")
     await save(
-      request("first", 'run.set("VALUE", "post", { persist: "environment" })', {
-        scripts: {
-          pre: 'run.set("VALUE", "pre", { persist: "environment" })',
-          post: 'run.set("VALUE", "post", { persist: "environment" })',
+      request(
+        "first",
+        'noodle.run.set("VALUE", "post", { persist: "environment" })',
+        {
+          scripts: {
+            pre: 'noodle.run.set("VALUE", "pre", { persist: "environment" })',
+            post: 'noodle.run.set("VALUE", "post", { persist: "environment" })',
+          },
+          captures: {
+            VALUE: { value: "body.id", persist: "environment", enabled: true },
+          },
         },
-        captures: {
-          VALUE: { value: "body.id", persist: "environment", enabled: true },
-        },
-      }),
+      ),
     )
     const json = await cli(
       "request",
@@ -203,15 +277,17 @@ describe("post-response CLI and compiled smoke", () => {
     )
     await save(request("2-deadline", `while(true) {}`))
     await save(
-      request("2-json-memory", `response.json()`, {
+      request("2-json-memory", `noodle.response.json()`, {
         url: `${url}hostile-json`,
       }),
     )
-    await save(request("3-recovery", `run.set("id", response.json().id)`))
+    await save(
+      request("3-recovery", `noodle.run.set("id", noodle.response.json().id)`),
+    )
     await save(
       request(
         "4-consumer",
-        `if (response.json().forwarded !== "7") throw Error("scope recovery")`,
+        `if (noodle.response.json().forwarded !== "7") throw Error("scope recovery")`,
         { url: `${url}?id=$id` },
       ),
     )
@@ -240,7 +316,7 @@ describe("post-response CLI and compiled smoke", () => {
     await save(
       request(
         "large",
-        `if (response.json().padding.length !== ${5 * 1024 * 1024 - 14}) throw Error("truncated")`,
+        `if (noodle.response.json().padding.length !== ${5 * 1024 * 1024 - 14}) throw Error("truncated")`,
         { url: `${url}large` },
       ),
     )
@@ -258,7 +334,7 @@ describe("post-response CLI and compiled smoke", () => {
       ).code,
     ).toBe(0)
     await save(
-      request("oversize", `response.text()`, {
+      request("oversize", `noodle.response.text()`, {
         url: `${url}oversize`,
         assertions: [{ expression: "status", operator: "equals", value: 200 }],
       }),

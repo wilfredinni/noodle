@@ -8,27 +8,27 @@ tags:
 body_type: none
 scripts:
   pre: |-
-    request.headers.set("Accept", "application/json");
-    console.info("Prepared", request.method, request.url);
+    noodle.request.headers.set("Accept", "application/json");
+    console.info("Prepared", noodle.request.method, noodle.request.url);
   post: |-
-    if (response.status === 200) {
-      if (!response.headers.has("Content-Type") ||
-          !response.headers.get("content-type").includes("application/json")) {
+    if (noodle.response.status === 200) {
+      if (!noodle.response.headers.has("Content-Type") ||
+          !noodle.response.headers.get("content-type").includes("application/json")) {
         throw Error("Expected a JSON response");
       }
-      const post = response.json();
-      if (run.get("post_response_user_id") !== post.userId) {
+      const post = noodle.response.json();
+      if (noodle.run.get("post_response_user_id") !== post.userId) {
         throw Error("Expected the capture to commit before post");
       }
-      run.set("post_response_post_id", post.id);
-      run.set("post_response_title", post.title);
+      noodle.run.set("post_response_post_id", post.id);
+      noodle.run.set("post_response_title", post.title);
       console.info("Extracted post", post.id, {
-        statusText: response.statusText,
-        timeMs: response.timeMs,
-        textLength: response.text().length,
+        statusText: noodle.response.statusText,
+        timeMs: noodle.response.timeMs,
+        textLength: noodle.response.text().length,
       });
     } else {
-      console.warn("Skipping extraction", response.status, response.statusText);
+      console.warn("Skipping extraction", noodle.response.status, noodle.response.statusText);
     }
 capture:
   post_response_user_id:

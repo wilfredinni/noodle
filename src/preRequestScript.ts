@@ -11,6 +11,7 @@ import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope, secretRedactionValues } from "./runScope"
+import { createRandomHandlers, RANDOM_GENERATORS } from "./scriptRandom"
 import {
   requestSensitiveValues,
   responseSensitiveValues,
@@ -36,14 +37,7 @@ export const SCRIPT_LIMITS = Object.freeze({
 export type ScriptPhase = "pre" | "post"
 
 export type ScriptApiDescriptor = Readonly<{
-  global:
-    | "request"
-    | "env"
-    | "run"
-    | "crypto"
-    | "console"
-    | "response"
-    | "cookies"
+  global: "noodle" | "console"
   member: string
   kind: "global" | "property" | "method"
   signature: string
@@ -52,27 +46,58 @@ export type ScriptApiDescriptor = Readonly<{
 }>
 
 const api = (
-  global: ScriptApiDescriptor["global"],
+  namespace:
+    | "noodle"
+    | "request"
+    | "env"
+    | "run"
+    | "crypto"
+    | "random"
+    | "console"
+    | "response"
+    | "cookies",
   member: string,
   kind: ScriptApiDescriptor["kind"],
   signature: string,
   description: string,
   phases: readonly ScriptPhase[] = kind === "method" &&
-  isRequestMutation(`${global}.${member}`)
+  isRequestMutation(`${namespace}.${member}`)
     ? ["pre"]
     : ["pre", "post"],
 ): ScriptApiDescriptor =>
   Object.freeze({
-    global,
-    member,
-    kind,
-    signature,
+    global: namespace === "console" ? "console" : "noodle",
+    member:
+      namespace === "console" || namespace === "noodle"
+        ? member
+        : member
+          ? `${namespace}.${member}`
+          : namespace,
+    kind:
+      kind === "global" && namespace !== "console" && namespace !== "noodle"
+        ? "property"
+        : kind,
+    signature:
+      kind === "global" && namespace !== "console" && namespace !== "noodle"
+        ? `noodle.${signature}`
+        : signature,
     description,
     phases: Object.freeze(phases),
   })
 
 export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
   Object.freeze([
+    api("noodle", "", "global", "noodle: Noodle", "Noodle scripting APIs."),
+    api(
+      "random",
+      "",
+      "global",
+      "random: Random",
+      "Bounded English test-data generators.",
+    ),
+    ...RANDOM_GENERATORS.map(({ name, signature, description }) =>
+      api("random", name, "method", signature, description),
+    ),
     api("request", "", "global", "request: Request", "Prepared request."),
     api("request", "url", "property", "string", "Request URL."),
     api("request", "method", "property", "Method", "HTTP method."),
@@ -481,6 +506,7 @@ export async function runRequestScript(
   const label = phase === "pre" ? "Pre-request" : "Post-response"
   const filename = phase === "pre" ? "pre-request.js" : "post-response.js"
   const startedAt = performance.now()
+  const invocationDate = new Date().toISOString()
   const stagedRequest = structuredClone(request)
   const runChanges = new Map<string, JsonValue | typeof UNSET>()
   const suppressedChanges = new Set<string>()
@@ -610,6 +636,11 @@ export async function runRequestScript(
   }
 
   const handlers: Record<string, BridgeHandler> = {
+    ...createRandomHandlers(
+      apiError,
+      (value) => secretValues.add(value),
+      invocationDate,
+    ),
     "response.status:get": () => post!.response.status,
     "response.statusText:get": () => post!.response.statusText,
     "response.timeMs:get": () => post!.response.timeMs,
@@ -966,11 +997,13 @@ export async function runRequestScript(
 
       const bootstrap = context.evalCode(
         bootstrapSource(
-          SCRIPT_API_CONTRACT.filter(
-            (descriptor) =>
-              (descriptor.global !== "response" || phase === "post") &&
-              (descriptor.global !== "cookies" || cookies),
-          ),
+          SCRIPT_API_CONTRACT.filter((descriptor) => {
+            const namespace = descriptor.member.split(".")[0]
+            return (
+              (namespace !== "response" || phase === "post") &&
+              (namespace !== "cookies" || cookies)
+            )
+          }),
           filename,
         ),
         "noodle-script-api.js",
@@ -1625,7 +1658,7 @@ function bootstrapSource(
     const parts = descriptor.member.split(".");
     const name = parts.pop();
     const parent = getObject(descriptor.global, parts);
-    const operation = descriptor.global + "." + descriptor.member;
+    const operation = descriptor.global === "noodle" ? descriptor.member : descriptor.global + "." + descriptor.member;
     if (descriptor.kind === "property") {
       if (hasOwn(parent, name)) continue;
       objectDefineProperty(parent, name, {
@@ -1639,6 +1672,7 @@ function bootstrapSource(
         : operation === "response.text" ? readResponseText
         : operation === "response.json" ? readResponseJson
         : (...args) => call(operation, args);
+      if (operation.startsWith("random.")) objectFreeze(fn);
       objectDefineProperty(parent, name, { value: fn, enumerable: true });
     }
   }

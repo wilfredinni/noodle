@@ -300,7 +300,7 @@ describe("useResponse execution results", () => {
       const response = useResponse(
         request({
           scripts: {
-            pre: 'request.url = "https://manual.example/mutated"; request.headers.set("X-Manual", "yes"); console.info("ready")',
+            pre: 'noodle.request.url = "https://manual.example/mutated"; noodle.request.headers.set("X-Manual", "yes"); console.info("ready")',
           },
         }),
         undefined,
@@ -355,7 +355,7 @@ describe("useResponse execution results", () => {
       const response = useResponse(
         request({
           scripts: {
-            pre: 'request.auth.setBearer("manual-secret"); console.error("manual-secret"); const error = new Error("manual-secret"); error.name = "manual-secret"; throw error',
+            pre: 'noodle.request.auth.setBearer("manual-secret"); console.error("manual-secret"); const error = new Error("manual-secret"); error.name = "manual-secret"; throw error',
           },
         }),
       )
@@ -413,7 +413,7 @@ describe("useResponse execution results", () => {
       const response = useResponse(
         request({
           scripts: {
-            pre: 'request.url = "https://example.com/" + crypto.randomBytes(8, "hex")',
+            pre: 'noodle.request.url = "https://example.com/" + noodle.crypto.randomBytes(8, "hex")',
           },
         }),
       )

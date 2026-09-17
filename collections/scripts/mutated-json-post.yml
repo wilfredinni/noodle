@@ -13,14 +13,14 @@ body: |-
 body_type: json
 scripts:
   pre: |-
-    const requestId = crypto.randomBytes(8, "hex");
-    request.body.setJson({
-      ...request.body.json(),
+    const requestId = noodle.crypto.randomBytes(8, "hex");
+    noodle.request.body.setJson({
+      ...noodle.request.body.json(),
       requestId,
       sentAt: new Date().toISOString(),
     });
-    request.headers.set("X-Request-ID", requestId);
-    run.set("last_request_id", requestId);
+    noodle.request.headers.set("X-Request-ID", requestId);
+    noodle.run.set("last_request_id", requestId);
     console.info("Prepared JSON body", { requestId });
 assert:
   - expression: status

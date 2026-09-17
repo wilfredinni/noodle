@@ -1,0 +1,33 @@
+name: Random user and next-request preparation
+method: POST
+url: $base_url/posts
+timeout: 0
+body_type: json
+body: '{}'
+scripts:
+  pre: |-
+    noodle.random.seed(42);
+    const user = {
+      id: noodle.random.uuid(),
+      name: noodle.random.name(),
+      email: noodle.random.exampleEmail(),
+      age: noodle.random.number({ min: 18, max: 80 }),
+    };
+    noodle.request.body.setJson(user);
+    noodle.request.headers.set("X-Request-ID", user.id);
+    console.info("Generated user", user);
+  post: |-
+    if (noodle.response.status === 201) {
+      noodle.run.set("next_random_user", {
+        id: noodle.random.uuid(),
+        name: noodle.random.name(),
+        email: noodle.random.exampleEmail(),
+      });
+      console.info("Prepared data for the next request");
+    }
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+auth:
+  type: none

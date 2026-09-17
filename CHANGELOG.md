@@ -4,6 +4,15 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Move scripting APIs to the frozen `noodle` namespace: `noodle.request`,
+  `noodle.response`, `noodle.env`, `noodle.run`, `noodle.crypto`, `noodle.random`,
+  and `noodle.cookies`. Update existing scripts by adding `noodle.` to API
+  accesses. The previous bare API globals are removed; `console` and JavaScript
+  built-ins remain global. Execution phases, mutations, persistence, and sandbox
+  limits retain their existing behavior.
+
 ## [0.9.0] - 2026-09-16
 
 Noodle 0.9.0 adds sandboxed inline pre-request scripts for synchronous request preparation across manual sends, CLI automation, and the TUI Runner. Scripts can mutate prepared requests and transient RunScope values through a bounded API, with redacted Results output, compiled-binary verification, safer redirect handling, clearer timeout failures, and easier-to-scan request tags.

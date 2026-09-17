@@ -106,6 +106,69 @@ afterEach(async () => {
 })
 
 describe("post-response lifecycle", () => {
+  it("sends generated pre data, carries post data forward and preserves lifecycle rollback", async () => {
+    const scope = new RunScope()
+    const first = await send(
+      {
+        ...base(),
+        method: "POST",
+        scripts: {
+          pre: `noodle.random.seed(42); const user = { id: noodle.random.uuid(), name: noodle.random.name(), email: noodle.random.exampleEmail() }; noodle.run.set("user", user); noodle.request.body.setJson(user);`,
+          post: `noodle.random.seed(7); noodle.run.set("nextId", noodle.random.id());`,
+        },
+      },
+      scope,
+    )
+    expect(
+      first.execution.scripts?.results.map((result) => result.success),
+    ).toEqual([true, true])
+    expect(JSON.parse(seen[0]!.body)).toEqual(scope.get("user"))
+    const nextId = scope.get("nextId")
+    await send(
+      { ...base(), headers: { "X-Next": { value: "$nextId", enabled: true } } },
+      scope,
+    )
+    expect(seen[1]!.headers["x-next"]).toBe(nextId as string)
+
+    const failedPre = await send(
+      {
+        ...base(),
+        scripts: {
+          pre: `noodle.run.set("nextId", "discarded"); noodle.request.headers.set("X-Staged", "discarded"); noodle.random.id({length: 4097});`,
+        },
+      },
+      scope,
+    )
+    expect(failedPre.status).toBe("error")
+    if (failedPre.status !== "error") throw Error("Expected a script failure")
+    expect(failedPre.failureCategory).toBe("script")
+    expect(seen).toHaveLength(2)
+    expect(scope.get("nextId")).toBe(nextId)
+
+    const failedPost = await send(
+      {
+        ...base(),
+        captures: { capturedId: { value: "body.id", enabled: true } },
+        assertions: [{ expression: "status", operator: "equals", value: 200 }],
+        scripts: {
+          post: `noodle.random.seed(42); const password = noodle.random.password(); console.log(password); noodle.run.set("nextId", noodle.random.uuid()); throw Error(password);`,
+        },
+      },
+      scope,
+    )
+    expect(failedPost.status).toBe("done")
+    if (failedPost.status !== "done") throw Error("Expected a response")
+    expect(failedPost.response.status).toBe(200)
+    expect(failedPost.execution.assertions?.results[0]?.passed).toBe(true)
+    expect(scope.get("capturedId")).toBe(7)
+    expect(scope.get("nextId")).toBe(nextId)
+    expect(failedPost.execution.scripts?.results[0]).toMatchObject({
+      success: false,
+      logs: [{ message: "[REDACTED]" }],
+      error: { message: "[REDACTED]" },
+    })
+  })
+
   it("keeps sensitive response values secret in post writes and later request output", async () => {
     const scope = new RunScope()
     const first = await send(
@@ -113,7 +176,7 @@ describe("post-response lifecycle", () => {
         ...base(),
         url: `${url}/sensitive`,
         scripts: {
-          post: `run.set("copied", response.headers.get("AUTHORIZATION").slice(7)); run.set("public", response.headers.get("x-response"));`,
+          post: `noodle.run.set("copied", noodle.response.headers.get("AUTHORIZATION").slice(7)); noodle.run.set("public", noodle.response.headers.get("x-response"));`,
         },
       },
       scope,
@@ -128,7 +191,7 @@ describe("post-response lifecycle", () => {
         ...base(),
         headers: { "X-Public": { value: "$copied", enabled: true } },
         scripts: {
-          post: `console.log(request.headers.get("X-Public"));`,
+          post: `console.log(noodle.request.headers.get("X-Public"));`,
         },
       },
       scope,
@@ -277,8 +340,8 @@ describe("post-response lifecycle", () => {
         ...base(),
         url: `${url}/error`,
         scripts: {
-          pre: `run.set("pre", 1); request.headers.set("X-Pre", "yes"); console.log("server-token")`,
-          post: `if (run.get("id") !== 7 || run.get("pre") !== 1 || response.status !== 422) throw Error("order"); run.set("post", 2); console.log("diagnostics"); throw Error("post failed")`,
+          pre: `noodle.run.set("pre", 1); noodle.request.headers.set("X-Pre", "yes"); console.log("server-token")`,
+          post: `if (noodle.run.get("id") !== 7 || noodle.run.get("pre") !== 1 || noodle.response.status !== 422) throw Error("order"); noodle.run.set("post", 2); console.log("diagnostics"); throw Error("post failed")`,
         },
         captures: {
           id: { value: "body.id", enabled: true },
@@ -321,7 +384,7 @@ describe("post-response lifecycle", () => {
         bodyType: "json",
         body: '{"original":true}',
         scripts: {
-          post: `run.set("final", {url: request.url, method: request.method, param: request.params.get("final"), cookie: request.headers.get("cookie"), body: request.body.text(), contentType: request.headers.get("content-type")}); run.set("invocations", (run.get("invocations") || 0) + 1)`,
+          post: `noodle.run.set("final", {url: noodle.request.url, method: noodle.request.method, param: noodle.request.params.get("final"), cookie: noodle.request.headers.get("cookie"), body: noodle.request.body.text(), contentType: noodle.request.headers.get("content-type")}); noodle.run.set("invocations", (noodle.run.get("invocations") || 0) + 1)`,
         },
       },
       scope,
@@ -349,7 +412,7 @@ describe("post-response lifecycle", () => {
           service: "execute-api",
         },
         scripts: {
-          post: `run.set("authorization", request.headers.get("Authorization")); run.set("date", request.headers.get("x-amz-date"))`,
+          post: `noodle.run.set("authorization", noodle.request.headers.get("Authorization")); noodle.run.set("date", noodle.request.headers.get("x-amz-date"))`,
         },
       },
       scope,
@@ -397,7 +460,7 @@ describe("post-response lifecycle", () => {
             ID: { value: "body.id", enabled: true, persist: "environment" },
           },
           scripts: {
-            post: `if (run.get("ID") !== 7 || env.get("ID") !== "initial") throw Error("capture order"); run.set("ID", "transient"); ${fail ? 'throw Error("post failed")' : ""}`,
+            post: `if (noodle.run.get("ID") !== 7 || noodle.env.get("ID") !== "initial") throw Error("capture order"); noodle.run.set("ID", "transient"); ${fail ? 'throw Error("post failed")' : ""}`,
           },
           assertions: [{ expression: "body.id", operator: "equals", value: 7 }],
         }),
@@ -423,7 +486,7 @@ describe("post-response lifecycle", () => {
         captures: { token: { value: "body.token", enabled: true } },
         scripts: {
           pre: `console.log("post-token")`,
-          post: `run.set("staged", 1); cookies.set({name:"session",value:"post-token"}); console.log(cookies.get("received"), "post-token"); cookies.set({name:"bad",value:"x",domain:"elsewhere.test"})`,
+          post: `noodle.run.set("staged", 1); noodle.cookies.set({name:"session",value:"post-token"}); console.log(noodle.cookies.get("received"), "post-token"); noodle.cookies.set({name:"bad",value:"x",domain:"elsewhere.test"})`,
         },
         assertions: [{ expression: "body.token", operator: "isString" }],
       },
@@ -453,7 +516,7 @@ describe("post-response lifecycle", () => {
       {
         ...base(),
         scripts: {
-          post: `cookies.set({name:"session",value:"s",httpOnly:true,sameSite:"lax"}); run.set("committed", true)`,
+          post: `noodle.cookies.set({name:"session",value:"s",httpOnly:true,sameSite:"lax"}); noodle.run.set("committed", true)`,
         },
         assertions: [{ expression: "status", operator: "equals", value: 201 }],
       },
@@ -468,7 +531,7 @@ describe("post-response lifecycle", () => {
         ...base(),
         sendCookies: false,
         scripts: {
-          post: `if (typeof cookies !== "undefined") throw Error("capability")`,
+          post: `if (typeof noodle.cookies !== "undefined") throw Error("capability")`,
         },
       },
       new RunScope(),
@@ -482,7 +545,7 @@ describe("post-response lifecycle", () => {
         await send({
           ...base(),
           scripts: {
-            post: `if (typeof cookies !== "undefined") throw Error("capability")`,
+            post: `if (typeof noodle.cookies !== "undefined") throw Error("capability")`,
           },
         })
       ).execution.scripts?.results[0]?.success,
@@ -501,8 +564,8 @@ describe("post-response lifecycle", () => {
       id: "folder/first",
       url: `${url}/error`,
       scripts: {
-        pre: `if (request.headers.get("X-Folder") !== "inherited") throw Error("merge")`,
-        post: `run.set("next", response.json().id); console.log("safe diagnostic")`,
+        pre: `if (noodle.request.headers.get("X-Folder") !== "inherited") throw Error("merge")`,
+        post: `noodle.run.set("next", noodle.response.json().id); console.log("safe diagnostic")`,
       },
       captures: { missing: { value: "body.missing", enabled: true } },
       assertions: [{ expression: "status", operator: "equals", value: 200 }],
@@ -512,7 +575,7 @@ describe("post-response lifecycle", () => {
       id: "folder/second",
       url: `${url}/api/users?id=$next`,
       scripts: {
-        post: `if (run.get("next") !== 7 || request.params.get("id") !== "7") throw Error("propagation")`,
+        post: `if (noodle.run.get("next") !== 7 || noodle.request.params.get("id") !== "7") throw Error("propagation")`,
       },
     }
     await writeFile(
