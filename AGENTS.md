@@ -217,6 +217,9 @@ diagnostics and exit 1. `responseFile.ts` owns exclusive creation, parent creati
 partial-file cleanup, and direct platform-opener argument handling.
 
 Save As state pins the selected Response; saved paths use response identity.
+TUI Save As suggests and saves to an available filename, adding compact `(1)`,
+`(2)`, etc. suffixes before the extension. Retry exclusive-creation collisions
+without overwriting existing files; CLI `--output` remains strict.
 Keep Save/Open actions centralized in `commandActions.ts`. Body-only native image
 previews support PNG/JPEG/static WebP/GIF first frame, automatic protocol and pane
 fit, explicit activation above 5 MiB, decoder-error fallback, and unmount cleanup.

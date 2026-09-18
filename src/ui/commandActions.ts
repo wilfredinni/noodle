@@ -48,11 +48,17 @@ export async function completeResponseFileSave(
   pending: ResponseFilePending,
   value: string,
 ): Promise<string> {
-  const path = await validateResponseOutput(value)
   if (!pending.response.bodyBytes)
     throw new Error("Original response bytes are unavailable")
-  await saveResponseFile(path, pending.response.bodyBytes)
-  return path
+  while (true) {
+    const path = await validateResponseOutput(value, { unique: true })
+    try {
+      await saveResponseFile(path, pending.response.bodyBytes)
+      return path
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
+    }
+  }
 }
 
 export function openSavedResponseFile(path: string | undefined): boolean {

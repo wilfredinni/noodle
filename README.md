@@ -103,7 +103,9 @@ PNG, JPEG, static WebP, and the first GIF frame; images above 5 MiB require
 explicit preview activation. Other formats show file metadata and
 “Preview unavailable for this format.” Choose **Save file** to select a path,
 initially suggested in Downloads, then **Open in default app** to open that
-saved response. Saving creates missing directories and refuses existing files.
+saved response. Saving creates missing directories and automatically adds
+`(1)`, `(2)`, and so on before the extension when the filename already exists.
+Existing files are never overwritten.
 With the binary Body tab focused, Ctrl+Alt+S opens Save file and Ctrl+Alt+O
 opens that response after it has been saved. Configure both in **F4 → Global →
 Keyboard** or with `response_save_file` and `response_open_file` in

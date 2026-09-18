@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { scheduler } from "node:timers/promises"
@@ -114,6 +114,42 @@ describe("Save response overlay", () => {
     await act(() => setup.host.press("escape"))
     expect(setup.cancelled()).toBe(1)
   })
+  it("suggests a numbered filename and advances it if occupied before saving", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-save-response-"))
+    const previousDownloads = process.env.NOODLE_DOWNLOADS_DIR
+    process.env.NOODLE_DOWNLOADS_DIR = root
+    try {
+      await writeFile(join(root, "Report.pdf"), "original")
+      await writeFile(join(root, "Report(1).pdf"), "first copy")
+      const setup = await mount()
+      const deadline = Date.now() + 2000
+      while (!setup.captureCharFrame().includes("Report(2).pdf")) {
+        if (Date.now() > deadline)
+          throw new Error("Numbered output suggestion did not finish")
+        await act(async () => {
+          await scheduler.yield()
+          await setup.renderOnce()
+        })
+      }
+      const suggestion = setup.ref.current!.confirm()!
+      expect(suggestion).toBe(collapseUserPath(join(root, "Report(2).pdf")))
+      await writeFile(join(root, "Report(2).pdf"), "another writer")
+      const saved = await completeResponseFileSave(pending, suggestion)
+      expect(saved).toBe(join(root, "Report(3).pdf"))
+      expect(await readFile(join(root, "Report(2).pdf"), "utf8")).toBe(
+        "another writer",
+      )
+      expect(Array.from(await readFile(saved))).toEqual(
+        Array.from(pending.response.bodyBytes!),
+      )
+      await act(() => setup.renderer.destroy())
+    } finally {
+      if (previousDownloads === undefined)
+        delete process.env.NOODLE_DOWNLOADS_DIR
+      else process.env.NOODLE_DOWNLOADS_DIR = previousDownloads
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   it("requires a path and lets completion own Return and Escape before the modal", async () => {
     const setup = await mount()
     await setup.edit("")
@@ -175,12 +211,51 @@ describe("Save response overlay", () => {
       expect(Array.from(await readFile(path))).toEqual(
         Array.from(pending.response.bodyBytes!),
       )
-      await expect(completeResponseFileSave(selected!, path)).rejects.toThrow(
-        "already exists",
+      const copy = await completeResponseFileSave(selected!, path)
+      expect(copy).toBe(join(root, "nested", "report(1).pdf"))
+      expect(Array.from(await readFile(copy))).toEqual(
+        Array.from(pending.response.bodyBytes!),
       )
       expect(Array.from(await readFile(path))).toEqual(
         Array.from(pending.response.bodyBytes!),
       )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+  it("automatically numbers an edited destination and preserves existing files and symlinks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-save-response-"))
+    try {
+      const path = join(root, "Modelos imágenes.jpg")
+      await writeFile(path, "original")
+      await writeFile(join(root, "Modelos imágenes(1).jpg"), "first copy")
+      await symlink(
+        join(root, "missing"),
+        join(root, "Modelos imágenes(2).jpg"),
+      )
+      const saved = await completeResponseFileSave(pending, path)
+      expect(saved).toBe(join(root, "Modelos imágenes(3).jpg"))
+      expect(Array.from(await readFile(saved))).toEqual(
+        Array.from(pending.response.bodyBytes!),
+      )
+      expect(await readFile(path, "utf8")).toBe("original")
+      expect(
+        await readFile(join(root, "Modelos imágenes(1).jpg"), "utf8"),
+      ).toBe("first copy")
+      const concurrent = await Promise.all(
+        Array.from({ length: 3 }, () =>
+          completeResponseFileSave(pending, path),
+        ),
+      )
+      expect(concurrent.toSorted()).toEqual(
+        [4, 5, 6].map((number) =>
+          join(root, `Modelos imágenes(${number}).jpg`),
+        ),
+      )
+      for (const copy of concurrent)
+        expect(Array.from(await readFile(copy))).toEqual(
+          Array.from(pending.response.bodyBytes!),
+        )
     } finally {
       await rm(root, { recursive: true, force: true })
     }

@@ -8,6 +8,7 @@ import {
 import { join } from "node:path"
 import { getDownloadsDir } from "../../filestore/timeline"
 import { suggestedResponseFilename } from "../../responseBody"
+import { validateResponseOutput } from "../../responseFile"
 import { collapseUserPath } from "../../userPath"
 import type { ResponseFilePending } from "../useOverlayState"
 import { VarInput, type VarInputHandle } from "../VarInput"
@@ -36,19 +37,17 @@ export const SaveResponseOverlay = forwardRef<
     setError(null)
     input.current?.focus()
     getDownloadsDir()
-      .then((directory) => {
-        if (active && !edited.current)
-          setPath(
-            collapseUserPath(
-              join(
-                directory,
-                suggestedResponseFilename(
-                  pending.response,
-                  pending.requestName,
-                ),
-              ),
-            ),
-          )
+      .then((directory) =>
+        validateResponseOutput(
+          join(
+            directory,
+            suggestedResponseFilename(pending.response, pending.requestName),
+          ),
+          { unique: true },
+        ),
+      )
+      .then((availablePath) => {
+        if (active && !edited.current) setPath(collapseUserPath(availablePath))
       })
       .catch((reason) => {
         if (active)

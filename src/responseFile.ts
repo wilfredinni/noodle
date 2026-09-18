@@ -1,16 +1,27 @@
 import { lstat, mkdir, open, stat, unlink } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
+import { dirname, join, parse, resolve } from "node:path"
 import { expandUserPath } from "./userPath"
 
-export async function validateResponseOutput(value: string): Promise<string> {
+export async function validateResponseOutput(
+  value: string,
+  { unique = false }: { unique?: boolean } = {},
+): Promise<string> {
   if (!value.trim() || value.includes("\0") || /[\\/]$/.test(value))
     throw new Error("Output must be a file path")
-  const path = resolve(expandUserPath(value))
-  try {
-    await lstat(path)
-    throw new Error(`Output already exists: ${path}`)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  let path = resolve(expandUserPath(value))
+  const { dir, name, ext } = parse(path)
+  const numbered = name.match(/^(.*)\(([1-9]\d*)\)$/)
+  const stem = numbered?.[1] ?? name
+  let number = BigInt(numbered?.[2] ?? 0)
+  while (true) {
+    try {
+      await lstat(path)
+      if (!unique) throw new Error(`Output already exists: ${path}`)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+      break
+    }
+    path = join(dir, `${stem}(${++number})${ext}`)
   }
   let parent = dirname(path)
   while (true) {
