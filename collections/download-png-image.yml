@@ -1,0 +1,6 @@
+name: Download PNG Image
+method: GET
+url: https://httpbin.org/image/png
+timeout: 30000
+followRedirects: true
+maxRedirects: 5
