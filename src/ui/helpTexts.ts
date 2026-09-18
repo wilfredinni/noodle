@@ -142,6 +142,15 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.response_body_view),
           description: "Toggle Source / Visual response body",
         },
+        {
+          key: displayKey(keybinds.response_save_file),
+          description: "Save binary response file (focused Body tab)",
+        },
+        {
+          key: displayKey(keybinds.response_open_file),
+          description:
+            "Open saved binary response in default app (focused Body tab)",
+        },
       ],
     },
     {

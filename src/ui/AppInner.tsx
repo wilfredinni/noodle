@@ -457,6 +457,8 @@ export function AppInner({
     overrideRequestId === selectedRequest?.id && userResponseTabOverride
       ? userResponseTabOverride
       : (initialResponseTab ?? "body")
+  const responseTabRef = useRef(responseTab)
+  responseTabRef.current = responseTab
 
   const queryVisible =
     view === "main" && filterOpenRequestId === (selectedRequest?.id ?? null)
@@ -850,6 +852,8 @@ export function AppInner({
     }),
     [responseState, responseFileVersion, overlays.setResponseFilePending],
   )
+  const responseFileActionsRef = useRef(responseFileActions)
+  responseFileActionsRef.current = responseFileActions
   openTagEditorRef.current = (index, value) =>
     overlays.setTagEditPending({ kind: "request", index, value })
 
@@ -1037,6 +1041,7 @@ export function AppInner({
         queryVisible,
         responseBodyEditorAvailable,
         responseBodyView,
+        responseFileSaved: !!responseFileActions.savedPath,
         settingsCategory,
         runnerPhase: runner.phase,
         keybinds,
@@ -1055,6 +1060,7 @@ export function AppInner({
       queryVisible,
       responseBodyEditorAvailable,
       responseBodyView,
+      responseFileActions.savedPath,
       settingsCategory,
       runner.phase,
       keybinds,
@@ -1239,6 +1245,8 @@ export function AppInner({
       activeIndexRef,
       expandedRef,
       responseStateRef,
+      responseTabRef,
+      responseFileActionsRef,
       responseQueryRef,
       responseBodyForCopyRef,
       modeRef,
@@ -1616,6 +1624,8 @@ export function AppInner({
     () =>
       buildCommandPaletteCommands({
         responseFileActions,
+        responseFileShortcutsAvailable:
+          focus === "response" && responseTab === "body",
         keybinds,
         collectionDir,
         appConfigDir,
@@ -1699,6 +1709,8 @@ export function AppInner({
       draft.draft?.auth,
       collection,
       responseFileActions,
+      focus,
+      responseTab,
     ],
   )
 

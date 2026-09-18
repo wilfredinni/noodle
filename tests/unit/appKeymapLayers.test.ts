@@ -43,6 +43,8 @@ function setup() {
 function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
   const calls = {
     send: 0,
+    responseSave: 0,
+    responseOpen: 0,
     formType: 0,
     requestCommit: 0,
     requestToggle: 0,
@@ -241,6 +243,20 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       viewRef: { current: "main" },
       expandedRef: { current: null },
       responseQueryRef: { current: null },
+      responseStateRef: { current: { status: "idle" } },
+      responseTabRef: { current: "body" },
+      responseFileActionsRef: {
+        current: {
+          save: () => {
+            calls.responseSave++
+            return true
+          },
+          open: () => {
+            calls.responseOpen++
+            return true
+          },
+        },
+      },
       sidebarVisibleRef: { current: true },
       setSidebarVisible: () => {},
       setFocus: (focus: string) => {
@@ -313,6 +329,73 @@ function firstCommandName(layer: UseBindingsLayer): string | undefined {
 }
 
 describe("app keymap layers", () => {
+  it("saves and opens only the focused live binary Body response outside overlays and inputs", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: { "content-type": "image/png" },
+      body: "",
+      bodyKind: "binary" as const,
+      timeMs: 1,
+      bodyBytes: new Uint8Array([0, 255]),
+    }
+    context.global.responseStateRef.current = { status: "done", response }
+    keymap.setData("app.focus", "response")
+    const disposers = register(context)
+    host.press("s", { ctrl: true, meta: true })
+    host.press("o", { ctrl: true, meta: true })
+    expect(calls.responseSave).toBe(1)
+    expect(calls.responseOpen).toBe(0)
+    context.global.responseFileActionsRef.current!.savedPath = "/tmp/image.png"
+    host.press("o", { ctrl: true, meta: true })
+    expect(calls.responseOpen).toBe(1)
+    const pressBoth = () => {
+      host.press("s", { ctrl: true, meta: true })
+      host.press("o", { ctrl: true, meta: true })
+      expect(calls.responseSave).toBe(1)
+      expect(calls.responseOpen).toBe(1)
+    }
+    for (const [field, blocked, normal] of [
+      ["app.overlay", "save-response", "none"],
+      ["app.overlay", "command-palette", "none"],
+      ["app.jump", "active", "none"],
+      ["app.focus", "request", "response"],
+      ["app.mode", "edit", "base"],
+      ["app.text-input", true, false],
+    ] as const) {
+      keymap.setData(field, blocked)
+      pressBoth()
+      keymap.setData(field, normal)
+    }
+    context.global.responseTabRef.current = "headers"
+    pressBoth()
+    context.global.responseTabRef.current = "body"
+    context.global.viewRef.current = "env-editor"
+    pressBoth()
+    context.global.viewRef.current = "main"
+    context.global.responseStateRef.current = {
+      status: "done",
+      response: { ...response, bodyKind: "text", body: "text" },
+    }
+    pressBoth()
+    context.global.responseStateRef.current = {
+      status: "done",
+      response: { ...response, bodyBytes: undefined },
+    }
+    pressBoth()
+    context.global.responseStateRef.current = { status: "idle" }
+    pressBoth()
+    context.global.responseStateRef.current = { status: "done", response }
+    host.press("s", { ctrl: true, meta: true })
+    host.press("o", { ctrl: true, meta: true })
+    expect(calls.responseSave).toBe(2)
+    expect(calls.responseOpen).toBe(2)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("does not copy a response behind Save As or copy binary bodies", () => {
     const { keymap, host, cleanup } = setup()
     const { context } = createContext(keymap)
@@ -959,6 +1042,20 @@ describe("app keymap layers", () => {
   it("refreshes settings shortcuts without remounting the keymap", async () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
+    context.global.responseStateRef.current = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        bodyKind: "binary",
+        timeMs: 1,
+        bodyBytes: new Uint8Array(),
+      },
+    }
+    context.global.responseFileActionsRef.current!.savedPath = "/tmp/saved.bin"
+    keymap.setData("app.focus", "response")
     let updateKeybinds: ((keybinds: Keybinds) => void) | undefined
     const render = await testRender(
       createElement(RendererProvider, {
@@ -980,9 +1077,18 @@ describe("app keymap layers", () => {
     host.press("f4")
     expect(calls.settingsOpened).toBe(true)
     calls.settingsOpened = false
+    host.press("s", { ctrl: true, meta: true })
+    host.press("o", { ctrl: true, meta: true })
+    expect(calls.responseSave).toBe(1)
+    expect(calls.responseOpen).toBe(1)
 
     await act(() => {
-      updateKeybinds!({ ...context.keybinds, settings_open: "f7" })
+      updateKeybinds!({
+        ...context.keybinds,
+        settings_open: "f7",
+        response_save_file: "alt+s",
+        response_open_file: "alt+o",
+      })
     })
     await render.renderOnce()
 
@@ -990,6 +1096,28 @@ describe("app keymap layers", () => {
     expect(calls.settingsOpened).toBe(false)
     host.press("f7")
     expect(calls.settingsOpened).toBe(true)
+    host.press("s", { ctrl: true, meta: true })
+    host.press("o", { ctrl: true, meta: true })
+    expect(calls.responseSave).toBe(1)
+    expect(calls.responseOpen).toBe(1)
+    host.press("s", { meta: true })
+    host.press("o", { meta: true })
+    expect(calls.responseSave).toBe(2)
+    expect(calls.responseOpen).toBe(2)
+    await act(() =>
+      updateKeybinds!({
+        ...context.keybinds,
+        response_save_file: "",
+        response_open_file: "",
+      }),
+    )
+    await render.renderOnce()
+    host.press("s", { ctrl: true, meta: true })
+    host.press("o", { ctrl: true, meta: true })
+    host.press("s", { meta: true })
+    host.press("o", { meta: true })
+    expect(calls.responseSave).toBe(2)
+    expect(calls.responseOpen).toBe(2)
 
     cleanup()
   })

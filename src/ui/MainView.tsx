@@ -397,6 +397,7 @@ export function MainView({
           />
         ) : (
           <RequestResponseView
+            keybinds={keybinds}
             draft={draft}
             eb={eb}
             error={error}

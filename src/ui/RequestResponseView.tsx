@@ -13,8 +13,10 @@ import type { SendState } from "./sendState"
 import { useRef, type RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
 import type { FieldKind, FieldSubfield } from "./editMode"
+import type { Keybinds } from "./keybind"
 
 interface RequestResponseViewProps {
+  keybinds?: Keybinds
   draft: UseRequestDraftResult
   eb: UseEditBrowseResult
   error: Error | null
@@ -62,6 +64,7 @@ interface RequestResponseViewProps {
 }
 
 export function RequestResponseView({
+  keybinds,
   draft,
   eb,
   error,
@@ -162,6 +165,7 @@ export function RequestResponseView({
   const responsePane = (
     <ResponsePane
       key={responseKey}
+      keybinds={keybinds}
       state={responseState}
       requestName={draft.draft?.name ?? "response"}
       bodyView={responseBodyView}

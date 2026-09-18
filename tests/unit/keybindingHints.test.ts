@@ -53,6 +53,54 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("shows configured binary file actions only when the bytes and saved file are available", () => {
+    const context = ctx({
+      focus: "response",
+      tab: "body",
+      keybinds: {
+        ...kb,
+        response_save_file: "alt+s",
+        response_open_file: "alt+o",
+      },
+      sendState: {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          bodyKind: "binary",
+          timeMs: 1,
+          bodyBytes: new Uint8Array(),
+        },
+      },
+    })
+    expect(getKeybindingHints(context).footer).toEqual([
+      seg("alt+s", "save file", "response.save-file"),
+      seg("f2", "expand", "request.expand-toggle"),
+    ])
+    context.responseFileSaved = true
+    expect(getKeybindingHints(context).footer).toEqual([
+      seg("alt+s", "save file", "response.save-file"),
+      seg("alt+o", "open file", "response.open-file"),
+      seg("f2", "expand", "request.expand-toggle"),
+    ])
+    context.tab = "headers"
+    expect(getKeybindingHints(context).footer).toEqual([
+      seg("f2", "expand", "request.expand-toggle"),
+    ])
+    context.tab = "body"
+    context.focus = "request"
+    expect(
+      getKeybindingHints(context).footer.map((hint) => hint.command),
+    ).not.toContain("response.save-file")
+    context.focus = "response"
+    if (context.sendState.status === "done")
+      context.sendState.response.bodyKind = "text"
+    expect(
+      getKeybindingHints(context).footer.map((hint) => hint.command),
+    ).not.toContain("response.save-file")
+  })
   it("does not advertise the command palette as a direct binary Save shortcut", () => {
     expect(
       getKeybindingHints(

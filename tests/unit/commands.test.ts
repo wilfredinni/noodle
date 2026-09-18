@@ -91,6 +91,66 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("shows configured shortcuts for binary file commands after saving", () => {
+    const ctx = minimalContext()
+    ctx.responseFileShortcutsAvailable = true
+    ctx.keybinds.response_save_file = "alt+s"
+    ctx.keybinds.response_open_file = "alt+o"
+    ctx.responseFileActions = { save: () => true, open: () => true }
+    ctx.responseStateRef.current = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        bodyKind: "binary",
+        bodyBytes: new Uint8Array(),
+        timeMs: 1,
+      },
+    }
+    let commands = buildCommandPaletteCommands(ctx)
+    expect(
+      commands.find((command) => command.id === "response.save-file")
+        ?.keybinding,
+    ).toBe("alt+s")
+    expect(
+      commands.find((command) => command.id === "response.open-file"),
+    ).toBeUndefined()
+    ctx.responseFileActions.savedPath = "/tmp/saved.bin"
+    commands = buildCommandPaletteCommands(ctx)
+    expect(
+      commands.find((command) => command.id === "response.open-file")
+        ?.keybinding,
+    ).toBe("alt+o")
+    ctx.responseFileShortcutsAvailable = false
+    commands = buildCommandPaletteCommands(ctx)
+    expect(
+      commands.find((command) => command.id === "response.save-file"),
+    ).toBeDefined()
+    expect(
+      commands.find((command) => command.id === "response.open-file"),
+    ).toBeDefined()
+    expect(
+      commands.find((command) => command.id === "response.save-file")
+        ?.keybinding,
+    ).toBeUndefined()
+    expect(
+      commands.find((command) => command.id === "response.open-file")
+        ?.keybinding,
+    ).toBeUndefined()
+    ctx.responseFileShortcutsAvailable = true
+    ctx.responseStateRef.current.response.bodyKind = "text"
+    commands = buildCommandPaletteCommands(ctx)
+    expect(
+      commands.find((command) => command.id === "response.save-file")
+        ?.keybinding,
+    ).toBeUndefined()
+    expect(
+      commands.find((command) => command.id === "response.open-file")
+        ?.keybinding,
+    ).toBeUndefined()
+  })
   it("offers file actions only for a live response with original bytes", () => {
     const ctx = minimalContext()
     const save = jest.fn(() => true)

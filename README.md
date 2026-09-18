@@ -104,6 +104,11 @@ explicit preview activation. Other formats show file metadata and
 “Preview unavailable for this format.” Choose **Save file** to select a path,
 initially suggested in Downloads, then **Open in default app** to open that
 saved response. Saving creates missing directories and refuses existing files.
+With the binary Body tab focused, Ctrl+Alt+S opens Save file and Ctrl+Alt+O
+opens that response after it has been saved. Configure both in **F4 → Global →
+Keyboard** or with `response_save_file` and `response_open_file` in
+`~/.config/noodle/keybinds.yml`; buttons, footer, palette, and help follow
+those bindings.
 Binary history retains metadata only and displays “Binary body was not retained.”
 Text responses retain their Source and Visual views.
 

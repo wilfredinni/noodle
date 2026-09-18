@@ -12,7 +12,7 @@ import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import { ResponseImageRenderable } from "../../src/ui/ResponseBinaryBody"
 import { ResponseFileContext } from "../../src/ui/responseFileContext"
 import { contrastOnSecondary, THEMES, ThemeProvider } from "../../src/ui/theme"
-import { bindingDefaults } from "../../src/ui/keybind"
+import { bindingDefaults, type Keybinds } from "../../src/ui/keybind"
 import { TimelineDetailOverlay } from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { Request, Response } from "../../src/schema"
 import type { ResponseQueryController } from "../../src/ui/responseQuery"
@@ -95,6 +95,7 @@ async function mount(
   let select!: (tab: "body" | "headers") => void
   let saved!: (path: string) => void
   let split!: (ratio: number) => void
+  let bindings!: (keybinds: Keybinds) => void
   let currentRatio = 0.5
   const save = mock(() => true)
   const open = mock(() => true)
@@ -103,12 +104,14 @@ async function mount(
     const [tab, setTab] = useState<"body" | "headers">("body")
     const [savedPath, setSavedPath] = useState<string>()
     const [splitRatio, setSplitRatio] = useState(0.5)
+    const [keybinds, setKeybinds] = useState(bindingDefaults)
     const draft = useRequestDraft(request)
     const eb = useEditBrowse(draft.draft, draft)
     replace = setValue
     select = setTab
     saved = setSavedPath
     split = setSplitRatio
+    bindings = setKeybinds
     currentRatio = splitRatio
     return (
       <KeymapProvider
@@ -139,7 +142,7 @@ async function mount(
                       >["folderDraft"]
                     }
                     folderEb={{} as ComponentProps<typeof MainView>["folderEb"]}
-                    keybinds={bindingDefaults()}
+                    keybinds={keybinds}
                     sidebarVisible={false}
                     paneSplitRatio={splitRatio}
                     onPaneSplitRatioChange={setSplitRatio}
@@ -169,6 +172,7 @@ async function mount(
               </box>
             ) : (
               <ResponsePane
+                keybinds={keybinds}
                 state={
                   value
                     ? { status: "done", response: value }
@@ -207,6 +211,7 @@ async function mount(
     select,
     saved,
     split,
+    bindings,
     splitRatio: () => currentRatio,
     save,
     open,
@@ -233,7 +238,9 @@ describe("binary response views", () => {
     ).toBe(true)
     let rows = setup.captureCharFrame().split("\n")
     let actionRow = rows.findIndex((row) => row.includes("Save file"))
-    expect(rows[actionRow]).toContain("Save file   Open in default app")
+    expect(rows[actionRow]).toContain(
+      "^alt+s Save file   ^alt+o Open in default app",
+    )
     await act(async () => {
       await setup.mockMouse.click(
         rows[actionRow]!.indexOf("Open in default app"),
@@ -268,6 +275,27 @@ describe("binary response views", () => {
       )
     })
     expect(setup.open).toHaveBeenCalledTimes(1)
+  })
+  it("updates button shortcuts after changing the bindings", async () => {
+    const setup = await mount(response(gif), {
+      width: 100,
+      height: 24,
+      workspaceLayout: "stacked",
+    })
+    expect(setup.captureCharFrame()).toContain("^alt+s Save file")
+    expect(setup.captureCharFrame()).toContain("^alt+o Open in default app")
+    await act(() =>
+      setup.bindings({
+        ...bindingDefaults(),
+        response_save_file: "alt+s",
+        response_open_file: "alt+o",
+      }),
+    )
+    await setup.render()
+    expect(setup.captureCharFrame()).toContain("alt+s Save file")
+    expect(setup.captureCharFrame()).toContain("alt+o Open in default app")
+    expect(setup.captureCharFrame()).not.toContain("^alt+s")
+    expect(setup.captureCharFrame()).not.toContain("^alt+o")
   })
   it("keeps Save inside the pane after scheduled shrink and grow frames", async () => {
     const setup = await mount(null, {
@@ -321,6 +349,14 @@ describe("binary response views", () => {
       ) as BoxRenderable
       expect(saveRow).toBeGreaterThan(slot.screenY)
       expect(saveRow).toBeLessThan(slot.screenY + slot.height - 1)
+      const openRow = rows.findIndex((row) =>
+        row.includes("Open in default app"),
+      )
+      expect(openRow).toBeGreaterThan(slot.screenY)
+      expect(openRow).toBeLessThan(slot.screenY + slot.height - 1)
+      expect(rows[openRow]).toContain("^alt+o Open in default app")
+      if (workspaceLayout === "side-by-side")
+        expect(openRow).toBeGreaterThan(saveRow)
       const preview = setup.image()!
       expect(preview.screenY + preview.height).toBeLessThanOrEqual(saveRow)
       await act(async () => {

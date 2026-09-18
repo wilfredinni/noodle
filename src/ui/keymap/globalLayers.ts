@@ -46,6 +46,23 @@ export function createGlobalLayers(
     const focused = context.renderer.currentFocusedRenderable
     return focused instanceof CodeEditorRenderable ? focused : null
   }
+  const binaryFileActionEnabled = () => {
+    const state = global.responseStateRef.current
+    return (
+      global.viewRef.current === "main" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.jump") !== "active" &&
+      keymap.getData("app.focus") === "response" &&
+      global.expandedRef.current !== "request" &&
+      !folder.folderViewRef.current &&
+      !isTextInputActive() &&
+      global.responseTabRef.current === "body" &&
+      state.status === "done" &&
+      state.response.bodyKind === "binary" &&
+      state.response.bodyBytes !== undefined &&
+      global.responseFileActionsRef.current !== null
+    )
+  }
   const shortcutEnabled = (binding: string, enabled = true) => {
     if (isRunnerRunning()) return false
     if (!enabled || !isTextInputActive()) return enabled
@@ -292,6 +309,18 @@ export function createGlobalLayers(
         },
       },
       {
+        name: "response.save-file",
+        enabled: binaryFileActionEnabled,
+        run: () => global.responseFileActionsRef.current?.save(),
+      },
+      {
+        name: "response.open-file",
+        enabled: () =>
+          binaryFileActionEnabled() &&
+          !!global.responseFileActionsRef.current?.savedPath,
+        run: () => global.responseFileActionsRef.current?.open(),
+      },
+      {
         name: "app.theme",
         enabled: () => shortcutEnabled(keybinds.theme_picker),
         run: () => {
@@ -423,6 +452,12 @@ export function createGlobalLayers(
         ? [{ key: keybinds.editor_unfold_all, cmd: "editor.unfold-all" }]
         : []),
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
+      ...(keybinds.response_save_file
+        ? [{ key: keybinds.response_save_file, cmd: "response.save-file" }]
+        : []),
+      ...(keybinds.response_open_file
+        ? [{ key: keybinds.response_open_file, cmd: "response.open-file" }]
+        : []),
       { key: keybinds.response_query, cmd: "response.query" },
       {
         key: keybinds.response_body_view,

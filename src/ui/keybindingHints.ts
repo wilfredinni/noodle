@@ -22,6 +22,7 @@ export interface KeybindingHintsContext {
   queryVisible?: boolean
   responseBodyEditorAvailable?: boolean
   responseBodyView?: "source" | "visual"
+  responseFileSaved?: boolean
   settingsCategory?: SettingsCategory
   runnerPhase?: RunnerPhase
   keybinds: Keybinds
@@ -368,6 +369,34 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.focus === "response") {
+    if (
+      ctx.sendState.status === "done" &&
+      ctx.tab === "body" &&
+      ctx.sendState.response.bodyKind === "binary" &&
+      ctx.sendState.response.bodyBytes
+    ) {
+      return [
+        {
+          key: displayKey(kb.response_save_file),
+          word: "save file",
+          command: "response.save-file",
+        },
+        ...(ctx.responseFileSaved
+          ? [
+              {
+                key: displayKey(kb.response_open_file),
+                word: "open file",
+                command: "response.open-file",
+              },
+            ]
+          : []),
+        {
+          key: displayKey(kb.pane_expand),
+          word: "expand",
+          command: "request.expand-toggle",
+        },
+      ]
+    }
     if (ctx.sendState.status === "done" && ctx.tab === "cookies") {
       return [
         { key: "↑/↓", word: "select" },

@@ -66,6 +66,7 @@ export type CommandPaletteTarget = "request" | "folder" | "environment"
 
 export interface CommandBuilderContext {
   responseFileActions?: ResponseFileActions
+  responseFileShortcutsAvailable?: boolean
   keybinds: Keybinds
   collectionDir: string
   appConfigDir: string
@@ -803,6 +804,11 @@ export function buildCommandPaletteCommands(
           {
             id: "response.save-file",
             label: "Save Response File",
+            keybinding:
+              ctx.responseFileShortcutsAvailable &&
+              ctx.responseStateRef.current.response.bodyKind === "binary"
+                ? displayKey(keybinds.response_save_file)
+                : undefined,
             section: "Response",
             run: ctx.responseFileActions.save,
           },
@@ -811,6 +817,11 @@ export function buildCommandPaletteCommands(
                 {
                   id: "response.open-file",
                   label: "Open Response in Default App",
+                  keybinding:
+                    ctx.responseFileShortcutsAvailable &&
+                    ctx.responseStateRef.current.response.bodyKind === "binary"
+                      ? displayKey(keybinds.response_open_file)
+                      : undefined,
                   section: "Response",
                   run: ctx.responseFileActions.open,
                 },

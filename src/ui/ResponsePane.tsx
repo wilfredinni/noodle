@@ -65,6 +65,7 @@ import { responseByteSize } from "../responseBody"
 import { ResponseBinaryBody } from "./ResponseBinaryBody"
 import { ResponseFileContext } from "./responseFileContext"
 import { ActionButton } from "./ActionButton"
+import { bindingDefaults, displayKey, type Keybinds } from "./keybind"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -126,6 +127,7 @@ type CookieTimelineRow =
     }
 
 export function ResponsePane({
+  keybinds = bindingDefaults(),
   state,
   requestName = "response",
   visible = true,
@@ -146,6 +148,7 @@ export function ResponsePane({
   bodyView: controlledBodyView,
   onBodyViewChange,
 }: {
+  keybinds?: Keybinds
   state: SendState
   requestName?: string
   visible?: boolean
@@ -1068,14 +1071,18 @@ export function ResponsePane({
         activeTab === "body" &&
         fileActions ? (
           <box style={{ flexDirection: "column", flexShrink: 0 }}>
-            <box style={{ flexDirection: "row", gap: 1 }}>
+            <box
+              style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 1 }}
+            >
               <ActionButton
                 label="Save file"
+                shortcut={displayKey(keybinds.response_save_file)}
                 mutedLabel
                 onAction={() => fileActions.save()}
               />
               <ActionButton
                 label="Open in default app"
+                shortcut={displayKey(keybinds.response_open_file)}
                 mutedLabel
                 disabled={!fileActions.savedPath}
                 onAction={() => fileActions.open()}

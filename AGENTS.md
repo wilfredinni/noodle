@@ -306,6 +306,8 @@ command_palette: ctrl+p
 | `Ctrl+E` | Edit request in overlay |
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
 | `Ctrl+Alt+B` | Copy response body |
+| `Ctrl+Alt+S` | Save live binary response file (focused response Body tab) |
+| `Ctrl+Alt+O` | Open saved binary response in default app (focused response Body tab) |
 | `m` | Toggle Source / Visual (response Body tab focused) |
 | `/` | Filter the focused Body tab with JSONPath in Source or text search in Visual |
 | `Ctrl+Alt+N` | New folder |
