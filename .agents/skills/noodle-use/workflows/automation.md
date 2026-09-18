@@ -23,10 +23,13 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Delete a local vault value without removing its declaration | `noodle secret delete <key> --env <name> --collection <dir> --json` |
 | Inspect collection cookies and storage health | `noodle cookie list --collection <dir> --json` |
 | Clear cookies or recover unreadable cookie storage | `noodle cookie clear --collection <dir> --json` |
+| Download an original response body | `noodle request run <id> --collection <dir> --output <file> --json` |
 | Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] ... --json` |
 
 ## Rules
 
+- `request run --output/-o <file>` downloads original received bytes (after normal HTTP decompression), without diagnostic redaction. Use a user-authorized destination. Missing parents are created; existing files are never overwritten. Invalid/existing paths exit `2` before sending. Completed HTTP, post-script, capture, or assertion failures still save the body and retain exit `1`; pre-script and transport failures create no file. Write failures preserve response diagnostics and exit `1`. Successful downloads report `data.result.response.outputFile`.
+- Binary responses omit `body` in JSON and report `bodyKind: "binary"`, byte `size`, normalized `contentType`, and optional sanitized `filename`. No bytes or base64 appear in result envelopes. Text results retain the existing redacted body; collection runs and Runner details report binary metadata only. JSON body captures/assertions fail clearly for binary responses, while status, headers, and timing work normally.
 - Read `status`, `data`, and `errors` from the one JSON envelope. A successful run exits `0`, any completed request failure exits `1`, and a pre-run configuration failure exits `2`, including `request run` failures before execution.
 - `workspace audit` checks registered paths for existence, directory access, and collection-root markers. `--fix` removes invalid paths from global config; authorize this mutation before running it.
 - `collection init` only accepts an existing, non-collection directory. It creates missing `settings.yml` and `.environments/development.env` bootstrap files, then registers the absolute path. Existing markers are preserved.

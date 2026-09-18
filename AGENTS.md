@@ -30,6 +30,7 @@ noodle workspace list [--json]
 noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] [--noproxy] [--insecure] [--json]
 noodle collection <create|init|list|inspect|format|audit> ... [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
+noodle request run <id> --collection <dir> [--output/-o <file>] ...
 noodle cookie <list|clear> --collection <dir> [--json]
 noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
@@ -194,6 +195,34 @@ tests/             # bun:test suites
 tests/unit/        # Unit tests for pure helpers + components
 tests/integration/ # Integration tests
 ```
+
+## Response bodies and downloads
+
+Live responses retain optional original, non-enumerable `bodyBytes` and `bodyKind: text|binary`;
+missing classification remains text-compatible. `responseBody.ts` owns MIME,
+UTF-8, image-signature, byte-size, and safe filename handling. Decode text once,
+keep binary `body` empty, and never rebuild downloads from text. Binary JSON
+diagnostics omit `body` and bytes, reporting `bodyKind`, `size`, `contentType`,
+and optional `filename`. Captures/assertions on JSON body paths fail clearly for
+binary responses; status/header/time still work. Explicit post-script text/json
+readers retain the existing UTF-8 behavior and 5 MiB limits.
+Preserve the non-enumerable payload when copying a live response; ordinary object
+spreads omit it. History and result envelopes must construct metadata explicitly.
+
+`request run --output/-o` validates a new destination before sending (invalid or
+existing paths exit 2), writes unredacted received bytes after all available
+diagnostics even on completed response failures, and reports `outputFile`.
+Pre-script/transport failures produce no file; later write failures preserve
+diagnostics and exit 1. `responseFile.ts` owns exclusive creation, parent creation,
+partial-file cleanup, and direct platform-opener argument handling.
+
+Save As state pins the selected Response; saved paths use response identity.
+Keep Save/Open actions centralized in `commandActions.ts`. Body-only native image
+previews support PNG/JPEG/static WebP/GIF first frame, automatic protocol and pane
+fit, explicit activation above 5 MiB, decoder-error fallback, and unmount cleanup.
+Binary history and Runner details retain redacted metadata only, with no response
+body/sidecar or download/preview/open; history says “Binary body was not retained.”
+Text history remains compatible. Add no request YAML fields for response handling.
 
 ## Entry point
 
