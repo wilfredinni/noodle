@@ -13,6 +13,13 @@ import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionO
 import type { CookieFormOverlayHandle } from "./overlays/CookieFormOverlay"
 import type { TagEditorOverlayHandle } from "./overlays/TagEditorOverlay"
 import type { JarCookie } from "../cookies"
+import type { Response } from "../schema"
+import type { SaveResponseOverlayHandle } from "./overlays/SaveResponseOverlay"
+
+export interface ResponseFilePending {
+  response: Response
+  requestName: string
+}
 
 export interface ImportedCollectionPending {
   path: string
@@ -42,6 +49,7 @@ export type CookieDeletePending =
   | { kind: "reset" }
 
 export type ActiveOverlay =
+  | "save-response"
   | "command-palette"
   | "code-generator"
   | "export-collection"
@@ -88,6 +96,9 @@ export function useOverlayState({
   reloadPending,
 }: UseOverlayStateProps) {
   const [helpVisible, setHelpVisible] = useState(false)
+  const [responseFilePending, setResponseFilePending] =
+    useState<ResponseFilePending | null>(null)
+  const responseFileRef = useRef<SaveResponseOverlayHandle | null>(null)
   const [aboutVisible, setAboutVisible] = useState(false)
   const [environmentPickerVisible, setEnvironmentPickerVisible] =
     useState(false)
@@ -155,6 +166,7 @@ export function useOverlayState({
 
   const activeOverlay = useMemo((): ActiveOverlay => {
     if (commandPaletteVisible) return "command-palette"
+    if (responseFilePending) return "save-response"
     if (codeGeneratorVisible) return "code-generator"
     if (exportCollectionVisible) return "export-collection"
     if (importCollectionVisible) return "import-collection"
@@ -188,6 +200,7 @@ export function useOverlayState({
     return "none"
   }, [
     commandPaletteVisible,
+    responseFilePending,
     codeGeneratorVisible,
     exportCollectionVisible,
     importCollectionVisible,
@@ -222,6 +235,9 @@ export function useOverlayState({
 
   return {
     activeOverlay,
+    responseFilePending,
+    setResponseFilePending,
+    responseFileRef,
     helpVisible,
     setHelpVisible,
     aboutVisible,

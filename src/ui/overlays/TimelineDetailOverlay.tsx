@@ -152,6 +152,8 @@ export function TimelineDetailOverlay({
       ? bodyInfo(entry, activeTab)
       : null
   const isLarge = (info?.size ?? 0) > AUTO_RENDER_LIMIT
+  const binaryResponse =
+    activeTab === "response" && entry?.response?.bodyKind === "binary"
 
   const selectTab = useCallback((tab: DetailTab) => {
     setActiveTab(tab)
@@ -174,6 +176,7 @@ export function TimelineDetailOverlay({
   }, [entry, activeTab, onCopyHeaders])
 
   const copyBody = useCallback(() => {
+    if (binaryResponse) return
     if (activeTab === "network" || activeTab === "results") return
     const body = loadedBody ?? info?.body
     if (body !== undefined) onCopyBody(body)
@@ -182,9 +185,10 @@ export function TimelineDetailOverlay({
         .then(onCopyBody)
         .catch(() => setBodyError("Unable to load the saved response body"))
     }
-  }, [activeTab, loadedBody, info, onCopyBody, onLoadBody])
+  }, [activeTab, loadedBody, info, onCopyBody, onLoadBody, binaryResponse])
 
   const exportBody = useCallback(() => {
+    if (binaryResponse) return
     if (!entry || activeTab === "network" || activeTab === "results") return
     const runExport = (body?: string) =>
       onExportBody(entry, activeTab, body).catch(() =>
@@ -199,7 +203,15 @@ export function TimelineDetailOverlay({
     } else {
       runExport()
     }
-  }, [entry, activeTab, loadedBody, info, onExportBody, onLoadBody])
+  }, [
+    entry,
+    activeTab,
+    loadedBody,
+    info,
+    onExportBody,
+    onLoadBody,
+    binaryResponse,
+  ])
 
   useEffect(() => {
     if (!visible) return
@@ -500,7 +512,9 @@ export function TimelineDetailOverlay({
                 borderColor={theme.borderSubtle}
                 style={{ height: 1 }}
               />
-              {info!.truncated ? (
+              {binaryResponse ? (
+                <text fg={theme.textMuted}>Binary body was not retained</text>
+              ) : info!.truncated ? (
                 <text fg={theme.warning}>
                   Saved body was truncated by an older Noodle version.
                 </text>
@@ -622,8 +636,18 @@ export function TimelineDetailOverlay({
               label="copy headers"
               onAction={copyHeaders}
             />
-            <ActionButton shortcut="b" label="copy body" onAction={copyBody} />
-            <ActionButton shortcut="e" label="export" onAction={exportBody} />
+            <ActionButton
+              shortcut="b"
+              label="copy body"
+              disabled={binaryResponse}
+              onAction={copyBody}
+            />
+            <ActionButton
+              shortcut="e"
+              label="export"
+              disabled={binaryResponse}
+              onAction={exportBody}
+            />
           </box>
         )}
       </box>

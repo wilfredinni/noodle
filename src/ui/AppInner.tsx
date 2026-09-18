@@ -81,6 +81,13 @@ import {
 } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { ResponseFileContext } from "./responseFileContext"
+import {
+  beginResponseFileSave,
+  completeResponseFileSave,
+  openSavedResponseFile,
+} from "./commandActions"
+import type { Response as HttpResponse } from "../schema"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "../timelineEntry"
@@ -817,6 +824,32 @@ export function AppInner({
     reloadPending,
   })
   const { activeOverlay } = overlays
+  const savedResponsePaths = useRef(new WeakMap<HttpResponse, string>())
+  const [responseFileVersion, setResponseFileVersion] = useState(0)
+  const responseFileSaving = useRef(false)
+  const responseFileActions = useMemo(
+    () => ({
+      save: () =>
+        beginResponseFileSave(
+          responseStateRef.current,
+          draftRef.current.draft?.name ?? "response",
+          overlays.setResponseFilePending,
+        ),
+      open: () => {
+        const state = responseStateRef.current
+        return openSavedResponseFile(
+          state.status === "done"
+            ? savedResponsePaths.current.get(state.response)
+            : undefined,
+        )
+      },
+      savedPath:
+        responseState.status === "done"
+          ? savedResponsePaths.current.get(responseState.response)
+          : undefined,
+    }),
+    [responseState, responseFileVersion, overlays.setResponseFilePending],
+  )
   openTagEditorRef.current = (index, value) =>
     overlays.setTagEditPending({ kind: "request", index, value })
 
@@ -1352,6 +1385,29 @@ export function AppInner({
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
     overlays,
+    onResponseFileConfirm: (path) => {
+      const pending = overlays.responseFilePending
+      if (!pending || responseFileSaving.current) return
+      responseFileSaving.current = true
+      void completeResponseFileSave(pending, path)
+        .then((savedPath) => {
+          savedResponsePaths.current.set(pending.response, savedPath)
+          setResponseFileVersion((version) => version + 1)
+          overlays.setResponseFilePending(null)
+          showToast("Response saved", "success")
+        })
+        .catch((error: unknown) => {
+          overlays.responseFileRef.current?.setError(
+            error instanceof Error ? error.message : "Unable to save response",
+          )
+        })
+        .finally(() => {
+          responseFileSaving.current = false
+        })
+    },
+    onResponseFileCancel: () => {
+      if (!responseFileSaving.current) overlays.setResponseFilePending(null)
+    },
     cancelSendRef,
     setSaveState,
     onCollectionUnregisterConfirm: (path) => {
@@ -1559,6 +1615,7 @@ export function AppInner({
   const commandPaletteCommands = useMemo(
     () =>
       buildCommandPaletteCommands({
+        responseFileActions,
         keybinds,
         collectionDir,
         appConfigDir,
@@ -1641,11 +1698,12 @@ export function AppInner({
       tlsPolicy,
       draft.draft?.auth,
       collection,
+      responseFileActions,
     ],
   )
 
   // ── Render ─────────────────────────────────────────────────────────
-  return (
+  const content = (
     <box
       style={{
         flexDirection: "column",
@@ -1895,6 +1953,7 @@ export function AppInner({
           onCancelDialog={overlayActions.onCancel}
           commandPaletteCommands={commandPaletteCommands}
           exportCollectionActions={overlayActions.exportCollection}
+          responseFileActions={overlayActions.responseFile}
           importCollectionActions={overlayActions.importCollection}
           importCollectionInitialParent={collapseUserPath(
             dirname(collectionDir),
@@ -1965,5 +2024,10 @@ export function AppInner({
         onHintActivate={handleHintActivate}
       />
     </box>
+  )
+  return (
+    <ResponseFileContext.Provider value={responseFileActions}>
+      {content}
+    </ResponseFileContext.Provider>
   )
 }

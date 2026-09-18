@@ -91,6 +91,37 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("offers file actions only for a live response with original bytes", () => {
+    const ctx = minimalContext()
+    const save = jest.fn(() => true)
+    const open = jest.fn(() => true)
+    ctx.responseFileActions = { save, open }
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "legacy",
+      timeMs: 1,
+      bodyBytes: undefined as Uint8Array | undefined,
+    }
+    ctx.responseStateRef.current = { status: "done", response }
+    expect(
+      buildCommandPaletteCommands(ctx).map((command) => command.id),
+    ).not.toContain("response.save-file")
+    response.bodyBytes = new Uint8Array()
+    buildCommandPaletteCommands(ctx)
+      .find((command) => command.id === "response.save-file")!
+      .run()
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(
+      buildCommandPaletteCommands(ctx).map((command) => command.id),
+    ).not.toContain("response.open-file")
+    ctx.responseFileActions.savedPath = "/tmp/saved.bin"
+    buildCommandPaletteCommands(ctx)
+      .find((command) => command.id === "response.open-file")!
+      .run()
+    expect(open).toHaveBeenCalledTimes(1)
+  })
   it("shows Install Noodle skill in the contiguous System section of every full palette", () => {
     const cases: Array<
       [string, ReturnType<CommandBuilderContext["getCollectionMode"]>]

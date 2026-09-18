@@ -27,6 +27,44 @@ import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 import { launchExternalEditor, type ExternalEditor } from "../externalEditor"
 import { installNoodleSkill, type AgentSkillInstallResult } from "../agentSkill"
+import type { ResponseFilePending } from "./useOverlayState"
+import {
+  openResponseFile,
+  saveResponseFile,
+  validateResponseOutput,
+} from "../responseFile"
+
+export function beginResponseFileSave(
+  state: SendState,
+  requestName: string,
+  setPending: (pending: ResponseFilePending) => void,
+): boolean {
+  if (state.status !== "done" || !state.response.bodyBytes) return false
+  setPending({ response: state.response, requestName })
+  return true
+}
+
+export async function completeResponseFileSave(
+  pending: ResponseFilePending,
+  value: string,
+): Promise<string> {
+  const path = await validateResponseOutput(value)
+  if (!pending.response.bodyBytes)
+    throw new Error("Original response bytes are unavailable")
+  await saveResponseFile(path, pending.response.bodyBytes)
+  return path
+}
+
+export function openSavedResponseFile(path: string | undefined): boolean {
+  if (!path) return false
+  void openResponseFile(path).catch((error: unknown) =>
+    showToast(
+      error instanceof Error ? error.message : "Unable to open saved response",
+      "error",
+    ),
+  )
+  return true
+}
 
 export interface CommandActionsConfig {
   collectionDir: string
@@ -165,7 +203,7 @@ export function deleteFolder(c: CommandActionsConfig): {
 
 export function copyResponseBody(c: CommandActionsConfig): boolean {
   const s = c.responseStateRef.current
-  if (s?.status !== "done") return false
+  if (s?.status !== "done" || s.response.bodyKind === "binary") return false
   const body = c.responseBodyForCopyRef.current ?? s.response.body
   if (copyToClipboard(body, c.renderer)) {
     showToast("Response body copied", "success")

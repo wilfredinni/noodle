@@ -162,6 +162,7 @@ export function RequestResponseView({
     <ResponsePane
       key={responseKey}
       state={responseState}
+      requestName={draft.draft?.name ?? "response"}
       bodyView={responseBodyView}
       onBodyViewChange={onResponseBodyViewChange}
       visible={responseVisible}

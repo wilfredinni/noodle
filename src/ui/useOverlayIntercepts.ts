@@ -70,6 +70,8 @@ export function useOverlayIntercepts(opts: {
   }) => void
   onExportCollectionCancel: () => void
   onExportCollectionConfirm: (values: ExportCollectionValues) => void
+  onResponseFileConfirm?: (path: string) => void
+  onResponseFileCancel?: () => void
   importCollectionPendingRef: RefObject<boolean>
   onImportCollectionConfirm: (values: CollectionImportValues) => void
   onImportOpenConfirm: (pending: ImportedCollectionPending) => void
@@ -140,6 +142,15 @@ export function useOverlayIntercepts(opts: {
     onCancel: opts.onExportCollectionCancel,
     passThroughFocuses: ["format"],
   })
+  const responseFileActions = useSingleFieldFormOverlayIntercept({
+    visible: overlays.responseFilePending !== null,
+    handleRef: overlays.responseFileRef,
+    onConfirm: (path) => opts.onResponseFileConfirm?.(path),
+    onCancel: () =>
+      opts.onResponseFileCancel
+        ? opts.onResponseFileCancel()
+        : overlays.setResponseFilePending(null),
+  })
 
   const importCollectionActions = useFormOverlayIntercept({
     visible: overlays.importCollectionVisible,
@@ -192,6 +203,7 @@ export function useOverlayIntercepts(opts: {
     newRequest: newRequestActions,
     importCurl: importCurlActions,
     exportCollection: exportCollectionActions,
+    responseFile: responseFileActions,
     importCollection: importCollectionActions,
     editRequest: editRequestActions,
     cloneRequest: cloneRequestActions,

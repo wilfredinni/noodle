@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import {
@@ -9,7 +16,12 @@ import {
 } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type { NetworkError, ResponseCookie, TimelineEntry } from "../schema"
+import type {
+  NetworkError,
+  Response,
+  ResponseCookie,
+  TimelineEntry,
+} from "../schema"
 import {
   bodyFiletype,
   formatHeaders,
@@ -49,6 +61,10 @@ import {
 } from "./ResponseVisualBody"
 import { parseVisualBody } from "./responseVisual"
 import { scriptExecutionSucceeded } from "../preRequestScript"
+import { responseByteSize } from "../responseBody"
+import { ResponseBinaryBody } from "./ResponseBinaryBody"
+import { ResponseFileContext } from "./responseFileContext"
+import { ActionButton } from "./ActionButton"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -111,6 +127,7 @@ type CookieTimelineRow =
 
 export function ResponsePane({
   state,
+  requestName = "response",
   visible = true,
   focused = false,
   timelineEntries,
@@ -130,6 +147,7 @@ export function ResponsePane({
   onBodyViewChange,
 }: {
   state: SendState
+  requestName?: string
   visible?: boolean
   focused?: boolean
   timelineEntries?: TimelineEntry[]
@@ -149,6 +167,7 @@ export function ResponsePane({
   onBodyViewChange?: (view: "source" | "visual") => void
 }) {
   const theme = useTheme()
+  const fileActions = useContext(ResponseFileContext)
   const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
@@ -191,6 +210,14 @@ export function ResponsePane({
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const isDone = state.status === "done"
+  const isBinary = isDone && state.response.bodyKind === "binary"
+  const binaryIdentity = useRef({ response: null as Response | null, key: 0 })
+  if (isDone && binaryIdentity.current.response !== state.response) {
+    binaryIdentity.current = {
+      response: state.response,
+      key: binaryIdentity.current.key + 1,
+    }
+  }
   const visualSessionRef = useMemo<RefObject<VisualSession | null>>(
     () => ({ current: null }),
     [responseKey, state.status, isDone ? state.response.body : null],
@@ -269,9 +296,9 @@ export function ResponsePane({
 
   useEffect(() => {
     onQueryVisibleChangeRef.current?.(
-      bodyView === "visual" ? visualSearchFocused : queryVisible,
+      !isBinary && (bodyView === "visual" ? visualSearchFocused : queryVisible),
     )
-  }, [queryVisible, bodyView, visualSearchFocused])
+  }, [queryVisible, bodyView, visualSearchFocused, isBinary])
 
   useEffect(() => {
     setSelectedCookieIdx(0)
@@ -450,7 +477,7 @@ export function ResponsePane({
     setQuery("")
     setSettledQuery("")
     setShowLargeBody(false)
-  }, [responseKey, state.status, isDone ? state.response.body : null])
+  }, [responseKey, state.status, isBinary, isDone ? state.response.body : null])
 
   useEffect(() => {
     if (
@@ -485,8 +512,8 @@ export function ResponsePane({
 
   const bodySize = useMemo(() => {
     if (state.status !== "done") return 0
-    return new TextEncoder().encode(state.response.body).length
-  }, [state.status, state.status === "done" ? state.response.body : null])
+    return responseByteSize(state.response)
+  }, [state.status, state.status === "done" ? state.response : null])
 
   const formattedBody = useMemo(() => {
     if (state.status !== "done") return ""
@@ -583,23 +610,26 @@ export function ResponsePane({
     responseQueryRef.current = {
       canOpen: () =>
         isDone &&
+        !isBinary &&
         activeTab === "body" &&
         (bodyView === "visual"
           ? visualSearchRef.current !== null && !visualSearchFocused
           : !queryVisible),
       isOpen: () =>
+        !isBinary &&
         focused &&
         activeTab === "body" &&
         (bodyView === "visual" ? visualSearchFocused : queryVisible),
       open: () => {
-        if (!isDone || activeTab !== "body") return false
+        if (!isDone || isBinary || activeTab !== "body") return false
         if (bodyView === "visual") visualSearchRef.current?.focus()
         else setQueryVisible(true)
         return true
       },
-      canToggleView: () => isDone && activeTab === "body",
-      toggleView: () =>
-        setBodyView(bodyView === "source" ? "visual" : "source"),
+      canToggleView: () => isDone && !isBinary && activeTab === "body",
+      toggleView: () => {
+        if (!isBinary) setBodyView(bodyView === "source" ? "visual" : "source")
+      },
     }
     return () => {
       responseQueryRef.current = null
@@ -609,6 +639,7 @@ export function ResponsePane({
     isDone,
     activeTab,
     queryVisible,
+    isBinary,
     bodyView,
     visualSearchFocused,
     focused,
@@ -759,6 +790,15 @@ export function ResponsePane({
               >
                 <text fg={theme.error}> {state.error.message}</text>
               </box>
+            ) : isBinary && state.status === "done" ? (
+              visible ? (
+                <ResponseBinaryBody
+                  key={binaryIdentity.current.key}
+                  response={state.response}
+                  requestName={requestName}
+                  focused={focused}
+                />
+              ) : null
             ) : (
               <box
                 style={{
@@ -1022,6 +1062,23 @@ export function ResponsePane({
             <Tips />
           )}
         </Tabs>
+        {isDone &&
+        state.response.bodyBytes &&
+        !isBinary &&
+        activeTab === "body" &&
+        fileActions ? (
+          <box style={{ flexDirection: "row", flexShrink: 0 }}>
+            <ActionButton
+              label="Save file"
+              onAction={() => fileActions.save()}
+            />
+            <ActionButton
+              label="Open in default app"
+              disabled={!fileActions.savedPath}
+              onAction={() => fileActions.open()}
+            />
+          </box>
+        ) : null}
       </box>
     </Frame>
   )

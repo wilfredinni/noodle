@@ -16,6 +16,9 @@ export function makeOverlayState(
 ): OverlayState {
   const state: OverlayState = {
     activeOverlay: "none",
+    responseFilePending: null,
+    setResponseFilePending: noop,
+    responseFileRef: createRef() as OverlayState["responseFileRef"],
     helpVisible: false,
     setHelpVisible: noop,
     aboutVisible: false,

@@ -313,6 +313,45 @@ function firstCommandName(layer: UseBindingsLayer): string | undefined {
 }
 
 describe("app keymap layers", () => {
+  it("does not copy a response behind Save As or copy binary bodies", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    context.global.responseStateRef = {
+      current: {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "text",
+          timeMs: 1,
+        },
+      },
+    }
+    let copyCalls = 0
+    context.actions.responseStateRef = {
+      get current() {
+        copyCalls++
+        return { status: "idle" as const }
+      },
+    }
+    const disposers = register(context)
+    keymap.setData("app.overlay", "save-response")
+    const state = context.global.responseStateRef.current
+    if (state.status !== "done") throw new Error("Expected completed response")
+    host.press("b", { ctrl: true, meta: true })
+    keymap.dispatchCommand("response.copy-body")
+    expect(copyCalls).toBe(0)
+    keymap.setData("app.overlay", "none")
+    state.response.bodyKind = "binary"
+    keymap.dispatchCommand("response.copy-body")
+    expect(copyCalls).toBe(0)
+    state.response.bodyKind = "text"
+    keymap.dispatchCommand("response.copy-body")
+    expect(copyCalls).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
   it("keeps the production layer order", () => {
     const { keymap, cleanup } = setup()
     const { context } = createContext(keymap)

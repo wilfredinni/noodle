@@ -22,6 +22,7 @@ import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
 import type { CollectionMode } from "../collectionPath"
 import type { ExternalEditor } from "../externalEditor"
+import type { ResponseFileActions } from "./responseFileContext"
 import {
   saveRequest,
   saveFolder,
@@ -64,6 +65,7 @@ import {
 export type CommandPaletteTarget = "request" | "folder" | "environment"
 
 export interface CommandBuilderContext {
+  responseFileActions?: ResponseFileActions
   keybinds: Keybinds
   collectionDir: string
   appConfigDir: string
@@ -794,6 +796,28 @@ export function buildCommandPaletteCommands(
 
   return [
     ...(mode === "collection" ? visibleRequestCommands : []),
+    ...(ctx.responseFileActions &&
+    ctx.responseStateRef.current?.status === "done" &&
+    ctx.responseStateRef.current.response.bodyBytes
+      ? [
+          {
+            id: "response.save-file",
+            label: "Save Response File",
+            section: "Response",
+            run: ctx.responseFileActions.save,
+          },
+          ...(ctx.responseFileActions.savedPath
+            ? [
+                {
+                  id: "response.open-file",
+                  label: "Open Response in Default App",
+                  section: "Response",
+                  run: ctx.responseFileActions.open,
+                },
+              ]
+            : []),
+        ]
+      : []),
     ...(mode === "collection" ? mainEnvCommands : []),
     ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,

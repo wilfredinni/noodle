@@ -255,8 +255,10 @@ export function createGlobalLayers(
         enabled: () =>
           shortcutEnabled(
             keybinds.response_copy_body,
-            global.viewRef.current === "main" &&
-              global.responseStateRef.current.status === "done",
+            keymap.getData("app.overlay") === "none" &&
+              global.viewRef.current === "main" &&
+              global.responseStateRef.current.status === "done" &&
+              global.responseStateRef.current.response.bodyKind !== "binary",
           ),
         run: () => {
           copyResponseBody(actions)
