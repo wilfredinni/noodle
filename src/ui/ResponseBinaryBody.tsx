@@ -1,6 +1,13 @@
 import { useContext, useEffect, useState } from "react"
-import { extend } from "@opentui/react"
-import { ImageRenderable, type OptimizedBuffer } from "@opentui/core"
+import { extend, useRenderer } from "@opentui/react"
+import {
+  ImageRenderable,
+  RGBA,
+  type ImageRenderableOptions,
+  type OptimizedBuffer,
+  type Renderable,
+  type RenderContext,
+} from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import type { Response } from "../schema"
 import {
@@ -13,18 +20,112 @@ import { ResponseFileContext } from "./responseFileContext"
 import { ActionButton } from "./ActionButton"
 import { formatSize } from "./format"
 import { useTheme } from "./theme"
+import {
+  ModalImageComposition,
+  mountedModalBackdrop,
+  mountedModalBackdrops,
+  RESPONSE_IMAGE_ID,
+} from "./modalImageComposition"
+
+interface ResponseImageOptions extends ImageRenderableOptions {
+  modalRoot?: Renderable
+  paneBackground?: string
+}
 
 // PNG pixel decoding may be lazy: handle failures during painting as well as loading.
 export class ResponseImageRenderable extends ImageRenderable {
   private failed = false
+  private composition = new ModalImageComposition()
+  modalRoot?: Renderable
+  paneBackground: string
+  constructor(ctx: RenderContext, options: ResponseImageOptions) {
+    super(ctx, options)
+    this.modalRoot = options.modalRoot
+    this.paneBackground = options.paneBackground ?? "#000000"
+  }
+  private previewFailed(error: unknown) {
+    this.composition.dispose()
+    this.failed = true
+    this.onError?.(error)
+  }
   override render(buffer: OptimizedBuffer, deltaTime: number): void {
     if (this.failed) return
     try {
       super.render(buffer, deltaTime)
     } catch (error) {
-      this.failed = true
-      this.onError?.(error)
+      this.previewFailed(error)
     }
+  }
+  protected override renderSelf(buffer: OptimizedBuffer): void {
+    if (this.modalRoot && mountedModalBackdrop(this.modalRoot)) return
+    this.composition.dispose()
+    super.renderSelf(buffer)
+  }
+  paintUnderModal(buffer: OptimizedBuffer) {
+    if (
+      this.failed ||
+      !this.visible ||
+      this.isDestroyed ||
+      !this.image ||
+      !this.modalRoot
+    )
+      return
+    for (let ancestor = this.parent; ancestor; ancestor = ancestor.parent) {
+      if (!ancestor.visible) {
+        this.composition.dispose()
+        return
+      }
+    }
+    const backdrops = mountedModalBackdrops(this.modalRoot)
+    if (backdrops.length === 0 || this.width <= 0 || this.height <= 0) return
+    try {
+      const fitted = this.getFittedSize(this.width, this.height)
+      const resolution =
+        this.ctx.resolution &&
+        this.ctx.resolution.width > 0 &&
+        this.ctx.resolution.height > 0
+          ? this.ctx.resolution
+          : null
+      const pixelWidth =
+        resolution && this.ctx.terminalWidth
+          ? Math.max(
+              1,
+              Math.round(
+                (fitted.width * resolution.width) / this.ctx.terminalWidth,
+              ),
+            )
+          : 0
+      const pixelHeight =
+        resolution && this.ctx.terminalHeight
+          ? Math.max(
+              1,
+              Math.round(
+                (fitted.height * resolution.height) / this.ctx.terminalHeight,
+              ),
+            )
+          : 0
+      this.composition.paint(
+        buffer,
+        this.image,
+        {
+          x: this.screenX + Math.floor((this.width - fitted.width) / 2),
+          y: this.screenY + Math.floor((this.height - fitted.height) / 2),
+          ...fitted,
+        },
+        RGBA.fromHex(this.paneBackground),
+        this.modalRoot,
+        backdrops,
+        this.effectiveProtocol,
+        pixelWidth,
+        pixelHeight,
+      )
+    } catch (error) {
+      this.previewFailed(error)
+    }
+  }
+  protected override destroySelf(): void {
+    this.composition.dispose()
+    super.destroySelf()
   }
 }
 extend({ "response-image": ResponseImageRenderable })
@@ -44,6 +145,7 @@ export function ResponseBinaryBody({
   focused: boolean
 }) {
   const theme = useTheme()
+  const renderer = useRenderer()
   const actions = useContext(ResponseFileContext)
   const keymap = useKeymap()
   const [activated, setActivated] = useState(false)
@@ -105,7 +207,9 @@ export function ResponseBinaryBody({
         />
       ) : (
         <response-image
-          id="binary-response-image"
+          id={RESPONSE_IMAGE_ID}
+          modalRoot={renderer.root}
+          paneBackground={theme.backgroundPanel}
           source={bytes}
           fit="fit"
           protocol="auto"

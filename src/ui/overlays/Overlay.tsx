@@ -1,7 +1,11 @@
 import { MouseButton, RGBA } from "@opentui/core"
 import { createPortal, useRenderer } from "@opentui/react"
-import type { ReactNode } from "react"
+import { useId, type ReactNode } from "react"
 import { useTheme } from "../theme"
+import {
+  MODAL_BACKDROP_ID,
+  paintModalResponseImage,
+} from "../modalImageComposition"
 
 export interface OverlayProps {
   visible: boolean
@@ -26,11 +30,16 @@ export function Overlay({
 }: OverlayProps) {
   const theme = useTheme()
   const renderer = useRenderer()
+  const id = useId()
 
   if (!visible) return null
 
   return createPortal(
     <box
+      id={`${MODAL_BACKDROP_ID}:${id}`}
+      renderAfter={function (buffer) {
+        paintModalResponseImage(renderer.root, buffer, this)
+      }}
       onMouseDown={(event) => {
         if (
           event.button !== MouseButton.LEFT ||

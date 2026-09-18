@@ -129,7 +129,9 @@ async function mount(
       </KeymapProvider>
     )
   }
-  const setup = await testRender(<Harness />, { width, height })
+  const setup = await act(async () =>
+    testRender(<Harness />, { width, height, targetFps: 1000, maxFps: 1000 }),
+  )
   await act(async () => {
     await setup.renderOnce()
   })
@@ -137,6 +139,7 @@ async function mount(
     await act(async () => {
       await setup.renderOnce()
     })
+    await act(async () => setup.renderer.idle())
   }
   const press = async (
     key: string,

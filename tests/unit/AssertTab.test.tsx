@@ -263,8 +263,16 @@ describe("AssertTab", () => {
       )
     }
     try {
-      const render = await testRender(<Harness />, { width: 80, height: 20 })
-      await render.renderOnce()
+      const render = await act(async () =>
+        testRender(<Harness />, {
+          width: 80,
+          height: 20,
+          targetFps: 1000,
+          maxFps: 1000,
+        }),
+      )
+      await act(async () => render.renderOnce())
+      await act(async () => render.renderer.idle())
 
       const row = render.renderer.root.findDescendantById(
         "assertions-1",
@@ -288,6 +296,7 @@ describe("AssertTab", () => {
         await render.renderOnce()
       })
       await act(async () => render.renderOnce())
+      await act(async () => render.renderer.idle())
 
       const dropdown = render.renderer.root.getChildren().at(-1)
       const scrollbox = dropdown?.getChildren()[0]
@@ -312,6 +321,7 @@ describe("AssertTab", () => {
         await render.renderOnce()
       })
       await act(async () => render.renderOnce())
+      await act(async () => render.renderer.idle())
       expect(operatorScrollbox.scrollTop).toBeGreaterThan(0)
       expect(render.captureCharFrame()).toContain("notEquals")
 
@@ -319,6 +329,7 @@ describe("AssertTab", () => {
         host.press("return")
         await render.renderOnce()
       })
+      await act(async () => render.renderer.idle())
       expect(render.captureCharFrame()).toContain("notEquals")
     } finally {
       cleanup()
