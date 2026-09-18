@@ -1,6 +1,7 @@
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
+import "./PaneSplit"
 import { MouseButton, type BoxRenderable, type MouseEvent } from "@opentui/core"
 import type { BodyType, Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -242,9 +243,13 @@ export function RequestResponseView({
         onSend={onSend}
         sending={responseState.status === "sending"}
       />
-      <box
+      <pane-split
         id="request-response-split"
-        ref={activeSplitContainerRef}
+        ref={(node) => {
+          activeSplitContainerRef.current = node
+        }}
+        splitRatio={splitRatio}
+        panesExpanded={expanded !== null}
         style={{
           flexDirection: layout === "side-by-side" ? "row" : "column",
           flexGrow: 1,
@@ -299,7 +304,7 @@ export function RequestResponseView({
           {responsePane}
           {stackedResponseHandle}
         </box>
-      </box>
+      </pane-split>
     </>
   )
 }

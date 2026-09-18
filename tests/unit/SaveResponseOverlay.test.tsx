@@ -84,6 +84,21 @@ async function mount() {
   return { ...setup, ref, confirmed, host, edit, cancelled: () => cancelled }
 }
 describe("Save response overlay", () => {
+  it("saves and closes through the shared form action buttons", async () => {
+    const setup = await mount()
+    await setup.edit("/tmp/new folder/download.bin")
+    const rows = setup.captureCharFrame().split("\n")
+    const footer = rows.findIndex((row) => row.includes("^S save"))
+    expect(footer).toBeGreaterThanOrEqual(0)
+    await act(async () => {
+      await setup.mockMouse.click(rows[footer]!.indexOf("save"), footer)
+    })
+    expect(setup.confirmed).toEqual(["/tmp/new folder/download.bin"])
+    await act(async () => {
+      await setup.mockMouse.click(rows[footer]!.indexOf("close"), footer)
+    })
+    expect(setup.cancelled()).toBe(1)
+  })
   it("suggests Downloads and preserves paths after inline save errors", async () => {
     const setup = await mount()
     expect(setup.ref.current!.confirm()).toBe(

@@ -256,7 +256,7 @@ describe("MainView", () => {
       )
     }
 
-    const { captureCharFrame, renderOnce, renderer, mockMouse, resize } =
+    const { captureCharFrame, renderOnce, renderer, mockMouse, resize, flush } =
       await testRender(
         <KeymapProvider keymap={keymap}>
           <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -502,6 +502,8 @@ describe("MainView", () => {
       await renderOnce()
     })
     await renderOnce()
+    await act(async () => flush())
+    expect(renderer.root.getLayoutNode().isDirty()).toBe(false)
     expect(split.screenX + split.width).toBe(main.screenX + main.width)
     expect(responseSlot.screenX + responseSlot.width).toBe(
       split.screenX + split.width,

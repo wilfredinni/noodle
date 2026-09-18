@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { extend, useRenderer } from "@opentui/react"
 import {
   ImageRenderable,
@@ -16,7 +16,6 @@ import {
   responseImageFormat,
   suggestedResponseFilename,
 } from "../responseBody"
-import { ResponseFileContext } from "./responseFileContext"
 import { ActionButton } from "./ActionButton"
 import { formatSize } from "./format"
 import { useTheme } from "./theme"
@@ -49,7 +48,13 @@ export class ResponseImageRenderable extends ImageRenderable {
     this.onError?.(error)
   }
   override render(buffer: OptimizedBuffer, deltaTime: number): void {
-    if (this.failed) return
+    // OpenTUI clamps exposed dimensions to one cell, even for zero Yoga space.
+    if (
+      this.failed ||
+      this.yogaNode.getComputedWidth() <= 0 ||
+      this.yogaNode.getComputedHeight() <= 0
+    )
+      return
     try {
       super.render(buffer, deltaTime)
     } catch (error) {
@@ -67,7 +72,9 @@ export class ResponseImageRenderable extends ImageRenderable {
       !this.visible ||
       this.isDestroyed ||
       !this.image ||
-      !this.modalRoot
+      !this.modalRoot ||
+      this.yogaNode.getComputedWidth() <= 0 ||
+      this.yogaNode.getComputedHeight() <= 0
     )
       return
     for (let ancestor = this.parent; ancestor; ancestor = ancestor.parent) {
@@ -146,7 +153,6 @@ export function ResponseBinaryBody({
 }) {
   const theme = useTheme()
   const renderer = useRenderer()
-  const actions = useContext(ResponseFileContext)
   const keymap = useKeymap()
   const [activated, setActivated] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -223,23 +229,6 @@ export function ResponseBinaryBody({
           style={{ flexGrow: 1, flexBasis: 0, minHeight: 0, minWidth: 0 }}
         />
       )}
-      <box style={{ flexDirection: "row", flexShrink: 0 }}>
-        <ActionButton
-          label="Save file"
-          disabled={!actions || !bytes}
-          onAction={() => actions?.save()}
-        />
-        <ActionButton
-          label="Open in default app"
-          disabled={!actions?.savedPath}
-          onAction={() => actions?.open()}
-        />
-      </box>
-      {actions?.savedPath ? (
-        <text fg={theme.textMuted} wrapMode="word">
-          {actions.savedPath}
-        </text>
-      ) : null}
     </box>
   )
 }

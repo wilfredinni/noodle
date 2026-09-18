@@ -1064,19 +1064,25 @@ export function ResponsePane({
         </Tabs>
         {isDone &&
         state.response.bodyBytes &&
-        !isBinary &&
         activeTab === "body" &&
         fileActions ? (
-          <box style={{ flexDirection: "row", flexShrink: 0 }}>
-            <ActionButton
-              label="Save file"
-              onAction={() => fileActions.save()}
-            />
-            <ActionButton
-              label="Open in default app"
-              disabled={!fileActions.savedPath}
-              onAction={() => fileActions.open()}
-            />
+          <box style={{ flexDirection: "column", flexShrink: 0 }}>
+            <box style={{ flexDirection: "row" }}>
+              <ActionButton
+                label="Save file"
+                onAction={() => fileActions.save()}
+              />
+              <ActionButton
+                label="Open in default app"
+                disabled={!fileActions.savedPath}
+                onAction={() => fileActions.open()}
+              />
+            </box>
+            {isBinary && fileActions.savedPath ? (
+              <text fg={theme.textMuted} wrapMode="word">
+                {fileActions.savedPath}
+              </text>
+            ) : null}
           </box>
         ) : null}
       </box>

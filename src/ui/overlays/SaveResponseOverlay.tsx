@@ -78,32 +78,60 @@ export const SaveResponseOverlay = forwardRef<
   )
   return (
     <Overlay visible width={68} padding={1} gap={1} onClose={onClose}>
-      <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <text fg={theme.text}>Save response</text>
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingBottom: 1,
+          paddingX: 2,
+        }}
+      >
+        <text fg={theme.text}>Save Response</text>
         <EscapeClose onClose={onClose} />
       </box>
-      <text fg={theme.textMuted}>Output file</text>
-      <VarInput
-        ref={input}
-        value={path}
-        env={null}
-        isEditing
-        isFocused
-        onChange={(value) => {
-          edited.current = true
-          setPath(value)
-          setError(null)
+      <box
+        style={{
+          paddingX: 2,
+          flexDirection: "column",
+          gap: 1,
+          paddingBottom: 1,
         }}
-        pathCompletion={{ kind: "file" }}
-        placeholder="@/Downloads/response.bin"
-        style={{ flexGrow: 1 }}
-      />
-      {error ? (
-        <text fg={theme.error} wrapMode="word">
-          {error}
-        </text>
-      ) : null}
-      <box style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+      >
+        <box style={{ flexDirection: "column" }}>
+          <text fg={theme.textMuted}>Output File</text>
+          <VarInput
+            ref={input}
+            value={path}
+            env={null}
+            isEditing
+            isFocused
+            onChange={(value) => {
+              edited.current = true
+              setPath(value)
+              setError(null)
+            }}
+            pathCompletion={{ kind: "file" }}
+            placeholder="@/Downloads/response.bin"
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.borderSubtle}
+            paddingX={1}
+            style={{ flexGrow: 1, flexShrink: 1 }}
+          />
+        </box>
+        {error ? (
+          <text fg={theme.error} wrapMode="word">
+            {error}
+          </text>
+        ) : null}
+      </box>
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          gap: 1,
+          paddingX: 2,
+        }}
+      >
         <ActionButton shortcut="^S" label="save" onAction={onConfirm} />
         <ActionButton shortcut="esc" label="close" onAction={onClose} />
       </box>

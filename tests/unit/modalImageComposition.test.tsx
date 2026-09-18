@@ -4,6 +4,7 @@ import {
   createRef,
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type ComponentProps,
 } from "react"
@@ -17,10 +18,9 @@ import { MouseButtons, setRendererCapabilities } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { createTestRender } from "../testRender"
-import {
-  ResponseBinaryBody,
-  ResponseImageRenderable,
-} from "../../src/ui/ResponseBinaryBody"
+import { ResponseImageRenderable } from "../../src/ui/ResponseBinaryBody"
+import { ResponsePane } from "../../src/ui/ResponsePane"
+import { ResponseFileContext } from "../../src/ui/responseFileContext"
 import { Overlay } from "../../src/ui/overlays/Overlay"
 import { CommandPaletteOverlay } from "../../src/ui/overlays/CommandPaletteOverlay"
 import { HelpOverlay } from "../../src/ui/overlays/HelpOverlay"
@@ -223,6 +223,18 @@ async function mount(
     const [stacked, setStacked] = useState(false)
     const [size, setSize] = useState({ width: 12, height: 8 })
     const [bytes, setBytes] = useState<Uint8Array>(initial)
+    const response = useMemo(
+      () => ({
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "image/png" },
+        body: "",
+        bodyBytes: bytes,
+        bodyKind: "binary" as const,
+        timeMs: 1,
+      }),
+      [bytes],
+    )
     const [body, setBody] = useState(true)
     const close = useCallback(() => setVisible(false), [])
     modal = setVisible
@@ -251,20 +263,16 @@ async function mount(
             <VariableCompletionInterceptor />
             <text fg="#ffffff">BACKGROUND</text>
             {body ? (
-              <ResponseBinaryBody
-                key={bytes === initial ? "initial" : "replacement"}
-                response={{
-                  status: 200,
-                  statusText: "OK",
-                  headers: { "content-type": "image/png" },
-                  body: "",
-                  bodyBytes: bytes,
-                  bodyKind: "binary",
-                  timeMs: 1,
-                }}
-                requestName="Image"
-                focused
-              />
+              <ResponseFileContext.Provider
+                value={{ save: () => true, open: () => true }}
+              >
+                <ResponsePane
+                  key={bytes === initial ? "initial" : "replacement"}
+                  state={{ status: "done", response }}
+                  requestName="Image"
+                  focused
+                />
+              </ResponseFileContext.Provider>
             ) : (
               <text>Headers</text>
             )}
@@ -523,7 +531,7 @@ describe("images beneath modal backdrops", () => {
           kind === "help"
             ? "Keybindings"
             : kind === "save-response"
-              ? "Save response"
+              ? "Save Response"
               : "Commands",
         )
         await act(async () => setup.host.press("escape"))
