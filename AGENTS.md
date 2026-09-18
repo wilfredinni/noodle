@@ -215,6 +215,14 @@ diagnostics even on completed response failures, and reports `outputFile`.
 Pre-script/transport failures produce no file; later write failures preserve
 diagnostics and exit 1. `responseFile.ts` owns exclusive creation, parent creation,
 partial-file cleanup, and direct platform-opener argument handling.
+Downloads prepare and pin an existing output directory before CLI execution or
+TUI confirmation. The private Node-API addon creates new components relative to
+that directory without following symlinks; existing directory aliases are
+resolved during preparation. Maintain all eight native prebuilds and their
+manifest together (`bun scripts/build-response-file-native.ts --all`, then
+`--check`); maintainer regeneration uses Zig 0.15.2, while normal installs and
+binary builds require no extra tools. Native response-file CI covers source and
+compiled saves on macOS, Windows, and Linux glibc/musl.
 
 Save As state pins the selected Response; saved paths use response identity.
 TUI Save As suggests and saves to an available filename, adding compact `(1)`,

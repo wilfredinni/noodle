@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import {
   lstat,
+  mkdir,
   mkdtemp,
   readFile,
   readdir,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -119,6 +121,44 @@ afterEach(async () => {
 })
 
 describe("binary responses and downloads", () => {
+  it("rejects a parent symlink installed during HTTP without leaking the received bytes", async () => {
+    server.stop(true)
+    const attacker = join(dir, "attacker")
+    const missing = join(dir, "missing")
+    await mkdir(attacker)
+    if (process.platform === "darwin") {
+      const acl = Bun.spawnSync([
+        "chmod",
+        "+a",
+        "everyone allow read,file_inherit",
+        attacker,
+      ])
+      expect(acl.exitCode).toBe(0)
+    }
+    server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch() {
+        await symlink(
+          attacker,
+          missing,
+          process.platform === "win32" ? "junction" : "dir",
+        )
+        return new Response(payload, {
+          status: 422,
+          headers: { "Content-Type": "application/octet-stream" },
+        })
+      },
+    })
+    await save(request())
+    const result = await run("--output", join(missing, "response.bin"))
+    expect(result.code).toBe(1)
+    expect(await readdir(attacker)).toEqual([])
+    const data = JSON.parse(result.stdout).data.result
+    expect(data.response.status).toBe(422)
+    expect(data.response.outputFile).toBeUndefined()
+    expect(data.failureCategories).toEqual(["execution", "http"])
+  })
   it("preserves non-enumerable payloads through the shared lifecycle", async () => {
     const result = await executeRequestLifecycle({
       request: request(),

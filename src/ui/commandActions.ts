@@ -28,11 +28,7 @@ import type { ResponseQueryController } from "./responseQuery"
 import { launchExternalEditor, type ExternalEditor } from "../externalEditor"
 import { installNoodleSkill, type AgentSkillInstallResult } from "../agentSkill"
 import type { ResponseFilePending } from "./useOverlayState"
-import {
-  openResponseFile,
-  saveResponseFile,
-  validateResponseOutput,
-} from "../responseFile"
+import { openResponseFile, prepareResponseOutput } from "../responseFile"
 
 export function beginResponseFileSave(
   state: SendState,
@@ -50,14 +46,11 @@ export async function completeResponseFileSave(
 ): Promise<string> {
   if (!pending.response.bodyBytes)
     throw new Error("Original response bytes are unavailable")
-  while (true) {
-    const path = await validateResponseOutput(value, { unique: true })
-    try {
-      await saveResponseFile(path, pending.response.bodyBytes)
-      return path
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
-    }
+  const output = await prepareResponseOutput(value, { unique: true })
+  try {
+    return await output.save(pending.response.bodyBytes)
+  } finally {
+    await output.close()
   }
 }
 

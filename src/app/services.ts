@@ -76,7 +76,10 @@ import {
   responseContentType,
   responseFilename,
 } from "../responseBody"
-import { saveResponseFile, validateResponseOutput } from "../responseFile"
+import {
+  prepareResponseOutput,
+  type PreparedResponseOutput,
+} from "../responseFile"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -720,7 +723,7 @@ async function runRequest(
   cookies?: CollectionCookieJar,
   persistCaptures = false,
   onDetail?: RunDetail,
-  outputPath?: string,
+  output?: PreparedResponseOutput,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -860,11 +863,11 @@ async function runRequest(
       ? { warnings: [...new Set(authWarnings)] }
       : {}),
   }
-  if (outputPath) {
+  if (output) {
     try {
       if (!response.bodyBytes)
         throw new Error("Original response bytes are unavailable")
-      await saveResponseFile(outputPath, response.bodyBytes)
+      const outputPath = await output.save(response.bodyBytes)
       result.response!.outputFile = redactKnownSecrets(
         outputPath,
         responseSecretValues,
@@ -1077,48 +1080,52 @@ export async function requestRun(
   insecure = false,
   output?: string,
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
-  const outputPath =
-    output === undefined ? undefined : await validateResponseOutput(output)
-  validateId(id)
-  const dir = await requireCollectionRoot(collectionDir)
-  const settings = await loadSettings(dir)
-  const collection = await filestore.loadCollection(dir)
-  const request = flattenRequests(collection.items).find(
-    (item) => item.id === id,
-  )
-  if (!request) throw new Error(`request not found: ${id}`)
-  onProgress?.(0, 1)
-  const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
-  const cookies = cookieAccess.jar
-  let result: RequestRunResult
+  const destination =
+    output === undefined ? undefined : await prepareResponseOutput(output)
   try {
-    result = await runRequest(
-      dir,
-      collection,
-      request,
-      new RunScope(),
-      await environmentFor(dir, settings, environmentName),
-      await proxyPolicyFor(
-        dir,
-        settings,
-        noProxy,
-        systemProxy ?? takeSystemProxyFromEnv(),
-      ),
-      await tlsPolicyFor(dir, settings, insecure),
-      cookies,
-      true,
-      undefined,
-      outputPath,
+    validateId(id)
+    const dir = await requireCollectionRoot(collectionDir)
+    const settings = await loadSettings(dir)
+    const collection = await filestore.loadCollection(dir)
+    const request = flattenRequests(collection.items).find(
+      (item) => item.id === id,
     )
+    if (!request) throw new Error(`request not found: ${id}`)
+    onProgress?.(0, 1)
+    const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+    const cookies = cookieAccess.jar
+    let result: RequestRunResult
+    try {
+      result = await runRequest(
+        dir,
+        collection,
+        request,
+        new RunScope(),
+        await environmentFor(dir, settings, environmentName),
+        await proxyPolicyFor(
+          dir,
+          settings,
+          noProxy,
+          systemProxy ?? takeSystemProxyFromEnv(),
+        ),
+        await tlsPolicyFor(dir, settings, insecure),
+        cookies,
+        true,
+        undefined,
+        destination,
+      )
+    } finally {
+      await closeCookieJar(cookies)
+    }
+    const warnings = cookies?.warnings ?? cookieAccess.warnings
+    if (warnings.length > 0) {
+      result.warnings = [...new Set([...(result.warnings ?? []), ...warnings])]
+    }
+    onProgress?.(1, 1)
+    return { result, failed: result.ok === false }
   } finally {
-    await closeCookieJar(cookies)
+    await destination?.close()
   }
-  const warnings = cookies?.warnings ?? cookieAccess.warnings
-  if (warnings.length > 0) {
-    result.warnings = [...new Set([...(result.warnings ?? []), ...warnings])]
-  }
-  onProgress?.(1, 1)
-  return { result, failed: result.ok === false }
 }
 
 async function closeCookieJar(

@@ -1,6 +1,15 @@
-import { lstat, mkdir, open, stat, unlink } from "node:fs/promises"
-import { dirname, join, parse, resolve } from "node:path"
+import { lstat, stat } from "node:fs/promises"
+import {
+  basename,
+  dirname,
+  join,
+  parse,
+  relative,
+  resolve,
+  sep,
+} from "node:path"
 import { expandUserPath } from "./userPath"
+import { responseFileNative } from "./responseFileNative"
 
 export async function validateResponseOutput(
   value: string,
@@ -44,23 +53,100 @@ export async function saveResponseFile(
   path: string,
   bytes: Uint8Array,
 ): Promise<void> {
-  await mkdir(dirname(path), { recursive: true })
-  const file = await open(path, "wx", 0o600)
-  let identity: Awaited<ReturnType<typeof file.stat>> | undefined
+  const output = await prepareResponseOutput(path)
   try {
-    identity = await file.stat()
-    await file.writeFile(bytes)
-    await file.close()
-  } catch (error) {
-    await file.close().catch(() => {})
-    const current = await lstat(path).catch(() => null)
-    if (
-      identity &&
-      current?.dev === identity.dev &&
-      current.ino === identity.ino
-    )
-      await unlink(path).catch(() => {})
-    throw new Error(`Unable to save response: ${path}`, { cause: error })
+    await output.save(bytes)
+  } finally {
+    await output.close()
+  }
+}
+
+export interface PreparedResponseOutput {
+  readonly path: string
+  save(bytes: Uint8Array): Promise<string>
+  close(): Promise<void>
+}
+
+export async function prepareResponseOutput(
+  value: string,
+  { unique = false }: { unique?: boolean } = {},
+): Promise<PreparedResponseOutput> {
+  const path = await validateResponseOutput(value, { unique })
+  const native = responseFileNative()
+  let parent = dirname(path)
+  let anchor: Awaited<ReturnType<typeof native.openAnchor>>
+  // Select and pin an existing directory; no directories or files are created yet.
+  while (true) {
+    try {
+      anchor = await native.openAnchor(parent)
+      break
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+      const next = dirname(parent)
+      if (next === parent) throw error
+      parent = next
+    }
+  }
+  const components = relative(parent, dirname(path)).split(sep).filter(Boolean)
+  const { name, ext } = parse(path)
+  const numbered = name.match(/^(.*)\(([1-9]\d*)\)$/)
+  const stem = numbered?.[1] ?? name
+  let number = BigInt(numbered?.[2] ?? 0)
+  let filename = basename(path)
+  let closed = false
+  let saving = false
+  return {
+    path,
+    async save(bytes) {
+      if (closed || saving)
+        throw new Error("Response output is closed or in use")
+      saving = true
+      let directory = anchor
+      try {
+        if (!(await native.matches(anchor, parent)))
+          throw new Error(
+            "Output directory changed; choose the destination again",
+          )
+        for (const component of components) {
+          const child = await native.descend(directory, component)
+          if (directory !== anchor) native.close(directory)
+          directory = child
+        }
+        let file: Awaited<ReturnType<typeof native.create>>
+        while (true) {
+          try {
+            file = await native.create(directory, filename)
+            break
+          } catch (error) {
+            if (!unique || (error as NodeJS.ErrnoException).code !== "EEXIST")
+              throw error
+            filename = `${stem}(${++number})${ext}`
+          }
+        }
+        try {
+          await native.write(file, bytes)
+        } catch (error) {
+          await native.cleanup(file).catch(() => {})
+          throw error
+        } finally {
+          native.close(file)
+        }
+        return join(dirname(path), filename)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") throw error
+        throw new Error(`Unable to save response: ${path}`, { cause: error })
+      } finally {
+        if (directory !== anchor) native.close(directory)
+        saving = false
+      }
+    },
+    async close() {
+      if (saving) throw new Error("Response output is in use")
+      if (!closed) {
+        native.close(anchor)
+        closed = true
+      }
+    },
   }
 }
 
