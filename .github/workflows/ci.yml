@@ -82,6 +82,7 @@ jobs:
       - name: Test musl source and standalone saves
         if: ${{ matrix.musl }}
         run: |
+          mkdir -p node_modules
           docker run --rm --mount "type=bind,src=$PWD,dst=/work,readonly" --tmpfs /work/node_modules --workdir /work oven/bun:1.4.0-alpine sh -ec '
             bun install --frozen-lockfile --ignore-scripts
             bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --rerun-each=10 --timeout=30000
