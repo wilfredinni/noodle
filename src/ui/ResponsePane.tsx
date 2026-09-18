@@ -1068,13 +1068,15 @@ export function ResponsePane({
         activeTab === "body" &&
         fileActions ? (
           <box style={{ flexDirection: "column", flexShrink: 0 }}>
-            <box style={{ flexDirection: "row" }}>
+            <box style={{ flexDirection: "row", gap: 1 }}>
               <ActionButton
                 label="Save file"
+                mutedLabel
                 onAction={() => fileActions.save()}
               />
               <ActionButton
                 label="Open in default app"
+                mutedLabel
                 disabled={!fileActions.savedPath}
                 onAction={() => fileActions.open()}
               />

@@ -14,6 +14,7 @@ export function ActionButton({
   active = true,
   disabled = false,
   focused = false,
+  mutedLabel = false,
   highlightWhenDisabled = false,
   onAction,
   onHover,
@@ -28,6 +29,7 @@ export function ActionButton({
   active?: boolean
   disabled?: boolean
   focused?: boolean
+  mutedLabel?: boolean
   highlightWhenDisabled?: boolean
   onAction: () => void
   onHover?: () => void
@@ -51,15 +53,16 @@ export function ActionButton({
         : active
           ? theme.secondary
           : theme.text
-  const labelColor = shortcut
-    ? disabled
-      ? theme.border
-      : hovered
-        ? contrastOnSecondary(theme)
-        : focused
-          ? contrastOnPrimary(theme)
-          : theme.textMuted
-    : shortcutColor
+  const labelColor =
+    shortcut || mutedLabel
+      ? disabled
+        ? theme.border
+        : hovered
+          ? contrastOnSecondary(theme)
+          : focused
+            ? contrastOnPrimary(theme)
+            : theme.textMuted
+      : shortcutColor
 
   return (
     <box

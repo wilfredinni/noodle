@@ -1,5 +1,5 @@
 import { describe, expect, it, mock, spyOn } from "bun:test"
-import { OptimizedBuffer, type BoxRenderable } from "@opentui/core"
+import { OptimizedBuffer, RGBA, type BoxRenderable } from "@opentui/core"
 import { act, useState, type ComponentProps } from "react"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -11,7 +11,7 @@ import { useRequestDraft } from "../../src/hooks/useRequestDraft"
 import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import { ResponseImageRenderable } from "../../src/ui/ResponseBinaryBody"
 import { ResponseFileContext } from "../../src/ui/responseFileContext"
-import { ThemeProvider } from "../../src/ui/theme"
+import { contrastOnSecondary, THEMES, ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { TimelineDetailOverlay } from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { Request, Response } from "../../src/schema"
@@ -97,6 +97,7 @@ async function mount(
   let split!: (ratio: number) => void
   let currentRatio = 0.5
   const save = mock(() => true)
+  const open = mock(() => true)
   function Harness() {
     const [value, setValue] = useState(initial)
     const [tab, setTab] = useState<"body" | "headers">("body")
@@ -118,9 +119,7 @@ async function mount(
         }
       >
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ResponseFileContext.Provider
-            value={{ save, open: () => true, savedPath }}
-          >
+          <ResponseFileContext.Provider value={{ save, open, savedPath }}>
             {workspaceLayout ? (
               <box width="100%" height="100%" flexDirection="column">
                 <text>Header</text>
@@ -210,6 +209,7 @@ async function mount(
     split,
     splitRatio: () => currentRatio,
     save,
+    open,
     render,
     image,
     host: raw.host,
@@ -217,6 +217,58 @@ async function mount(
   }
 }
 describe("binary response views", () => {
+  it("separates file buttons and matches modal label and hover colors", async () => {
+    const setup = await mount(response(gif))
+    const theme = THEMES[0]!
+    const label = (value: string) =>
+      setup
+        .captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .find((span) => span.text.includes(value))!
+    expect(label("Save file").fg.equals(RGBA.fromHex(theme.textMuted))).toBe(
+      true,
+    )
+    expect(
+      label("Open in default app").fg.equals(RGBA.fromHex(theme.border)),
+    ).toBe(true)
+    let rows = setup.captureCharFrame().split("\n")
+    let actionRow = rows.findIndex((row) => row.includes("Save file"))
+    expect(rows[actionRow]).toContain("Save file   Open in default app")
+    await act(async () => {
+      await setup.mockMouse.click(
+        rows[actionRow]!.indexOf("Open in default app"),
+        actionRow,
+      )
+    })
+    expect(setup.open).not.toHaveBeenCalled()
+    await act(() => setup.saved("/tmp/File.gif"))
+    await setup.render()
+    expect(
+      label("Open in default app").fg.equals(RGBA.fromHex(theme.textMuted)),
+    ).toBe(true)
+    rows = setup.captureCharFrame().split("\n")
+    actionRow = rows.findIndex((row) => row.includes("Save file"))
+    await act(async () => {
+      await setup.mockMouse.moveTo(0, 0)
+      await setup.mockMouse.moveTo(
+        rows[actionRow]!.indexOf("Open in default app"),
+        actionRow,
+      )
+    })
+    await setup.render()
+    expect(
+      label("Open in default app").fg.equals(
+        RGBA.fromHex(contrastOnSecondary(theme)),
+      ),
+    ).toBe(true)
+    await act(async () => {
+      await setup.mockMouse.click(
+        rows[actionRow]!.indexOf("Open in default app"),
+        actionRow,
+      )
+    })
+    expect(setup.open).toHaveBeenCalledTimes(1)
+  })
   it("keeps Save inside the pane after scheduled shrink and grow frames", async () => {
     const setup = await mount(null, {
       width: 100,
