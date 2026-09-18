@@ -372,9 +372,11 @@ count, and a redacted failure without printing log contents. `--json` includes
 the full redacted `scripts: { evaluated, results }` group in executed pre/post
 order. Results labels are Pre-request/Post-response; human output labels are
 Pre-script/Post-script. Failed scripts make automation fail after all available
-response diagnostics finish. Script source, status, and logs are
-transient and are never stored in `.timeline`; successful manual timeline
-snapshots reflect the prepared request mutations.
+response diagnostics finish. Manual timeline entries retain bounded, redacted
+pre/post diagnostics, logs, and persistence outcomes. Large diagnostic text is
+replaced with `[TRUNCATED]`. Script source, capture results, and RunScope values
+are never stored in `.timeline`; successful manual timeline snapshots reflect
+the prepared request mutations. Automation runs do not create timeline entries.
 
 Captures can pass response values forward during a collection run or persist
 them after an individual manual send or `request run`:

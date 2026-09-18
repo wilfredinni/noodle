@@ -357,9 +357,11 @@ and never prints logs. TUI Results uses Pre-request/Post-response rows with
 expandable logs and phase-specific error locations. Script failures participate
 in the fixed failure-category order and collection continuation/fail-fast only
 after available response diagnostics finish. No Console panel or script editor
-is added. Script source,
-status, and logs are never stored in `.timeline`, while a successful manual
-timeline request snapshot reflects the prepared request mutations.
+is added. Manual `.timeline` entries retain bounded, redacted pre/post results,
+logs, errors, and persistence outcomes; diagnostic text and combined serialized
+logs are limited to 10,000 bytes with `[TRUNCATED]` markers. Script source,
+capture results, and RunScope values are excluded. Successful manual request
+snapshots reflect prepared request mutations. Automation does not create history.
 
 ### Response captures
 
@@ -877,6 +879,7 @@ Each entry has:
 | `response` | object | Optional binary metadata `bodyKind: "binary"`, normalized `contentType`, and sanitized `filename` (binary responses have no `body`/`bodyRef`); response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 | `assertions` | object | Optional redacted manual-send assertion group: `{ evaluated: boolean, results: AssertionResult[] }` |
+| `scripts` | object | Optional bounded, redacted pre/post diagnostics, logs, and persistence outcomes: `{ evaluated, results }`; source and RunScope values are excluded |
 
 The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment, proxy, and TLS secrets; substituted and literal credentials; cookie credentials; known captured secrets; and assertion result metadata are recursively redacted from request and response history. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction at save time also covers compressed request and response sidecars. Marking or updating a secret does not rewrite existing history. Unknown server data can remain visible, so timeline files are sensitive. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 

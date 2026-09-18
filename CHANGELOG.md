@@ -4,7 +4,16 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
-### Breaking changes
+## [0.9.1] - 2026-09-18
+
+![Noodle binary view](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/binary.png)
+
+
+Noodle 0.9.1 extends inline scripting with post-response processing, explicit environment and secret persistence, seeded test data, and redacted diagnostics in timeline history. Image and binary responses now preserve their received bytes for downloads and supported terminal previews. Existing scripts must add the `noodle.` prefix to Noodle API accesses.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-1-after-the-response/)
+
+### ✨ Features
 
 - Move scripting APIs to the frozen `noodle` namespace: `noodle.request`,
   `noodle.response`, `noodle.env`, `noodle.run`, `noodle.crypto`, `noodle.random`,
@@ -12,6 +21,31 @@ All notable changes to Noodle are documented in this file.
   accesses. The previous bare API globals are removed; `console` and JavaScript
   built-ins remain global. Execution phases, mutations, persistence, and sandbox
   limits retain their existing behavior.
+- Add inline `scripts.post` after captures and before assertions for every completed HTTP response, including HTTP and capture failures. Post exposes response metadata, case-insensitive headers, lazy text and cached JSON readers, a read-only view of the final prepared request, and optional final-URL-scoped cookie get/set/delete operations. Successful RunScope and cookie changes commit together; a post failure preserves the response and captures and still runs assertions.
+- Add explicit `{ persist: "environment" | "secret" }` options to `noodle.run.set/unset` in both phases. Manual sends and `request run` save successful intents in pre, capture, post order; collection runs and the TUI Runner keep them transient and report suppression. Storage failures preserve successful runtime changes and return redacted persistence diagnostics.
+- Add bounded, synchronous English test-data generators under `noodle.random`, including identifiers, names, contact details, dates, and structured-value selection. Seeded sequences are reproducible within pinned Faker 10.5.0; relative dates also require an explicit reference date. Generated passwords are registered for redaction, and generator state is isolated per invocation.
+- Retain bounded, redacted pre/post diagnostics, logs, and persistence outcomes in manual timeline history and show them in timeline details. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text uses `[TRUNCATED]` markers.
+- Preserve original received bytes for image and binary responses. The TUI Body tab previews PNG, JPEG, static WebP, and the first GIF frame, with explicit activation above 5 MiB; other formats show file metadata. Save file suggests a Downloads path and Open in default app opens that response after saving, with configurable Ctrl+Alt+S and Ctrl+Alt+O shortcuts in the focused binary Body tab. Binary history and Runner details retain metadata only.
+- Add `request run --output/-o <file>` to download original response bytes independently of redacted diagnostics, including completed responses with HTTP or response-evaluation failures. Invalid or existing destinations fail before sending; pre-script and transport failures create no file. Binary JSON results report metadata without body text or bytes, and successful downloads report `outputFile`.
+
+### 🐞 Fixes
+
+- Prevent TUI response saves from overwriting existing files by suggesting available filenames with `(1)`, `(2)`, and later suffixes and retrying exclusive-creation collisions. CLI output paths remain strict, and native saves anchor directory operations against parent symlink races.
+- Register sensitive response and cookie values discovered during post processing before redacting outward results and timeline history, including values accessed or staged by a failed script.
+- Stop reclaiming storage locks by age. Interrupted writers require explicit recovery after checking storage consistency and confirming that no writer remains active; timeout errors identify the lock path.
+- Keep request and response panes sized in whole terminal cells so footers and binary response actions remain inside their borders while resizing.
+- Dim native image previews beneath modal backdrops and restore their normal appearance when the modal closes.
+
+### 🔧 Refactors
+
+- Centralize response classification, byte sizes, safe filenames, and exclusive downloads, with native response-file prebuilds and source/compiled save checks across macOS, Windows, and Linux glibc/musl.
+- Extend compiled-binary smoke checks to verify namespaced scripting APIs and seeded test-data generation.
+
+### 📚 Documentation
+
+- Synchronize the README, `AGENTS.md`, scripting and response guides, CLI and timeline references, in-app tips, and sample requests with the expanded scripting lifecycle and binary downloads. Update the script cookbook to use namespaced APIs and add post-response, persistence, and seeded-data examples.
+- Update `noodle-dev` with post-response execution, script persistence, namespaced APIs, binary response handling, safe downloads, and bounded timeline diagnostics.
+- Update `noodle-use` with pre/post authoring, persistence, namespaced APIs, seeded test data, binary downloads, conversion boundaries, and saved timeline diagnostics.
 
 ## [0.9.0] - 2026-09-16
 
@@ -820,7 +854,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/wilfredinni/noodle/compare/v0.9.0...v0.9.1
 [0.7.5]: https://github.com/wilfredinni/noodle/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/wilfredinni/noodle/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/wilfredinni/noodle/compare/v0.7.2...v0.7.3

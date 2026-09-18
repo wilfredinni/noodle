@@ -134,6 +134,8 @@ Treat collections containing scripts as trusted code. Although the sandbox has
 no network API, a script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
+Manual timeline history retains bounded, redacted pre/post diagnostics, logs, and persistence outcomes. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
+
 ### Redirect and timeout safety
 Noodle rejects HTTPS-to-HTTP redirects. When a redirect changes origin, it
 removes sensitive headers and headers containing known secrets, disables request

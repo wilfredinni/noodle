@@ -149,6 +149,8 @@ display and completion.
 
 Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction happens before body compression. Marking or updating a secret leaves existing entries and sidecars unchanged. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
 
+Manual entries may also contain an entry-level `scripts` group with executed pre/post results, redacted logs/errors, and persistence outcomes. Individual diagnostic text and combined serialized logs are capped at 10,000 bytes with `[TRUNCATED]` markers; script source, capture results, and RunScope values are excluded. Binary responses retain redacted metadata only, with no body or sidecar. Automation does not create timeline entries.
+
 ### File write conventions
 
 - **`saveRequest()`**: `validatePathId()` → `mkdir` parent → write `.yml` file. Non-atomic (direct write).
@@ -402,7 +404,7 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      8. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
      9. Manually follow HTTP(S) redirects; block downgrades, strip sensitive and known-secret headers across origins, disable auth signers, and reject preserved bodies containing known secrets while allowing body-dropping redirects
   → ResponseExecutionResults contains optional script, capture, and assertion groups
-     Script source, results, and logs stay transient; successful manual timeline request snapshots use the mutated prepared request
+     Manual timeline entries retain bounded, redacted script diagnostics and logs; source and RunScope values stay excluded, and successful request snapshots use the mutated prepared request
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
