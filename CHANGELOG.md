@@ -4,6 +4,16 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### 🐞 Fixes
+
+- Ad-hoc sign and strictly verify macOS standalone binaries before testing and
+  generating release checksums, preventing invalid embedded signatures from
+  causing macOS to kill Noodle after installation or updates. Verify the
+  downloaded draft artifact's checksum, signature, version, and scripting
+  sandbox before publishing; failed validation blocks release publication,
+  update metadata, and Homebrew notifications. Published release assets are
+  preserved.
+
 ## [0.9.1] - 2026-09-18
 
 ![Noodle binary view](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/binary.png)

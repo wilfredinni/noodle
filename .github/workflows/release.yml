@@ -73,8 +73,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          set -euo pipefail
+          existing_draft=""
+          if existing_draft=$(gh release view "$TAG" --json isDraft --jq '.isDraft'); then
+            test "$existing_draft" = "true" || {
+              echo "Refusing to replace assets of published release $TAG" >&2
+              exit 1
+            }
+          fi
           bun scripts/release-notes.ts --tag "$TAG" > release-notes.md
-          if gh release view "$TAG" &>/dev/null; then
+          if [ "$existing_draft" = "true" ]; then
             gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md
           else
             gh release create "$TAG" --draft --title "$TAG" --notes-file release-notes.md
@@ -108,6 +116,8 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun build --compile src/app/cli.ts --outfile noodle-${{ matrix.target }}
+      - name: Sign and verify macOS binary
+        run: bun scripts/sign-macos-binary.ts "./noodle-${{ matrix.target }}"
       - name: Smoke test compiled binary
         shell: bash
         run: |
@@ -158,6 +168,49 @@ jobs:
           done
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
 
+  validate-macos-artifact:
+    needs: [create-release, checksums]
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - name: Download draft macOS release artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release download "$TAG" --pattern 'noodle-macos-arm64' --pattern 'SHA256SUMS' --dir release-assets
+      - name: Verify downloaded macOS binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="release-assets/noodle-macos-arm64"
+          expected_hash=$(awk '$2 == "noodle-macos-arm64" { print $1 }' release-assets/SHA256SUMS)
+          [[ "$expected_hash" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo "Missing or invalid macOS release checksum" >&2
+            exit 1
+          }
+          actual_hash=$(shasum -a 256 "$binary" | awk '{ print $1 }')
+          test "$actual_hash" = "$expected_hash" || {
+            echo "Downloaded macOS release checksum mismatch" >&2
+            exit 1
+          }
+          /usr/bin/codesign --verify --strict --verbose=2 "$binary"
+          chmod 755 "$binary"
+          expected_version=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
+          actual_version=$("./$binary" --version)
+          test "$actual_version" = "$expected_version" || {
+            echo "Downloaded binary reported $actual_version, expected $expected_version" >&2
+            exit 1
+          }
+          bun scripts/compiled-script-smoke.ts "./$binary"
+
   notify-homebrew:
     needs: [create-release, checksums, undraft]
     runs-on: ubuntu-latest
@@ -178,7 +231,7 @@ jobs:
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
 
   undraft:
-    needs: [create-release, checksums]
+    needs: [create-release, checksums, validate-macos-artifact]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:

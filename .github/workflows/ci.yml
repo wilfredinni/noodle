@@ -61,7 +61,9 @@ jobs:
       - name: Test shipped addon inside standalone executable
         if: ${{ !matrix.musl }}
         run: |
+          set -euo pipefail
           bun build --compile src/app/cli.ts --outfile noodle-response-smoke
+          bun scripts/sign-macos-binary.ts ./noodle-response-smoke
           bun -e '
             import { resolve } from "node:path";
             const binary = resolve(process.platform === "win32" ? "noodle-response-smoke.exe" : "noodle-response-smoke");

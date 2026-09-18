@@ -250,6 +250,7 @@ Text history remains compatible. Add no request YAML fields for response handlin
 - Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases
 - Homebrew tap at `github.com/wilfredinni/homebrew-noodle` — formula auto-updates SHA256 on release
 - Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64, publishes `SHA256SUMS`, updates noodle-site's `update.json` after release publication, and notifies the Homebrew tap
+- macOS standalone builds run `scripts/sign-macos-binary.ts` immediately after compilation, before smoke tests and checksums. Release publication requires verifying the downloaded draft macOS artifact's checksum, signature, version, and scripting sandbox without re-signing it; published release assets cannot be replaced by rerunning the workflow.
 
 ## Key conventions
 
