@@ -16,6 +16,7 @@ import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
+import { classifyResponseBody } from "../responseBody"
 import { proxyForUrl, type ProxyPolicy } from "../proxy"
 import { tlsForUrl, type TlsPolicy } from "../tls"
 import { clearAwsSignerHeaders, signAwsRequest } from "./awsSigV4"
@@ -695,9 +696,9 @@ export async function sendPrepared(
     }
   }
 
-  let body: string
+  let bodyBytes: Uint8Array
   try {
-    body = await res.text()
+    bodyBytes = new Uint8Array(await res.arrayBuffer())
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (e instanceof DOMException && e.name === "AbortError") throw e
@@ -714,7 +715,7 @@ export async function sendPrepared(
     network,
     start,
     "body",
-    `Body received - ${new TextEncoder().encode(body).length} bytes`,
+    `Body received - ${bodyBytes.byteLength} bytes`,
     onNetworkEvent,
   )
   recordNetworkEvent(
@@ -725,16 +726,21 @@ export async function sendPrepared(
     onNetworkEvent,
   )
 
-  return {
+  const responseHeaders = headersToObject(res.headers)
+  const bodyKind = classifyResponseBody(bodyBytes, responseHeaders)
+  const completed: Response = {
     status: res.status,
     statusText: res.statusText,
-    headers: headersToObject(res.headers),
-    body,
+    headers: responseHeaders,
+    body: bodyKind === "text" ? new TextDecoder().decode(bodyBytes) : "",
+    bodyKind,
     timeMs: performance.now() - start,
     network,
     sentCookies,
     cookies: parseResponseCookies(res.headers),
   }
+  // Keep raw payloads out of object diagnostics, including React's prop profiler.
+  return Object.defineProperty(completed, "bodyBytes", { value: bodyBytes })
 }
 
 function parseCookieHeader(header: string | null): CookiePair[] {

@@ -88,6 +88,43 @@ describe("bindingDefaults", () => {
       parseOverrides({ response_body_view: "alt+m" }).response_body_view,
     ).toBe("alt+m")
   })
+  it("configures response file shortcuts without default conflicts", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.response_save_file).toBe("ctrl+alt+s")
+    expect(defaults.response_open_file).toBe("ctrl+alt+o")
+    expect(CommandMap.response_save_file).toBe("response.save-file")
+    expect(CommandMap.response_open_file).toBe("response.open-file")
+    expect(
+      findKeybindConflict(
+        "response_save_file",
+        defaults.response_save_file,
+        defaults,
+      ),
+    ).toBeNull()
+    expect(
+      findKeybindConflict(
+        "response_open_file",
+        defaults.response_open_file,
+        defaults,
+      ),
+    ).toBeNull()
+    const custom = parseOverrides({
+      response_save_file: "alt+s",
+      response_open_file: "alt+o",
+    })
+    expect(custom.response_save_file).toBe("alt+s")
+    expect(custom.response_open_file).toBe("alt+o")
+    expect(keybindOverrides(custom)).toMatchObject({
+      response_save_file: "alt+s",
+      response_open_file: "alt+o",
+    })
+    expect(findKeybindConflict("response_save_file", "ctrl+s", defaults)).toBe(
+      "request_save",
+    )
+    expect(findKeybindConflict("response_open_file", "ctrl+o", defaults)).toBe(
+      "collection_switcher",
+    )
+  })
 
   it("includes settings_open with default key f4", () => {
     expect(bindingDefaults().settings_open).toBe("f4")

@@ -6,6 +6,7 @@ import {
   type QuickJSContext,
 } from "quickjs-emscripten-core"
 import type { Environment, JsonValue, Method, Response } from "./schema"
+import { responseByteSize, responseText } from "./responseBody"
 import { CookieValidationError, type CollectionCookieJar } from "./cookies"
 import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
@@ -937,7 +938,19 @@ export async function runRequestScript(
             if (phase === "post" && isRequestMutation(operationName))
               throw apiError("request is read-only in post-response scripts")
             if (operationName === "response.text" && phase === "post") {
-              const body = post!.response.body
+              if (
+                post!.response.bodyKind === "binary" &&
+                responseByteSize(post!.response) >
+                  SCRIPT_LIMITS.responseBodyBytes
+              ) {
+                return {
+                  error: context!.newError({
+                    name: "ScriptApiValidationError",
+                    message: `response body exceeds ${SCRIPT_LIMITS.responseBodyBytes} bytes`,
+                  }),
+                }
+              }
+              const body = responseText(post!.response)
               if (
                 Buffer.byteLength(body, "utf8") >
                 SCRIPT_LIMITS.responseBodyBytes

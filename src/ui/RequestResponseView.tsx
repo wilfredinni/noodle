@@ -1,6 +1,7 @@
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
+import "./PaneSplit"
 import { MouseButton, type BoxRenderable, type MouseEvent } from "@opentui/core"
 import type { BodyType, Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -12,8 +13,10 @@ import type { SendState } from "./sendState"
 import { useRef, type RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
 import type { FieldKind, FieldSubfield } from "./editMode"
+import type { Keybinds } from "./keybind"
 
 interface RequestResponseViewProps {
+  keybinds?: Keybinds
   draft: UseRequestDraftResult
   eb: UseEditBrowseResult
   error: Error | null
@@ -61,6 +64,7 @@ interface RequestResponseViewProps {
 }
 
 export function RequestResponseView({
+  keybinds,
   draft,
   eb,
   error,
@@ -161,7 +165,9 @@ export function RequestResponseView({
   const responsePane = (
     <ResponsePane
       key={responseKey}
+      keybinds={keybinds}
       state={responseState}
+      requestName={draft.draft?.name ?? "response"}
       bodyView={responseBodyView}
       onBodyViewChange={onResponseBodyViewChange}
       visible={responseVisible}
@@ -241,9 +247,13 @@ export function RequestResponseView({
         onSend={onSend}
         sending={responseState.status === "sending"}
       />
-      <box
+      <pane-split
         id="request-response-split"
-        ref={activeSplitContainerRef}
+        ref={(node) => {
+          activeSplitContainerRef.current = node
+        }}
+        splitRatio={splitRatio}
+        panesExpanded={expanded !== null}
         style={{
           flexDirection: layout === "side-by-side" ? "row" : "column",
           flexGrow: 1,
@@ -298,7 +308,7 @@ export function RequestResponseView({
           {responsePane}
           {stackedResponseHandle}
         </box>
-      </box>
+      </pane-split>
     </>
   )
 }

@@ -81,6 +81,13 @@ import {
 } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { ResponseFileContext } from "./responseFileContext"
+import {
+  beginResponseFileSave,
+  completeResponseFileSave,
+  openSavedResponseFile,
+} from "./commandActions"
+import type { Response as HttpResponse } from "../schema"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "../timelineEntry"
@@ -450,6 +457,10 @@ export function AppInner({
     overrideRequestId === selectedRequest?.id && userResponseTabOverride
       ? userResponseTabOverride
       : (initialResponseTab ?? "body")
+  const responseTabRef = useRef(responseTab)
+  useLayoutEffect(() => {
+    responseTabRef.current = responseTab
+  }, [responseTab])
 
   const queryVisible =
     view === "main" && filterOpenRequestId === (selectedRequest?.id ?? null)
@@ -817,6 +828,36 @@ export function AppInner({
     reloadPending,
   })
   const { activeOverlay } = overlays
+  const savedResponsePaths = useRef(new WeakMap<HttpResponse, string>())
+  const [responseFileVersion, setResponseFileVersion] = useState(0)
+  const responseFileSaving = useRef(false)
+  const responseFileActions = useMemo(
+    () => ({
+      save: () =>
+        beginResponseFileSave(
+          responseStateRef.current,
+          draftRef.current.draft?.name ?? "response",
+          overlays.setResponseFilePending,
+        ),
+      open: () => {
+        const state = responseStateRef.current
+        return openSavedResponseFile(
+          state.status === "done"
+            ? savedResponsePaths.current.get(state.response)
+            : undefined,
+        )
+      },
+      savedPath:
+        responseState.status === "done"
+          ? savedResponsePaths.current.get(responseState.response)
+          : undefined,
+    }),
+    [responseState, responseFileVersion, overlays.setResponseFilePending],
+  )
+  const responseFileActionsRef = useRef(responseFileActions)
+  useLayoutEffect(() => {
+    responseFileActionsRef.current = responseFileActions
+  }, [responseFileActions])
   openTagEditorRef.current = (index, value) =>
     overlays.setTagEditPending({ kind: "request", index, value })
 
@@ -1004,6 +1045,7 @@ export function AppInner({
         queryVisible,
         responseBodyEditorAvailable,
         responseBodyView,
+        responseFileSaved: !!responseFileActions.savedPath,
         settingsCategory,
         runnerPhase: runner.phase,
         keybinds,
@@ -1022,6 +1064,7 @@ export function AppInner({
       queryVisible,
       responseBodyEditorAvailable,
       responseBodyView,
+      responseFileActions.savedPath,
       settingsCategory,
       runner.phase,
       keybinds,
@@ -1206,6 +1249,8 @@ export function AppInner({
       activeIndexRef,
       expandedRef,
       responseStateRef,
+      responseTabRef,
+      responseFileActionsRef,
       responseQueryRef,
       responseBodyForCopyRef,
       modeRef,
@@ -1352,6 +1397,29 @@ export function AppInner({
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
     overlays,
+    onResponseFileConfirm: (path) => {
+      const pending = overlays.responseFilePending
+      if (!pending || responseFileSaving.current) return
+      responseFileSaving.current = true
+      void completeResponseFileSave(pending, path)
+        .then((savedPath) => {
+          savedResponsePaths.current.set(pending.response, savedPath)
+          setResponseFileVersion((version) => version + 1)
+          overlays.setResponseFilePending(null)
+          showToast("Response saved", "success")
+        })
+        .catch((error: unknown) => {
+          overlays.responseFileRef.current?.setError(
+            error instanceof Error ? error.message : "Unable to save response",
+          )
+        })
+        .finally(() => {
+          responseFileSaving.current = false
+        })
+    },
+    onResponseFileCancel: () => {
+      if (!responseFileSaving.current) overlays.setResponseFilePending(null)
+    },
     cancelSendRef,
     setSaveState,
     onCollectionUnregisterConfirm: (path) => {
@@ -1559,6 +1627,9 @@ export function AppInner({
   const commandPaletteCommands = useMemo(
     () =>
       buildCommandPaletteCommands({
+        responseFileActions,
+        responseFileShortcutsAvailable:
+          focus === "response" && responseTab === "body",
         keybinds,
         collectionDir,
         appConfigDir,
@@ -1641,11 +1712,14 @@ export function AppInner({
       tlsPolicy,
       draft.draft?.auth,
       collection,
+      responseFileActions,
+      focus,
+      responseTab,
     ],
   )
 
   // ── Render ─────────────────────────────────────────────────────────
-  return (
+  const content = (
     <box
       style={{
         flexDirection: "column",
@@ -1895,6 +1969,7 @@ export function AppInner({
           onCancelDialog={overlayActions.onCancel}
           commandPaletteCommands={commandPaletteCommands}
           exportCollectionActions={overlayActions.exportCollection}
+          responseFileActions={overlayActions.responseFile}
           importCollectionActions={overlayActions.importCollection}
           importCollectionInitialParent={collapseUserPath(
             dirname(collectionDir),
@@ -1965,5 +2040,10 @@ export function AppInner({
         onHintActivate={handleHintActivate}
       />
     </box>
+  )
+  return (
+    <ResponseFileContext.Provider value={responseFileActions}>
+      {content}
+    </ResponseFileContext.Provider>
   )
 }

@@ -174,7 +174,9 @@ Staging permits 100 distinct keys and a 256 KiB combined serialized intent batch
 per invocation; host storage runs outside the 500 ms VM deadline.
 
 Response header reads are case-insensitive and missing headers return null.
-Timing is milliseconds. `noodle.response.text()` lazily transfers the original VM
+Timing is milliseconds. Binary responses keep status/header/time expressions available, while JSON `body` captures and assertions fail with a binary-response error. Explicit `noodle.response.text()` decodes binary bytes as UTF-8 under the existing 5 MiB raw/decoded UTF-8 limits; `json()` retains its existing parser and caching behavior. There is no binary scripting API.
+
+`noodle.response.text()` lazily transfers the original VM
 string without truncation, capped at 5 MiB of UTF-8 before copying.
 `noodle.response.json()` uses the captured native VM JSON parser and caches success or
 failure per invocation; JSON null is preserved. The text cap applies when either
@@ -840,7 +842,7 @@ runs. A missing or empty file uses defaults.
 
 ## Timeline file (`.timeline/<request-id>.yml`)
 
-Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Retention is controlled by `settings.yml` and defaults to 50 entries, newest first (prepended on save). Bodies larger than 10 KB are stored without truncation as gzip sidecars in `<request-id>.yml.bodies/`; their YAML field is replaced by a `bodyRef`. Treat timeline YAML and sidecars as generated, sensitive data. YAML array:
+Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Retention is controlled by `settings.yml` and defaults to 50 entries, newest first (prepended on save). Binary responses retain redacted metadata (`bodyKind: "binary"`, `size`, `contentType`, and optional `filename`) only, without a response body or sidecar. History explains “Binary body was not retained” and cannot preview, save, or open those payloads. Text bodies larger than 10 KB are stored without truncation as gzip sidecars in `<request-id>.yml.bodies/`; their YAML field is replaced by a `bodyRef`. Treat timeline YAML and sidecars as generated, sensitive data. YAML array:
 
 ```yaml
 - timestamp: 1783374564216
@@ -872,7 +874,7 @@ Each entry has:
 | `envName` | string | Name of the active environment when sent |
 | `request` | object | Snapshot of the request at send time (id, name, method, url, headers, params, auth, body if present) |
 | `id` | string | Unique entry ID, used to name large-body sidecars |
-| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
+| `response` | object | Optional binary metadata `bodyKind: "binary"`, normalized `contentType`, and sanitized `filename` (binary responses have no `body`/`bodyRef`); response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 | `assertions` | object | Optional redacted manual-send assertion group: `{ evaluated: boolean, results: AssertionResult[] }` |
 

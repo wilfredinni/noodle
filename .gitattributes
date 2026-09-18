@@ -1,0 +1,2 @@
+native/response-file/** text eol=lf
+native/response-file/prebuilds/*.node binary

@@ -709,6 +709,10 @@ describe("SettingsView", () => {
     expect(frame).toContain("System")
     expect(frame).not.toContain("fixed")
     expect(frame).toContain("Open settings")
+    expect(frame).toContain("Save binary response file (Body tab)")
+    expect(frame).toContain(
+      "Open saved binary response in default app (Body tab)",
+    )
     expect(frame).not.toContain("Enter rebinds")
     const find = renderer.root.findDescendantById("settings-key-request_find")!
     const create = renderer.root.findDescendantById("settings-key-request_new")!
@@ -726,6 +730,43 @@ describe("SettingsView", () => {
     ).toBeDefined()
     expect(create.screenY - find.screenY).toBe(1)
     expect(environment.screenY - create.screenY).toBeGreaterThan(1)
+    cleanup()
+  })
+  it("captures custom Save and Open shortcuts in Settings", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: Array<[string, string]> = []
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="keyboard"
+            initialFocus="settings-content"
+            onKeybindChange={(name, key) => {
+              changes.push([name, key])
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 110, height: 120 },
+    )
+    await renderOnce()
+    for (const [name, letter] of [
+      ["response_save_file", "s"],
+      ["response_open_file", "o"],
+    ] as const) {
+      const row = renderer.root.findDescendantById(`settings-key-${name}-row`)!
+      await act(async () =>
+        mockMouse.click(row.screenX + 1, row.screenY, MouseButtons.LEFT),
+      )
+      await act(async () => host.press("return"))
+      await act(async () => host.press(letter, { meta: true }))
+      await renderOnce()
+    }
+    expect(changes).toEqual([
+      ["response_save_file", "alt+s"],
+      ["response_open_file", "alt+o"],
+    ])
     cleanup()
   })
 

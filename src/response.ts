@@ -156,7 +156,10 @@ export function parseResponseExpression(
 }
 
 export function createResponseResolver(
-  response: Pick<Response, "status" | "headers" | "body" | "timeMs">,
+  response: Pick<
+    Response,
+    "status" | "headers" | "body" | "timeMs" | "bodyKind"
+  >,
 ): ResponseResolver {
   let parsedBody: ParsedResponseBody | undefined
   const headers = new Map(
@@ -190,6 +193,12 @@ export function createResponseResolver(
         : { kind: "value", value }
     }
 
+    if (response.bodyKind === "binary") {
+      return {
+        kind: "error",
+        message: "JSON body expressions are unavailable for binary responses",
+      }
+    }
     parsedBody ??= parseResponseBody(response.body)
     if (parsedBody.kind === "invalid-json") {
       return { kind: "error", message: parsedBody.message }

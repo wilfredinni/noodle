@@ -98,6 +98,22 @@ between Source and Visual. Visual turns JSON and XML into expandable rows and
 compact tables; `/` searches labels and values. Source keeps JSONPath filtering.
 Copy the response body with Ctrl+Alt+B.
 
+Image and binary responses preserve the received bytes. The Body tab previews
+PNG, JPEG, static WebP, and the first GIF frame; images above 5 MiB require
+explicit preview activation. Other formats show file metadata and
+“Preview unavailable for this format.” Choose **Save file** to select a path,
+initially suggested in Downloads, then **Open in default app** to open that
+saved response. Saving creates missing directories and automatically adds
+`(1)`, `(2)`, and so on before the extension when the filename already exists.
+Existing files are never overwritten.
+With the binary Body tab focused, Ctrl+Alt+S opens Save file and Ctrl+Alt+O
+opens that response after it has been saved. Configure both in **F4 → Global →
+Keyboard** or with `response_save_file` and `response_open_file` in
+`~/.config/noodle/keybinds.yml`; buttons, footer, palette, and help follow
+those bindings.
+Binary history retains metadata only and displays “Binary body was not retained.”
+Text responses retain their Source and Visual views.
+
 Hide or show the sidebar with Ctrl+B. Tab skips it while hidden; `g` then `s`
 reopens it and focuses the request tree.
 
@@ -128,6 +144,7 @@ collection checks, or give coding agents the supported Noodle skill.
 
 ```bash
 noodle request run users/get --collection ./my-api --env staging
+noodle request run files/download --collection ./my-api --output ./downloads/file.bin --json
 noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 noodle collection run ./my-api auth/ health users/get --json
@@ -137,6 +154,17 @@ noodle agent install
 ```
 
 Commands support structured JSON output for scripts, CI, and agent workflows.
+`request run --output/-o <file>` saves original response bytes, including normal
+HTTP decompression, independently of redacted diagnostics. It saves completed
+responses even when HTTP, scripts, captures, or assertions fail; those failures
+still exit `1`. Pre-script and transport failures create no file. Invalid or
+existing output paths fail before sending with exit `2`; a write failure after
+receiving a response exits `1` and retains response diagnostics. Downloads contain
+the original server data without secret redaction. Binary JSON results omit
+`body` and report `bodyKind`, byte `size`, normalized `contentType`, and an optional
+`filename`; a successful download adds `outputFile`. Text JSON results keep their
+existing body field. Collection runs and Runner details retain binary metadata only.
+
 Requests and non-root folders can declare case-sensitive `tags`. Folder tags
 apply to every descendant request, so `collection run --tag smoke` can execute a
 dynamic suite without a second collection format. Repeat `--tag` to require

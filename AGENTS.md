@@ -30,6 +30,7 @@ noodle workspace list [--json]
 noodle collection run <path> [<target>...] [--env <name>] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] [--noproxy] [--insecure] [--json]
 noodle collection <create|init|list|inspect|format|audit> ... [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
+noodle request run <id> --collection <dir> [--output/-o <file>] ...
 noodle cookie <list|clear> --collection <dir> [--json]
 noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
@@ -195,6 +196,45 @@ tests/unit/        # Unit tests for pure helpers + components
 tests/integration/ # Integration tests
 ```
 
+## Response bodies and downloads
+
+Live responses retain optional original, non-enumerable `bodyBytes` and `bodyKind: text|binary`;
+missing classification remains text-compatible. `responseBody.ts` owns MIME,
+UTF-8, image-signature, byte-size, and safe filename handling. Decode text once,
+keep binary `body` empty, and never rebuild downloads from text. Binary JSON
+diagnostics omit `body` and bytes, reporting `bodyKind`, `size`, `contentType`,
+and optional `filename`. Captures/assertions on JSON body paths fail clearly for
+binary responses; status/header/time still work. Explicit post-script text/json
+readers retain the existing UTF-8 behavior and 5 MiB limits.
+Preserve the non-enumerable payload when copying a live response; ordinary object
+spreads omit it. History and result envelopes must construct metadata explicitly.
+
+`request run --output/-o` validates a new destination before sending (invalid or
+existing paths exit 2), writes unredacted received bytes after all available
+diagnostics even on completed response failures, and reports `outputFile`.
+Pre-script/transport failures produce no file; later write failures preserve
+diagnostics and exit 1. `responseFile.ts` owns exclusive creation, parent creation,
+partial-file cleanup, and direct platform-opener argument handling.
+CLI downloads pin an existing output directory before HTTP; TUI Save As pins it
+during confirmation. The private Node-API addon creates new components relative to
+that directory without following symlinks; existing directory aliases are
+resolved during preparation. Maintain all eight native prebuilds and their
+manifest together (`bun scripts/build-response-file-native.ts --all`, then
+`--check`); maintainer regeneration uses Zig 0.15.2, while normal installs and
+binary builds require no extra tools. Native response-file CI covers source and
+compiled saves on macOS, Windows, and Linux glibc/musl.
+
+Save As state pins the selected Response; saved paths use response identity.
+TUI Save As suggests and saves to an available filename, adding compact `(1)`,
+`(2)`, etc. suffixes before the extension. Retry exclusive-creation collisions
+without overwriting existing files; CLI `--output` remains strict.
+Keep Save/Open actions centralized in `commandActions.ts`. Body-only native image
+previews support PNG/JPEG/static WebP/GIF first frame, automatic protocol and pane
+fit, explicit activation above 5 MiB, decoder-error fallback, and unmount cleanup.
+Binary history and Runner details retain redacted metadata only, with no response
+body/sidecar or download/preview/open; history says “Binary body was not retained.”
+Text history remains compatible. Add no request YAML fields for response handling.
+
 ## Entry point
 
 `src/app/cli.ts` — citty main command, delegates to TUI, import, export, update, or automation subcommands. Automation command definitions live in `src/app/commands/automation.ts`; `src/app/services.ts` owns collection, request, environment, audit, and run behavior. TUI bootstrap is extracted to `main.tsx` (`bootstrap()` function).
@@ -277,6 +317,8 @@ command_palette: ctrl+p
 | `Ctrl+E` | Edit request in overlay |
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
 | `Ctrl+Alt+B` | Copy response body |
+| `Ctrl+Alt+S` | Save live binary response file (focused response Body tab) |
+| `Ctrl+Alt+O` | Open saved binary response in default app (focused response Body tab) |
 | `m` | Toggle Source / Visual (response Body tab focused) |
 | `/` | Filter the focused Body tab with JSONPath in Source or text search in Visual |
 | `Ctrl+Alt+N` | New folder |

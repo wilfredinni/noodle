@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 
 export const EDITABLE_OVERLAYS = new Set([
+  "save-response",
   "command-palette",
   "request-finder",
   "collection-switcher",

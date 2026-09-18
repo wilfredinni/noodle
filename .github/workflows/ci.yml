@@ -16,6 +16,80 @@ permissions:
   contents: read
 
 jobs:
+  response-files:
+    name: response files (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: darwin-arm64
+          - os: macos-15-intel
+            target: darwin-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-11-arm
+            target: win32-arm64
+          - os: windows-latest
+            target: win32-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64-musl
+            musl: true
+          - os: ubuntu-latest
+            target: linux-x64-musl
+            musl: true
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun scripts/build-response-file-native.ts --check
+      - if: ${{ !matrix.musl }}
+        run: bun install --frozen-lockfile
+      - if: ${{ !matrix.musl }}
+        run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --rerun-each=10 --timeout=30000
+      - name: Test shipped addon inside standalone executable
+        if: ${{ !matrix.musl }}
+        run: |
+          bun build --compile src/app/cli.ts --outfile noodle-response-smoke
+          bun -e '
+            import { resolve } from "node:path";
+            const binary = resolve(process.platform === "win32" ? "noodle-response-smoke.exe" : "noodle-response-smoke");
+            const child = Bun.spawn([process.execPath, "test", "tests/integration/binaryResponse.test.ts", "--timeout=30000"], {
+              env: { ...process.env, NOODLE_TEST_BINARY: binary }, stdout: "inherit", stderr: "inherit",
+            });
+            process.exit(await child.exited);
+          '
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        if: ${{ !matrix.musl }}
+        with:
+          version: 0.15.2
+      - name: Independently rebuild and test native source
+        if: ${{ !matrix.musl }}
+        run: |
+          bun scripts/build-response-file-native.ts --target=${{ matrix.target }}
+          bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
+      - name: Test musl source and standalone saves
+        if: ${{ matrix.musl }}
+        run: |
+          mkdir -p node_modules
+          docker run --rm --mount "type=bind,src=$PWD,dst=/work,readonly" --tmpfs /work/node_modules --workdir /work oven/bun:1.4.0-alpine sh -ec '
+            bun install --frozen-lockfile --ignore-scripts
+            bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --rerun-each=10 --timeout=30000
+            bun build --compile src/app/cli.ts --outfile /tmp/noodle-response-smoke
+            NOODLE_TEST_BINARY=/tmp/noodle-response-smoke bun test tests/integration/binaryResponse.test.ts --timeout=30000
+          '
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 5

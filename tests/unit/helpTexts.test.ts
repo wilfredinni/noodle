@@ -119,4 +119,23 @@ describe("getHelpSections", () => {
     const sysKeys = sys.keys.map((k) => k.key)
     expect(sysKeys).toContain("f1")
   })
+  it("shows configured binary Save and Open bindings in help", () => {
+    const custom = {
+      ...defaults,
+      response_save_file: "alt+s",
+      response_open_file: "alt+o",
+    }
+    const actions = getHelpSections(custom).find(
+      (section) => section.title === "Actions",
+    )!
+    expect(actions.keys).toContainEqual({
+      key: "alt+s",
+      description: "Save binary response file (focused Body tab)",
+    })
+    expect(actions.keys).toContainEqual({
+      key: "alt+o",
+      description:
+        "Open saved binary response in default app (focused Body tab)",
+    })
+  })
 })

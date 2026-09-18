@@ -17,6 +17,8 @@ import type { Focus, UrlBarSubFocus } from "../focus"
 import type { Keybinds } from "../keybind"
 import type { ResponseQueryController } from "../responseQuery"
 import type { SendState } from "../sendState"
+import type { ResponseFileActions } from "../responseFileContext"
+import type { ResponseTabKind } from "../tabs/uiState"
 import type { UseCollectionRunnerResult } from "../../hooks/useCollectionRunner"
 import type { ScrollBoxRenderable } from "@opentui/core"
 
@@ -36,6 +38,8 @@ export interface AppKeymapGlobal {
   activeIndexRef: RefObject<number>
   expandedRef: RefObject<"request" | "response" | null>
   responseStateRef: RefObject<SendState>
+  responseTabRef: RefObject<ResponseTabKind>
+  responseFileActionsRef: RefObject<ResponseFileActions | null>
   responseQueryRef: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef: RefObject<string | null>
   modeRef: RefObject<"collection" | "browse" | "empty" | "invalid">

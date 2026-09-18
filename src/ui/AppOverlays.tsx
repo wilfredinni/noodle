@@ -21,6 +21,7 @@ import { TagEditorOverlay } from "./overlays/TagEditorOverlay"
 import { ImportCurlOverlay } from "./overlays/ImportCurlOverlay"
 import { ExportCollectionOverlay } from "./overlays/ExportCollectionOverlay"
 import { ImportCollectionOverlay } from "./overlays/ImportCollectionOverlay"
+import { SaveResponseOverlay } from "./overlays/SaveResponseOverlay"
 import type {
   Collection,
   CollectionSettings,
@@ -98,6 +99,7 @@ interface AppOverlaysProps {
   importCurlActions: { confirm: () => void; cancel: () => void }
   importCurlInitialFolder: string
   exportCollectionActions: { confirm: () => void; cancel: () => void }
+  responseFileActions?: { confirm: () => void; cancel: () => void }
   importCollectionActions: { confirm: () => void; cancel: () => void }
   importCollectionInitialParent: string
   activeEnv: Environment | null
@@ -171,6 +173,7 @@ export function AppOverlays({
   importCurlActions,
   importCurlInitialFolder,
   exportCollectionActions,
+  responseFileActions,
   importCollectionActions,
   importCollectionInitialParent,
   activeEnv,
@@ -475,6 +478,14 @@ export function AppOverlays({
           onClose={exportCollectionActions.cancel}
         />
       )}
+      {overlays.responseFilePending && responseFileActions ? (
+        <SaveResponseOverlay
+          ref={overlays.responseFileRef}
+          pending={overlays.responseFilePending}
+          onConfirm={responseFileActions.confirm}
+          onClose={responseFileActions.cancel}
+        />
+      ) : null}
       {importCollectionVisible && (
         <ImportCollectionOverlay
           visible

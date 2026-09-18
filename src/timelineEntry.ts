@@ -13,6 +13,11 @@ import {
 } from "./executionResults"
 import { interpolatePathParams } from "./requests/send"
 import {
+  responseByteSize,
+  responseContentType,
+  responseFilename,
+} from "./responseBody"
+import {
   environmentSecretValues,
   executionResultSecrets,
   isSensitiveHeader,
@@ -40,10 +45,6 @@ export type TimelineExecutionResult =
       error: Error
       execution?: ResponseExecutionResults
     }
-
-function responseSize(body: string): number {
-  return new TextEncoder().encode(body).length
-}
 
 export function buildTimelineEntry(
   req: Request,
@@ -290,9 +291,19 @@ export function buildTimelineEntry(
               result.response.headers,
               secretValues,
             ),
-            body: redact(result.response.body),
+            ...(result.response.bodyKind === "binary"
+              ? {
+                  bodyKind: "binary" as const,
+                  contentType: redact(
+                    responseContentType(result.response.headers),
+                  ),
+                  filename: responseFilename(result.response.headers)
+                    ? redact(responseFilename(result.response.headers)!)
+                    : undefined,
+                }
+              : { body: redact(result.response.body) }),
             timeMs: result.response.timeMs,
-            size: responseSize(result.response.body),
+            size: responseByteSize(result.response),
           }
         : undefined,
     error:

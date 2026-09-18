@@ -71,6 +71,15 @@ import { executeRequestLifecycle } from "../requestLifecycle"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
 import { isValidVariableName } from "../variableReference"
+import {
+  responseByteSize,
+  responseContentType,
+  responseFilename,
+} from "../responseBody"
+import {
+  prepareResponseOutput,
+  type PreparedResponseOutput,
+} from "../responseFile"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -641,7 +650,12 @@ export interface RequestRunResult {
     status: number
     statusText: string
     headers: Record<string, string>
-    body: string
+    body?: string
+    bodyKind?: "binary"
+    size?: number
+    contentType?: string
+    filename?: string
+    outputFile?: string
     timeMs: number
   }
   error?: string
@@ -709,6 +723,7 @@ async function runRequest(
   cookies?: CollectionCookieJar,
   persistCaptures = false,
   onDetail?: RunDetail,
+  output?: PreparedResponseOutput,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -817,7 +832,24 @@ async function runRequest(
       status: response.status,
       statusText: redactKnownSecrets(response.statusText, responseSecretValues),
       headers: redactResponseHeaders(response.headers, responseSecretValues),
-      body: redactKnownSecrets(response.body, responseSecretValues),
+      ...(response.bodyKind === "binary"
+        ? {
+            bodyKind: "binary" as const,
+            size: responseByteSize(response),
+            contentType: redactKnownSecrets(
+              responseContentType(response.headers),
+              responseSecretValues,
+            ),
+            ...(responseFilename(response.headers)
+              ? {
+                  filename: redactKnownSecrets(
+                    responseFilename(response.headers)!,
+                    responseSecretValues,
+                  ),
+                }
+              : {}),
+          }
+        : { body: redactKnownSecrets(response.body, responseSecretValues) }),
       timeMs: response.timeMs,
     },
     ok:
@@ -830,6 +862,28 @@ async function runRequest(
     ...(authWarnings.length > 0
       ? { warnings: [...new Set(authWarnings)] }
       : {}),
+  }
+  if (output) {
+    try {
+      if (!response.bodyBytes)
+        throw new Error("Original response bytes are unavailable")
+      const outputPath = await output.save(response.bodyBytes)
+      result.response!.outputFile = redactKnownSecrets(
+        outputPath,
+        responseSecretValues,
+      )
+    } catch (error) {
+      result.ok = false
+      result.error = redactKnownSecrets(
+        errorMessage(error),
+        responseSecretValues,
+      )
+      result.failureCategories = RUN_FAILURE_CATEGORIES.filter(
+        (category) =>
+          category === "execution" ||
+          result.failureCategories.includes(category),
+      )
+    }
   }
   onDetail?.({
     requestId: request.id,
@@ -1024,45 +1078,54 @@ export async function requestRun(
   noProxy = false,
   systemProxy?: SystemProxySettings,
   insecure = false,
+  output?: string,
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
-  validateId(id)
-  const dir = await requireCollectionRoot(collectionDir)
-  const settings = await loadSettings(dir)
-  const collection = await filestore.loadCollection(dir)
-  const request = flattenRequests(collection.items).find(
-    (item) => item.id === id,
-  )
-  if (!request) throw new Error(`request not found: ${id}`)
-  onProgress?.(0, 1)
-  const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
-  const cookies = cookieAccess.jar
-  let result: RequestRunResult
+  const destination =
+    output === undefined ? undefined : await prepareResponseOutput(output)
   try {
-    result = await runRequest(
-      dir,
-      collection,
-      request,
-      new RunScope(),
-      await environmentFor(dir, settings, environmentName),
-      await proxyPolicyFor(
-        dir,
-        settings,
-        noProxy,
-        systemProxy ?? takeSystemProxyFromEnv(),
-      ),
-      await tlsPolicyFor(dir, settings, insecure),
-      cookies,
-      true,
+    validateId(id)
+    const dir = await requireCollectionRoot(collectionDir)
+    const settings = await loadSettings(dir)
+    const collection = await filestore.loadCollection(dir)
+    const request = flattenRequests(collection.items).find(
+      (item) => item.id === id,
     )
+    if (!request) throw new Error(`request not found: ${id}`)
+    onProgress?.(0, 1)
+    const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+    const cookies = cookieAccess.jar
+    let result: RequestRunResult
+    try {
+      result = await runRequest(
+        dir,
+        collection,
+        request,
+        new RunScope(),
+        await environmentFor(dir, settings, environmentName),
+        await proxyPolicyFor(
+          dir,
+          settings,
+          noProxy,
+          systemProxy ?? takeSystemProxyFromEnv(),
+        ),
+        await tlsPolicyFor(dir, settings, insecure),
+        cookies,
+        true,
+        undefined,
+        destination,
+      )
+    } finally {
+      await closeCookieJar(cookies)
+    }
+    const warnings = cookies?.warnings ?? cookieAccess.warnings
+    if (warnings.length > 0) {
+      result.warnings = [...new Set([...(result.warnings ?? []), ...warnings])]
+    }
+    onProgress?.(1, 1)
+    return { result, failed: result.ok === false }
   } finally {
-    await closeCookieJar(cookies)
+    await destination?.close()
   }
-  const warnings = cookies?.warnings ?? cookieAccess.warnings
-  if (warnings.length > 0) {
-    result.warnings = [...new Set([...(result.warnings ?? []), ...warnings])]
-  }
-  onProgress?.(1, 1)
-  return { result, failed: result.ok === false }
 }
 
 async function closeCookieJar(
