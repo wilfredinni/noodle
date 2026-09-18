@@ -20,6 +20,7 @@ const sha256 = (bytes: Uint8Array) =>
 const source = createHash("sha256")
 for (const name of [
   "response_file.c",
+  "windows_node_api.h",
   "include/node_api.h",
   "include/node_api_types.h",
   "include/js_native_api.h",
@@ -94,28 +95,6 @@ if (!args.includes("--manifest")) {
     else if (name.startsWith("linux")) flags.push("-fPIC")
     else {
       flags.push("-DBUILDING_NODE_EXTENSION")
-      const arch = name.endsWith("arm64") ? "arm64" : "x64"
-      const library = join(cache, `node-${arch}.lib`)
-      // Official Node 22.14.0 import libraries, verified against SHASUMS256.txt.
-      const expected =
-        arch === "arm64"
-          ? "988eb8c60a5ade17e652dbdb60d56d3c6ad5e599a99ce04932b8c4c86583cdaf"
-          : "65e45757c026c93a170743a811ef1b921ae12d6d9dd62d258bbbca0626687626"
-      let bytes = await readFile(library).catch(() => null)
-      if (!bytes || sha256(bytes) !== expected) {
-        const response = await fetch(
-          `https://nodejs.org/dist/v22.14.0/win-${arch}/node.lib`,
-        )
-        if (!response.ok)
-          throw new Error(
-            `Unable to download Node-API import library: ${response.status}`,
-          )
-        bytes = Buffer.from(await response.arrayBuffer())
-        if (sha256(bytes) !== expected)
-          throw new Error("Node-API import library hash mismatch")
-        await writeFile(library, bytes)
-      }
-      flags.push(library)
     }
     flags.push(
       join(root, "response_file.c"),

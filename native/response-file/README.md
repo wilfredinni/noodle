@@ -23,8 +23,8 @@ bun scripts/build-response-file-native.ts --check
 `--target=linux-arm64` (or another prebuild name) builds one target. `--manifest`
 updates hashes after all prebuilds have been regenerated. `NOODLE_ZIG` may select
 the compiler executable; `NOODLE_NATIVE_BUILD_DIR` may select its temporary build
-cache. Windows import libraries are from Node 22.14.0 and are downloaded only
-for maintainer builds, after verification against the official SHA-256 hashes.
+cache. Windows resolves Node-API functions from the current host executable,
+including renamed standalone binaries, without requiring a Node installation.
 The four vendored Node-API headers are from Node 25.2.1; their license accompanies
 them. The source and eight artifact hashes are recorded in `prebuilds/manifest.json`.
 

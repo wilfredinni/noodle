@@ -14,6 +14,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <winternl.h>
+#include "windows_node_api.h"
 typedef HANDLE file_handle;
 #define INVALID_FILE INVALID_HANDLE_VALUE
 typedef NTSTATUS (NTAPI *nt_create_file)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
@@ -429,6 +430,7 @@ static napi_value close_resource(napi_env env, napi_callback_info info) {
 }
 NAPI_MODULE_INIT() {
 #ifdef _WIN32
+  if (!InitOnceExecuteOnce(&host_api_once, bind_host_api, NULL, NULL)) return NULL;
   FARPROC function = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtCreateFile");
   memcpy(&create_relative, &function, sizeof(create_relative));
   if (!create_relative) { napi_throw_error(env, "ENOSYS", "NtCreateFile is unavailable"); return NULL; }

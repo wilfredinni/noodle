@@ -215,8 +215,8 @@ diagnostics even on completed response failures, and reports `outputFile`.
 Pre-script/transport failures produce no file; later write failures preserve
 diagnostics and exit 1. `responseFile.ts` owns exclusive creation, parent creation,
 partial-file cleanup, and direct platform-opener argument handling.
-Downloads prepare and pin an existing output directory before CLI execution or
-TUI confirmation. The private Node-API addon creates new components relative to
+CLI downloads pin an existing output directory before HTTP; TUI Save As pins it
+during confirmation. The private Node-API addon creates new components relative to
 that directory without following symlinks; existing directory aliases are
 resolved during preparation. Maintain all eight native prebuilds and their
 manifest together (`bun scripts/build-response-file-native.ts --all`, then
