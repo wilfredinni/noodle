@@ -1063,6 +1063,7 @@ export function ResponsePane({
           )}
         </Tabs>
         {isDone &&
+        isBinary &&
         state.response.bodyBytes &&
         activeTab === "body" &&
         fileActions ? (
@@ -1078,7 +1079,7 @@ export function ResponsePane({
                 onAction={() => fileActions.open()}
               />
             </box>
-            {isBinary && fileActions.savedPath ? (
+            {fileActions.savedPath ? (
               <text fg={theme.textMuted} wrapMode="word">
                 {fileActions.savedPath}
               </text>

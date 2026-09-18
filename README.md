@@ -105,7 +105,7 @@ explicit preview activation. Other formats show file metadata and
 initially suggested in Downloads, then **Open in default app** to open that
 saved response. Saving creates missing directories and refuses existing files.
 Binary history retains metadata only and displays “Binary body was not retained.”
-Text responses also offer Save file while retaining their Source and Visual views.
+Text responses retain their Source and Visual views.
 
 Hide or show the sidebar with Ctrl+B. Tab skips it while hidden; `g` then `s`
 reopens it and focuses the request tree.

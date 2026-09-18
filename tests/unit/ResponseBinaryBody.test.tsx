@@ -381,6 +381,31 @@ describe("binary response views", () => {
     expect(setup.captureCharFrame()).toContain("Legacy text")
     expect(setup.captureCharFrame()).not.toContain("Save file")
   })
+  it.each([
+    ["text/plain", "Normal response", "text"],
+    ["application/json", '{"message":"Normal response"}', "text"],
+    ["application/json", '{"message":"Normal response"}', undefined],
+  ] as const)(
+    "keeps file buttons off %s responses with retained bytes",
+    async (contentType, body, bodyKind) => {
+      const value: Response = Object.defineProperty(
+        {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": contentType },
+          body,
+          bodyKind,
+          timeMs: 1,
+        },
+        "bodyBytes",
+        { value: new TextEncoder().encode(body) },
+      )
+      const setup = await mount(value)
+      expect(setup.captureCharFrame()).toContain("Normal response")
+      expect(setup.captureCharFrame()).not.toContain("Save file")
+      expect(setup.captureCharFrame()).not.toContain("Open in default app")
+    },
+  )
   it("shows a useful file fallback and disables JSON queries and view toggles", async () => {
     const setup = await mount(
       response(new Uint8Array([0, 255]), "application/pdf"),
