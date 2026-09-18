@@ -270,6 +270,11 @@ export async function executeRequestLifecycle(options: {
         ? { network: redactNetworkEvents(rawResponse.network, secretValues) }
         : {}),
     }
+    if (rawResponse.bodyBytes)
+      Object.defineProperty(response, "bodyBytes", {
+        value: rawResponse.bodyBytes,
+        enumerable: false,
+      })
     return {
       status: "done",
       request: timeline,

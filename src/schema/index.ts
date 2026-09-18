@@ -290,6 +290,9 @@ export interface Response {
   statusText: string
   headers: Record<string, string>
   body: string
+  // Transport-owned, non-enumerable payload; omitted from diagnostics and history.
+  bodyBytes?: Uint8Array
+  bodyKind?: "text" | "binary"
   timeMs: number
   network?: NetworkEvent[]
   sentCookies?: CookiePair[]
@@ -372,6 +375,9 @@ export interface TimelineEntry {
     statusText: string
     headers: Record<string, string>
     body?: string
+    bodyKind?: "binary"
+    contentType?: string
+    filename?: string
     bodyRef?: TimelineBodyRef
     bodyTruncated?: boolean
     timeMs: number
