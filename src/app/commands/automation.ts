@@ -360,6 +360,11 @@ const request = defineCommand({
         env: { type: "string", alias: "e" },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
+        output: {
+          type: "string",
+          alias: "o",
+          description: "Save the original response body to a new file",
+        },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -376,6 +381,7 @@ const request = defineCommand({
                 args.noproxy,
                 takeSystemProxyFromEnv(),
                 args.insecure,
+                args.output,
               )
               return { data, failed: data.failed }
             } finally {

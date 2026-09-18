@@ -207,6 +207,14 @@ export function formatRunResult(result: RequestRunResult): string {
   return [
     `${result.ok ? color("✓", "green") : color("✗", "red")} ${color(result.method, "cyan")} ${result.id}  ${statusLabel(result)}${duration}`,
     `  ${result.url}${result.error ? `\n  ${color(result.error, "red")}` : ""}`,
+    ...(result.response?.bodyKind === "binary"
+      ? [
+          `  Binary: ${result.response.contentType} · ${result.response.size} bytes${result.response.filename ? ` · ${result.response.filename}` : ""}`,
+        ]
+      : []),
+    ...(result.response?.outputFile
+      ? [`  Saved: ${result.response.outputFile}`]
+      : []),
     ...(result.failureCategories.length
       ? [`  Failure: ${result.failureCategories.map(failureLabel).join(", ")}`]
       : []),

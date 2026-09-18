@@ -71,6 +71,12 @@ import { executeRequestLifecycle } from "../requestLifecycle"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
 import { isValidVariableName } from "../variableReference"
+import {
+  responseByteSize,
+  responseContentType,
+  responseFilename,
+} from "../responseBody"
+import { saveResponseFile, validateResponseOutput } from "../responseFile"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -641,7 +647,12 @@ export interface RequestRunResult {
     status: number
     statusText: string
     headers: Record<string, string>
-    body: string
+    body?: string
+    bodyKind?: "binary"
+    size?: number
+    contentType?: string
+    filename?: string
+    outputFile?: string
     timeMs: number
   }
   error?: string
@@ -709,6 +720,7 @@ async function runRequest(
   cookies?: CollectionCookieJar,
   persistCaptures = false,
   onDetail?: RunDetail,
+  outputPath?: string,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -817,7 +829,24 @@ async function runRequest(
       status: response.status,
       statusText: redactKnownSecrets(response.statusText, responseSecretValues),
       headers: redactResponseHeaders(response.headers, responseSecretValues),
-      body: redactKnownSecrets(response.body, responseSecretValues),
+      ...(response.bodyKind === "binary"
+        ? {
+            bodyKind: "binary" as const,
+            size: responseByteSize(response),
+            contentType: redactKnownSecrets(
+              responseContentType(response.headers),
+              responseSecretValues,
+            ),
+            ...(responseFilename(response.headers)
+              ? {
+                  filename: redactKnownSecrets(
+                    responseFilename(response.headers)!,
+                    responseSecretValues,
+                  ),
+                }
+              : {}),
+          }
+        : { body: redactKnownSecrets(response.body, responseSecretValues) }),
       timeMs: response.timeMs,
     },
     ok:
@@ -830,6 +859,28 @@ async function runRequest(
     ...(authWarnings.length > 0
       ? { warnings: [...new Set(authWarnings)] }
       : {}),
+  }
+  if (outputPath) {
+    try {
+      if (!response.bodyBytes)
+        throw new Error("Original response bytes are unavailable")
+      await saveResponseFile(outputPath, response.bodyBytes)
+      result.response!.outputFile = redactKnownSecrets(
+        outputPath,
+        responseSecretValues,
+      )
+    } catch (error) {
+      result.ok = false
+      result.error = redactKnownSecrets(
+        errorMessage(error),
+        responseSecretValues,
+      )
+      result.failureCategories = RUN_FAILURE_CATEGORIES.filter(
+        (category) =>
+          category === "execution" ||
+          result.failureCategories.includes(category),
+      )
+    }
   }
   onDetail?.({
     requestId: request.id,
@@ -1024,7 +1075,10 @@ export async function requestRun(
   noProxy = false,
   systemProxy?: SystemProxySettings,
   insecure = false,
+  output?: string,
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
+  const outputPath =
+    output === undefined ? undefined : await validateResponseOutput(output)
   validateId(id)
   const dir = await requireCollectionRoot(collectionDir)
   const settings = await loadSettings(dir)
@@ -1053,6 +1107,8 @@ export async function requestRun(
       await tlsPolicyFor(dir, settings, insecure),
       cookies,
       true,
+      undefined,
+      outputPath,
     )
   } finally {
     await closeCookieJar(cookies)
