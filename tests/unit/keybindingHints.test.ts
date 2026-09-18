@@ -53,6 +53,28 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("does not advertise the command palette as a direct binary Save shortcut", () => {
+    expect(
+      getKeybindingHints(
+        ctx({
+          focus: "response",
+          tab: "body",
+          sendState: {
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "image/png" },
+              body: "",
+              bodyKind: "binary",
+              timeMs: 1,
+            },
+          },
+        }),
+      ).footer,
+    ).toEqual([seg("f2", "expand", "request.expand-toggle")])
+  })
+
   it("does not show status text while the runner is executing", () => {
     expect(
       getKeybindingHints(ctx({ view: "runner", runnerPhase: "running" }))

@@ -379,21 +379,11 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         },
       ]
     }
-    if (ctx.sendState.status === "done" && ctx.tab === "body") {
-      if (ctx.sendState.response.bodyKind === "binary") {
-        return [
-          {
-            key: displayKey(kb.command_palette),
-            word: "save file",
-            command: "app.command-palette",
-          },
-          {
-            key: displayKey(kb.pane_expand),
-            word: "expand",
-            command: "request.expand-toggle",
-          },
-        ]
-      }
+    if (
+      ctx.sendState.status === "done" &&
+      ctx.tab === "body" &&
+      ctx.sendState.response.bodyKind !== "binary"
+    ) {
       const foldSegments =
         !ctx.queryVisible && ctx.responseBodyView === "visual"
           ? [{ key: "Enter", word: "details" }]
