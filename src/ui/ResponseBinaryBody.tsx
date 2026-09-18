@@ -226,7 +226,14 @@ export function ResponseBinaryBody({
                 : "Image could not be decoded",
             )
           }
-          style={{ flexGrow: 1, flexBasis: 0, minHeight: 0, minWidth: 0 }}
+          style={{
+            flexGrow: 1,
+            flexBasis: 0,
+            minHeight: 0,
+            minWidth: 0,
+            marginTop: 1,
+            marginBottom: 1,
+          }}
         />
       )}
     </box>
