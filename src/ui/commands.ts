@@ -799,16 +799,15 @@ export function buildCommandPaletteCommands(
     ...(mode === "collection" ? visibleRequestCommands : []),
     ...(ctx.responseFileActions &&
     ctx.responseStateRef.current?.status === "done" &&
+    ctx.responseStateRef.current.response.bodyKind === "binary" &&
     ctx.responseStateRef.current.response.bodyBytes
       ? [
           {
             id: "response.save-file",
             label: "Save Response File",
-            keybinding:
-              ctx.responseFileShortcutsAvailable &&
-              ctx.responseStateRef.current.response.bodyKind === "binary"
-                ? displayKey(keybinds.response_save_file)
-                : undefined,
+            keybinding: ctx.responseFileShortcutsAvailable
+              ? displayKey(keybinds.response_save_file)
+              : undefined,
             section: "Response",
             run: ctx.responseFileActions.save,
           },
@@ -817,11 +816,9 @@ export function buildCommandPaletteCommands(
                 {
                   id: "response.open-file",
                   label: "Open Response in Default App",
-                  keybinding:
-                    ctx.responseFileShortcutsAvailable &&
-                    ctx.responseStateRef.current.response.bodyKind === "binary"
-                      ? displayKey(keybinds.response_open_file)
-                      : undefined,
+                  keybinding: ctx.responseFileShortcutsAvailable
+                    ? displayKey(keybinds.response_open_file)
+                    : undefined,
                   section: "Response",
                   run: ctx.responseFileActions.open,
                 },

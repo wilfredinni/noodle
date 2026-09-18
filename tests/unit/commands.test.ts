@@ -143,12 +143,10 @@ describe("buildCommandPaletteCommands", () => {
     ctx.responseStateRef.current.response.bodyKind = "text"
     commands = buildCommandPaletteCommands(ctx)
     expect(
-      commands.find((command) => command.id === "response.save-file")
-        ?.keybinding,
+      commands.find((command) => command.id === "response.save-file"),
     ).toBeUndefined()
     expect(
-      commands.find((command) => command.id === "response.open-file")
-        ?.keybinding,
+      commands.find((command) => command.id === "response.open-file"),
     ).toBeUndefined()
   })
   it("offers file actions only for a live response with original bytes", () => {
@@ -161,6 +159,7 @@ describe("buildCommandPaletteCommands", () => {
       statusText: "OK",
       headers: {},
       body: "legacy",
+      bodyKind: "binary" as const,
       timeMs: 1,
       bodyBytes: undefined as Uint8Array | undefined,
     }

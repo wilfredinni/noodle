@@ -1,6 +1,8 @@
 import type { Response } from "./schema"
 
-export function responseContentType(headers: Record<string, string>): string {
+function parsedResponseContentType(
+  headers: Record<string, string>,
+): string | undefined {
   const mime =
     Object.entries(headers)
       .find(([name]) => name.toLowerCase() === "content-type")?.[1]
@@ -9,18 +11,19 @@ export function responseContentType(headers: Record<string, string>): string {
       .toLowerCase() || ""
   return /^[a-z0-9!#$%&'*+.^_`|~-]+\/[a-z0-9!#$%&'*+.^_`|~-]+$/.test(mime)
     ? mime
-    : "application/octet-stream"
+    : undefined
+}
+
+export function responseContentType(headers: Record<string, string>): string {
+  return parsedResponseContentType(headers) ?? "application/octet-stream"
 }
 
 export function classifyResponseBody(
   bytes: Uint8Array,
   headers: Record<string, string>,
 ): "text" | "binary" {
-  const hasType = Object.keys(headers).some(
-    (name) => name.toLowerCase() === "content-type",
-  )
-  const mime = responseContentType(headers)
-  if (hasType) {
+  const mime = parsedResponseContentType(headers)
+  if (mime) {
     return mime.startsWith("text/") ||
       /\/(?:json|xml|javascript|ecmascript|x-javascript|x-www-form-urlencoded|graphql|x-ndjson|ndjson)$/.test(
         mime,

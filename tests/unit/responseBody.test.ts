@@ -11,6 +11,23 @@ import { runRequestScript } from "../../src/preRequestScript"
 import { RunScope } from "../../src/runScope"
 
 describe("response bodies", () => {
+  it("uses byte detection for empty or malformed Content-Type values", () => {
+    for (const type of ["", " ", "; charset=utf-8", "json", "text/", "a/b/c"])
+      for (const name of ["content-type", "Content-Type"])
+        for (const body of ["hello\n世界", '{"id":7}']) {
+          const headers = { [name]: type }
+          expect(responseContentType(headers)).toBe("application/octet-stream")
+          expect(
+            classifyResponseBody(new TextEncoder().encode(body), headers),
+          ).toBe("text")
+          expect(classifyResponseBody(new Uint8Array([255]), headers)).toBe(
+            "binary",
+          )
+          expect(classifyResponseBody(new Uint8Array([0, 27]), headers)).toBe(
+            "binary",
+          )
+        }
+  })
   it("classifies MIME families and missing-type UTF-8 without mistaking files for text", () => {
     const bytes = new TextEncoder().encode("hello\n世界")
     for (const type of [

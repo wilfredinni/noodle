@@ -458,7 +458,9 @@ export function AppInner({
       ? userResponseTabOverride
       : (initialResponseTab ?? "body")
   const responseTabRef = useRef(responseTab)
-  responseTabRef.current = responseTab
+  useLayoutEffect(() => {
+    responseTabRef.current = responseTab
+  }, [responseTab])
 
   const queryVisible =
     view === "main" && filterOpenRequestId === (selectedRequest?.id ?? null)
@@ -853,7 +855,9 @@ export function AppInner({
     [responseState, responseFileVersion, overlays.setResponseFilePending],
   )
   const responseFileActionsRef = useRef(responseFileActions)
-  responseFileActionsRef.current = responseFileActions
+  useLayoutEffect(() => {
+    responseFileActionsRef.current = responseFileActions
+  }, [responseFileActions])
   openTagEditorRef.current = (index, value) =>
     overlays.setTagEditPending({ kind: "request", index, value })
 

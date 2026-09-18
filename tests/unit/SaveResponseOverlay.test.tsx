@@ -1,8 +1,9 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { act, createRef } from "react"
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
+import * as os from "node:os"
 import { scheduler } from "node:timers/promises"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
@@ -35,7 +36,7 @@ const pending: ResponseFilePending = {
     timeMs: 1,
   },
 }
-async function mount() {
+async function mount(suggestion = "Report.pdf") {
   const { keymap, host } = setupKeymap()
   const ref = createRef<SaveResponseOverlayHandle>()
   const confirmed: string[] = []
@@ -69,21 +70,58 @@ async function mount() {
       { width: 90, height: 25 },
     ),
   )
-  await act(async () => {
-    await scheduler.yield()
-    await setup.renderOnce()
-  })
+  const waitForText = async (text: string) => {
+    const deadline = Date.now() + 2000
+    while (true) {
+      await act(async () => {
+        await scheduler.yield()
+        await setup.renderOnce()
+      })
+      const frame = setup.captureCharFrame()
+      if (frame.includes(text)) return
+      if (Date.now() >= deadline)
+        throw new Error(`Timed out waiting for ${text}:\n${frame}`)
+    }
+  }
+  await waitForText(suggestion)
   const edit = async (value: string) => {
     await act(async () => {
       await setup.mockInput.pressKey("\x01")
       await setup.mockInput.pressKey("\x0b")
       await setup.mockInput.typeText(value)
     })
-    await setup.renderOnce()
+    await act(async () => setup.renderOnce())
   }
-  return { ...setup, ref, confirmed, host, edit, cancelled: () => cancelled }
+  return {
+    ...setup,
+    ref,
+    confirmed,
+    host,
+    edit,
+    waitForText,
+    cancelled: () => cancelled,
+  }
 }
 describe("Save response overlay", () => {
+  let home: string
+  let restoreHome: () => void
+  let previousDownloads: string | undefined
+
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), "noodle-save-response-home-"))
+    const homeSpy = spyOn(os, "homedir").mockReturnValue(home)
+    restoreHome = () => homeSpy.mockRestore()
+    previousDownloads = process.env.NOODLE_DOWNLOADS_DIR
+    process.env.NOODLE_DOWNLOADS_DIR = join(home, "Downloads")
+  })
+
+  afterEach(async () => {
+    restoreHome()
+    if (previousDownloads === undefined) delete process.env.NOODLE_DOWNLOADS_DIR
+    else process.env.NOODLE_DOWNLOADS_DIR = previousDownloads
+    await rm(home, { recursive: true, force: true })
+  })
+
   it("saves and closes through the shared form action buttons", async () => {
     const setup = await mount()
     await setup.edit("/tmp/new folder/download.bin")
@@ -121,16 +159,7 @@ describe("Save response overlay", () => {
     try {
       await writeFile(join(root, "Report.pdf"), "original")
       await writeFile(join(root, "Report(1).pdf"), "first copy")
-      const setup = await mount()
-      const deadline = Date.now() + 2000
-      while (!setup.captureCharFrame().includes("Report(2).pdf")) {
-        if (Date.now() > deadline)
-          throw new Error("Numbered output suggestion did not finish")
-        await act(async () => {
-          await scheduler.yield()
-          await setup.renderOnce()
-        })
-      }
+      const setup = await mount("Report(2).pdf")
       const suggestion = setup.ref.current!.confirm()!
       expect(suggestion).toBe(collapseUserPath(join(root, "Report(2).pdf")))
       await writeFile(join(root, "Report(2).pdf"), "another writer")
@@ -151,29 +180,23 @@ describe("Save response overlay", () => {
     }
   })
   it("requires a path and lets completion own Return and Escape before the modal", async () => {
+    await writeFile(join(home, "package.json"), "{}")
     const setup = await mount()
     await setup.edit("")
     await act(() => setup.host.press("return"))
     await setup.renderOnce()
     expect(setup.confirmed).toEqual([])
     expect(setup.captureCharFrame()).toContain("Output file is required")
-    await setup.edit("@/noodle/package.jso")
-    const deadline = Date.now() + 2000
-    while (!setup.captureCharFrame().includes("package.json")) {
-      if (Date.now() > deadline)
-        throw new Error("Path completion did not finish")
-      await act(async () => {
-        await scheduler.yield()
-        await setup.renderOnce()
-      })
-    }
+    await setup.edit("@/package.jso")
+    await setup.waitForText("package.json")
     await act(() => setup.host.press("return"))
     await setup.renderOnce()
-    expect(setup.ref.current!.confirm()).toBe("@/noodle/package.json")
+    expect(setup.ref.current!.confirm()).toBe("@/package.json")
     expect(setup.confirmed).toEqual([])
     await act(() => setup.host.press("return"))
-    expect(setup.confirmed).toEqual(["@/noodle/package.json"])
-    await setup.edit("@/noodle/pack")
+    expect(setup.confirmed).toEqual(["@/package.json"])
+    await setup.edit("@/pack")
+    await setup.waitForText("package.json")
     await act(() => setup.host.press("escape"))
     expect(setup.cancelled()).toBe(0)
     await act(() => setup.host.press("escape"))

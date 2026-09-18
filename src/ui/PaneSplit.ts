@@ -41,7 +41,13 @@ export class PaneSplitRenderable extends BoxRenderable {
     if (!request || !response) return
     // Size panes in whole cells before Yoga runs, so footers cannot round onto borders.
     if (this.primaryAxis === "column" && this.height > 0) {
-      const height = Math.round(this.height * this.ratio)
+      const minimum = Math.min(6, Math.floor(this.height / 2))
+      request.minHeight = minimum
+      response.minHeight = minimum
+      const height = Math.max(
+        minimum,
+        Math.min(this.height - minimum, Math.round(this.height * this.ratio)),
+      )
       request.height = height
       response.height = this.height - height
     } else if (this.primaryAxis === "row" && this.width > 0) {
