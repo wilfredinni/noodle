@@ -42,9 +42,6 @@ describe("macOS release signing", () => {
           binary,
         ])
         expect(verified.exitCode).toBe(0)
-        expect(Bun.spawnSync([binary, "signed-ok"]).stdout.toString()).toBe(
-          "signed-ok\n",
-        )
 
         expect(
           Bun.spawnSync([

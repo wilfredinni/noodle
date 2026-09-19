@@ -5,6 +5,7 @@ import { join } from "node:path"
 
 const describeWindows = describe.skipIf(process.platform !== "win32")
 const helper = join(import.meta.dir, "../scripts/complete-windows-update.ps1")
+const powershellProcessTimeout = 20_000
 
 function runHelper(
   source: string,
@@ -33,7 +34,7 @@ function runHelper(
     String(maxAttempts),
   ]
   if (refreshSkill) args.push("-RefreshSkill")
-  return Bun.spawnSync(args)
+  return Bun.spawnSync(args, { timeout: powershellProcessTimeout })
 }
 
 describeWindows("Windows update helper", () => {
@@ -104,16 +105,19 @@ Start-Sleep -Milliseconds 350
 $stream.Dispose()
 `,
       )
-      const locker = Bun.spawn([
-        "powershell.exe",
-        "-NoProfile",
-        "-File",
-        lockerScript,
-        "-Target",
-        destination,
-        "-Ready",
-        ready,
-      ])
+      const locker = Bun.spawn(
+        [
+          "powershell.exe",
+          "-NoProfile",
+          "-File",
+          lockerScript,
+          "-Target",
+          destination,
+          "-Ready",
+          ready,
+        ],
+        { timeout: powershellProcessTimeout },
+      )
       for (let attempt = 0; attempt < 100; attempt += 1) {
         if (await Bun.file(ready).exists()) break
         await Bun.sleep(10)

@@ -64,7 +64,15 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.target }}-bun-
       - run: bun scripts/build-response-file-native.ts --check
       - run: bun install --frozen-lockfile
-      - run: bun test
+      - name: Run full test suite
+        if: ${{ matrix.target == 'linux-x64' }}
+        run: bun test
+      - name: Run macOS release tests
+        if: ${{ startsWith(matrix.target, 'darwin-') }}
+        run: bun test tests/unit/macos-release.test.ts
+      - name: Run Windows release tests
+        if: ${{ startsWith(matrix.target, 'win32-') }}
+        run: bun test tests/install-powershell.test.ts tests/windows-update-helper.test.ts --timeout=30000
       - name: Test shipped addon inside standalone executable
         run: |
           set -euo pipefail

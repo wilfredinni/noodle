@@ -8,6 +8,7 @@ const describeWindows = describe.skipIf(process.platform !== "win32")
 const installer = join(import.meta.dir, "../scripts/install.ps1")
 const architecture = process.arch === "arm64" ? "arm64" : "x86_64"
 const assetName = `noodle-windows-${architecture}.exe`
+const powershellProcessTimeout = 20_000
 
 async function runInstaller(
   root: string,
@@ -52,6 +53,7 @@ finally {
 `,
   )
   return Bun.spawnSync(["powershell.exe", "-NoProfile", "-File", driver], {
+    timeout: powershellProcessTimeout,
     env: {
       ...process.env,
       NOODLE_INSTALL_SCRIPT: installer,
@@ -73,6 +75,13 @@ finally {
   })
 }
 
+function expectSuccess(result: ReturnType<typeof Bun.spawnSync>) {
+  expect(
+    result.exitCode,
+    result.stderr?.toString() || result.stdout?.toString() || "",
+  ).toBe(0)
+}
+
 describeWindows("PowerShell installer", () => {
   it("installs the selected architecture after checksum verification", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-install-ps-"))
@@ -83,7 +92,7 @@ describeWindows("PowerShell installer", () => {
         defaultDirectory: true,
       })
 
-      expect(result.exitCode).toBe(0)
+      expectSuccess(result)
       expect(
         await readFile(join(root, "Programs", "Noodle", "noodle.exe"), "utf8"),
       ).toBe(binary)
@@ -104,7 +113,7 @@ describeWindows("PowerShell installer", () => {
         updatePath: true,
       })
 
-      expect(result.exitCode).toBe(0)
+      expectSuccess(result)
       const paths = (await readFile(join(root, "paths.log"), "utf8"))
         .split(/\r?\n/)
         .filter(Boolean)
@@ -142,7 +151,7 @@ describeWindows("PowerShell installer", () => {
       })
       const checksum = createHash("sha256").update(binary).digest("hex")
       const installed = await runInstaller(root, binary, checksum)
-      expect(installed.exitCode).toBe(0)
+      expectSuccess(installed)
       expect(installed.stdout?.toString() ?? "").toContain(
         "skill could not be refreshed",
       )
