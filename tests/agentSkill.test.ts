@@ -11,7 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, relative } from "node:path"
+import { dirname, join, relative, sep } from "node:path"
 import {
   getNoodleSkillPaths,
   installNoodleSkill,
@@ -26,7 +26,7 @@ async function filesBelow(root: string): Promise<string[]> {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) await walk(path)
-      else files.push(relative(root, path))
+      else files.push(relative(root, path).split(sep).join("/"))
     }
   }
   await walk(root)

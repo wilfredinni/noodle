@@ -1,5 +1,5 @@
 import { realpathSync } from "node:fs"
-import { relative, resolve, sep } from "node:path"
+import { isAbsolute, relative, resolve, sep } from "node:path"
 import type { ImportOptions } from "../app/import"
 import { expandUserPath } from "../userPath"
 
@@ -29,7 +29,10 @@ function canonicalPath(path: string): string {
 
 function isInsideCollection(collectionDir: string, parentDir: string): boolean {
   const rel = relative(canonicalPath(collectionDir), canonicalPath(parentDir))
-  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`))
+  return (
+    rel === "" ||
+    (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+  )
 }
 
 export async function runCollectionImport({

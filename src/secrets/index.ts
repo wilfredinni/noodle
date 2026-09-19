@@ -342,16 +342,31 @@ async function reserveCollectionId(collectionDir: string): Promise<string> {
   return (await readFile(reservationPath, "utf8")).trim()
 }
 
+const collectionIdInitializations = new Map<string, Promise<string>>()
+
 export async function ensureCollectionId(
   collectionDir: string,
 ): Promise<string> {
-  const settings = await loadSettings(collectionDir)
-  if (settings.collectionId) return settings.collectionId
-  const reservedId = await reserveCollectionId(collectionDir)
-  const current = await loadSettings(collectionDir)
-  if (current.collectionId) return current.collectionId
-  await saveSettings(collectionDir, { ...current, collectionId: reservedId })
-  return reservedId
+  const pending = collectionIdInitializations.get(collectionDir)
+  if (pending) return pending
+
+  const initialization = (async () => {
+    const settings = await loadSettings(collectionDir)
+    if (settings.collectionId) return settings.collectionId
+    const reservedId = await reserveCollectionId(collectionDir)
+    const current = await loadSettings(collectionDir)
+    if (current.collectionId) return current.collectionId
+    await saveSettings(collectionDir, { ...current, collectionId: reservedId })
+    return reservedId
+  })()
+  collectionIdInitializations.set(collectionDir, initialization)
+  try {
+    return await initialization
+  } finally {
+    if (collectionIdInitializations.get(collectionDir) === initialization) {
+      collectionIdInitializations.delete(collectionDir)
+    }
+  }
 }
 
 export async function getStoredSecret(

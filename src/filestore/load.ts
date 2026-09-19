@@ -1,5 +1,5 @@
 import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { basename, isAbsolute, join, relative, sep } from "node:path"
 import * as yaml from "../yaml"
 import { lang } from "../lang"
 import type {
@@ -99,6 +99,14 @@ export function extractFileErrors(error: Error): CollectionFileError[] {
 
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
+function isWithinRoot(root: string, path: string): boolean {
+  const rel = relative(root, path)
+  return (
+    rel === "" ||
+    (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+  )
+}
+
 export interface LoadOptions {
   readOnly?: boolean
   tolerant?: boolean
@@ -126,11 +134,7 @@ async function walk(
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
-  if (
-    root !== undefined &&
-    resolved !== root &&
-    !resolved.startsWith(root + "/")
-  ) {
+  if (root !== undefined && !isWithinRoot(root, resolved)) {
     return []
   }
   if (visited.has(resolved)) return []

@@ -982,11 +982,9 @@ describe("resolveStartupCollectionDir", () => {
   })
 
   it("keeps an explicit collection path even when it does not exist", () => {
-    expect(
-      resolveStartupCollectionDir(
-        { collectionDir: "/tmp/noodle-explicit-missing" },
-        [],
-      ),
-    ).toBe("/tmp/noodle-explicit-missing")
+    const missing = join(tmpdir(), "noodle-explicit-missing")
+    expect(resolveStartupCollectionDir({ collectionDir: missing }, [])).toBe(
+      missing,
+    )
   })
 })

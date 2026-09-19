@@ -634,13 +634,13 @@ describe("Postman export", () => {
               key: "file",
               disabled: false,
               type: "file",
-              src: "/tmp/noodle$home/upload.bin",
+              src: resolve("/tmp/noodle$home", "upload.bin"),
             },
           ],
         },
         {
           mode: "file",
-          file: { src: "/tmp/noodle$home/archive.bin" },
+          file: { src: resolve("/tmp/noodle$home", "archive.bin") },
         },
       ])
     } finally {

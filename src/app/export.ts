@@ -85,7 +85,11 @@ async function resolvedOutputPath(path: string): Promise<string> {
   let current = path
   while (true) {
     try {
-      return join(await realpath(current), ...suffix.reverse())
+      const resolved = await realpath(current)
+      if (suffix.length > 0 && !(await stat(resolved)).isDirectory()) {
+        throw new Error(`path component is not a directory: ${current}`)
+      }
+      return join(resolved, ...suffix.reverse())
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         const message = error instanceof Error ? error.message : String(error)

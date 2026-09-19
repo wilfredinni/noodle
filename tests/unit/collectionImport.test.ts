@@ -14,13 +14,14 @@ const RESULT = {
 describe("runCollectionImport", () => {
   it("expands paths and builds a new-collection import", async () => {
     let received: ImportOptions | undefined
+    const collectionDir = join(tmpdir(), "current")
     const result = await runCollectionImport({
       values: {
         source: "@/specs/api.yml",
         destination: "new",
         parentDir: "@/collections",
       },
-      collectionDir: "/current",
+      collectionDir,
       hasUnsavedChanges: false,
       pending: { current: false },
       runImport: async (options) => {

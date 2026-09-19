@@ -24,6 +24,7 @@ import {
 } from "../../src/ui/commandActions"
 import type { ExternalEditor } from "../../src/externalEditor"
 import { Focus } from "../../src/ui/focus"
+import { join } from "node:path"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -1056,7 +1057,7 @@ describe("buildCommandPaletteCommands", () => {
     } as never
 
     const file = getEditRequestYamlFile(ctx)
-    expect(file?.filePath).toBe("/tmp/collections/users/login.yml")
+    expect(file?.filePath).toBe(join(ctx.collectionDir, "users", "login.yml"))
     expect(file?.requestName).toBe("Login")
   })
 
