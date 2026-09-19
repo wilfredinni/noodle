@@ -8,6 +8,8 @@ import type { UpdateDependencies } from "../../src/app/commands/update"
 import { sha256 } from "../../src/app/commands/update"
 import type { UpdateFlowState } from "../../src/ui/appState"
 import { useUpdateFlow } from "../../src/ui/useUpdateFlow"
+import { ThemeProvider } from "../../src/ui/theme"
+import { Toast } from "../../src/ui/Toast"
 import { createTestRender } from "../testRender"
 
 const testRender = createTestRender()
@@ -22,7 +24,7 @@ function Harness({
 }) {
   const state = useUpdateFlow(dependencies)
   useEffect(() => onState(state), [onState, state])
-  return null
+  return <text>{state.updateFlow.phase}</text>
 }
 
 function manifest(
@@ -66,32 +68,42 @@ describe("useUpdateFlow", () => {
   ) {
     let state: UpdateHook | undefined
     const phases: string[] = []
-    const render = await testRender(
-      <Harness
-        dependencies={dependencies}
-        onState={(next) => {
-          state = next
-          if (phases.at(-1) !== next.updateFlow.phase)
-            phases.push(next.updateFlow.phase)
-        }}
-      />,
-      { width: 1, height: 1 },
-    )
-    await render.renderOnce()
+    let render!: Awaited<ReturnType<typeof testRender>>
+    await act(async () => {
+      render = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Toast />
+          <Harness
+            dependencies={dependencies}
+            onState={(next) => {
+              state = next
+              if (phases.at(-1) !== next.updateFlow.phase)
+                phases.push(next.updateFlow.phase)
+            }}
+          />
+        </ThemeProvider>,
+        { width: 80, height: 10 },
+      )
+    })
+    await act(async () => render.renderOnce())
 
     const waitFor = async (predicate: () => boolean) => {
-      for (let i = 0; i < 100; i++) {
+      const deadline = Date.now() + 3000
+      while (Date.now() < deadline) {
         await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 5))
-          await render.flush()
+          await new Promise<void>((resolve) => setImmediate(resolve))
         })
-        if (predicate()) return
+        await act(async () => render.renderOnce())
+        if (predicate()) {
+          await act(async () => render.renderOnce())
+          return
+        }
       }
       throw new Error("Timed out waiting for update hook state")
     }
 
     if (waitForInitialState) await waitFor(() => state !== undefined)
-    return { getState: () => state!, phases, waitFor }
+    return { getState: () => state!, phases, waitFor, render }
   }
 
   function binaryDependencies(
@@ -111,7 +123,7 @@ describe("useUpdateFlow", () => {
   it("auto-installs a binary on startup and suppresses checks after completion", async () => {
     const binary = new TextEncoder().encode("new")
     let manifestChecks = 0
-    const { getState, phases, waitFor } = await renderHook(
+    const { getState, phases, waitFor, render } = await renderHook(
       binaryDependencies(async (input) => {
         if (String(input).endsWith("update.json")) {
           manifestChecks++
@@ -132,16 +144,17 @@ describe("useUpdateFlow", () => {
       version: "v99.0.0",
     })
     expect(await readFile(execPath, "utf8")).toBe("new")
+    expect(render.captureCharFrame()).toContain("Update completed")
 
     act(() => getState().triggerAboutUpdateCheck())
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     expect(manifestChecks).toBe(1)
   })
 
   it("treats a staged Windows update as restart-to-apply completion", async () => {
     const binary = new TextEncoder().encode("new")
     const started: string[][] = []
-    const { getState, waitFor } = await renderHook({
+    await writeFile(`${execPath}.exe`, "old")
+    const { getState, waitFor, render } = await renderHook({
       cachePath,
       execPath: `${execPath}.exe`,
       platform: "win32",
@@ -158,7 +171,6 @@ describe("useUpdateFlow", () => {
       startProcess: (args) => started.push(args),
     })
 
-    await writeFile(`${execPath}.exe`, "old")
     await waitFor(() => getState().updateFlow.phase === "done")
 
     expect(getState().updateFlow).toEqual({
@@ -167,6 +179,10 @@ describe("useUpdateFlow", () => {
     })
     expect(await readFile(`${execPath}.exe`, "utf8")).toBe("old")
     expect(started).toHaveLength(1)
+    expect(render.captureCharFrame()).toContain(
+      "Update staged; restart to apply",
+    )
+    expect(render.captureCharFrame()).not.toContain("Update completed")
   })
 
   it("retries a failed About check on the next opening", async () => {
@@ -197,7 +213,6 @@ describe("useUpdateFlow", () => {
       arch: "arm64",
       env: {},
       runProcess: async (args) => {
-        await new Promise((resolve) => setTimeout(resolve, 0))
         commands.push(args.join(" "))
         if (args[1] === "info") {
           return {

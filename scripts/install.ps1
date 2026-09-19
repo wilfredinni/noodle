@@ -8,11 +8,14 @@ $installDirectory = if ($env:NOODLE_INSTALL_DIR) {
 else {
   Join-Path $env:LOCALAPPDATA "Programs\Noodle"
 }
-$nativeArchitecture = if ($env:PROCESSOR_ARCHITEW6432) {
+[string]$nativeArchitecture = if ($env:PROCESSOR_ARCHITEW6432) {
   $env:PROCESSOR_ARCHITEW6432
 }
-else {
+elseif ($env:PROCESSOR_ARCHITECTURE) {
   $env:PROCESSOR_ARCHITECTURE
+}
+else {
+  [Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE", "Machine")
 }
 $architecture = switch ($nativeArchitecture.ToUpperInvariant()) {
   "ARM64" { "arm64" }

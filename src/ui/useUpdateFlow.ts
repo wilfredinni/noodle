@@ -205,7 +205,9 @@ export function useUpdateFlow(
           result.data.status === "restart_required"
         ) {
           const version = result.data.version ?? update.version
-          showUpdateCompleted(result.data.skill_status)
+          if (result.data.status === "restart_required")
+            showToast("Update staged; restart to apply", "info")
+          else showUpdateCompleted(result.data.skill_status)
           setUpdateFlow({ phase: "done", version })
         } else {
           const message =

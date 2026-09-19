@@ -21,6 +21,7 @@ async function writeFakeCurl(
   directory: string,
   checksum: string,
   binary = BINARY,
+  assetName = ASSET_NAME,
 ): Promise<void> {
   const path = join(directory, "curl")
   const release = join(directory, "release-binary")
@@ -40,7 +41,7 @@ while [ "$#" -gt 0 ]; do
   fi
 done
 case "$url" in
-  *SHA256SUMS*) printf '%s  ${ASSET_NAME}\\n' '${checksum}' > "$output" ;;
+  *SHA256SUMS*) printf '%s  ${assetName}\\n' '${checksum}' > "$output" ;;
   *) /bin/cp '${release}' "$output" ;;
 esac
 `,
@@ -77,22 +78,23 @@ exec /bin/rm "$@"
   await chmod(path, 0o755)
 }
 
-async function writeMuslPlatformCommands(directory: string): Promise<void> {
+async function writeLinuxPlatformCommands(
+  directory: string,
+  ldd: string,
+  getconf = "exit 1",
+): Promise<void> {
   await writeFile(
     join(directory, "uname"),
-    `#!/usr/bin/env bash
+    `#!/bin/sh
 if [ "$1" = "-s" ]; then echo Linux; else echo x86_64; fi
 `,
   )
-  await writeFile(
-    join(directory, "ldd"),
-    `#!/usr/bin/env bash
-echo "musl libc"
-`,
-  )
+  await writeFile(join(directory, "ldd"), `#!/bin/sh\n${ldd}\n`)
+  await writeFile(join(directory, "getconf"), `#!/bin/sh\n${getconf}\n`)
   await Promise.all([
     chmod(join(directory, "uname"), 0o755),
     chmod(join(directory, "ldd"), 0o755),
+    chmod(join(directory, "getconf"), 0o755),
   ])
 }
 
@@ -118,7 +120,7 @@ describe.skipIf(process.platform === "win32")("install script", () => {
     const binDir = join(directory, "bin")
     try {
       await mkdir(binDir, { recursive: true })
-      await writeMuslPlatformCommands(binDir)
+      await writeLinuxPlatformCommands(binDir, 'echo "musl libc" >&2; exit 1')
       await writeFailingCurl(binDir)
 
       const result = await runInstaller(
@@ -134,6 +136,59 @@ describe.skipIf(process.platform === "win32")("install script", () => {
       expect(new TextDecoder().decode(result.stderr)).not.toContain(
         "simulated download failure",
       )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ["missing ldd", "exit 127"],
+    ["unrecognized ldd", 'echo "unknown libc"'],
+    ["failed ldd", 'echo "ldd (GNU libc) 2.41"; exit 1'],
+  ])("rejects Linux with %s before downloading", async (_name, ldd) => {
+    const directory = await mkdtemp(join(tmpdir(), "noodle-install-libc-"))
+    const binDir = join(directory, "bin")
+    try {
+      await mkdir(binDir)
+      await writeLinuxPlatformCommands(binDir, ldd)
+      await writeFailingCurl(binDir)
+      const result = await runInstaller(
+        join(directory, "install"),
+        binDir,
+        join(directory, "home"),
+      )
+      expect(result.exitCode).toBe(1)
+      expect(result.stderr?.toString()).toContain(
+        "Could not confirm Linux glibc",
+      )
+      expect(result.stderr?.toString()).not.toContain(
+        "simulated download failure",
+      )
+      expect(await Bun.file(join(directory, "install")).exists()).toBe(false)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ["getconf", "exit 127", 'echo "glibc 2.41"'],
+    ["ldd", 'echo "ldd (GNU libc) 2.41"', "exit 1"],
+    ["GLIBC ldd", 'echo "ldd (Ubuntu GLIBC 2.41) 2.41"', "exit 1"],
+  ])("accepts Linux glibc identified by %s", async (_name, ldd, getconf) => {
+    const directory = await mkdtemp(join(tmpdir(), "noodle-install-glibc-"))
+    const binDir = join(directory, "bin")
+    const installDir = join(directory, "install")
+    try {
+      await mkdir(binDir)
+      await writeLinuxPlatformCommands(binDir, ldd, getconf)
+      await writeFakeCurl(binDir, BINARY_SHA256, BINARY, "noodle-linux-x86_64")
+      const result = await runInstaller(
+        installDir,
+        binDir,
+        join(directory, "home"),
+      )
+      expect(result.exitCode, result.stderr?.toString()).toBe(0)
+      expect(await readFile(join(installDir, "noodle"), "utf8")).toBe(BINARY)
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
