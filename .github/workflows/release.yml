@@ -19,14 +19,30 @@ jobs:
       ref: ${{ github.sha }}
 
   validate-release:
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - &require-release-admins
+        name: Require repository admins for publishing and reruns
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for actor in "$GITHUB_ACTOR" "$GITHUB_TRIGGERING_ACTOR"; do
+            permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$actor/permission" --jq .permission)"
+            if [ "$permission" != "admin" ]; then
+              echo "$actor must have repository admin permission to publish" >&2
+              exit 1
+            fi
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
-      - uses: oven-sh/setup-bun@v2
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - name: Validate tag and package version
@@ -52,6 +68,7 @@ jobs:
 
   create-release:
     needs: [quality, validate-release]
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
@@ -59,10 +76,12 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7
+      - *require-release-admins
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.ref }}
-      - uses: oven-sh/setup-bun@v2
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - id: tag
@@ -90,6 +109,7 @@ jobs:
 
   build:
     needs: create-release
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
@@ -114,11 +134,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - *require-release-admins
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -143,15 +166,23 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release upload "$TAG" "${{ matrix.asset }}" --clobber
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" || {
+            echo "Refusing to replace assets of published release $TAG" >&2
+            exit 1
+          }
+          gh release upload "$TAG" "${{ matrix.asset }}" --clobber
 
   checksums:
     needs: [create-release, build]
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
+      - *require-release-admins
       - name: Download release binaries
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -175,6 +206,10 @@ jobs:
           for binary in noodle-linux-arm64 noodle-linux-x86_64 noodle-macos-arm64 noodle-macos-x86_64 noodle-windows-arm64.exe noodle-windows-x86_64.exe; do
             grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
           done
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" || {
+            echo "Refusing to replace checksums of published release $TAG" >&2
+            exit 1
+          }
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
 
   validate-artifact:
@@ -201,11 +236,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - name: Download draft release artifact
@@ -219,9 +254,11 @@ jobs:
 
   notify-homebrew:
     needs: [create-release, checksums, undraft]
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - *require-release-admins
       - name: Notify Homebrew tap
         env:
           TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -238,23 +275,43 @@ jobs:
 
   undraft:
     needs: [create-release, checksums, validate-artifact]
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
       contents: write
     steps:
+      - *require-release-admins
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false
+        run: |
+          set -euo pipefail
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" ]; then
+            gh release edit "$TAG" --draft=false
+          else
+            echo "Release $TAG is already published"
+          fi
 
   publish-update-manifest:
     needs: [create-release, checksums, undraft]
+    if: github.repository == 'wilfredinni/noodle' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
+    concurrency:
+      group: noodle-site-update
+      cancel-in-progress: false
     steps:
+      - *require-release-admins
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
       - name: Download release SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -264,61 +321,43 @@ jobs:
           set -euo pipefail
           gh release download "$TAG" --pattern 'SHA256SUMS' --dir .
 
-      - name: Build update manifest
-        env:
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          sha256sums=$(cat SHA256SUMS)
-          macos_arm_hash=$(echo "$sha256sums" | grep 'noodle-macos-arm64\b' | awk '{print $1}')
-          macos_x86_hash=$(echo "$sha256sums" | grep 'noodle-macos-x86_64\b' | awk '{print $1}')
-          linux_x86_hash=$(echo "$sha256sums" | grep 'noodle-linux-x86_64\b' | awk '{print $1}')
-          linux_arm_hash=$(echo "$sha256sums" | grep 'noodle-linux-arm64\b' | awk '{print $1}')
-          windows_arm_hash=$(echo "$sha256sums" | grep 'noodle-windows-arm64.exe\b' | awk '{print $1}')
-          windows_x86_hash=$(echo "$sha256sums" | grep 'noodle-windows-x86_64.exe\b' | awk '{print $1}')
-
-          test -n "$macos_arm_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
-          test -n "$macos_x86_hash" || { echo "Missing macos-x86_64 checksum" >&2; exit 1; }
-          test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
-          test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
-          test -n "$windows_arm_hash" || { echo "Missing windows-arm64 checksum" >&2; exit 1; }
-          test -n "$windows_x86_hash" || { echo "Missing windows-x86_64 checksum" >&2; exit 1; }
-
-          echo "{" > update.json
-          echo "  \"version\": \"${TAG}\"," >> update.json
-          echo "  \"assets\": {" >> update.json
-          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }," >> update.json
-          echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
-          echo "    \"macos-arm64\": { \"sha256\": \"${macos_arm_hash}\" }," >> update.json
-          echo "    \"macos-x86_64\": { \"sha256\": \"${macos_x86_hash}\" }," >> update.json
-          echo "    \"windows-arm64\": { \"sha256\": \"${windows_arm_hash}\" }," >> update.json
-          echo "    \"windows-x86_64\": { \"sha256\": \"${windows_x86_hash}\" }" >> update.json
-          echo "  }" >> update.json
-          echo "}" >> update.json
-
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: wilfredinni/noodle-site
           token: ${{ secrets.NOODLE_SITE_TOKEN }}
+          ref: main
+          fetch-depth: 0
           path: noodle-site
 
       - name: Publish update manifest
         env:
           TAG: ${{ needs.create-release.outputs.tag }}
-        working-directory: noodle-site
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C noodle-site config user.name "github-actions[bot]"
+          git -C noodle-site config user.email "github-actions[bot]@users.noreply.github.com"
 
-          cp ../update.json public/update.json
+          for attempt in 1 2 3; do
+            git -C noodle-site fetch origin main
+            git -C noodle-site reset --hard origin/main
+            bun scripts/build-update-manifest.ts \
+              --tag "$TAG" \
+              --checksums SHA256SUMS \
+              --manifest noodle-site/public/update.json
 
-          if git diff --quiet; then
-            echo "No changes to update.json"
-            exit 0
-          fi
+            if git -C noodle-site diff --quiet -- public/update.json; then
+              exit 0
+            fi
 
-          git add public/update.json
-          git commit -m "Update manifests for Noodle ${TAG}"
-          git push origin main
+            git -C noodle-site add public/update.json
+            git -C noodle-site commit -m "Update manifests for Noodle ${TAG}"
+            if git -C noodle-site push origin HEAD:main; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 2))
+            fi
+          done
+
+          echo "Failed to publish update.json after 3 attempts" >&2
+          exit 1

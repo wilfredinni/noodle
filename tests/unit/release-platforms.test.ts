@@ -72,22 +72,4 @@ describe("official platform workflows", () => {
     expect(release.jobs["notify-homebrew"].needs).toContain("undraft")
     expect(release.jobs["publish-update-manifest"].needs).toContain("undraft")
   })
-
-  it("publishes six update keys without changing Windows asset extensions", () => {
-    const release = workflow("release.yml")
-    const manifest = release.jobs["publish-update-manifest"].steps?.find(
-      (step) => step.name === "Build update manifest",
-    )?.run
-    for (const key of [
-      "linux-arm64",
-      "linux-x86_64",
-      "macos-arm64",
-      "macos-x86_64",
-      "windows-arm64",
-      "windows-x86_64",
-    ])
-      expect(manifest).toContain(`\\"${key}\\"`)
-    expect(manifest).toContain("noodle-windows-arm64.exe")
-    expect(manifest).toContain("noodle-windows-x86_64.exe")
-  })
 })
