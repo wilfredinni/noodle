@@ -9,7 +9,7 @@ import { RunScope } from "../../src/runScope"
 const servers: Bun.Server<undefined>[] = []
 
 afterEach(async () => {
-  for (const server of servers.splice(0)) await server.stop(true)
+  for (const server of servers.splice(0)) await server.stop()
 })
 
 function startServer(

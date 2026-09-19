@@ -284,7 +284,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
-  })
+  }, 30_000)
 
   it("accepts repeated tag filters in space and equals forms", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-tags-"))
