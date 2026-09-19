@@ -4,6 +4,18 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### ✨ Features
+
+- Add official standalone releases and full native CI for six targets: Linux
+  glibc ARM64/x86_64, macOS ARM64/Intel, and Windows ARM64/Intel. Every release
+  artifact is checksum-, version-, and scripting-smoke-tested on its native
+  architecture before publication.
+- Add a checksum-verifying PowerShell installer for Windows 11 that installs to
+  `%LOCALAPPDATA%\Programs\Noodle` by default and updates the user and current
+  session `PATH`. Add Windows self-update staging with a detached PowerShell
+  helper that replaces the active executable after restart and preserves
+  recovery files on failure.
+
 ### 🐞 Fixes
 
 - Ad-hoc sign and strictly verify macOS standalone binaries before testing and
@@ -13,6 +25,17 @@ All notable changes to Noodle are documented in this file.
   sandbox before publishing; failed validation blocks release publication,
   update metadata, and Homebrew notifications. Published release assets are
   preserved.
+
+### 🔧 Refactors
+
+- Remove Linux musl releases and native prebuilds. Install and update flows now
+  reject musl explicitly instead of selecting a glibc binary.
+
+### 📚 Documentation
+
+- Document the six-platform support matrix, the Windows PowerShell installer,
+  and the current checksum-only Windows trust model. Windows executables are not
+  Authenticode-signed yet, so SmartScreen can report an unknown publisher.
 
 ## [0.9.1] - 2026-09-18
 

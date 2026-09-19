@@ -99,6 +99,7 @@ const surfaces = [
     match: (file: string) =>
       file === "README.md" ||
       file === "scripts/install.sh" ||
+      file === "scripts/install.ps1" ||
       file.startsWith(".github/workflows/"),
     label: "installation/release flow",
     targets: ["README.md", "noodle-site installation docs"],

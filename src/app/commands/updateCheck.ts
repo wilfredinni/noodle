@@ -6,6 +6,7 @@ import {
   getHomebrewExecutable,
   isHomebrewInstall,
   isBunRuntime,
+  type Libc,
 } from "./updateDetect"
 import { loadUpdateCache, isFreshUpdateCache } from "./updateCache"
 import {
@@ -29,10 +30,15 @@ export interface UpdateDependencies {
   execPath: string
   platform: string
   arch: string
+  libc?: Libc
   env: Record<string, string | undefined>
   cachePath: string
   now: () => number
   updateCheckTimeoutMs?: number
+  startProcess: (
+    args: string[],
+    options?: { env?: Record<string, string | undefined> },
+  ) => void
 }
 
 export const UPDATE_CHECK_TIMEOUT_MS = 10_000
@@ -69,6 +75,27 @@ function getDefaultCachePath(): string {
   return join(homedir(), ".config", "noodle", "update-cache.json")
 }
 
+function detectLibc(): Libc | undefined {
+  if (process.platform !== "linux") return undefined
+  const report = process.report.getReport() as {
+    header?: { glibcVersionRuntime?: string }
+  }
+  return report.header?.glibcVersionRuntime ? "glibc" : "musl"
+}
+
+function startProcess(
+  args: string[],
+  options?: { env?: Record<string, string | undefined> },
+): void {
+  Bun.spawn(args, {
+    env: options?.env,
+    stdin: "ignore",
+    stdout: "inherit",
+    stderr: "inherit",
+    windowsHide: true,
+  }).unref()
+}
+
 export function getUpdateDeps(
   overrides: Partial<UpdateDependencies>,
 ): UpdateDependencies {
@@ -78,10 +105,12 @@ export function getUpdateDeps(
     execPath: process.execPath,
     platform: process.platform,
     arch: process.arch,
+    libc: detectLibc(),
     env: process.env,
     cachePath: getDefaultCachePath(),
     now: Date.now,
     updateCheckTimeoutMs: UPDATE_CHECK_TIMEOUT_MS,
+    startProcess,
     ...overrides,
   }
 }
@@ -196,13 +225,14 @@ export async function checkForUpdates(
   }
 
   try {
-    getPlatformString(deps.platform, deps.arch)
+    getPlatformString(deps.platform, deps.arch, deps.libc)
   } catch {
+    const platform = `${deps.platform}-${deps.arch}${deps.libc === "musl" ? "-musl" : ""}`
     return {
       kind: "unavailable",
       currentVersion,
       installType: "binary",
-      message: `Unsupported platform: ${deps.platform}-${deps.arch}`,
+      message: `Unsupported platform: ${platform}`,
     }
   }
 
@@ -214,10 +244,14 @@ export async function checkForUpdates(
         return { kind: "up_to_date", currentVersion, installType: "binary" }
       }
       if (comparison === 1) {
-        const platformKey = getPlatformString(deps.platform, deps.arch)
+        const platformKey = getPlatformString(
+          deps.platform,
+          deps.arch,
+          deps.libc,
+        )
         const expectedSha256 = cache.checksums[platformKey]
         if (expectedSha256) {
-          const assetName = getAssetName(deps.platform, deps.arch)
+          const assetName = getAssetName(deps.platform, deps.arch, deps.libc)
           return {
             kind: "update_available",
             latestVersion: cache.latestTag,

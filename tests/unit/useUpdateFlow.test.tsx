@@ -25,10 +25,14 @@ function Harness({
   return null
 }
 
-function manifest(version: string, sha: string): string {
+function manifest(
+  version: string,
+  sha: string,
+  platform = "macos-arm64",
+): string {
   return JSON.stringify({
     version,
-    assets: { "macos-arm64": { sha256: sha } },
+    assets: { [platform]: { sha256: sha } },
   })
 }
 
@@ -132,6 +136,37 @@ describe("useUpdateFlow", () => {
     act(() => getState().triggerAboutUpdateCheck())
     await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     expect(manifestChecks).toBe(1)
+  })
+
+  it("treats a staged Windows update as restart-to-apply completion", async () => {
+    const binary = new TextEncoder().encode("new")
+    const started: string[][] = []
+    const { getState, waitFor } = await renderHook({
+      cachePath,
+      execPath: `${execPath}.exe`,
+      platform: "win32",
+      arch: "x64",
+      env: {},
+      now: () => 1000,
+      fetcher: async (input) => {
+        if (String(input).endsWith("update.json"))
+          return new Response(
+            manifest("v99.0.0", sha256(binary), "windows-x86_64"),
+          )
+        return new Response(binary)
+      },
+      startProcess: (args) => started.push(args),
+    })
+
+    await writeFile(`${execPath}.exe`, "old")
+    await waitFor(() => getState().updateFlow.phase === "done")
+
+    expect(getState().updateFlow).toEqual({
+      phase: "done",
+      version: "v99.0.0",
+    })
+    expect(await readFile(`${execPath}.exe`, "utf8")).toBe("old")
+    expect(started).toHaveLength(1)
   })
 
   it("retries a failed About check on the next opening", async () => {

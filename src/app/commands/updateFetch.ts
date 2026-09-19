@@ -109,7 +109,7 @@ export async function fetchManifestAndCheck(
       return { kind: "up_to_date", currentVersion, installType: "binary" }
     }
 
-    const platformKey = getPlatformString(deps.platform, deps.arch)
+    const platformKey = getPlatformString(deps.platform, deps.arch, deps.libc)
     const asset = manifest.assets[platformKey]
     if (!asset) {
       return {
@@ -119,7 +119,7 @@ export async function fetchManifestAndCheck(
       }
     }
 
-    const assetName = getAssetName(deps.platform, deps.arch)
+    const assetName = getAssetName(deps.platform, deps.arch, deps.libc)
     return {
       kind: "update_available",
       latestVersion: manifest.version,
@@ -134,10 +134,10 @@ export async function fetchManifestAndCheck(
   if (cache && isStaleUpdateCache(cache, deps.now())) {
     const comparison = compareStableVersions(currentVersion, cache.latestTag)
     if (comparison === 1) {
-      const platformKey = getPlatformString(deps.platform, deps.arch)
+      const platformKey = getPlatformString(deps.platform, deps.arch, deps.libc)
       const expectedSha256 = cache.checksums[platformKey]
       if (expectedSha256) {
-        const assetName = getAssetName(deps.platform, deps.arch)
+        const assetName = getAssetName(deps.platform, deps.arch, deps.libc)
         return {
           kind: "update_available",
           latestVersion: cache.latestTag,

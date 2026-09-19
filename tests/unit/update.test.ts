@@ -60,6 +60,17 @@ describe("getPlatformString", () => {
     expect(getPlatformString("linux", "x64")).toBe("linux-x86_64")
   })
 
+  it("returns windows targets for win32", () => {
+    expect(getPlatformString("win32", "arm64")).toBe("windows-arm64")
+    expect(getPlatformString("win32", "x64")).toBe("windows-x86_64")
+  })
+
+  it("rejects Linux musl", () => {
+    expect(() => getPlatformString("linux", "x64", "musl")).toThrow(
+      "Unsupported platform: linux-x64-musl",
+    )
+  })
+
   it("rejects unsupported 32-bit architectures", () => {
     expect(() => getPlatformString("linux", "ia32")).toThrow(
       "Unsupported platform",
@@ -87,6 +98,8 @@ describe("getAssetName", () => {
   it("includes the platform string", () => {
     expect(getAssetName("darwin", "arm64")).toBe("noodle-macos-arm64")
     expect(getAssetName("linux", "x64")).toBe("noodle-linux-x86_64")
+    expect(getAssetName("win32", "arm64")).toBe("noodle-windows-arm64.exe")
+    expect(getAssetName("win32", "x64")).toBe("noodle-windows-x86_64.exe")
   })
 })
 
@@ -1047,18 +1060,19 @@ describe("checkForUpdates", () => {
     }
   })
 
-  it("returns unavailable on an unsupported platform", async () => {
+  it("returns unavailable on Linux musl", async () => {
     const status = await checkForUpdates(false, {
       execPath: "/tmp/noodle",
-      platform: "win32",
+      platform: "linux",
       arch: "x64",
+      libc: "musl",
       env: {},
     })
     expect(status).toEqual({
       kind: "unavailable",
       currentVersion,
       installType: "binary",
-      message: "Unsupported platform: win32-x64",
+      message: "Unsupported platform: linux-x64-musl",
     })
   })
 
@@ -1200,6 +1214,48 @@ describe("installBinaryUpdate", () => {
         skill_retry: "noodle agent install",
       })
       expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("stages Windows updates until the current process exits", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-windows-"))
+    const executable = join(dir, "noodle.exe")
+    const binary = new TextEncoder().encode("new")
+    const started: Array<{
+      args: string[]
+      env?: Record<string, string | undefined>
+    }> = []
+    try {
+      await writeFile(executable, "old")
+      const result = await installBinaryUpdate(
+        "v0.5.5",
+        "https://example.com/noodle-binary",
+        sha256(binary),
+        {
+          execPath: executable,
+          platform: "win32",
+          arch: "x64",
+          env: {},
+          fetcher: async () => new Response(binary),
+          startProcess: (args, options) => {
+            started.push({ args, env: options?.env })
+          },
+        },
+      )
+
+      expect(result).toEqual({
+        data: { status: "restart_required", version: "v0.5.5" },
+      })
+      expect(await readFile(executable, "utf8")).toBe("old")
+      expect(started).toHaveLength(1)
+      expect(started[0]?.args[0]).toBe("powershell.exe")
+      expect(started[0]?.args).toContain("-File")
+      expect(started[0]?.args).toContain(executable)
+      const source = started[0]?.args[started[0]!.args.indexOf("-Source") + 1]
+      expect(source?.endsWith("noodle-windows-x86_64.exe")).toBe(true)
+      expect(await readFile(source!, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

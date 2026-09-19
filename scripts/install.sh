@@ -38,6 +38,12 @@ detect_platform() {
       ;;
   esac
 
+  if [ "$os" = "linux" ] && ldd --version 2>&1 | grep -qi musl; then
+    printf '%b\n' "${RED}Error: Linux musl is not supported.${NC}" >&2
+    echo "noodle supports Linux distributions that use glibc only." >&2
+    exit 1
+  fi
+
   case "$(uname -m)" in
     x86_64|amd64)   arch="x86_64" ;;
     aarch64|arm64)  arch="arm64" ;;

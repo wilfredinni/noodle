@@ -80,9 +80,10 @@ export async function runUpdate(
 
   let platform: string
   try {
-    platform = getPlatformString(deps.platform, deps.arch)
+    platform = getPlatformString(deps.platform, deps.arch, deps.libc)
   } catch {
-    output(`Unsupported platform: ${deps.platform}-${deps.arch}`)
+    const unsupported = `${deps.platform}-${deps.arch}${deps.libc === "musl" ? "-musl" : ""}`
+    output(`Unsupported platform: ${unsupported}`)
     return { data: { status: "unsupported_platform" }, failed: true }
   }
   const currentVersion = `v${pkg.version}`
@@ -115,7 +116,7 @@ export async function runUpdate(
             cache.latestTag,
             getReleaseDownloadUrl(
               cache.latestTag,
-              getAssetName(deps.platform, deps.arch),
+              getAssetName(deps.platform, deps.arch, deps.libc),
             ),
             expectedSha256,
             deps,
@@ -176,7 +177,7 @@ export async function runUpdate(
             staleCache.latestTag,
             getReleaseDownloadUrl(
               staleCache.latestTag,
-              getAssetName(deps.platform, deps.arch),
+              getAssetName(deps.platform, deps.arch, deps.libc),
             ),
             sha,
             deps,
@@ -211,7 +212,10 @@ export async function runUpdate(
 
   return downloadAndInstall(
     tag,
-    getReleaseDownloadUrl(tag, getAssetName(deps.platform, deps.arch)),
+    getReleaseDownloadUrl(
+      tag,
+      getAssetName(deps.platform, deps.arch, deps.libc),
+    ),
     expectedSha256,
     deps,
     output,

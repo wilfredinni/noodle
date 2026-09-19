@@ -25,9 +25,22 @@
 
 ## Install
 
+Linux (glibc) and macOS:
+
 ```bash
 curl -LsSf https://noodlerest.dev/install.sh | sh
 ```
+
+Windows 11 (PowerShell):
+
+```powershell
+irm https://noodlerest.dev/install.ps1 | iex
+```
+
+Official standalone binaries cover ARM64 and x86_64 on Linux glibc, macOS, and
+Windows. Linux musl is not supported. Every binary is verified against
+`SHA256SUMS`; Windows binaries are not Authenticode-signed yet, so SmartScreen
+may warn that the publisher is unknown.
 
 [See every installation option](https://noodlerest.dev/docs/getting-started/installation/)
 

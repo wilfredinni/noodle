@@ -15,6 +15,7 @@ import { load } from "js-yaml"
 
 const root = resolve(import.meta.dir, "../..")
 const signingScript = join(root, "scripts/sign-macos-binary.ts")
+const validationScript = join(root, "scripts/validate-release-artifact.ts")
 const workflow = load(
   readFileSync(join(root, ".github/workflows/release.yml"), "utf8"),
 ) as {
@@ -84,13 +85,7 @@ describe("macOS release signing", () => {
           join(assets, "SHA256SUMS"),
           `${hash}  noodle-macos-arm64\n`,
         )
-        const step = workflow.jobs["validate-macos-artifact"]?.steps?.find(
-          (step) => step.name === "Verify downloaded macOS binary",
-        )
-        expect(step?.run).toBeDefined()
-        const result = Bun.spawnSync(["/bin/bash", "-c", step!.run!], {
-          cwd: directory,
-        })
+        const result = Bun.spawnSync([process.execPath, validationScript, path])
         expect(result.exitCode).not.toBe(0)
         expect(result.stderr.toString()).toContain("not signed at all")
         expect(result.stderr.toString()).not.toContain("unsigned-binary-ran")
@@ -102,10 +97,8 @@ describe("macOS release signing", () => {
   )
 
   it("blocks publication and update notifications until artifact validation succeeds", () => {
-    expect(workflow.jobs["validate-macos-artifact"]?.needs).toContain(
-      "checksums",
-    )
-    expect(workflow.jobs.undraft.needs).toContain("validate-macos-artifact")
+    expect(workflow.jobs["validate-artifact"]?.needs).toContain("checksums")
+    expect(workflow.jobs.undraft.needs).toContain("validate-artifact")
     expect(workflow.jobs["notify-homebrew"].needs).toContain("undraft")
     expect(workflow.jobs["publish-update-manifest"].needs).toContain("undraft")
   })

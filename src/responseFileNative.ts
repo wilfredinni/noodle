@@ -29,15 +29,14 @@ export function responseFileNative(): ResponseFileNative {
     const report = process.report.getReport() as {
       header?: { glibcVersionRuntime?: string }
     }
-    const musl = !report.header?.glibcVersionRuntime
+    if (!report.header?.glibcVersionRuntime)
+      throw new Error(
+        `Unsupported response file platform: linux-${process.arch}-musl`,
+      )
     native =
       process.arch === "arm64"
-        ? musl
-          ? require("../native/response-file/prebuilds/linux-arm64-musl.node")
-          : require("../native/response-file/prebuilds/linux-arm64.node")
-        : musl
-          ? require("../native/response-file/prebuilds/linux-x64-musl.node")
-          : require("../native/response-file/prebuilds/linux-x64.node")
+        ? require("../native/response-file/prebuilds/linux-arm64.node")
+        : require("../native/response-file/prebuilds/linux-x64.node")
   } else {
     throw new Error(`Unsupported response file platform: ${process.platform}`)
   }

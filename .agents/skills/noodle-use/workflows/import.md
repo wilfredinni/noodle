@@ -10,7 +10,11 @@ Import OpenAPI 3.0, Swagger 2.0, Postman, and Insomnia collections into noodle f
 noodle import --help
 ```
 
-If `noodle` is not found, guide the user to install: `brew install noodle` (macOS) or `curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh | sh` (Linux/macOS).
+If `noodle` is not found, guide the user to install: `brew install noodle`
+(macOS), `curl -LsSf https://noodlerest.dev/install.sh | sh` (Linux glibc or
+macOS), or `irm https://noodlerest.dev/install.ps1 | iex` (Windows PowerShell).
+Official binaries cover ARM64 and x86_64. Linux musl is unsupported, and the
+checksum-verified Windows executable is not yet Authenticode-signed.
 
 ## Import workflow
 

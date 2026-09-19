@@ -1,8 +1,22 @@
 import { realpathSync } from "node:fs"
 
-export function getPlatformString(platform: string, arch: string): string {
+export type Libc = "glibc" | "musl"
+
+export function getPlatformString(
+  platform: string,
+  arch: string,
+  libc?: Libc,
+): string {
+  if (platform === "linux" && libc === "musl")
+    throw new Error(`Unsupported platform: ${platform}-${arch}-musl`)
   const os =
-    platform === "darwin" ? "macos" : platform === "linux" ? "linux" : null
+    platform === "darwin"
+      ? "macos"
+      : platform === "linux"
+        ? "linux"
+        : platform === "win32"
+          ? "windows"
+          : null
   const cpu = arch === "arm64" ? "arm64" : arch === "x64" ? "x86_64" : null
   if (!os || !cpu) throw new Error(`Unsupported platform: ${platform}-${arch}`)
   return `${os}-${cpu}`

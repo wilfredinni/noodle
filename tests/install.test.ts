@@ -77,6 +77,25 @@ exec /bin/rm "$@"
   await chmod(path, 0o755)
 }
 
+async function writeMuslPlatformCommands(directory: string): Promise<void> {
+  await writeFile(
+    join(directory, "uname"),
+    `#!/usr/bin/env bash
+if [ "$1" = "-s" ]; then echo Linux; else echo x86_64; fi
+`,
+  )
+  await writeFile(
+    join(directory, "ldd"),
+    `#!/usr/bin/env bash
+echo "musl libc"
+`,
+  )
+  await Promise.all([
+    chmod(join(directory, "uname"), 0o755),
+    chmod(join(directory, "ldd"), 0o755),
+  ])
+}
+
 async function runInstaller(
   installDir: string,
   binDir: string,
@@ -93,7 +112,33 @@ async function runInstaller(
   })
 }
 
-describe("install script", () => {
+describe.skipIf(process.platform === "win32")("install script", () => {
+  it("rejects Linux musl before attempting a download", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "noodle-install-musl-"))
+    const binDir = join(directory, "bin")
+    try {
+      await mkdir(binDir, { recursive: true })
+      await writeMuslPlatformCommands(binDir)
+      await writeFailingCurl(binDir)
+
+      const result = await runInstaller(
+        join(directory, "install"),
+        binDir,
+        join(directory, "home"),
+      )
+
+      expect(result.exitCode).not.toBe(0)
+      expect(new TextDecoder().decode(result.stderr)).toContain(
+        "Linux musl is not supported",
+      )
+      expect(new TextDecoder().decode(result.stderr)).not.toContain(
+        "simulated download failure",
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it("installs a binary only after its release checksum verifies", async () => {
     const directory = await mkdtemp(join(tmpdir(), "noodle-install-"))
     const binDir = join(directory, "bin")

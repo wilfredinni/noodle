@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
+import windowsUpdateHelper from "../../../scripts/complete-windows-update.ps1" with { type: "text" }
 import { isNoodleSkillInstalled } from "../../agentSkill"
 import {
   getHomebrewExecutable,
@@ -156,12 +157,13 @@ async function downloadAndInstall(
   output: (message: string) => void,
   onPhase?: (phase: "downloading" | "installing") => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
-  const assetName = getAssetName(deps.platform, deps.arch)
-  const platform = getPlatformString(deps.platform, deps.arch)
+  const assetName = getAssetName(deps.platform, deps.arch, deps.libc)
+  const platform = getPlatformString(deps.platform, deps.arch, deps.libc)
   const skillInstalled = await hasInstalledSkill(deps)
   output(`Downloading ${tag} for ${platform}...`)
   onPhase?.("downloading")
   let stagingDir: string | undefined
+  let helperOwnsStaging = false
   try {
     const binaryResponse = await deps.fetcher(binaryUrl)
     if (!binaryResponse.ok) {
@@ -177,6 +179,32 @@ async function downloadAndInstall(
     const stagedPath = join(stagingDir, assetName)
     await writeFile(stagedPath, binary, { mode: 0o755 })
     await chmod(stagedPath, 0o755)
+    if (deps.platform === "win32") {
+      const helperPath = join(stagingDir, "complete-update.ps1")
+      await writeFile(helperPath, windowsUpdateHelper)
+      const helperArgs = [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        helperPath,
+        "-ParentPid",
+        String(process.pid),
+        "-Source",
+        stagedPath,
+        "-Destination",
+        deps.execPath,
+        "-Version",
+        tag,
+      ]
+      if (skillInstalled) helperArgs.push("-RefreshSkill")
+      deps.startProcess(helperArgs, { env: deps.env })
+      helperOwnsStaging = true
+      output(`Update staged; restart Noodle to apply ${tag}.`)
+      return { data: { status: "restart_required", version: tag } }
+    }
     await rename(stagedPath, deps.execPath)
     output(`Updated to ${tag}`)
     const skill = await refreshInstalledSkill(
@@ -191,7 +219,7 @@ async function downloadAndInstall(
     output(`Failed to update: ${reason}`)
     return { data: { status: "update_failed", reason }, failed: true }
   } finally {
-    if (stagingDir) {
+    if (stagingDir && !helperOwnsStaging) {
       try {
         await rm(stagingDir, { recursive: true, force: true })
       } catch {
