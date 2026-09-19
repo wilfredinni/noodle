@@ -44,9 +44,14 @@ describe("official platform workflows", () => {
     const targets = job.strategy?.matrix?.include?.map((row) => row.target)
     expect(targets?.sort()).toEqual([...officialTargets].sort())
     const commands = job.steps?.map((step) => step.run ?? "").join("\n") ?? ""
-    const fullSuite = job.steps?.find((step) => step.run === "bun test")
-    expect(fullSuite).toBeDefined()
-    expect(fullSuite?.if).toBeUndefined()
+    const unixSuite = job.steps?.find((step) => step.run === "bun test")
+    const windowsSuite = job.steps?.find((step) =>
+      step.run?.includes('bun test "$test_file"'),
+    )
+    expect(unixSuite?.if).toBe("runner.os != 'Windows'")
+    expect(windowsSuite?.if).toBe("runner.os == 'Windows'")
+    expect(windowsSuite?.run).toContain("find tests -type f")
+    expect(windowsSuite?.run).toContain("-name '*.test.tsx'")
     expect(commands).toContain("bun build --compile")
     expect(commands).toContain("compiled-script-smoke.ts")
     expect(commands).toContain("build-response-file-native.ts --target=")

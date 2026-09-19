@@ -1288,14 +1288,12 @@ describe("send — network trace", () => {
             runScope: new RunScope(),
           })
 
-          expect(result).toMatchObject({
-            status: "error",
-            failureCategory: "transport",
-            error: {
-              message:
-                "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
-            },
-          })
+          expect(result.status).toBe("error")
+          if (result.status !== "error") throw new Error("expected an error")
+          expect(result.failureCategory).toBe("transport")
+          expect(result.error.message).toBe(
+            "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
+          )
           expect(calls).toBe(1)
         }
       }

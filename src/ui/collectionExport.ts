@@ -17,11 +17,17 @@ function isAvailablePostmanTarget(path: string): boolean {
     return readdirSync(path).length === 0
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
-    if (code === "ENOENT") {
-      if (lstatSync(path, { throwIfNoEntry: false })) throw error
-      return true
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      let entry
+      try {
+        entry = lstatSync(path, { throwIfNoEntry: false })
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === "ENOTDIR") return true
+        throw statError
+      }
+      if (entry?.isSymbolicLink()) throw error
+      return !entry
     }
-    if (code === "ENOTDIR") return true
     throw error
   }
 }

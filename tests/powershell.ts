@@ -5,7 +5,7 @@ import { join } from "node:path"
 export const powershellTestTimeout = 30_000
 
 export const powershellArgs = [
-  "powershell.exe",
+  process.arch === "arm64" ? "pwsh.exe" : "powershell.exe",
   "-NoProfile",
   "-NonInteractive",
   "-ExecutionPolicy",

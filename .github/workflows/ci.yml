@@ -65,7 +65,15 @@ jobs:
       - run: bun scripts/build-response-file-native.ts --check
       - run: bun install --frozen-lockfile
       - name: Run full test suite
+        if: runner.os != 'Windows'
         run: bun test
+      - name: Run full test suite
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          while IFS= read -r test_file; do
+            bun test "$test_file"
+          done < <(find tests -type f \( -name '*.test.ts' -o -name '*.test.tsx' \) | sort)
       - name: Test shipped addon inside standalone executable
         run: |
           set -euo pipefail
