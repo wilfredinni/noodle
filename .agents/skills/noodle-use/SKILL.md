@@ -7,6 +7,15 @@ description: Teach agents to create, organize, maintain, evaluate, import, conve
 
 Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported non-interactive automation commands; use file-level operations for richer collection edits. No Bun dependency.
 
+## Installation support
+
+Official standalone binaries support ARM64 and x86_64 on Linux glibc, macOS,
+and Windows 11. Linux musl is unsupported. Install Linux/macOS with
+`curl -LsSf https://noodlerest.dev/install.sh | sh`, or Windows from PowerShell
+with `irm https://noodlerest.dev/install.ps1 | iex`. Every installer verifies
+`SHA256SUMS`. Windows executables are not Authenticode-signed yet, so SmartScreen
+may warn that the publisher is unknown.
+
 ## Response files
 
 Use `noodle request run <id> --collection <dir> --output <file> --json` to download any response into a new file, preserving original transport bytes after normal HTTP decompression. Choose a user-authorized destination; existing files are never overwritten. Completed responses are saved even when HTTP or response checks fail, and the failures remain nonzero. Pre-script/transport failures create no output. Downloads contain original server data without redaction. Binary JSON results contain metadata only (`bodyKind`, `size`, `contentType`, optional `filename`, and successful `outputFile`); never expect body text, bytes, or base64. JSON body captures/assertions fail for binary responses; metadata expressions still work. Binary TUI history and Runner details retain metadata without a downloadable body. Humans use Save file (Save As, initially Downloads) and Open in default app; only PNG/JPEG/static WebP/GIF first frame have native previews, with explicit activation above 5 MiB. See [automation](workflows/automation.md) for exit and diagnostic behavior.

@@ -808,9 +808,9 @@ describe("ResponsePane status text truncation and layout tests", () => {
       { width: 80, height: 24 },
     )
     await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).not.toContain(" m ")
-    expect(frame).not.toContain(" u ")
+    const [urlbarBorder = ""] = captureCharFrame().split("\n")
+    expect(urlbarBorder).not.toContain(" m ")
+    expect(urlbarBorder).not.toContain(" u ")
   })
 
   it("hides response badges when no request is selected", async () => {

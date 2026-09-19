@@ -1,7 +1,11 @@
-import { getPlatformString } from "./updateDetect"
+import { getPlatformString, type Libc } from "./updateDetect"
 
-export function getAssetName(platform: string, arch: string): string {
-  return `noodle-${getPlatformString(platform, arch)}`
+export function getAssetName(
+  platform: string,
+  arch: string,
+  libc?: Libc,
+): string {
+  return `noodle-${getPlatformString(platform, arch, libc)}${platform === "win32" ? ".exe" : ""}`
 }
 
 export function compareStableVersions(

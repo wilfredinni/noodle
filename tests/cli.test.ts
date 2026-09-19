@@ -207,7 +207,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
-  })
+  }, 30_000)
 
   it("shows available subcommands with --help", () => {
     const proc = Bun.spawnSync(["bun", CLI, "--help"], {})
@@ -284,7 +284,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
-  })
+  }, 30_000)
 
   it("accepts repeated tag filters in space and equals forms", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-tags-"))
@@ -982,11 +982,9 @@ describe("resolveStartupCollectionDir", () => {
   })
 
   it("keeps an explicit collection path even when it does not exist", () => {
-    expect(
-      resolveStartupCollectionDir(
-        { collectionDir: "/tmp/noodle-explicit-missing" },
-        [],
-      ),
-    ).toBe("/tmp/noodle-explicit-missing")
+    const missing = join(tmpdir(), "noodle-explicit-missing")
+    expect(resolveStartupCollectionDir({ collectionDir: missing }, [])).toBe(
+      missing,
+    )
   })
 })

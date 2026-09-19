@@ -26,7 +26,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 detect_platform() {
-  local os arch
+  local os arch ldd_version ldd_status glibc_version
 
   case "$(uname -s)" in
     Darwin) os="macos" ;;
@@ -37,6 +37,24 @@ detect_platform() {
       exit 1
       ;;
   esac
+
+  if [ "$os" = "linux" ]; then
+    ldd_status=0
+    ldd_version=$(ldd --version 2>&1) || ldd_status=$?
+    if printf '%s' "$ldd_version" | grep -qi musl; then
+      printf '%b\n' "${RED}Error: Linux musl is not supported.${NC}" >&2
+      echo "noodle supports Linux distributions that use glibc only." >&2
+      exit 1
+    fi
+    if [ "$ldd_status" -ne 0 ]; then ldd_version=""; fi
+    glibc_version=$(getconf GNU_LIBC_VERSION 2>/dev/null) || glibc_version=""
+    if ! printf '%s' "$glibc_version" | grep -Eq '^glibc [0-9]' &&
+       ! printf '%s' "$ldd_version" | grep -Eq 'GLIBC|GNU libc|GNU C Library'; then
+      printf '%b\n' "${RED}Error: Could not confirm Linux glibc.${NC}" >&2
+      echo "noodle requires glibc; musl and unknown libc implementations are not supported." >&2
+      exit 1
+    fi
+  fi
 
   case "$(uname -m)" in
     x86_64|amd64)   arch="x86_64" ;;

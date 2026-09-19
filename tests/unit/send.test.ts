@@ -1,4 +1,12 @@
-import { afterEach, describe, it, expect, mock } from "bun:test"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  it,
+  expect,
+  mock,
+} from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
 import type { CollectionCookieJar } from "../../src/cookies"
@@ -6,19 +14,7 @@ import { defaultOAuth1Auth } from "../../src/auth/defaults"
 import { executeRequestLifecycle } from "../../src/requestLifecycle"
 import { RunScope } from "../../src/runScope"
 
-const servers: Bun.Server<undefined>[] = []
-
-afterEach(() => {
-  for (const server of servers.splice(0)) server.stop(true)
-})
-
-function startServer(
-  handler: (request: globalThis.Request) => Response | Promise<Response>,
-): string {
-  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: handler })
-  servers.push(server)
-  return `http://127.0.0.1:${server.port}`
-}
+type TestHandler = (request: globalThis.Request) => Response | Promise<Response>
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -417,6 +413,40 @@ describe("send — AWS SigV4", () => {
 })
 
 describe("send — NTLMv2", () => {
+  const handlers = new Map<string, TestHandler>()
+  let servers: Bun.Server<undefined>[] = []
+  let nextHandlerId = 0
+
+  beforeAll(() => {
+    servers = Array.from({ length: 2 }, () =>
+      Bun.serve({
+        hostname: "127.0.0.1",
+        port: 0,
+        fetch(request) {
+          const path = new URL(request.url).pathname
+          const handler = Array.from(handlers).find(
+            ([prefix]) => path === prefix || path.startsWith(`${prefix}/`),
+          )?.[1]
+          return (
+            handler?.(request) ?? new Response("Not Found", { status: 404 })
+          )
+        },
+      }),
+    )
+  })
+
+  afterEach(() => handlers.clear())
+
+  afterAll(async () => {
+    for (const server of servers) await server.stop()
+  })
+
+  function startServer(handler: TestHandler, serverIndex = 0): string {
+    const path = `/test-${++nextHandlerId}`
+    handlers.set(path, handler)
+    return `http://127.0.0.1:${servers[serverIndex]!.port}${path}`
+  }
+
   const ntlmAuth = {
     type: "ntlm" as const,
     username: "$USER",
@@ -634,7 +664,7 @@ describe("send — NTLMv2", () => {
         status: 302,
         headers: { location: `${destination}/protected` },
       })
-    })
+    }, 1)
 
     const result = await send(makeReq({ url: source, auth: ntlmAuth }), {
       environment: environment(),
@@ -1288,14 +1318,12 @@ describe("send — network trace", () => {
             runScope: new RunScope(),
           })
 
-          expect(result).toMatchObject({
-            status: "error",
-            failureCategory: "transport",
-            error: {
-              message:
-                "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
-            },
-          })
+          expect(result.status).toBe("error")
+          if (result.status !== "error") throw new Error("expected an error")
+          expect(result.failureCategory).toBe("transport")
+          expect(result.error.message).toBe(
+            "requests.send: refusing a cross-origin redirect that would forward a credential-bearing request body",
+          )
           expect(calls).toBe(1)
         }
       }

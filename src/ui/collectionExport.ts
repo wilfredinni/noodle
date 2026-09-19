@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs"
+import { lstatSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { ExportOptions, ExportResult } from "../app/export"
 import { expandUserPath } from "../userPath"
@@ -17,7 +17,17 @@ function isAvailablePostmanTarget(path: string): boolean {
     return readdirSync(path).length === 0
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
-    if (code === "ENOENT" || code === "ENOTDIR") return true
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      let entry
+      try {
+        entry = lstatSync(path, { throwIfNoEntry: false })
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === "ENOTDIR") return true
+        throw statError
+      }
+      if (entry?.isSymbolicLink()) throw error
+      return !entry
+    }
     throw error
   }
 }

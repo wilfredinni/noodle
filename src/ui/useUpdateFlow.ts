@@ -200,9 +200,14 @@ export function useUpdateFlow(
     )
       .then((result) => {
         if (token !== installTokenRef.current) return
-        if (result.data.status === "updated") {
+        if (
+          result.data.status === "updated" ||
+          result.data.status === "restart_required"
+        ) {
           const version = result.data.version ?? update.version
-          showUpdateCompleted(result.data.skill_status)
+          if (result.data.status === "restart_required")
+            showToast("Update staged; restart to apply", "info")
+          else showUpdateCompleted(result.data.skill_status)
           setUpdateFlow({ phase: "done", version })
         } else {
           const message =

@@ -6,8 +6,10 @@ import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import { useCollectionSwitcher } from "../../src/ui/useCollectionSwitcher"
 import { useReloadGuard } from "../../src/ui/useReloadGuard"
 import type { Request } from "../../src/schema"
+import { resolve } from "node:path"
 
 const testRender = createTestRender()
+const nextDir = resolve("/next")
 
 const request: Request = {
   id: "request",
@@ -102,7 +104,7 @@ function InlineEditSwitchHarness({
       editor.setEditValue("changed")
       setStep(2)
     } else if (step === 2 && editor.editValue === "changed") {
-      switcher.requestCollectionSwitch("/next")
+      switcher.requestCollectionSwitch(nextDir)
       setStep(3)
     } else if (step === 3) {
       onResult({
@@ -137,7 +139,7 @@ describe("unsaved changes regressions", () => {
 
     for (let i = 0; i < 5; i++) await renderOnce()
 
-    expect(result).toEqual({ changes: 0, pending: "/next" })
+    expect(result).toEqual({ changes: 0, pending: nextDir })
   })
 
   it("keeps a committed reload callback bound to its render values", async () => {

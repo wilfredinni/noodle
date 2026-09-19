@@ -542,7 +542,8 @@ describe("CollectionCookieJar", () => {
     await jar.saveNow()
 
     expect(jar.status.state).toBe("plaintext-warning")
-    expect((await stat(jar.file)).mode & 0o777).toBe(0o600)
+    if (process.platform !== "win32")
+      expect((await stat(jar.file)).mode & 0o777).toBe(0o600)
     expect(jar.warnings).toHaveLength(1)
   })
 

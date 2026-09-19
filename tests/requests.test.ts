@@ -633,8 +633,9 @@ describe("bodyForSend — bodyType routing", () => {
 
   it("sets content-type even when user already set one (binary)", async () => {
     const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { tmpdir } = await import("node:os")
     const { join } = await import("node:path")
-    const dir = mkdtempSync("/tmp/noodle-test-")
+    const dir = mkdtempSync(join(tmpdir(), "noodle-test-"))
     const filePath = join(dir, "data.bin")
     writeFileSync(filePath, "binary content")
 
@@ -744,8 +745,9 @@ describe("bodyForSend — file validation", () => {
 
   it("does not throw when multipart file entry exists", async () => {
     const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { tmpdir } = await import("node:os")
     const { join } = await import("node:path")
-    const dir = mkdtempSync("/tmp/noodle-test-")
+    const dir = mkdtempSync(join(tmpdir(), "noodle-test-"))
     const filePath = join(dir, "test.txt")
     writeFileSync(filePath, "hello")
 
@@ -768,8 +770,9 @@ describe("bodyForSend — file validation", () => {
 
   it("does not throw when binary filePath exists", async () => {
     const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { tmpdir } = await import("node:os")
     const { join } = await import("node:path")
-    const dir = mkdtempSync("/tmp/noodle-test-")
+    const dir = mkdtempSync(join(tmpdir(), "noodle-test-"))
     const filePath = join(dir, "data.bin")
     writeFileSync(filePath, "binary content")
 

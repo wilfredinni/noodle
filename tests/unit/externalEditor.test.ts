@@ -5,6 +5,7 @@ import {
   resolveExternalEditor,
   type ExternalEditor,
 } from "../../src/externalEditor"
+import { join } from "node:path"
 
 describe("external editors", () => {
   it("detects launchers in priority order", () => {
@@ -19,18 +20,19 @@ describe("external editors", () => {
   })
 
   it("detects macOS application bundles without CLI launchers", () => {
+    const appPath = join("/Applications", "Zed.app")
     const editors = detectExternalEditors({
       platform: "darwin",
       homeDir: "/Users/test",
       which: () => null,
-      exists: (path) => path === "/Applications/Zed.app",
+      exists: (path) => path === appPath,
     })
 
     expect(editors).toEqual([
       {
         id: "zed",
         label: "Zed",
-        command: ["open", "-a", "/Applications/Zed.app"],
+        command: ["open", "-a", appPath],
       },
     ])
   })

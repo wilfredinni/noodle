@@ -39,7 +39,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, `--env/-e`, `--noproxy`, and `--insecure`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory. `--noproxy` forces direct connections and `--insecure` disables TLS verification for that invocation.
 - **Import subcommand**: `source` (positional, required), `--format/-i` (`openapi`, `swagger`, `postman`, or `insomnia`; auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
-- **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
+- **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime. Unix replaces the executable atomically. Windows stages the verified `.exe`, launches the embedded PowerShell completion helper, and returns `restart_required`; the helper waits for the current PID to exit before replacing the executable and refreshing an existing managed skill.
 - **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. It preserves unmanaged targets by default and reports every conflict; `--force` deliberately replaces all reported paths with backup-backed rollback if any target fails. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--tag]... [--exclude-tag]... [--fail-fast] [--delay <milliseconds>] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed pre/post scripts, failed HTTP responses, failed captures, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. Request and non-root folder tags form case-sensitive dynamic suites; repeated include tags all must match, any repeated exclude tag removes a request, exclusion wins, and fail-fast records later selected requests as skipped. `--delay` accepts a non-negative safe integer number of milliseconds and waits only between selected requests. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
@@ -218,11 +218,12 @@ partial-file cleanup, and direct platform-opener argument handling.
 CLI downloads pin an existing output directory before HTTP; TUI Save As pins it
 during confirmation. The private Node-API addon creates new components relative to
 that directory without following symlinks; existing directory aliases are
-resolved during preparation. Maintain all eight native prebuilds and their
+resolved during preparation. Maintain all six native prebuilds and their
 manifest together (`bun scripts/build-response-file-native.ts --all`, then
 `--check`); maintainer regeneration uses Zig 0.15.2, while normal installs and
 binary builds require no extra tools. Native response-file CI covers source and
-compiled saves on macOS, Windows, and Linux glibc/musl.
+compiled saves on ARM64 and x86_64 macOS, Windows, and Linux glibc. Linux musl
+is unsupported.
 
 Save As state pins the selected Response; saved paths use response identity.
 TUI Save As suggests and saves to an available filename, adding compact `(1)`,
@@ -243,14 +244,16 @@ Text history remains compatible. Add no request YAML fields for response handlin
 
 | Method | Command |
 |--------|---------|
-| **curl** | `curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh \| sh` |
+| **Unix** | `curl -LsSf https://noodlerest.dev/install.sh \| sh` |
+| **Windows** | `irm https://noodlerest.dev/install.ps1 \| iex` |
 | **Homebrew** | `brew tap wilfredinni/noodle && brew trust wilfredinni/noodle && brew install noodle` |
 | **Source** | `bun install && bun run build:bin` |
 
-- Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases
+- Unix installer at `scripts/install.sh` — supports ARM64/x86_64 macOS and Linux glibc, rejects Linux musl, and verifies the release checksum
+- Windows installer at `scripts/install.ps1` — supports Windows 11 ARM64/x86_64, verifies the release checksum, installs under `%LOCALAPPDATA%\Programs\Noodle`, and updates the user/session `PATH`; `.exe` releases are not Authenticode-signed
 - Homebrew tap at `github.com/wilfredinni/homebrew-noodle` — formula auto-updates SHA256 on release
-- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64, publishes `SHA256SUMS`, updates noodle-site's `update.json` after release publication, and notifies the Homebrew tap
-- macOS standalone builds run `scripts/sign-macos-binary.ts` immediately after compilation, before smoke tests and checksums. Release publication requires verifying the downloaded draft macOS artifact's checksum, signature, version, and scripting sandbox without re-signing it; published release assets cannot be replaced by rerunning the workflow.
+- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, builds the six official ARM64/x86_64 Linux glibc, macOS, and Windows binaries on native runners, publishes `SHA256SUMS`, validates every downloaded draft artifact natively, updates noodle-site's six-key `update.json` only after publication, and then notifies the Homebrew tap
+- macOS standalone builds run `scripts/sign-macos-binary.ts` immediately after compilation, before smoke tests and checksums. Release publication requires verifying every downloaded draft artifact's checksum, version, and scripting sandbox, plus both macOS signatures, without re-signing; published release assets cannot be replaced by rerunning the workflow.
 
 ## Key conventions
 

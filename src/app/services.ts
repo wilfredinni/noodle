@@ -7,7 +7,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { basename, join, relative, resolve } from "node:path"
+import { basename, dirname, join, relative, resolve } from "node:path"
 import { randomUUID } from "node:crypto"
 import { load as yamlLoad } from "../yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
@@ -614,7 +614,7 @@ export async function collectionAudit(
       const file = join(dir, entry.name)
       if (
         entry.name.endsWith(".env") &&
-        relative(root, file).startsWith(".environments/")
+        dirname(file) === join(root, ".environments")
       )
         await auditFile(file, root, fix, issues)
       else if (

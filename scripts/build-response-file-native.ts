@@ -10,8 +10,6 @@ const targets: Record<string, string> = {
   "darwin-x64": "x86_64-macos.13.0",
   "linux-arm64": "aarch64-linux-gnu.2.17",
   "linux-x64": "x86_64-linux-gnu.2.17",
-  "linux-arm64-musl": "aarch64-linux-musl",
-  "linux-x64-musl": "x86_64-linux-musl",
   "win32-arm64": "aarch64-windows-gnu",
   "win32-x64": "x86_64-windows-gnu",
 }
@@ -40,6 +38,8 @@ if (args.includes("--check")) {
   }
   if (manifest.sourceHash !== sourceHash)
     throw new Error("Response native prebuilds have stale source metadata")
+  if (Object.keys(manifest.files).length !== Object.keys(targets).length)
+    throw new Error("Response native manifest has unexpected prebuild entries")
   for (const name of Object.keys(targets))
     if (
       manifest.files[`${name}.node`] !==
@@ -48,18 +48,12 @@ if (args.includes("--check")) {
       throw new Error(
         `Response native prebuild integrity check failed: ${name}`,
       )
-  console.log("Response native source and eight prebuild hashes verified.")
+  console.log("Response native source and six prebuild hashes verified.")
   process.exit(0)
 }
 
 if (!args.includes("--manifest")) {
-  let host = `${process.platform}-${process.arch}`
-  if (process.platform === "linux") {
-    const report = process.report.getReport() as {
-      header?: { glibcVersionRuntime?: string }
-    }
-    if (!report.header?.glibcVersionRuntime) host += "-musl"
-  }
+  const host = `${process.platform}-${process.arch}`
   const requested = args.find((arg) => arg.startsWith("--target="))?.slice(9)
   const selected = args.includes("--all")
     ? Object.keys(targets)

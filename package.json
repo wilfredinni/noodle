@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@faker-js/faker": "10.5.0",
+    "@faker-js/faker": "10.6.0",
     "@jitl/quickjs-singlefile-mjs-release-sync": "0.32.0",
     "@opentui/core": "^0.5.11",
     "@opentui/keymap": "^0.5.11",
@@ -29,14 +29,14 @@
     "citty": "^0.2.2",
     "httpsnippet": "^3.0.10",
     "jose": "^6.2.12",
-    "js-yaml": "^5.4.1",
+    "js-yaml": "^5.4.2",
     "jsonc-parser": "^3.3.1",
     "jsonpath-plus": "^10.4.0",
     "oauth-1.0a": "^2.2.6",
     "postman-collection": "^5.3.1",
     "quickjs-emscripten-core": "0.32.0",
     "react": "^19.3.0",
-    "sax": "1.4.1",
+    "sax": "1.6.1",
     "tough-cookie": "^6.0.2"
   },
   "devDependencies": {
@@ -46,12 +46,12 @@
     "bun-types": "^1.4.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
-    "oxfmt": "^0.67.0",
-    "oxlint": "^1.82.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
-    "@faker-js/faker": "10.5.0",
+    "@faker-js/faker": "10.6.0",
     "form-data": "^4.0.6",
     "lodash": "^4.17.24",
     "uuid": "^11.1.1"
