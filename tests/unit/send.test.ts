@@ -16,38 +16,6 @@ import { RunScope } from "../../src/runScope"
 
 type TestHandler = (request: globalThis.Request) => Response | Promise<Response>
 
-const handlers = new Map<string, TestHandler>()
-let servers: Bun.Server<undefined>[] = []
-let nextHandlerId = 0
-
-beforeAll(() => {
-  servers = Array.from({ length: 2 }, () =>
-    Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      fetch(request) {
-        const path = new URL(request.url).pathname
-        const handler = Array.from(handlers).find(
-          ([prefix]) => path === prefix || path.startsWith(`${prefix}/`),
-        )?.[1]
-        return handler?.(request) ?? new Response("Not Found", { status: 404 })
-      },
-    }),
-  )
-})
-
-afterEach(() => handlers.clear())
-
-afterAll(async () => {
-  for (const server of servers) await server.stop()
-})
-
-function startServer(handler: TestHandler, serverIndex = 0): string {
-  const path = `/test-${++nextHandlerId}`
-  handlers.set(path, handler)
-  return `http://127.0.0.1:${servers[serverIndex]!.port}${path}`
-}
-
 function makeReq(over: Partial<Request> = {}): Request {
   return {
     id: "test",
@@ -445,6 +413,40 @@ describe("send — AWS SigV4", () => {
 })
 
 describe("send — NTLMv2", () => {
+  const handlers = new Map<string, TestHandler>()
+  let servers: Bun.Server<undefined>[] = []
+  let nextHandlerId = 0
+
+  beforeAll(() => {
+    servers = Array.from({ length: 2 }, () =>
+      Bun.serve({
+        hostname: "127.0.0.1",
+        port: 0,
+        fetch(request) {
+          const path = new URL(request.url).pathname
+          const handler = Array.from(handlers).find(
+            ([prefix]) => path === prefix || path.startsWith(`${prefix}/`),
+          )?.[1]
+          return (
+            handler?.(request) ?? new Response("Not Found", { status: 404 })
+          )
+        },
+      }),
+    )
+  })
+
+  afterEach(() => handlers.clear())
+
+  afterAll(async () => {
+    for (const server of servers) await server.stop()
+  })
+
+  function startServer(handler: TestHandler, serverIndex = 0): string {
+    const path = `/test-${++nextHandlerId}`
+    handlers.set(path, handler)
+    return `http://127.0.0.1:${servers[serverIndex]!.port}${path}`
+  }
+
   const ntlmAuth = {
     type: "ntlm" as const,
     username: "$USER",
