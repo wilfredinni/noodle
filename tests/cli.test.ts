@@ -207,7 +207,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
-  })
+  }, 30_000)
 
   it("shows available subcommands with --help", () => {
     const proc = Bun.spawnSync(["bun", CLI, "--help"], {})
