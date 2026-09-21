@@ -31,6 +31,9 @@ curl -LsSf https://noodlerest.dev/install.sh | sh
 
 [See every installation option](https://noodlerest.dev/docs/getting-started/installation/)
 
+Prebuilt binaries support macOS and Linux on both arm64 and x86_64, including
+Apple Silicon and Intel Macs.
+
 ## Files first
 
 Every request is a readable YAML file. Edit it in Noodle or your editor, review

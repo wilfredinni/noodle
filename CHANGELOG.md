@@ -4,6 +4,26 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-21
+
+Noodle 0.9.2 adds script time helpers for timestamps, timezone formatting, and
+elapsed durations in both pre-request and post-response scripts. macOS releases
+now include Intel binaries and verify signed artifacts before publication to
+prevent launch failures caused by invalid embedded signatures.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-2-script-time-helpers/)
+
+### ✨ Features
+
+- Add frozen `noodle.time` helpers in both script phases: `now`, `unix`,
+  `fromUnix`, `parse`, `iso`, `format`, `add`, `subtract`, and `diff`. Generate
+  timestamps, parse explicit ISO dates and offsets, format named timezones,
+  and calculate elapsed durations with UTC defaults and 24-hour days. Support
+  expanded ISO years, named timezone aliases, and historical timezone offsets
+  within the existing script validation and rollback behavior.
+- Ship a macOS x86_64 standalone binary for Intel Macs, with release checksums
+  and update metadata alongside the existing Apple Silicon and Linux builds.
+
 ### 🐞 Fixes
 
 - Ad-hoc sign and strictly verify macOS standalone binaries before testing and
@@ -13,6 +33,26 @@ All notable changes to Noodle are documented in this file.
   sandbox before publishing; failed validation blocks release publication,
   update metadata, and Homebrew notifications. Published release assets are
   preserved.
+
+### 🔧 Refactors
+
+- Harden CI and release artifact handling with pinned actions, scoped
+  permissions, and an exact four-binary checksum set.
+- Provide downloadable manual CI test builds containing checksums and build
+  identity.
+- Focus native response-file execution and rebuild checks on the four release
+  targets: macOS and Linux glibc on x64/arm64. Windows and Linux musl prebuilds
+  remain available and hash-checked, without CI execution coverage.
+
+### 📚 Documentation
+
+- Update `noodle-use` with the script time API, formatting tokens, accepted
+  dates, timezone behavior, and elapsed-duration limits.
+- Update `noodle-dev` with the time helper module, shared API contract, and
+  regression-test guidance.
+- Add time-helper documentation, cookbook recipes, a TUI tip, and a timestamped
+  GET example; update installation guidance for Intel Macs and clarify native
+  response-file CI coverage.
 
 ## [0.9.1] - 2026-09-18
 
@@ -864,7 +904,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/wilfredinni/noodle/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/wilfredinni/noodle/compare/v0.9.0...v0.9.1
 [0.7.5]: https://github.com/wilfredinni/noodle/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/wilfredinni/noodle/compare/v0.7.3...v0.7.4

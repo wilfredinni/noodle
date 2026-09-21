@@ -21,6 +21,7 @@ const TIPS = [
   "author {scripts.pre} and {scripts.post} in request YAML; inspect both phases in response {Results}",
   "script APIs use the {noodle.} prefix: {noodle.request}, {noodle.response}, and {noodle.run}",
   "use {noodle.random.seed} for repeatable test data; share generated values with {noodle.run.set}",
+  "use {noodle.time} for timestamps, named timezones, and elapsed durations in pre or post scripts",
   "manual sends can save script values with {noodle.run.set} persistence; collection runs keep them transient",
   "revert all fields with {^R} in request or folder browse mode",
   "edit request details with {^E}",
