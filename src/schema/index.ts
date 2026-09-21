@@ -275,6 +275,7 @@ export interface Request {
   auth?: Auth
   tls?: RequestTlsSettings
   scripts?: { pre: string; post?: string } | { pre?: string; post: string }
+  tests?: string
   captures?: Record<string, CaptureEntry>
   assertions?: ResponseAssertion[]
 }
@@ -352,6 +353,7 @@ export interface TimelineEntry {
   envName?: string
   network?: NetworkEvent[]
   scripts?: ResponseExecutionResults["scripts"]
+  tests?: ResponseExecutionResults["tests"]
   assertions?: {
     evaluated: boolean
     results: AssertionResult[]

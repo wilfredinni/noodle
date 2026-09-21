@@ -127,6 +127,13 @@ export function serializeRequest(req: Request): string {
     )
   }
 
+  if (req.tests !== undefined) {
+    const endsWithNewline = req.tests.endsWith("\n")
+    out += `tests: |2${endsWithNewline ? "+" : "-"}\n`
+    const source = endsWithNewline ? req.tests.slice(0, -1) : req.tests
+    for (const line of source.split("\n")) out += `  ${line}\n`
+  }
+
   if (req.auth && req.auth.type !== "none") {
     out += yaml.dump(
       { auth: authToObj(req.auth) },
