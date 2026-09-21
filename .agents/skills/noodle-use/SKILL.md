@@ -92,7 +92,7 @@ response extraction or conditional processing that cannot be expressed
 declaratively. Script source is literal and never variable-
 substituted. All Noodle APIs live under the frozen `noodle` namespace; bare API
 globals are unavailable. Pre exposes `noodle.request`, `noodle.env`, `noodle.run`,
-`noodle.crypto`, `noodle.random`, and captured global `console` APIs. Imports, network calls, host APIs, timers, returned
+`noodle.crypto`, `noodle.random`, `noodle.time`, and captured global `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
 visible to later collection requests even if later phases fail. Read the complete API and
@@ -105,6 +105,13 @@ seed for reproducible relative dates. Passwords are automatically known secrets;
 other generated data stays visible. IDs and passwords are test data without
 cryptographic security or guaranteed uniqueness. JSON placeholders are deferred.
 See [the catalog and options](schema.md#script-random-api).
+
+Both phases expose frozen `noodle.time` helpers for Unix milliseconds/seconds,
+ISO parsing and output, pattern formatting in named timezones, and elapsed-time
+arithmetic. UTC is the default; a day always means 24 hours. Use `now()` once
+when multiple values must share one instant, and pass dates with explicit
+offsets or date-only ISO strings (midnight UTC).
+See [the methods, tokens, and limits](schema.md#script-time-api).
 
 Post sees captures and the completed response, including HTTP/capture failures.
 It adds bounded `noodle.response.text/json`, metadata, case-insensitive response headers,

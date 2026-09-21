@@ -106,6 +106,63 @@ afterEach(async () => {
 })
 
 describe("post-response lifecycle", () => {
+  it("carries time values across requests and retains pre/post failure semantics", async () => {
+    const scope = new RunScope()
+    const first = await send(
+      {
+        ...base(),
+        scripts: {
+          pre: `const now = noodle.time.parse("2026-01-01"); noodle.request.headers.set("X-Time", noodle.time.iso(now)); noodle.run.set("expiresAt", noodle.time.add(now, 15, "minutes"));`,
+          post: `noodle.run.set("localExpiry", noodle.time.format(noodle.run.get("expiresAt"), "HH:mm Z", {timeZone:"Asia/Kathmandu"}));`,
+        },
+      },
+      scope,
+    )
+    expect(
+      first.execution.scripts?.results.map((result) => result.success),
+    ).toEqual([true, true])
+    expect(seen[0]?.headers["x-time"]).toBe("2026-01-01T00:00:00.000Z")
+    expect(scope.get("localExpiry")).toBe("06:00 +05:45")
+    await send(
+      {
+        ...base(),
+        headers: { "X-Expiry": { value: "$localExpiry", enabled: true } },
+      },
+      scope,
+    )
+    expect(seen[1]?.headers["x-expiry"]).toBe("06:00 +05:45")
+    const failedPre = await send(
+      {
+        ...base(),
+        scripts: {
+          pre: `noodle.run.set("localExpiry", "discarded"); noodle.time.parse("2026-02-30");`,
+        },
+      },
+      scope,
+    )
+    expect(failedPre.status).toBe("error")
+    expect(failedPre.execution.scripts?.results[0]?.success).toBe(false)
+    expect(seen).toHaveLength(2)
+    const failedPost = await send(
+      {
+        ...base(),
+        captures: { capturedId: { value: "body.id", enabled: true } },
+        assertions: [{ expression: "status", operator: "equals", value: 200 }],
+        scripts: {
+          post: `noodle.run.set("localExpiry", "discarded"); noodle.time.format(0, "YYYY", {timeZone:"Missing/Zone"});`,
+        },
+      },
+      scope,
+    )
+    expect(failedPost.status).toBe("done")
+    if (failedPost.status !== "done") throw Error("Expected a response")
+    expect(failedPost.response.status).toBe(200)
+    expect(failedPost.execution.scripts?.results[0]?.success).toBe(false)
+    expect(failedPost.execution.assertions?.results[0]?.passed).toBe(true)
+    expect(scope.get("capturedId")).toBe(7)
+    expect(scope.get("localExpiry")).toBe("06:00 +05:45")
+  })
+
   it("sends generated pre data, carries post data forward and preserves lifecycle rollback", async () => {
     const scope = new RunScope()
     const first = await send(

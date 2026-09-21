@@ -136,6 +136,7 @@ API accesses with `noodle.`; the old bare API globals are unavailable.
 | `noodle.run` | `get(name)`, `set(name, value, options?)`, `unset(name, options?)`; options: `{ persist: "environment" \| "secret" }` |
 | `noodle.crypto` | `sha256(value, encoding)`, `hmacSha256(secret, value, encoding)`, `randomBytes(size, encoding)` |
 | `noodle.random` | Frozen synchronous English test-data generators; see [catalog and options](#script-random-api) |
+| `noodle.time` | Frozen date/time helpers; see [methods and formats](#script-time-api) |
 | `console` | `log(...values)`, `info(...values)`, `warn(...values)`, `error(...values)` |
 | `noodle.response` (post only) | Read-only `status`, `statusText`, `timeMs`; `headers.get(name)`, `headers.has(name)`, `text()`, `json()` |
 | `noodle.cookies` (post only, when available) | `get(name)`, `set(input)`, `delete(name)` |
@@ -228,6 +229,78 @@ never RunScope overrides. `noodle.env` and `noodle.run` names match `^\w+$` and 
 prototype names. `noodle.run.set` accepts only bounded JSON-compatible values. Crypto
 inputs are UTF-8 strings; encoding is exactly `hex` or `base64`; random size is
 an integer from 0 through 4096.
+
+### Script time API
+
+Frozen `noodle.time` and its methods are available in both pre and post scripts.
+Helpers return strings or numbers, not `Date` objects. JavaScript `Date` and
+`noodle.random.timestamp()` / `isoTimestamp()` remain available.
+
+| Method | Result |
+| --- | --- |
+| `now()` | Current Unix milliseconds |
+| `unix(value?)` | Unix seconds, rounded down; defaults to now |
+| `fromUnix(seconds)` | Convert numeric Unix seconds to milliseconds |
+| `parse(text)` | Parse an ISO date or timestamp into milliseconds |
+| `iso(value?)` | UTC ISO timestamp; defaults to now |
+| `format(value, pattern, options?)` | Format with optional `{ timeZone }`; defaults to UTC |
+| `add(value, amount, unit)` | Add an elapsed duration and return milliseconds |
+| `subtract(value, amount, unit)` | Subtract an elapsed duration and return milliseconds |
+| `diff(a, b, unit?)` | Signed elapsed difference `a - b`; defaults to milliseconds |
+
+`value`, `a`, and `b` accept finite epoch milliseconds or ISO strings. Date-only
+`YYYY-MM-DD` values mean midnight UTC. Date-times use
+`YYYY-MM-DDTHH:mm:ss[.fraction]Z` or an explicit `+HH:mm` / `-HH:mm` offset.
+Signed six-digit expanded years are also accepted. ISO input is limited to 64
+characters. Invalid calendar dates, ambiguous local date-times, numeric strings,
+and values outside JavaScript's Date range are rejected. Sub-millisecond
+precision is truncated.
+
+Units are exactly `milliseconds`, `seconds`, `minutes`, `hours`, `days`, and
+`weeks`. Amounts may be fractional or negative. A day is always 24 hours and a
+week is seven days, including across daylight-saving changes. Arithmetic returns
+milliseconds with any sub-millisecond result truncated toward zero; `diff`
+preserves fractional units. Months, years, and local-calendar arithmetic are
+not supported.
+
+Patterns contain 1 through 512 characters and support:
+
+| Token | Meaning |
+| --- | --- |
+| `YYYY` | Four-digit year, or signed expanded year outside 0000 through 9999 |
+| `MM`, `DD` | Two-digit month and day |
+| `HH`, `mm`, `ss` | Two-digit 24-hour clock, minutes, and seconds |
+| `SSS` | Three-digit milliseconds |
+| `Z`, `ZZ` | UTC offset with or without colons, such as `-03:00` or `-0300` |
+| `[text]` | Literal text, such as `[T]` in an ISO-like pattern |
+
+Punctuation is literal. Unsupported letter tokens and unmatched or nested
+brackets are errors. Historical timezone offsets retain seconds when needed,
+for example `-04:56:02` / `-045602`. Such formatted strings are display values;
+use `iso()` for a UTC timestamp that `parse()` can read back.
+`options` accepts only `timeZone`, a name of at most 128 characters such as
+`UTC`, `America/Santiago`, or `Asia/Kathmandu`. Unknown zones and numeric offset
+zone identifiers are rejected. Formatting uses Gregorian dates and Latin digits,
+independent of the machine's locale and default timezone. Zone rules come from
+the bundled runtime's timezone data.
+
+```js
+const now = noodle.time.now();
+const expiresAt = noodle.time.add(now, 15, "minutes");
+noodle.request.headers.set("X-Timestamp", noodle.time.iso(now));
+noodle.run.set("expiresAt", expiresAt);
+const local = noodle.time.format(now, "YYYY-MM-DD HH:mm:ss Z", {
+  timeZone: "America/Santiago",
+});
+```
+
+Apply generated values directly to the current request. Values stored with
+`noodle.run.set` can be read in the same request's post script and substituted
+into later requests in the collection run. Calls without a timestamp read the
+current machine clock each time; capture `now()` once when values must agree.
+Invalid inputs use the existing script API errors and rollback behavior.
+Locale formatting, custom-format parsing, calendar boundaries, and JSON
+placeholders are not part of this API.
 
 ### Script random API
 
