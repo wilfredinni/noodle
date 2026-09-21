@@ -151,7 +151,7 @@ describe("script random API", () => {
         (d) =>
           d.global === "noodle" &&
           (d.member === "random" || d.member.startsWith("random.")),
-      ).every((d) => d.phases.join() === "pre,post"),
+      ).every((d) => d.phases.join() === "pre,post,tests"),
     ).toBe(true)
   })
 

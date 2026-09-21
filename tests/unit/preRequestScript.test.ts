@@ -172,7 +172,9 @@ describe("pre-request script sandbox", () => {
     })
     expect(
       SCRIPT_API_CONTRACT.every((entry) =>
-        entry.phases.every((phase) => phase === "pre" || phase === "post"),
+        entry.phases.every(
+          (phase) => phase === "pre" || phase === "post" || phase === "tests",
+        ),
       ),
     ).toBe(true)
   })
