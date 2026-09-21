@@ -15,6 +15,8 @@ import { RunScope, secretRedactionValues } from "./runScope"
 import { createRandomHandlers, RANDOM_GENERATORS } from "./scriptRandom"
 import { createTimeHandlers, TIME_METHODS } from "./scriptTime"
 import {
+  environmentSecretValues,
+  redactKnownSecrets,
   requestSensitiveValues,
   responseSensitiveValues,
   sensitiveHeaderValues,
@@ -36,10 +38,10 @@ export const SCRIPT_LIMITS = Object.freeze({
   persistenceBytes: 256 * 1024,
 })
 
-export type ScriptPhase = "pre" | "post"
+export type ScriptPhase = "pre" | "post" | "tests"
 
 export type ScriptApiDescriptor = Readonly<{
-  global: "noodle" | "console"
+  global: "noodle" | "console" | "test" | "expect"
   member: string
   kind: "global" | "property" | "method"
   signature: string
@@ -66,7 +68,7 @@ const api = (
   phases: readonly ScriptPhase[] = kind === "method" &&
   isRequestMutation(`${namespace}.${member}`)
     ? ["pre"]
-    : ["pre", "post"],
+    : ["pre", "post", "tests"],
 ): ScriptApiDescriptor =>
   Object.freeze({
     global: namespace === "console" ? "console" : "noodle",
@@ -85,8 +87,27 @@ const api = (
         ? `noodle.${signature}`
         : signature,
     description,
-    phases: Object.freeze(phases),
+    phases: Object.freeze(
+      namespace === "run" && (member === "set" || member === "unset")
+        ? (["pre", "post"] as const)
+        : phases,
+    ),
   })
+
+export const TEST_MATCHERS = Object.freeze([
+  "toBe",
+  "toEqual",
+  "toBeTruthy",
+  "toBeFalsy",
+  "toBeDefined",
+  "toBeNull",
+  "toContain",
+  "toMatch",
+  "toBeGreaterThan",
+  "toBeGreaterThanOrEqual",
+  "toBeLessThan",
+  "toBeLessThanOrEqual",
+] as const)
 
 export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
   Object.freeze([
@@ -331,7 +352,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "global",
       "response: Response",
       "Completed HTTP response.",
-      ["post"],
+      ["post", "tests"],
     ),
     ...["status", "statusText", "timeMs"].map((member) =>
       api(
@@ -340,11 +361,12 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
         "property",
         member === "statusText" ? "string" : "number",
         "Response metadata.",
-        ["post"],
+        ["post", "tests"],
       ),
     ),
     api("response", "headers", "property", "Headers", "Response headers.", [
       "post",
+      "tests",
     ]),
     api(
       "response",
@@ -352,7 +374,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "method",
       "get(name): string | null",
       "Read a case-insensitive header.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "response",
@@ -360,7 +382,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "method",
       "has(name): boolean",
       "Test a case-insensitive header.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "response",
@@ -368,7 +390,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "method",
       "text(): string",
       "Read bounded response text.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "response",
@@ -376,7 +398,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "method",
       "json(): JsonValue",
       "Parse and cache response JSON in the sandbox.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "cookies",
@@ -384,7 +406,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "global",
       "cookies: Cookies",
       "URL-scoped cookie transaction when enabled.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "cookies",
@@ -392,7 +414,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "method",
       "get(name): string | null",
       "Read the first applicable cookie.",
-      ["post"],
+      ["post", "tests"],
     ),
     api(
       "cookies",
@@ -410,7 +432,43 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "Stage deletion of all applicable same-name cookies.",
       ["post"],
     ),
+    ...(["test", "expect"] as const).map((global) =>
+      Object.freeze({
+        global,
+        member: "",
+        kind: "global" as const,
+        signature:
+          global === "test"
+            ? "test(name, callback): void"
+            : "expect(actual): Matchers",
+        description:
+          global === "test"
+            ? "Run a synchronous named test."
+            : "Assert against a sandbox value.",
+        phases: Object.freeze(["tests"] as const),
+      }),
+    ),
+    ...["not", ...TEST_MATCHERS].map((member) =>
+      Object.freeze({
+        global: "expect" as const,
+        member,
+        kind: member === "not" ? ("property" as const) : ("method" as const),
+        signature: member === "not" ? "Matchers" : `${member}(expected?): void`,
+        description:
+          member === "not"
+            ? "Negate the matcher."
+            : "Synchronous value assertion.",
+        phases: Object.freeze(["tests"] as const),
+      }),
+    ),
   ])
+
+export type TestResult = {
+  name: string
+  passed: boolean
+  message: string
+  durationMs: number
+}
 
 export type ScriptLog = {
   level: "log" | "info" | "warn" | "error"
@@ -462,6 +520,7 @@ export type PreRequestScriptResult = {
   result: ScriptExecutionResult
   secretValues: string[]
   persistenceIntents?: ScriptPersistenceIntent[]
+  tests?: TestResult[]
 }
 
 const METHODS = new Set<Method>([
@@ -510,8 +569,18 @@ export async function runRequestScript(
   runScope: RunScope,
   post?: { response: Response; cookies?: CollectionCookieJar },
 ): Promise<PreRequestScriptResult> {
-  const label = phase === "pre" ? "Pre-request" : "Post-response"
-  const filename = phase === "pre" ? "pre-request.js" : "post-response.js"
+  const label =
+    phase === "pre"
+      ? "Pre-request"
+      : phase === "post"
+        ? "Post-response"
+        : "Test"
+  const filename =
+    phase === "pre"
+      ? "pre-request.js"
+      : phase === "post"
+        ? "post-response.js"
+        : "tests.js"
   const startedAt = performance.now()
   const invocationDate = new Date().toISOString()
   const stagedRequest = structuredClone(request)
@@ -519,13 +588,14 @@ export async function runRequestScript(
   const suppressedChanges = new Set<string>()
   const persistenceIntents = new Map<string, ScriptPersistenceIntent>()
   const secretValues = new Set([
+    ...(phase === "tests" ? environmentSecretValues(environment) : []),
     ...requestSensitiveValues(request),
-    ...(phase === "post" && post ? responseSensitiveValues(post.response) : []),
+    ...(phase !== "pre" && post ? responseSensitiveValues(post.response) : []),
     ...runScope
       .secretValues()
       .map((secret) => (typeof secret === "string" ? secret : secret.value)),
   ])
-  if (phase === "post") {
+  if (phase !== "pre") {
     for (const cookie of [
       ...(post?.response.cookies ?? []),
       ...(post?.response.sentCookies ?? []),
@@ -533,8 +603,13 @@ export async function runRequestScript(
       secretValues.add(cookie.value)
   }
   const logs: ScriptLog[] = []
+  const testResults = new Map<number, TestResult>()
+  const testStarts = new Map<number, { name: string; time: number }>()
+  let testResultBytes = 0
+  let testCount = 0
+  let testLimitError: ScriptExecutionError | undefined
   const cookies =
-    phase === "post" && request.sendCookies !== false
+    phase !== "pre" && request.sendCookies !== false
       ? post?.cookies?.scriptTransaction(request.url, (value) =>
           secretValues.add(value),
         )
@@ -545,6 +620,13 @@ export async function runRequestScript(
 
   const failure = (error: ScriptExecutionError): PreRequestScriptResult => ({
     request,
+    ...(phase === "tests"
+      ? {
+          tests: [...testResults]
+            .sort(([a], [b]) => a - b)
+            .map(([, value]) => value),
+        }
+      : {}),
     secretValues: [...secretValues, ...requestSensitiveValues(stagedRequest)],
     result: baseResult(
       phase,
@@ -643,6 +725,59 @@ export async function runRequestScript(
   }
 
   const handlers: Record<string, BridgeHandler> = {
+    "tests.clean": ([value]) => {
+      const raw = requireString(value, "test diagnostic")
+      // Preserve only canonical resource markers until group classification.
+      const resource =
+        /out of memory|memory limit|stack overflow|stack limit|interrupted/i.exec(
+          raw,
+        )
+      if (resource) return resource[0].toLowerCase()
+      const message = redactKnownSecrets(raw, [...secretValues])
+      return byteLength(message) > 4096
+        ? "[TRUNCATED]"
+        : cleanErrorText(message, "Test failed")
+    },
+    "tests.start": ([value]) => {
+      const name = requireString(value, "test name")
+      if (!name.trim()) throw apiError("test name must be a non-empty string")
+      testResultBytes += byteLength(JSON.stringify(name)) + 96
+      if (testResultBytes > SCRIPT_LIMITS.bridgeValueBytes) {
+        testLimitError = {
+          name: "ScriptApiValidationError",
+          message: "test results exceed the 262144-byte limit",
+        }
+        throw apiError(testLimitError.message)
+      }
+      const id = testCount++
+      testStarts.set(id, { name, time: performance.now() })
+      return id
+    },
+    "tests.finish": ([id, passedValue, messageValue]) => {
+      if (typeof id !== "number" || !testStarts.has(id))
+        throw apiError("invalid test result")
+      const passed = requireBoolean(passedValue, "test passed")
+      const message = cleanErrorText(
+        requireString(messageValue, "test message"),
+        "Test failed",
+      )
+      const start = testStarts.get(id)!
+      testResultBytes += byteLength(JSON.stringify(message))
+      if (testResultBytes > SCRIPT_LIMITS.bridgeValueBytes) {
+        testLimitError = {
+          name: "ScriptApiValidationError",
+          message: "test results exceed the 262144-byte limit",
+        }
+        throw apiError(testLimitError.message)
+      }
+      testResults.set(id, {
+        name: start.name,
+        passed,
+        message,
+        durationMs: Math.max(0, Math.round(performance.now() - start.time)),
+      })
+      testStarts.delete(id)
+    },
     ...createTimeHandlers(apiError),
     ...createRandomHandlers(
       apiError,
@@ -908,6 +1043,10 @@ export async function runRequestScript(
             logs.push(openConsoleEntry)
           }
           consoleBytes += byteLength(retained)
+          if (phase === "tests" && consoleClosed && openConsoleEntry) {
+            if (byteLength(openConsoleEntry.message) < 11) logs.pop()
+            else openConsoleEntry.message = "[TRUNCATED]"
+          }
           if (complete || consoleClosed) openConsoleEntry = undefined
           return !consoleClosed
         },
@@ -930,7 +1069,7 @@ export async function runRequestScript(
 
       const bridge = context.newFunction(
         "__noodleBridge",
-        (operation, payload) => {
+        (operation, payload, returnedValue) => {
           const operationName = context!.getString(operation)
           const payloadJson = context!.getString(payload)
           let response: BridgeResponse
@@ -942,9 +1081,19 @@ export async function runRequestScript(
             }
             const args = validateJson(JSON.parse(payloadJson))
             if (!Array.isArray(args)) throw apiError("invalid bridge arguments")
+            if (
+              phase === "tests" &&
+              (isRequestMutation(operationName) ||
+                /^(?:run\.(?:set|unset)|cookies\.(?:set|delete)|(?:response|env)\..*:set)$/.test(
+                  operationName,
+                ))
+            )
+              throw apiError(
+                `${operationName.split(".")[0]} is read-only in tests`,
+              )
             if (phase === "post" && isRequestMutation(operationName))
               throw apiError("request is read-only in post-response scripts")
-            if (operationName === "response.text" && phase === "post") {
+            if (operationName === "response.text" && phase !== "pre") {
               if (
                 post!.response.bodyKind === "binary" &&
                 responseByteSize(post!.response) >
@@ -969,6 +1118,18 @@ export async function runRequestScript(
                   }),
                 }
               return context!.newString(body)
+            }
+            if (operationName.startsWith("tests.") && phase !== "tests")
+              throw apiError("test API is only available in tests")
+            if (operationName === "tests.isPromise") {
+              const state = context!.getPromiseState(returnedValue!)
+              const isPromise = state.type !== "fulfilled" || !state.notAPromise
+              if (state.type === "fulfilled" && !state.notAPromise)
+                state.value.dispose()
+              else if (state.type === "rejected") state.error.dispose()
+              return context!.newString(
+                JSON.stringify({ ok: true, hasValue: true, value: isPromise }),
+              )
             }
             const handler = handlers[operationName]
             if (!handler)
@@ -1020,11 +1181,14 @@ export async function runRequestScript(
           SCRIPT_API_CONTRACT.filter((descriptor) => {
             const namespace = descriptor.member.split(".")[0]
             return (
-              (namespace !== "response" || phase === "post") &&
+              (descriptor.global === "noodle" ||
+                descriptor.global === "console") &&
+              (namespace !== "response" || phase !== "pre") &&
               (namespace !== "cookies" || cookies)
             )
           }),
           filename,
+          phase === "tests",
         ),
         "noodle-script-api.js",
         { type: "global" },
@@ -1074,6 +1238,24 @@ export async function runRequestScript(
         })
       }
 
+      if (phase === "tests" && performance.now() >= deadline)
+        return failure(
+          classifyScriptError(
+            { name: "ScriptTimeoutError", message: "interrupted" },
+            true,
+            label,
+          ),
+        )
+      if (testLimitError) return failure(testLimitError)
+      if (phase === "tests")
+        return {
+          request,
+          tests: [...testResults]
+            .sort(([a], [b]) => a - b)
+            .map(([, value]) => value),
+          secretValues: [...secretValues],
+          result: baseResult(phase, true, performance.now() - startedAt, logs),
+        }
       if (phase === "pre") validatePreparedRequest(stagedRequest)
       const commitRun = () => {
         for (const intent of persistenceIntents.values()) {
@@ -1388,9 +1570,8 @@ function normalizedGuestParts(
     ),
   }
   if (typeof stack === "string") {
-    const location = /(?:pre-request|post-response)\.js:(\d+)(?::(\d+))?/.exec(
-      stack,
-    )
+    const location =
+      /(?:pre-request|post-response|tests)\.js:(\d+)(?::(\d+))?/.exec(stack)
     if (location) {
       result.line = Number(location[1])
       if (location[2]) result.column = Number(location[2])
@@ -1433,6 +1614,7 @@ function classifyScriptError(
 function bootstrapSource(
   contract: readonly ScriptApiDescriptor[],
   filename: string,
+  tests = false,
 ): string {
   const shape = contract.map(({ global, member, kind }) => ({
     global,
@@ -1474,6 +1656,17 @@ function bootstrapSource(
   const objectDefineProperty = ObjectCtor.defineProperty;
   const objectEntries = ObjectCtor.entries;
   const objectFreeze = ObjectCtor.freeze;
+  const objectIs = ObjectCtor.is;
+  const objectSetPrototypeOf = ObjectCtor.setPrototypeOf;
+  const arrayPop = uncurry(arrayPrototype.pop);
+  const stringTrim = uncurry(StringCtor.prototype.trim);
+  const regexpPrototype = RegExpCtor.prototype;
+  const regexpSource = uncurry(getOwnPropertyDescriptor(regexpPrototype, "source").get);
+  const regexpFlags = [];
+  for (const [flag, name] of [["d", "hasIndices"], ["g", "global"], ["i", "ignoreCase"], ["m", "multiline"], ["s", "dotAll"], ["u", "unicode"], ["v", "unicodeSets"], ["y", "sticky"]]) {
+    const getter = getOwnPropertyDescriptor(regexpPrototype, name)?.get;
+    if (getter) arrayPush(regexpFlags, [flag, uncurry(getter)]);
+  }
   const objectKeys = ObjectCtor.keys;
   const ownKeys = Reflect.ownKeys;
   const setAdd = uncurry(SetCtor.prototype.add);
@@ -1483,7 +1676,7 @@ function bootstrapSource(
   const stringCharCodeAt = uncurry(StringCtor.prototype.charCodeAt);
   const stringIndexOf = uncurry(StringCtor.prototype.indexOf);
   const regexpExec = uncurry(RegExpCtor.prototype.exec);
-  const locationPattern = /(?:pre-request|post-response)\\.js:(\\d+)(?::(\\d+))?/;
+  const locationPattern = /(?:pre-request|post-response|tests)\\.js:(\\d+)(?::(\\d+))?/;
   const forbidden = ["Bun", "process", "require", "module", "Deno", "fetch", "WebSocket", "Worker", "setTimeout", "setInterval", "setImmediate", "queueMicrotask"];
   for (const name of forbidden) { try { delete globalThis[name]; } catch {} }
   const unsafe = new SetCtor(["__proto__", "prototype", "constructor"]);
@@ -1504,7 +1697,7 @@ function bootstrapSource(
     }
     return bytes;
   };
-  const encode = (value) => {
+  const copyJson = (value) => {
     const seen = new SetCtor();
     const visit = (item, depth) => {
       if (depth > ${SCRIPT_LIMITS.bridgeJsonDepth}) throw apiError("JSON depth exceeds ${SCRIPT_LIMITS.bridgeJsonDepth}");
@@ -1521,7 +1714,7 @@ function bootstrapSource(
         throw apiError("JSON objects must have a plain or null prototype");
       }
       setAdd(seen, item);
-      const output = isArray ? [] : objectCreate(null);
+      const output = isArray ? objectSetPrototypeOf([], null) : objectCreate(null);
       if (isArray) {
         const values = objectCreate(null);
         const keys = ownKeys(item);
@@ -1564,7 +1757,10 @@ function bootstrapSource(
       setDelete(seen, item);
       return output;
     };
-    const serialized = jsonStringify(visit(value, 0));
+    return visit(value, 0);
+  };
+  const encode = (value) => {
+    const serialized = jsonStringify(copyJson(value));
     if (utf8ByteLength(serialized) > ${SCRIPT_LIMITS.bridgeValueBytes}) {
       throw apiError("bridged value exceeds ${SCRIPT_LIMITS.bridgeValueBytes} bytes");
     }
@@ -1596,10 +1792,21 @@ function bootstrapSource(
     }
     return responseText;
   };
+  const freezeJson = (value) => {
+    const pending = [value];
+    while (pending.length) {
+      const item = arrayPop(pending);
+      if (item === null || typeof item !== "object") continue;
+      const keys = objectKeys(item);
+      for (let i = 0; i < keys.length; i++) arrayPush(pending, item[keys[i]]);
+      objectFreeze(item);
+    }
+    return value;
+  };
   const readResponseJson = () => {
     if (jsonState === "empty") {
       const text = readResponseText();
-      try { responseJson = jsonParse(text); jsonState = "parsed"; }
+      try { responseJson = jsonParse(text); if (${tests}) freezeJson(responseJson); jsonState = "parsed"; }
       catch (error) {
         // QuickJS can throw null when native parsing cannot allocate its error.
         if (error === null) jsonState = "memory";
@@ -1701,7 +1908,13 @@ function bootstrapSource(
     objectFreeze(object);
     objectDefineProperty(globalThis, name, { value: object, enumerable: true });
   }
-  globalThis.__noodleNormalizeThrown = (value) => {
+  const normalizeThrown = (value) => {
+    const diagnosticText = (text) => {
+      if (!${tests}) return stringSlice(text, 0, 4096);
+      // Never retain a partial secret when a diagnostic cannot fit the bridge.
+      try { return call("tests.clean", [text]); }
+      catch { return "[TRUNCATED]"; }
+    };
     const data = (name) => {
       let current = value;
       for (let depth = 0; current != null && depth < 8; depth++, current = getPrototypeOf(current)) {
@@ -1718,11 +1931,119 @@ function bootstrapSource(
     const locationText = locationStart >= 0 ? stringSlice(rawStack, locationStart, locationStart + 64) : "";
     const location = regexpExec(locationPattern, locationText);
     return jsonStringify({
-      name: stringSlice(typeof rawName === "string" ? rawName : "Error", 0, 4096),
-      message: stringSlice(typeof rawMessage === "string" ? rawMessage : primitive ? StringCtor(value) : "Script execution failed", 0, 4096),
+      name: diagnosticText(typeof rawName === "string" ? rawName : "Error"),
+      message: diagnosticText(typeof rawMessage === "string" ? rawMessage : primitive ? StringCtor(value) : "Script execution failed"),
       stack: location ? location[0] : "",
     });
   };
+  globalThis.__noodleNormalizeThrown = normalizeThrown;
+  ${tests ? testBootstrapSource : ""}
   delete globalThis.__noodleBridge;
 })();`
 }
+
+// Evaluated inside the same bootstrap closure, with captured intrinsics and bridge.
+const testBootstrapSource = String.raw`
+  const boundedValue = (value, jsonOnly = false) => {
+    if (!jsonOnly && (value === undefined || (typeof value === "number" && !numberIsFinite(value)))) return value;
+    const copy = copyJson(value);
+    if (utf8ByteLength(jsonStringify(copy)) > ${SCRIPT_LIMITS.bridgeValueBytes}) throw apiError("matcher value exceeds the 262144-byte limit");
+    return copy;
+  };
+  const equal = (left, right) => {
+    if (objectIs(left, right)) return true;
+    if (left === null || right === null || typeof left !== "object" || typeof right !== "object") return false;
+    if (arrayIsArray(left) !== arrayIsArray(right)) return false;
+    const keys = objectKeys(left);
+    if (keys.length !== objectKeys(right).length) return false;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (!hasOwn(right, key) || !equal(left[key], right[key])) return false;
+    }
+    return true;
+  };
+  const match = (name, actual, expected) => {
+    const value = boundedValue(actual, name === "toEqual" || (name === "toContain" && arrayIsArray(actual)));
+    switch (name) {
+      case "toBe": boundedValue(expected); return objectIs(actual, expected);
+      case "toEqual": return equal(value, boundedValue(expected, true));
+      case "toBeTruthy": return !!actual;
+      case "toBeFalsy": return !actual;
+      case "toBeDefined": return actual !== undefined;
+      case "toBeNull": return actual === null;
+      case "toContain": {
+        if (typeof value === "string") {
+          if (typeof expected !== "string") throw apiError("toContain requires a string substring for string values");
+          boundedValue(expected);
+          return stringIndexOf(value, expected) >= 0;
+        }
+        if (!arrayIsArray(value)) throw apiError("toContain requires a string or array");
+        const wanted = boundedValue(expected, true);
+        for (let i = 0; i < value.length; i++) if (equal(value[i], wanted)) return true;
+        return false;
+      }
+      case "toMatch": {
+        if (typeof value !== "string") throw apiError("toMatch requires a string actual value");
+        let source, flags = "";
+        if (typeof expected === "string") source = expected;
+        else {
+          if (expected === null || typeof expected !== "object" || getPrototypeOf(expected) !== regexpPrototype) throw apiError("toMatch requires a string pattern or RegExp");
+          const keys = ownKeys(expected);
+          for (let i = 0; i < keys.length; i++) if (keys[i] !== "lastIndex") throw apiError("RegExp patterns must not contain extra properties");
+          source = regexpSource(expected);
+          for (let i = 0; i < regexpFlags.length; i++) if (regexpFlags[i][1](expected)) flags += regexpFlags[i][0];
+        }
+        boundedValue(source);
+        let regex;
+        try { regex = new RegExpCtor(source, flags); }
+        catch { throw apiError("toMatch received an invalid regular expression"); }
+        return regexpExec(regex, value) !== null;
+      }
+      default: {
+        if (typeof actual !== "number" || !numberIsFinite(actual) || typeof expected !== "number" || !numberIsFinite(expected)) throw apiError(name + " requires finite numbers on both sides");
+        if (name === "toBeGreaterThan") return actual > expected;
+        if (name === "toBeGreaterThanOrEqual") return actual >= expected;
+        if (name === "toBeLessThan") return actual < expected;
+        return actual <= expected;
+      }
+    }
+  };
+  const expectValue = (actual) => {
+    const positive = objectCreate(null), negative = objectCreate(null);
+    for (const [target, negated] of [[positive, false], [negative, true]]) {
+      for (const name of ${JSON.stringify(TEST_MATCHERS)}) {
+        objectDefineProperty(target, name, { enumerable: true, value: objectFreeze((expected) => {
+          const passed = match(name, actual, expected);
+          if (passed === negated) {
+            const error = new ErrorCtor("Expected value " + (negated ? "not " : "") + "to satisfy " + name);
+            error.name = "TestAssertionError";
+            throw error;
+          }
+        }) });
+      }
+    }
+    objectDefineProperty(positive, "not", { enumerable: true, value: negative });
+    objectDefineProperty(negative, "not", { enumerable: true, value: positive });
+    objectFreeze(negative);
+    return objectFreeze(positive);
+  };
+  const runTest = (name, callback) => {
+    if (typeof name !== "string" || !stringTrim(name)) throw apiError("test name must be a non-empty string");
+    if (typeof callback !== "function") throw apiError("test callback must be a function");
+    const id = call("tests.start", [name]);
+    let passed = true, message = "Test passed";
+    try {
+      const returned = callback();
+      const promise = jsonParse(bridge("tests.isPromise", "[]", returned)).value;
+      if (promise || (returned != null && (typeof returned === "object" || typeof returned === "function") && typeof returned.then === "function")) throw new ErrorCtor("async tests are not supported");
+    } catch (error) {
+      passed = false;
+      const normalized = jsonParse(normalizeThrown(error));
+      if (regexpExec(/out of memory|memory limit|stack overflow|stack limit|interrupted/, normalized.message)) throw error;
+      message = normalized.message;
+    }
+    call("tests.finish", [id, passed, message]);
+  };
+  objectDefineProperty(globalThis, "test", { value: objectFreeze(runTest), enumerable: true });
+  objectDefineProperty(globalThis, "expect", { value: objectFreeze(expectValue), enumerable: true });
+`
