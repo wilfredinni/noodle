@@ -22,11 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
-      - uses: oven-sh/setup-bun@v2
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - name: Validate tag and package version
@@ -59,10 +60,11 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.ref }}
-      - uses: oven-sh/setup-bun@v2
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - id: tag
@@ -105,13 +107,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -131,12 +135,13 @@ jobs:
             echo "Compiled binary reported $actual, expected $expected" >&2
             exit 1
           }
-      - name: Upload binary
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release upload "$TAG" "noodle-${{ matrix.target }}" --clobber
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-${{ matrix.target }}
+          path: noodle-${{ matrix.target }}
+          if-no-files-found: error
+          overwrite: true
 
   checksums:
     needs: [create-release, build]
@@ -146,15 +151,11 @@ jobs:
       contents: write
     steps:
       - name: Download release binaries
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          mkdir release-assets
-          gh release download "$TAG" --pattern 'noodle-*' --dir release-assets
-          test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
       - name: Generate checksums and upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -162,13 +163,23 @@ jobs:
           TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           set -euo pipefail
+          test "$(find release-assets -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 4
+          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64; do
+            test -f "release-assets/$binary"
+            test -s "release-assets/$binary"
+            test ! -L "release-assets/$binary"
+          done
           (cd release-assets && sha256sum noodle-* | LC_ALL=C sort -k2,2) > release-assets/SHA256SUMS
           test -s release-assets/SHA256SUMS
           test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 4
           for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64; do
             grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
           done
-          gh release upload "$TAG" release-assets/SHA256SUMS --clobber
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" || {
+            echo "Refusing to replace assets of published release $TAG" >&2
+            exit 1
+          }
+          gh release upload "$TAG" release-assets/noodle-* release-assets/SHA256SUMS --clobber
 
   validate-macos-artifact:
     needs: [create-release, checksums]
@@ -185,11 +196,11 @@ jobs:
     env:
       ASSET_NAME: noodle-${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
       - name: Download draft macOS release artifact
@@ -296,7 +307,7 @@ jobs:
           echo "  }" >> update.json
           echo "}" >> update.json
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: wilfredinni/noodle-site
           token: ${{ secrets.NOODLE_SITE_TOKEN }}

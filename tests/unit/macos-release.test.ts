@@ -7,7 +7,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
@@ -17,14 +19,24 @@ import { load } from "js-yaml"
 const root = resolve(import.meta.dir, "../..")
 const signingScript = join(root, "scripts/sign-macos-binary.ts")
 type Workflow = {
+  on: Record<string, unknown>
+  permissions: Record<string, string>
+  concurrency: { group: string; "cancel-in-progress": boolean | string }
   jobs: Record<
     string,
     {
       needs?: string[]
+      permissions?: Record<string, string>
       "runs-on"?: string
       env?: Record<string, string>
       strategy?: { matrix: { include: { os: string; target: string }[] } }
-      steps?: { name?: string; run?: string }[]
+      steps?: {
+        name?: string
+        run?: string
+        uses?: string
+        if?: string
+        with?: Record<string, unknown>
+      }[]
     }
   >
 }
@@ -42,6 +54,49 @@ const releaseTargets = [
 ]
 
 describe("release platforms", () => {
+  it("keeps tag publication and read-only builds with rerunnable artifact transfers", () => {
+    expect(workflow.on.push).toEqual({ tags: ["v*"] })
+    expect(workflow.concurrency["cancel-in-progress"]).toBe(false)
+    expect(workflow.jobs.build.permissions).toEqual({ contents: "read" })
+    expect(ci.permissions).toEqual({ contents: "read" })
+    for (const config of [ci, workflow]) {
+      for (const job of Object.values(config.jobs)) {
+        for (const step of job.steps ?? []) {
+          if (step.uses) expect(step.uses).toMatch(/@[a-f0-9]{40}$/)
+          if (
+            step.uses?.startsWith("actions/checkout@") &&
+            step.with?.repository !== "wilfredinni/noodle-site"
+          ) {
+            expect(step.with?.["persist-credentials"]).toBe(false)
+          }
+        }
+      }
+    }
+    const upload = workflow.jobs.build.steps!.find((step) =>
+      step.uses?.startsWith("actions/upload-artifact@"),
+    )!
+    expect(upload.with).toMatchObject({
+      name: "release-${{ matrix.target }}",
+      path: "noodle-${{ matrix.target }}",
+      "if-no-files-found": "error",
+      overwrite: true,
+    })
+    expect(
+      workflow.jobs.build.steps!.some((step) =>
+        step.run?.includes("gh release"),
+      ),
+    ).toBe(false)
+    const download = workflow.jobs.checksums.steps!.find((step) =>
+      step.uses?.startsWith("actions/download-artifact@"),
+    )!
+    expect(download.with).toEqual({
+      pattern: "release-*",
+      path: "release-assets",
+      "merge-multiple": true,
+    })
+    expect(workflow.jobs.checksums.needs).toContain("build")
+  })
+
   it("tests and builds the same four platforms and validates both macOS artifacts", () => {
     const builds = workflow.jobs.build.strategy!.matrix.include
     expect(builds).toEqual([
@@ -94,20 +149,41 @@ describe("release platforms", () => {
       targets: [...releaseTargets, "unexpected"],
       valid: false,
     },
+    {
+      scenario: "empty binary",
+      targets: releaseTargets,
+      valid: false,
+      empty: "macos-arm64",
+    },
+    {
+      scenario: "already published",
+      targets: releaseTargets,
+      valid: false,
+      draft: "false",
+    },
+    {
+      scenario: "release lookup fails",
+      targets: releaseTargets,
+      valid: false,
+      draft: "error",
+    },
   ])(
     "checks release assets and update metadata: $scenario",
-    ({ targets, valid }) => {
+    ({ targets, valid, draft = "true", empty }) => {
       const directory = mkdtempSync(join(tmpdir(), "noodle-release-assets-"))
       try {
-        const fixtures = join(directory, "fixtures")
+        const fixtures = join(directory, "release-assets")
         mkdirSync(fixtures)
         for (const target of targets) {
-          writeFileSync(join(fixtures, `noodle-${target}`), target)
+          writeFileSync(
+            join(fixtures, `noodle-${target}`),
+            target === empty ? "" : target,
+          )
         }
         const gh = join(directory, "gh")
         writeFileSync(
           gh,
-          '#!/bin/sh\ncase "$1 $2" in\n"release download") cp fixtures/noodle-* release-assets/ ;;\n"release upload") touch uploaded ;;\n*) exit 1 ;;\nesac\n',
+          '#!/bin/sh\ncase "$1 $2" in\n"release view") [ "$DRAFT" != error ] || exit 1; echo "$DRAFT" ;;\n"release upload") printf "%s\\n" "$@" > uploaded ;;\n*) exit 1 ;;\nesac\n',
         )
         chmodSync(gh, 0o755)
         if (process.platform === "darwin") {
@@ -125,17 +201,27 @@ describe("release platforms", () => {
               ...process.env,
               PATH: `${directory}:${process.env.PATH}`,
               TAG: "v0.9.1",
+              DRAFT: draft,
             },
           })
         }
-        expect(runStep("checksums", "Download release binaries").exitCode).toBe(
-          targets.length === 4 ? 0 : 1,
-        )
         expect(
           runStep("checksums", "Generate checksums and upload").exitCode,
         ).toBe(valid ? 0 : 1)
         expect(existsSync(join(directory, "uploaded"))).toBe(valid)
         if (!valid) return
+        expect(
+          readFileSync(join(directory, "uploaded"), "utf8").trim().split("\n"),
+        ).toEqual([
+          "release",
+          "upload",
+          "v0.9.1",
+          ...releaseTargets
+            .map((target) => `release-assets/noodle-${target}`)
+            .sort(),
+          "release-assets/SHA256SUMS",
+          "--clobber",
+        ])
 
         const checksums = readFileSync(
           join(directory, "release-assets/SHA256SUMS"),
@@ -177,6 +263,116 @@ describe("release platforms", () => {
         expect(missingIntel.stderr.toString()).toContain(
           "Missing macos-x86_64 checksum",
         )
+      } finally {
+        rmSync(directory, { recursive: true, force: true })
+      }
+    },
+  )
+})
+
+describe("manual CI builds", () => {
+  it("isolates PR cancellation and only uploads explicitly dispatched test builds", () => {
+    expect(ci.on).toHaveProperty("workflow_dispatch")
+    expect(ci.on).toHaveProperty("workflow_call")
+    expect(ci.concurrency).toEqual({
+      group:
+        "ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}",
+      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
+    })
+    const steps = ci.jobs["response-files"].steps!
+    const compile = steps.find(
+      (step) => step.name === "Test shipped addon inside standalone executable",
+    )!.run!
+    expect(compile).toContain(
+      "bun scripts/compiled-script-smoke.ts ./noodle-response-smoke",
+    )
+    expect(compile).toContain("./noodle-response-smoke --version")
+    expect(compile.indexOf("sign-macos-binary.ts")).toBeLessThan(
+      compile.indexOf("compiled-script-smoke.ts"),
+    )
+    for (const name of [
+      "Package test build",
+      "Upload test build",
+      "Link test build",
+    ]) {
+      expect(steps.find((step) => step.name === name)!.if).toBe(
+        "github.event_name == 'workflow_dispatch'",
+      )
+    }
+    expect(
+      steps.find((step) => step.name === "Upload test build")!.with,
+    ).toMatchObject({
+      path: "noodle-test-${{ matrix.target }}.tar.gz",
+      archive: false,
+      "if-no-files-found": "error",
+      overwrite: true,
+      "retention-days": 7,
+    })
+    expect(
+      steps.findIndex((step) => step.name === "Package test build"),
+    ).toBeGreaterThan(
+      steps.findIndex(
+        (step) => step.name === "Independently rebuild and test native source",
+      ),
+    )
+  })
+
+  it.skipIf(process.platform === "win32")(
+    "packages an executable with its checksum and build identity",
+    () => {
+      const directory = mkdtempSync(join(tmpdir(), "noodle-test-build-"))
+      try {
+        const binary = '#!/bin/sh\nprintf "0.9.1\\n"\n'
+        const commit = "0123456789abcdef0123456789abcdef01234567"
+        for (const [file, content] of Object.entries({
+          "noodle-response-smoke": binary,
+          git: `#!/bin/sh\necho ${commit}\n`,
+          bun: "#!/bin/sh\necho 1.4.0\n",
+        })) {
+          writeFileSync(join(directory, file), content, { mode: 0o755 })
+        }
+        const step = ci.jobs["response-files"].steps!.find(
+          (step) => step.name === "Package test build",
+        )!
+        const packed = Bun.spawnSync(["bash", "-c", step.run!], {
+          cwd: directory,
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            TARGET: "darwin-arm64",
+          },
+        })
+        expect(packed.exitCode).toBe(0)
+        const extracted = join(directory, "extracted")
+        mkdirSync(extracted)
+        expect(
+          Bun.spawnSync([
+            "tar",
+            "-xzf",
+            join(directory, "noodle-test-darwin-arm64.tar.gz"),
+            "-C",
+            extracted,
+          ]).exitCode,
+        ).toBe(0)
+        expect(readdirSync(extracted).sort()).toEqual([
+          "BUILD_INFO.txt",
+          "SHA256SUMS",
+          "noodle",
+        ])
+        expect(statSync(join(extracted, "noodle")).mode & 0o777).toBe(0o755)
+        expect(readFileSync(join(extracted, "noodle"), "utf8")).toBe(binary)
+        expect(readFileSync(join(extracted, "SHA256SUMS"), "utf8")).toBe(
+          `${createHash("sha256").update(binary).digest("hex")}  noodle\n`,
+        )
+        expect(readFileSync(join(extracted, "BUILD_INFO.txt"), "utf8")).toBe(
+          `commit=${commit}\ntarget=darwin-arm64\nversion=0.9.1\nbun=1.4.0\n`,
+        )
+        expect(
+          Bun.spawnSync([
+            join(extracted, "noodle"),
+            "--version",
+          ]).stdout.toString(),
+        ).toBe("0.9.1\n")
       } finally {
         rmSync(directory, { recursive: true, force: true })
       }
