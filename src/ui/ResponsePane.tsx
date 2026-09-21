@@ -60,6 +60,7 @@ import {
   type VisualSession,
 } from "./ResponseVisualBody"
 import { parseVisualBody } from "./responseVisual"
+import { testsSucceeded } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
 import { responseByteSize } from "../responseBody"
 import { ResponseBinaryBody } from "./ResponseBinaryBody"
@@ -83,11 +84,13 @@ function responseResultsStatus(
   state: SendState,
 ): keyof typeof RESULTS_SYMBOLS | null {
   if (state.status !== "done" && state.status !== "error") return null
+  const tests = state.execution?.tests
   const scripts = state.execution?.scripts
   const assertions = state.execution?.assertions
   const captures = state.execution?.captures
-  if (!scripts && !assertions && !captures) return null
+  if (!scripts && !assertions && !captures && !tests) return null
   if (
+    (tests?.evaluated && !testsSucceeded(tests)) ||
     (scripts?.evaluated &&
       scripts.results.some((result) => !scriptExecutionSucceeded(result))) ||
     (assertions?.evaluated &&
@@ -97,6 +100,7 @@ function responseResultsStatus(
     return "error"
   }
   if (
+    tests?.evaluated === false ||
     scripts?.evaluated === false ||
     assertions?.evaluated === false ||
     captures?.evaluated === false

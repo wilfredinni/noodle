@@ -8,7 +8,12 @@ import {
   type ResponseExpression,
 } from "./response"
 import { evaluateCaptures, type CaptureResult, RunScope } from "./runScope"
-import type { ScriptExecutionResult } from "./preRequestScript"
+import type {
+  ScriptExecutionResult,
+  ScriptExecutionError,
+  ScriptLog,
+  TestResult,
+} from "./preRequestScript"
 import {
   environmentSecretValues,
   executionResultSecrets,
@@ -23,7 +28,54 @@ export interface ExecutionResultGroup<T> {
   results: T[]
 }
 
+export interface TestExecutionGroup extends ExecutionResultGroup<TestResult> {
+  logs: ScriptLog[]
+  error?: ScriptExecutionError
+}
+
+export function testsSucceeded(tests: TestExecutionGroup | undefined): boolean {
+  return (
+    !tests ||
+    (tests.evaluated &&
+      !tests.error &&
+      tests.results.every((result) => result.passed))
+  )
+}
+
+export function redactTestExecution(
+  tests: TestExecutionGroup,
+  secrets: readonly RedactionSecret[],
+): TestExecutionGroup {
+  const diagnosticSecrets = executionResultSecrets(
+    secrets,
+  ).flatMap<RedactionSecret>((secret) =>
+    typeof secret === "string"
+      ? [secret, secret.replace(/[\r\n\0]/g, " ").trim()]
+      : [secret],
+  )
+  const redact = (value: string) => redactKnownSecrets(value, diagnosticSecrets)
+  return {
+    ...tests,
+    results: tests.results.map((result) => ({
+      ...result,
+      name: redact(result.name),
+      message: redact(result.message),
+    })),
+    logs: tests.logs.map((log) => ({ ...log, message: redact(log.message) })),
+    ...(tests.error
+      ? {
+          error: {
+            ...tests.error,
+            name: redact(tests.error.name),
+            message: redact(tests.error.message),
+          },
+        }
+      : {}),
+  }
+}
+
 export interface ResponseExecutionResults {
+  tests?: TestExecutionGroup
   scripts?: ExecutionResultGroup<ScriptExecutionResult>
   assertions?: ExecutionResultGroup<AssertionResult>
   captures?: ExecutionResultGroup<CaptureResult>
@@ -46,7 +98,7 @@ export function executionSecretValues(
 }
 
 export function unevaluatedExecutionResults(
-  request: Pick<Request, "scripts" | "assertions" | "captures">,
+  request: Pick<Request, "scripts" | "tests" | "assertions" | "captures">,
 ): ResponseExecutionResults {
   const hasCaptures = Object.values(request.captures ?? {}).some(
     (capture) => capture.enabled,
@@ -55,6 +107,9 @@ export function unevaluatedExecutionResults(
     (assertion) => assertion.enabled !== false,
   )
   return {
+    ...(request.tests !== undefined
+      ? { tests: { evaluated: false, results: [], logs: [] } }
+      : {}),
     ...(request.scripts ? { scripts: { evaluated: false, results: [] } } : {}),
     ...(hasCaptures ? { captures: { evaluated: false, results: [] } } : {}),
     ...(hasAssertions ? { assertions: { evaluated: false, results: [] } } : {}),
@@ -108,6 +163,9 @@ export function redactResponseExecution(
     redactKnownSecrets(value, executionResultSecrets(secrets))
   return {
     ...execution,
+    ...(execution.tests
+      ? { tests: redactTestExecution(execution.tests, secrets) }
+      : {}),
     ...(execution.captures
       ? {
           captures: {

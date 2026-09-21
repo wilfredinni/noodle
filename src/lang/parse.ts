@@ -93,6 +93,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "file_path",
     "tls",
     "scripts",
+    "tests",
     "capture",
     "assert",
   ])
@@ -188,6 +189,14 @@ export function parseRequest(id: string, yamlText: string): Request {
   const tls = parseRequestTls(raw.tls)
   const tags = parseTags(raw.tags, "lang.parseRequest")
   const scripts = parseScripts(raw.scripts)
+  if (raw.tests !== undefined) {
+    if (typeof raw.tests !== "string")
+      throw new Error("lang.parseRequest: tests must be a string")
+    if (isExternalScriptSource(raw.tests))
+      throw new Error(
+        "lang.parseRequest: tests must be inline source; external test files are not supported",
+      )
+  }
   const captures = parseCaptures(raw.capture)
   const assertions = parseAssertions(raw.assert)
 
@@ -247,6 +256,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     filePath,
     auth,
     ...(scripts ? { scripts } : {}),
+    ...(raw.tests !== undefined ? { tests: raw.tests as string } : {}),
     ...(captures ? { captures } : {}),
     ...(assertions ? { assertions } : {}),
   }

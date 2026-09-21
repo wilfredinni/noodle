@@ -182,6 +182,7 @@ export async function executeRequestLifecycle(options: {
     }
 
     const transportRequest = { ...prepared }
+    delete transportRequest.tests
     delete transportRequest.scripts
     delete transportRequest.captures
     delete transportRequest.assertions
@@ -206,7 +207,7 @@ export async function executeRequestLifecycle(options: {
         transport.onSensitiveValues?.(values)
       },
       onPreparedRequest:
-        merged.scripts?.post !== undefined
+        merged.scripts?.post !== undefined || merged.tests !== undefined
           ? (snapshot) => {
               sentRequest = snapshot
               transport.onPreparedRequest?.(snapshot)
@@ -258,6 +259,28 @@ export async function executeRequestLifecycle(options: {
     }
     const postResult = scriptResults.find((result) => result.phase === "post")
     if (postResult) await persistScripts(postResult, postIntents)
+    if (merged.tests !== undefined) {
+      runScope.rememberSecrets(secretValues)
+      const tested = await runRequestScript(
+        "tests",
+        merged.tests,
+        sentRequest,
+        environment,
+        runScope,
+        {
+          response: rawResponse,
+          cookies: transport.cookies,
+        },
+      )
+      secretValues.push(...tested.secretValues)
+      runScope.rememberSecrets(tested.secretValues)
+      responseExecution.tests = {
+        evaluated: true,
+        results: tested.tests ?? [],
+        logs: tested.result.logs,
+        ...(tested.result.error ? { error: tested.result.error } : {}),
+      }
+    }
     secretValues.push(...runScope.secretValues())
     responseExecution = redactResponseExecution(responseExecution, secretValues)
     const execution =
