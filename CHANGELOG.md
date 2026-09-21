@@ -6,59 +6,34 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.9.2] - 2026-09-21
 
-Noodle 0.9.2 adds script time helpers for timestamps, timezone formatting, and
-elapsed durations in both pre-request and post-response scripts. macOS releases
-now include Intel binaries and verify signed artifacts before publication to
-prevent launch failures caused by invalid embedded signatures.
+Noodle 0.9.2 adds script time helpers for timestamps, timezone formatting, and elapsed durations in both pre-request and post-response scripts. macOS releases now include Intel binaries and verify signed artifacts before publication to prevent launch failures caused by invalid embedded signatures.
 
 [Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-2-script-time-helpers/)
 
 ### ✨ Features
 
-- Add frozen `noodle.time` helpers in both script phases: `now`, `unix`,
-  `fromUnix`, `parse`, `iso`, `format`, `add`, `subtract`, and `diff`. Generate
-  timestamps, parse explicit ISO dates and offsets, format named timezones,
-  and calculate elapsed durations with UTC defaults and 24-hour days. Support
-  expanded ISO years, named timezone aliases, and historical timezone offsets
-  within the existing script validation and rollback behavior.
-- Ship a macOS x86_64 standalone binary for Intel Macs, with release checksums
-  and update metadata alongside the existing Apple Silicon and Linux builds.
+- Add frozen `noodle.time` helpers in both script phases: `now`, `unix`, `fromUnix`, `parse`, `iso`, `format`, `add`, `subtract`, and `diff`. Generate timestamps, parse explicit ISO dates and offsets, format named timezones, and calculate elapsed durations with UTC defaults and 24-hour days. Support expanded ISO years, named timezone aliases, and historical timezone offsets within the existing script validation and rollback behavior.
+- Ship a macOS x86_64 standalone binary for Intel Macs, with release checksums and update metadata alongside the existing Apple Silicon and Linux builds.
 
 ### 🐞 Fixes
 
-- Ad-hoc sign and strictly verify macOS standalone binaries before testing and
-  generating release checksums, preventing invalid embedded signatures from
-  causing macOS to kill Noodle after installation or updates. Verify the
-  downloaded draft artifact's checksum, signature, version, and scripting
-  sandbox before publishing; failed validation blocks release publication,
-  update metadata, and Homebrew notifications. Published release assets are
-  preserved.
+- Ad-hoc sign and strictly verify macOS standalone binaries before testing and generating release checksums, preventing invalid embedded signatures from causing macOS to kill Noodle after installation or updates. Verify the downloaded draft artifact's checksum, signature, version, and scripting sandbox before publishing; failed validation blocks release publication, update metadata, and Homebrew notifications. Published release assets are preserved.
 
 ### 🔧 Refactors
 
-- Update Faker to 10.6.0 for script test data and Postman compatibility.
-  Seeded results remain reproducible within the pinned Faker version.
-- Harden CI and release artifact handling with pinned actions, scoped
-  permissions, and an exact four-binary checksum set.
-- Provide downloadable manual CI test builds containing checksums and build
-  identity.
-- Focus native response-file execution and rebuild checks on the four release
-  targets: macOS and Linux glibc on x64/arm64. Windows and Linux musl prebuilds
-  remain available and hash-checked, without CI execution coverage.
+- Update Faker to 10.6.0 for script test data and Postman compatibility. Seeded results remain reproducible within the pinned Faker version.
+- Harden CI and release artifact handling with pinned actions, scoped permissions, and an exact four-binary checksum set.
+- Provide downloadable manual CI test builds containing checksums and build identity.
+- Focus native response-file execution and rebuild checks on the four release targets: macOS and Linux glibc on x64/arm64. Windows and Linux musl prebuilds remain available and hash-checked, without CI execution coverage.
 
 ### 📚 Documentation
 
-- Update `noodle-use` with the script time API, formatting tokens, accepted
-  dates, timezone behavior, and elapsed-duration limits.
-- Update `noodle-dev` with the time helper module, shared API contract, and
-  regression-test guidance.
-- Add time-helper documentation, cookbook recipes, a TUI tip, and a timestamped
-  GET example; update installation guidance for Intel Macs and clarify native
-  response-file CI coverage.
+- Update `noodle-use` with the script time API, formatting tokens, accepted dates, timezone behavior, and elapsed-duration limits.
+- Update `noodle-dev` with the time helper module, shared API contract, and regression-test guidance.
+- Add time-helper documentation, cookbook recipes, a TUI tip, and a timestamped GET example; update installation guidance for Intel Macs and clarify native response-file CI coverage.
 - Update `noodle-use` and its API schema to reference Faker 10.6.0.
 - Update `noodle-dev` to reference Faker 10.6.0.
-- Synchronize the scripting guide, cookbook, and collection format reference
-  with the updated Faker version.
+- Synchronize the scripting guide, cookbook, and collection format reference with the updated Faker version.
 
 ## [0.9.1] - 2026-09-18
 
@@ -71,12 +46,7 @@ Noodle 0.9.1 extends inline scripting with post-response processing, explicit en
 
 ### ✨ Features
 
-- Move scripting APIs to the frozen `noodle` namespace: `noodle.request`,
-  `noodle.response`, `noodle.env`, `noodle.run`, `noodle.crypto`, `noodle.random`,
-  and `noodle.cookies`. Update existing scripts by adding `noodle.` to API
-  accesses. The previous bare API globals are removed; `console` and JavaScript
-  built-ins remain global. Execution phases, mutations, persistence, and sandbox
-  limits retain their existing behavior.
+- Move scripting APIs to the frozen `noodle` namespace: `noodle.request`, `noodle.response`, `noodle.env`, `noodle.run`, `noodle.crypto`, `noodle.random`, and `noodle.cookies`. Update existing scripts by adding `noodle.` to API accesses. The previous bare API globals are removed; `console` and JavaScript built-ins remain global. Execution phases, mutations, persistence, and sandbox limits retain their existing behavior.
 - Add inline `scripts.post` after captures and before assertions for every completed HTTP response, including HTTP and capture failures. Post exposes response metadata, case-insensitive headers, lazy text and cached JSON readers, a read-only view of the final prepared request, and optional final-URL-scoped cookie get/set/delete operations. Successful RunScope and cookie changes commit together; a post failure preserves the response and captures and still runs assertions.
 - Add explicit `{ persist: "environment" | "secret" }` options to `noodle.run.set/unset` in both phases. Manual sends and `request run` save successful intents in pre, capture, post order; collection runs and the TUI Runner keep them transient and report suppression. Storage failures preserve successful runtime changes and return redacted persistence diagnostics.
 - Add bounded, synchronous English test-data generators under `noodle.random`, including identifiers, names, contact details, dates, and structured-value selection. Seeded sequences are reproducible within pinned Faker 10.5.0; relative dates also require an explicit reference date. Generated passwords are registered for redaction, and generator state is isolated per invocation.
@@ -696,9 +666,7 @@ Collections can now be formatted from the automation CLI, giving imported and ex
 
 ![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/path.png)
 
-Path parameters, live network traces, mouse-first controls, and faster focus
-jumps make request work more direct, while stronger draft safety and improved
-theme contrast keep the workflow dependable.
+Path parameters, live network traces, mouse-first controls, and faster focus jumps make request work more direct, while stronger draft safety and improved theme contrast keep the workflow dependable.
 
 ### ✨ Features
 
