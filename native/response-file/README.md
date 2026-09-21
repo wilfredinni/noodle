@@ -28,6 +28,7 @@ including renamed standalone binaries, without requiring a Node installation.
 The four vendored Node-API headers are from Node 25.2.1; their license accompanies
 them. The source and eight artifact hashes are recorded in `prebuilds/manifest.json`.
 
-CI tests shipped prebuilds in source and standalone modes across all eight
-targets, and independently rebuilds and tests the native source on the six
-macOS/Windows/glibc targets. Musl tests run in the official Alpine Bun image.
+CI tests shipped prebuilds in source and standalone modes, and independently
+rebuilds and tests the native source, on the four release targets: macOS
+x64/arm64 and Linux glibc x64/arm64. All eight prebuilds remain available and
+their hashes are verified by `--check`.
