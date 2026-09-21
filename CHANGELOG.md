@@ -36,6 +36,8 @@ prevent launch failures caused by invalid embedded signatures.
 
 ### 🔧 Refactors
 
+- Update Faker to 10.6.0 for script test data and Postman compatibility.
+  Seeded results remain reproducible within the pinned Faker version.
 - Harden CI and release artifact handling with pinned actions, scoped
   permissions, and an exact four-binary checksum set.
 - Provide downloadable manual CI test builds containing checksums and build
@@ -53,6 +55,10 @@ prevent launch failures caused by invalid embedded signatures.
 - Add time-helper documentation, cookbook recipes, a TUI tip, and a timestamped
   GET example; update installation guidance for Intel Macs and clarify native
   response-file CI coverage.
+- Update `noodle-use` and its API schema to reference Faker 10.6.0.
+- Update `noodle-dev` to reference Faker 10.6.0.
+- Synchronize the scripting guide, cookbook, and collection format reference
+  with the updated Faker version.
 
 ## [0.9.1] - 2026-09-18
 

@@ -348,7 +348,7 @@ or SVG data URIs; generation performs no network or filesystem operations.
 | `number` | `{ min, max }`; inclusive safe integers, default `0..1000` |
 | `float` | `{ min, max, fractionDigits }`; default `0..1`, max exclusive unless precision is supplied, following Faker |
 | `id`, `alphaNumeric`, `nanoId`, `password`, `bankAccount` | `{ length }`; defaults `12`, `1`, `21`, `15`, `8` respectively |
-| `words`, `loremWords`, `loremSentence`, `loremSentences`, `loremParagraph`, `loremParagraphs`, `loremSlug`, `loremLines` | `{ count }`; corresponding words, sentences, paragraphs or lines; unspecified counts follow Faker 10.5.0 |
+| `words`, `loremWords`, `loremSentence`, `loremSentences`, `loremParagraph`, `loremParagraphs`, `loremSlug`, `loremLines` | `{ count }`; corresponding words, sentences, paragraphs or lines; unspecified counts follow Faker 10.6.0 |
 | `datePast`, `dateFuture` | `{ years, refDate }`; default one year, reference defaults to invocation start |
 | `dateRecent` | `{ days, refDate }`; default one day, reference defaults to invocation start |
 | `price` | `{ min, max, fractionDigits }`; default `0..1000`, two decimal places |
@@ -362,7 +362,7 @@ overflow. `refDate` must be a valid ISO timestamp with a timezone, for example
 most 1,000 elements, within the usual 256 KiB/depth-32 bridge limits; unsafe
 keys, cycles, non-finite numbers, accessors and unsupported values are rejected.
 
-Each invocation lazily creates an independent English/base Faker 10.5.0 instance
+Each invocation lazily creates an independent English/base Faker 10.6.0 instance
 with a fresh random seed. `seed` accepts an integer `0..4294967295` and resets
 only that invocation's sequence. Pre, post, different requests and concurrent
 runs never share generator state. Share generated values with `noodle.run.set` instead.

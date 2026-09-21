@@ -99,7 +99,7 @@ visible to later collection requests even if later phases fail. Read the complet
 limits in [schema.md](schema.md#inline-request-scripts).
 
 Both phases expose frozen `noodle.random.*()` English test-data generators with bounded
-options. Each invocation has independent Faker 10.5.0 state; `noodle.random.seed` resets
+options. Each invocation has independent Faker 10.6.0 state; `noodle.random.seed` resets
 only its sequence. Use `noodle.run.set` to share values, and an explicit `refDate` plus
 seed for reproducible relative dates. Passwords are automatically known secrets;
 other generated data stays visible. IDs and passwords are test data without
