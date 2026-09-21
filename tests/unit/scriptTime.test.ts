@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, setSystemTime } from "bun:test"
 import {
   runRequestScript,
   SCRIPT_API_CONTRACT,
@@ -36,10 +36,14 @@ const run = (source: string, scope: RunScope, phase: "pre" | "post") =>
   )
 
 describe("script time API", () => {
+  afterEach(() => setSystemTime())
+
   it("exposes every frozen method in both phases without replacing Date or random timestamps", async () => {
+    const timestamp = "2026-01-01T00:00:00.123Z"
+    const now = Date.parse(timestamp)
+    setSystemTime(now)
     for (const phase of ["pre", "post"] as const) {
       const scope = new RunScope()
-      const before = Date.now()
       const result = await run(
         `
         const t = noodle.time;
@@ -61,7 +65,6 @@ describe("script time API", () => {
         phase,
       )
       expect(result.result.success).toBe(true)
-      const after = Date.now()
       expect(scope.get("surface")).toEqual({
         names: TIME_METHODS.map(({ name }) => name),
         frozen: true,
@@ -80,25 +83,13 @@ describe("script time API", () => {
         subtract: -1500,
         diff: 1.5,
       })
-      const clock = scope.get("clock") as [
-        number,
-        number,
-        string,
-        number,
-        string,
-      ]
-      for (const value of [
-        clock[0],
-        Date.parse(clock[2]),
-        Date.parse(clock[4]),
-      ]) {
-        expect(value).toBeGreaterThanOrEqual(before)
-        expect(value).toBeLessThanOrEqual(after)
-      }
-      for (const value of [clock[1], clock[3]]) {
-        expect(value).toBeGreaterThanOrEqual(Math.floor(before / 1000))
-        expect(value).toBeLessThanOrEqual(Math.floor(after / 1000))
-      }
+      expect(scope.get("clock")).toEqual([
+        now,
+        1767225600,
+        timestamp,
+        1767225600,
+        timestamp,
+      ])
       expect(
         SCRIPT_API_CONTRACT.filter(
           (entry) =>
@@ -119,6 +110,7 @@ describe("script time API", () => {
       "2026-01-01T00:00:00.123456Z",
       "+010000-01-01T00:00:00Z",
       "-000001-01-01T00:00:00Z",
+      "-000400-02-29",
     ]) {
       expect(call("parse", value)).toBe(Date.parse(value))
       expect(call("iso", call("parse", value))).toBe(
@@ -144,6 +136,29 @@ describe("script time API", () => {
     for (const value of [-8.64e15, 8.64e15]) {
       expect(call("iso", value)).toBe(new Date(value).toISOString())
       expect(call("parse", new Date(value).toISOString())).toBe(value)
+    }
+    expect(call("parse", "-271821-04-19T23:00:00-01:00")).toBe(-8.64e15)
+    expect(call("parse", "+275760-09-13T01:00:00+01:00")).toBe(8.64e15)
+  })
+
+  it("accepts named timezone aliases containing digits and signs in both phases", async () => {
+    for (const phase of ["pre", "post"] as const) {
+      const scope = new RunScope()
+      const result = await run(
+        `noodle.run.set("aliases", ["EST5EDT", "CST6CDT", "MST7MDT", "PST8PDT", "GMT0", "GMT+0", "GMT-0"].map(timeZone => noodle.time.format(0, "YYYY-MM-DD HH:mm Z", { timeZone })));`,
+        scope,
+        phase,
+      )
+      expect(result.result.success).toBe(true)
+      expect(scope.get("aliases")).toEqual([
+        "1969-12-31 19:00 -05:00",
+        "1969-12-31 18:00 -06:00",
+        "1969-12-31 17:00 -07:00",
+        "1969-12-31 16:00 -08:00",
+        "1970-01-01 00:00 +00:00",
+        "1970-01-01 00:00 +00:00",
+        "1970-01-01 00:00 +00:00",
+      ])
     }
   })
 
@@ -205,6 +220,7 @@ describe("script time API", () => {
     for (const text of [
       "2023-02-29",
       "1900-02-29",
+      "-000100-02-29",
       "2026-02-30",
       "2026-04-31",
       "2026-00-01",
@@ -218,6 +234,8 @@ describe("script time API", () => {
       "2026-01-01T00:00:00+24:00",
       "2026-01-01T00:00:00+00:60",
       "-000000-01-01",
+      "-271821-04-19T22:59:59.999-01:00",
+      "+275760-09-13T01:00:00.001+01:00",
       "01/02/2026",
       "tomorrow",
       "0",
@@ -251,6 +269,10 @@ describe("script time API", () => {
       ["format", [0, "YYYY", { timeZone: null }]],
       ["format", [0, "YYYY", { timeZone: "Missing/Zone" }]],
       ["format", [0, "YYYY", { timeZone: "+01:00" }]],
+      ["format", [0, "YYYY", { timeZone: "-01:00" }]],
+      ["format", [0, "YYYY", { timeZone: "+0100" }]],
+      ["format", [0, "YYYY", { timeZone: "-01" }]],
+      ["format", [0, "YYYY", { timeZone: "" }]],
       ["format", [0, "YYYY", { timeZone: "x".repeat(129) }]],
     ] as [string, unknown[]][])
       expect(() => call(name, ...args)).toThrow()

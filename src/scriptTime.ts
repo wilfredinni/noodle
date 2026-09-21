@@ -99,9 +99,12 @@ export function createTimeHandlers(error: (message: string) => Error) {
     if (!match || value.startsWith("-000000"))
       return fail("expected an ISO date or timestamp with a timezone")
     const [, date, month, day, hour, minute, second, zone] = match
-    const calendar = new Date(`${date}T00:00:00.000Z`)
+    const year = Number(date!.slice(0, -6))
+    // Gregorian dates repeat every 400 years; validate before clipping the instant.
+    const calendar = new Date(
+      Date.UTC(2000 + (year % 400), Number(month) - 1, Number(day)),
+    )
     if (
-      !Number.isFinite(calendar.getTime()) ||
       calendar.getUTCMonth() + 1 !== Number(month) ||
       calendar.getUTCDate() !== Number(day) ||
       (hour !== undefined &&
@@ -140,11 +143,7 @@ export function createTimeHandlers(error: (message: string) => Error) {
         return fail("options must contain only timeZone")
       if (Object.hasOwn(options, "timeZone")) {
         const zone = (options as { timeZone: unknown }).timeZone
-        if (
-          typeof zone !== "string" ||
-          zone.length > 128 ||
-          !/^[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)*$/.test(zone)
-        )
+        if (typeof zone !== "string" || zone.length > 128 || /^[+-]/.test(zone))
           return fail("timeZone must be UTC or a named IANA timezone")
         timeZone = zone
       }
