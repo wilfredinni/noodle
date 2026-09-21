@@ -6,13 +6,24 @@ followRedirects: true
 maxRedirects: 5
 scripts:
   pre: |-
-    const timestamp = new Date().toISOString();
+    const now = noodle.time.now();
+    const timestamp = noodle.time.iso(now);
+    const expiresAt = noodle.time.add(now, 15, "minutes");
+    noodle.run.set("expiresAt", expiresAt);
     noodle.request.headers.set("X-Noodle-Timestamp", timestamp);
+    noodle.request.headers.set("X-Noodle-Expires", noodle.time.iso(expiresAt));
+    noodle.request.headers.set(
+      "X-Noodle-Local-Time",
+      noodle.time.format(now, "YYYY-MM-DD HH:mm:ss Z", { timeZone: "America/Santiago" }),
+    );
     noodle.request.headers.set(
       "X-Noodle-Digest",
       noodle.crypto.sha256(timestamp + ":" + noodle.request.url, "hex"),
     );
     console.info("Added timestamp and request digest");
+  post: |-
+    const remaining = noodle.time.diff(noodle.run.get("expiresAt"), noodle.time.now(), "seconds");
+    console.info("Expiration window remaining (seconds):", remaining);
 assert:
   - expression: status
     operator: equals

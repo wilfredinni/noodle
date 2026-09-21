@@ -13,6 +13,7 @@ import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope, secretRedactionValues } from "./runScope"
 import { createRandomHandlers, RANDOM_GENERATORS } from "./scriptRandom"
+import { createTimeHandlers, TIME_METHODS } from "./scriptTime"
 import {
   requestSensitiveValues,
   responseSensitiveValues,
@@ -54,6 +55,7 @@ const api = (
     | "run"
     | "crypto"
     | "random"
+    | "time"
     | "console"
     | "response"
     | "cookies",
@@ -98,6 +100,10 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
     ),
     ...RANDOM_GENERATORS.map(({ name, signature, description }) =>
       api("random", name, "method", signature, description),
+    ),
+    api("time", "", "global", "time: Time", "Date and elapsed-time helpers."),
+    ...TIME_METHODS.map(({ name, signature, description }) =>
+      api("time", name, "method", signature, description),
     ),
     api("request", "", "global", "request: Request", "Prepared request."),
     api("request", "url", "property", "string", "Request URL."),
@@ -637,6 +643,7 @@ export async function runRequestScript(
   }
 
   const handlers: Record<string, BridgeHandler> = {
+    ...createTimeHandlers(apiError),
     ...createRandomHandlers(
       apiError,
       (value) => secretValues.add(value),
@@ -1685,7 +1692,7 @@ function bootstrapSource(
         : operation === "response.text" ? readResponseText
         : operation === "response.json" ? readResponseJson
         : (...args) => call(operation, args);
-      if (operation.startsWith("random.")) objectFreeze(fn);
+      if (operation.startsWith("random.") || operation.startsWith("time.")) objectFreeze(fn);
       objectDefineProperty(parent, name, { value: fn, enumerable: true });
     }
   }

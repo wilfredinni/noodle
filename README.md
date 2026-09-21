@@ -243,6 +243,9 @@ The public script API includes:
 - Frozen `noodle.random.*()` methods generate English test data in both phases: IDs,
   names, contact details, dates, addresses, commerce, finance, files and images.
   See the [complete catalog and options](.agents/skills/noodle-use/schema.md#script-random-api).
+- Frozen `noodle.time.*()` methods provide timestamps, ISO parsing, pattern formatting,
+  named timezones, and elapsed-time arithmetic in both phases.
+  See the [time API and formats](.agents/skills/noodle-use/schema.md#script-time-api).
 - `console.log`, `info`, `warn`, and `error` capture bounded result logs.
 - Post adds `noodle.response.status`, `statusText`, `timeMs`, case-insensitive
   `noodle.response.headers.get/has`, `noodle.response.text()`, and cached `noodle.response.json()`.
@@ -271,6 +274,25 @@ Image URLs, SVG data URIs and paths are generated without network or file access
 JSON body placeholders remain deferred. See the ordered
 [`random-1-create-user.yml`](collections/scripts/random-1-create-user.yml) and
 [`random-2-next-user.yml`](collections/scripts/random-2-next-user.yml) examples.
+
+Use `noodle.time.now()` for Unix milliseconds, `unix()` for Unix seconds, and
+`iso()` for UTC ISO timestamps. Formatting defaults to UTC and accepts an explicit
+IANA timezone. Arithmetic uses elapsed time: one day always means 24 hours.
+
+```js
+const now = noodle.time.now();
+noodle.request.headers.set("X-Timestamp", noodle.time.iso(now));
+noodle.run.set("expiresAt", noodle.time.add(now, 15, "minutes"));
+const local = noodle.time.format(now, "YYYY-MM-DD HH:mm:ss Z", {
+  timeZone: "America/Santiago",
+});
+```
+
+`parse()` accepts ISO dates (midnight UTC) or date-times with `Z` or an explicit
+offset. `fromUnix()` converts seconds to milliseconds; `subtract()` and `diff()`
+handle elapsed durations. Existing JavaScript `Date` and random timestamp
+helpers remain available. The [Timestamped GET](collections/scripts/timestamped-get.yml)
+example also shares an expiration time with its post script.
 
 Request and RunScope changes commit only after the complete script succeeds.
 Request changes affect only the prepared in-memory copy. RunScope changes are
