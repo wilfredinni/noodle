@@ -26,6 +26,7 @@ One request per file. Fields:
 | `auth` | no | map | n/a | Auth config. Omit for no auth |
 | `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
 | `scripts` | no | map | n/a | Optional string-valued inline `pre` and `post` phases |
+| `tests` | no | string | n/a | Inline synchronous programmable tests, evaluated after declarative assertions |
 | `capture` | no | map | None | Response expressions captured as run-scoped variables |
 | `assert` | no | list | None | Response assertions evaluated by manual TUI sends and non-interactive run commands |
 
@@ -69,6 +70,83 @@ Noodle synchronizes path-param names with URL tokens. Values can use `$var`
 references and must resolve in the active environment before sending.
 
 <a id="inline-pre-request-script"></a>
+
+### Inline scripted tests
+
+Use declarative `assert` for simple response contracts and a request-level
+`tests` string for conditions, loops, or related JSON checks:
+
+```yaml
+tests: |
+  test("user is active", () => {
+    expect(noodle.response.json().status).toBe("active")
+  })
+  test("successful response has a user", () => {
+    if (noodle.response.status < 400) {
+      const user = noodle.response.json().user
+      expect(user.id).toBeDefined()
+      expect(user.roles).toContain("member")
+      expect(user.profile).toEqual({ active: true })
+    }
+  })
+```
+
+`test(name, callback)` runs synchronously and keeps declaration order, including
+duplicate names. Names must be non-empty strings. A failed matcher or callback
+fails that test and later tests continue. A top-level error stops the script but
+preserves completed results. Empty source is a successful no-op. `tests` must be
+an inline string; file paths, inherited tests, modules, Promises, thenables, and
+queued asynchronous work are unsupported. Source is never variable-substituted.
+
+Every matcher supports `.not`, for example `expect(value).not.toBeNull()`.
+Type errors fail even with `.not`:
+
+| Matcher | Behavior |
+| --- | --- |
+| `toBe(expected)` | `Object.is`, including `NaN` and signed zero; objects compare by identity |
+| `toEqual(expected)` | Typed deep JSON equality; array order matters, object key order does not |
+| `toBeTruthy()` / `toBeFalsy()` | JavaScript truthiness |
+| `toBeDefined()` | Value is not `undefined`; JSON `null` is defined |
+| `toBeNull()` | Value is exactly `null` |
+| `toContain(expected)` | String substring or deep-equal JSON array element |
+| `toMatch(pattern)` | String regex without flags, or RegExp with its explicit flags; leaves `lastIndex` unchanged |
+| `toBeGreaterThan(expected)` / `toBeGreaterThanOrEqual(expected)` | Finite numeric comparison, without coercion |
+| `toBeLessThan(expected)` / `toBeLessThanOrEqual(expected)` | Finite numeric comparison, without coercion |
+
+Cyclic values, unsafe prototypes/keys, accessors, non-transferable values, and
+oversized matcher values are rejected. Deep equality requires JSON-compatible
+values; scalar `undefined` and non-finite numbers remain available to identity
+and truthiness checks. No other matchers are supported.
+
+All execution paths use this order: folder overrides → environment/RunScope →
+substitution → pre → HTTP → captures → post → declarative assertions → tests.
+Tests run whenever a response exists, including after HTTP, capture, post, or
+assertion failures. Pre and transport failures leave tests unevaluated. Use
+`scripts.post` for mutations. Tests read the final prepared request, response,
+environment, RunScope, and applicable final-URL cookies through `noodle.*`;
+crypto, random, time, and captured `console` helpers remain available. State
+mutators fail, response JSON is frozen, and tests cannot persist values.
+
+The existing QuickJS limits apply, including a 500 ms script deadline, 32 MiB
+runtime memory, 256 KiB source/matcher values and retained test records, depth 32
+JSON values, and the lazy 5 MiB response text limit. Callbacks returning a
+Promise or thenable fail with `async tests are not supported`; pending jobs
+never execute. Resource limits stop the group while keeping completed results.
+
+Results add `tests: { evaluated, results, logs, error? }`. Each ordered result
+contains `name`, `passed`, `message`, and `durationMs`; `error` describes a
+separate top-level script failure. Known secrets are redacted from names,
+messages, errors, and logs. Failed tests or a script error add failure category
+`test` and make automation exit nonzero. Collection summaries add `testPasses`,
+`testFailures`, and `testScriptErrors` when tests are present; fail-fast waits
+for all diagnostics. Requests without tests keep their previous output.
+
+Human output shows counts and concise failures. JSON includes structured results
+and redacted logs. The existing TUI Results view shows expandable scripted tests
+and logs in manual sends, Runner details, and timeline history. Manual history
+retains bounded, redacted diagnostics, with the existing 10,000-byte diagnostic
+text/log limits; it excludes test source and runtime values. There is no test
+editor, autocomplete, dedicated Console panel, or importer conversion.
 
 ### Inline request scripts
 
@@ -569,10 +647,11 @@ Every manual send and automation request follows this order:
 8. Execute post using committed captures and the final prepared request; commit
    successful transient RunScope and URL-scoped cookie changes together.
 9. Evaluate assertions against the same response views, including after post failure.
+10. Execute request-level scripted tests, including after any completed response failure.
 
 Manual sends and `request run` use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order after target
-and tag filtering. HTTP/capture errors still reach post; post errors still reach assertions;
+and tag filtering. HTTP/capture errors still reach post; post errors still reach assertions and tests;
 transport failures have no response views to evaluate.
 
 ### Header and param values

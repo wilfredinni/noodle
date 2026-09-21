@@ -55,6 +55,8 @@ to create a collection, send your first request, and inspect the response.
   Configure proxy policies, custom certificate authorities, and mutual TLS.
 - 🧪 **[Response assertions](https://noodlerest.dev/docs/guides/automation/#put-success-criteria-beside-the-request):**
   Check status, timing, headers, and JSON values in the TUI or CI.
+- ✅ **[Scripted tests](https://noodlerest.dev/docs/guides/scripted-tests/):**
+  Check responses with programmable tests and conditional assertions.
 - 🎯 **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
   Pass response values to later requests or save them to an environment or secret.
 - 📜 **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**

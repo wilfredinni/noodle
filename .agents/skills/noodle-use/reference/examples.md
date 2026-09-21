@@ -54,6 +54,35 @@ A failed assertion makes the command exit nonzero. Read structured results from
 `data.result.assertions`; known secrets are redacted from expected and actual
 values, but arbitrary server data remains visible.
 
+## Conditional scripted JSON tests
+
+```yaml
+name: Validate user
+method: GET
+url: $BASE_URL/users/7
+assert:
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+tests: |
+  test("active user", () => {
+    if (noodle.response.status < 400) {
+      const user = noodle.response.json()
+      expect(user.id).toBeGreaterThan(0)
+      expect(user.status).toBe("active")
+      expect(user.roles).toContain("member")
+      expect(user.profile).toEqual({ active: true })
+      expect(user.name).not.toBeNull()
+    }
+  })
+```
+
+Use `assert` for simple response contracts and `tests` for conditional logic.
+Both execute after capture/post processing; tests run last, even when earlier
+response checks fail. Tests cannot mutate state, and async callbacks are
+unsupported. Read results and redacted logs from `tests` in the existing run
+result. See the [matcher reference](../schema.md#inline-scripted-tests).
+
 ## Request with sandboxed inline scripts
 
 Request (`signed/create.yml`):

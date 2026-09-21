@@ -32,7 +32,7 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre/post scripts, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre/post scripts, scripted tests, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a committed capture/script RunScope value from an earlier request in the same collection run.
@@ -86,12 +86,13 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 8. Run optional post-response processing and atomically commit successful
    RunScope and URL-scoped cookie changes.
 9. Evaluate assertions, including after post failure.
+10. Run optional read-only scripted tests, including after HTTP, capture, post, or assertion failure.
 
 Use `scripts.pre` for synchronous request preparation and `scripts.post` for
 response extraction or conditional processing that cannot be expressed
 declaratively. Script source is literal and never variable-
-substituted. All Noodle APIs live under the frozen `noodle` namespace; bare API
-globals are unavailable. Pre exposes `noodle.request`, `noodle.env`, `noodle.run`,
+substituted. Noodle readers and state APIs live under the frozen `noodle` namespace; bare
+reader aliases are unavailable. Only the tests phase adds global `test` and `expect`. Pre exposes `noodle.request`, `noodle.env`, `noodle.run`,
 `noodle.crypto`, `noodle.random`, `noodle.time`, and captured global `console` APIs. Imports, network calls, host APIs, timers, returned
 Promises, and queued async work are unsupported. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
@@ -141,7 +142,47 @@ Treat collections containing scripts as trusted code. Although the sandbox has
 no network API, a script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
-Manual timeline history retains bounded, redacted pre/post diagnostics, logs, and persistence outcomes. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
+Manual timeline history retains bounded, redacted pre/post diagnostics, logs, persistence outcomes, and scripted test results/errors/logs. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
+
+### Scripted response tests
+
+Use a request-level inline `tests` string for conditional checks, loops, and
+related JSON assertions. Use declarative `assert` for simple response contracts;
+use `scripts.post` for mutations. `test(name, callback)` and `expect(actual)` are
+global only in tests; readers remain `noodle.response`, `noodle.request`,
+`noodle.env`, `noodle.run`, and final-URL `noodle.cookies` when enabled. Crypto,
+random, time, and captured console helpers remain available.
+
+```yaml
+tests: |
+  test("successful response has an active user", () => {
+    if (noodle.response.status < 400) {
+      const user = noodle.response.json().user
+      expect(user.id).toBeDefined()
+      expect(user.status).toBe("active")
+      expect(user.roles).toContain("member")
+    }
+  })
+```
+
+Supported matchers: `toBe`, `toEqual`, `toBeTruthy`, `toBeFalsy`, `toBeDefined`,
+`toBeNull`, `toContain`, `toMatch`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`,
+`toBeLessThan`, and `toBeLessThanOrEqual`. Each supports `.not`. See the
+[matcher reference](schema.md#inline-scripted-tests) for exact types and limits.
+
+Tests cannot mutate request, response, RunScope, environment, or cookies.
+Callbacks execute synchronously in declaration order; duplicate names remain
+separate. Failed callbacks do not stop later tests. Top-level errors and
+resource limits retain already completed results. Promises, thenables, async
+jobs, external files, inheritance, and modules are unsupported. Empty source is
+a no-op, source is never substituted, and non-string `tests` values are invalid.
+
+Read `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs,
+error? }`, with `{ name, passed, message, durationMs }` per test. Pre/transport
+failures leave tests unevaluated. Failure category `test` covers failed callbacks
+and top-level errors; collection summaries include `testPasses`, `testFailures`,
+and `testScriptErrors` when tests exist. Fail-fast waits for all diagnostics.
+Known secrets are redacted, and human output omits log text.
 
 ### Redirect and timeout safety
 Noodle rejects HTTPS-to-HTTP redirects. When a redirect changes origin, it
