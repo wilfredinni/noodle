@@ -57,7 +57,11 @@ describe("release platforms", () => {
   it("keeps tag publication and read-only builds with rerunnable artifact transfers", () => {
     expect(workflow.on.push).toEqual({ tags: ["v*"] })
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false)
+    expect(workflow.permissions).toEqual({ contents: "read" })
     expect(workflow.jobs.build.permissions).toEqual({ contents: "read" })
+    expect(workflow.jobs["validate-macos-artifact"].permissions).toEqual({
+      contents: "write",
+    })
     expect(ci.permissions).toEqual({ contents: "read" })
     for (const config of [ci, workflow]) {
       for (const job of Object.values(config.jobs)) {

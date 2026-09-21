@@ -183,6 +183,8 @@ jobs:
 
   validate-macos-artifact:
     needs: [create-release, checksums]
+    permissions:
+      contents: write # Draft release downloads require push access.
     strategy:
       fail-fast: false
       matrix:
