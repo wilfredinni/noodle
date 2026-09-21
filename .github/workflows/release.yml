@@ -94,8 +94,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             target: macos-arm64
+          - os: macos-15-intel
+            target: macos-x86_64
           - os: ubuntu-latest
             target: linux-x86_64
           - os: ubuntu-24.04-arm
@@ -152,7 +154,7 @@ jobs:
           set -euo pipefail
           mkdir release-assets
           gh release download "$TAG" --pattern 'noodle-*' --dir release-assets
-          test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 3
+          test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 4
       - name: Generate checksums and upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -162,16 +164,26 @@ jobs:
           set -euo pipefail
           (cd release-assets && sha256sum noodle-* | LC_ALL=C sort -k2,2) > release-assets/SHA256SUMS
           test -s release-assets/SHA256SUMS
-          test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 3
-          for binary in noodle-macos-arm64 noodle-linux-x86_64 noodle-linux-arm64; do
+          test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 4
+          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64; do
             grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
           done
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
 
   validate-macos-artifact:
     needs: [create-release, checksums]
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: macos-arm64
+          - os: macos-15-intel
+            target: macos-x86_64
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    env:
+      ASSET_NAME: noodle-${{ matrix.target }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -185,13 +197,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release download "$TAG" --pattern 'noodle-macos-arm64' --pattern 'SHA256SUMS' --dir release-assets
+        run: gh release download "$TAG" --pattern "$ASSET_NAME" --pattern 'SHA256SUMS' --dir release-assets
       - name: Verify downloaded macOS binary
         shell: bash
         run: |
           set -euo pipefail
-          binary="release-assets/noodle-macos-arm64"
-          expected_hash=$(awk '$2 == "noodle-macos-arm64" { print $1 }' release-assets/SHA256SUMS)
+          binary="release-assets/$ASSET_NAME"
+          expected_hash=$(awk -v name="$ASSET_NAME" '$2 == name { print $1 }' release-assets/SHA256SUMS)
           [[ "$expected_hash" =~ ^[[:xdigit:]]{64}$ ]] || {
             echo "Missing or invalid macOS release checksum" >&2
             exit 1
@@ -264,12 +276,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          sha256sums=$(cat SHA256SUMS)
-          macos_hash=$(echo "$sha256sums" | grep 'noodle-macos-arm64\b' | awk '{print $1}')
-          linux_x86_hash=$(echo "$sha256sums" | grep 'noodle-linux-x86_64\b' | awk '{print $1}')
-          linux_arm_hash=$(echo "$sha256sums" | grep 'noodle-linux-arm64\b' | awk '{print $1}')
+          macos_hash=$(awk '$2 == "noodle-macos-arm64" { print $1 }' SHA256SUMS)
+          macos_x86_hash=$(awk '$2 == "noodle-macos-x86_64" { print $1 }' SHA256SUMS)
+          linux_x86_hash=$(awk '$2 == "noodle-linux-x86_64" { print $1 }' SHA256SUMS)
+          linux_arm_hash=$(awk '$2 == "noodle-linux-arm64" { print $1 }' SHA256SUMS)
 
           test -n "$macos_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
+          test -n "$macos_x86_hash" || { echo "Missing macos-x86_64 checksum" >&2; exit 1; }
           test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
           test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
 
@@ -277,6 +290,7 @@ jobs:
           echo "  \"version\": \"${TAG}\"," >> update.json
           echo "  \"assets\": {" >> update.json
           echo "    \"macos-arm64\": { \"sha256\": \"${macos_hash}\" }," >> update.json
+          echo "    \"macos-x86_64\": { \"sha256\": \"${macos_x86_hash}\" }," >> update.json
           echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
           echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }" >> update.json
           echo "  }" >> update.json
