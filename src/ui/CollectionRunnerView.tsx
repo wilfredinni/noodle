@@ -823,6 +823,18 @@ export function CollectionRunnerView({
                         content={t`${fg(theme.textMuted)(`${runner.result.summary.assertionPasses} assertion${runner.result.summary.assertionPasses === 1 ? "" : "s"} passed`)}${fg(theme.error)(runner.result.summary.assertionFailures > 0 ? ` · ${runner.result.summary.assertionFailures} failed` : "")}${fg(runner.result.summary.captureFailures > 0 ? theme.error : theme.textMuted)(runner.result.summary.captureFailures > 0 ? ` · ${runner.result.summary.captureFailures} capture failure${runner.result.summary.captureFailures === 1 ? "" : "s"}` : " · no capture failures")}${fg(theme.warning)(runner.result.summary.skipped > 0 ? ` · ${runner.result.summary.skipped} skipped` : "")}`}
                         style={{ marginBottom: 1 }}
                       />
+                      {runner.result.summary.testPasses !== undefined ? (
+                        <text
+                          fg={
+                            runner.result.summary.testFailures ||
+                            runner.result.summary.testScriptErrors
+                              ? theme.error
+                              : theme.textMuted
+                          }
+                        >
+                          {`Tests: ${runner.result.summary.testPasses} passed · ${runner.result.summary.testFailures} failed · ${runner.result.summary.testScriptErrors} script errors`}
+                        </text>
+                      ) : null}
                       {runner.result.summary.failureCategories.length > 0 ? (
                         <text fg={theme.warning}>
                           {`Failure categories: ${runner.result.summary.failureCategories.join(", ")}`}

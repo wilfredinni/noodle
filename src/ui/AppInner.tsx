@@ -908,18 +908,8 @@ export function AppInner({
       if (!detail || !request) return
       overlays.setRunnerDetail({
         entry: detail.entry,
-        execution: {
-          ...(row.result.scripts ? { scripts: row.result.scripts } : {}),
-          ...(row.result.assertions
-            ? { assertions: row.result.assertions }
-            : {}),
-          ...(row.result.captures ? { captures: row.result.captures } : {}),
-        },
-        request: {
-          scripts: request.scripts,
-          assertions: request.assertions,
-          captures: request.captures,
-        },
+        execution: row.result,
+        request,
         warnings: row.result.warnings,
       })
     },

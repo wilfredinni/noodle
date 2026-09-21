@@ -1,4 +1,5 @@
 import { MouseButton } from "@opentui/core"
+import { stringWidth } from "bun"
 import { useTheme } from "./theme"
 
 export const COOKIE_CHEVRON_WIDTH = 2
@@ -20,7 +21,10 @@ export interface CookieDetailsInput {
 
 export function cookieNameWidth(cookies: Array<{ name: string }>): number {
   if (cookies.length === 0) return 0
-  return Math.min(24, Math.max(...cookies.map(({ name }) => name.length)) + 2)
+  return Math.min(
+    24,
+    Math.max(...cookies.map(({ name }) => stringWidth(name))) + 2,
+  )
 }
 
 export function formatCookieExpiry(expires: Date | string | null): string {
