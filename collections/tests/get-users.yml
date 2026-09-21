@@ -1,0 +1,29 @@
+# Loops register a separate result for each user; failed tests do not stop later tests.
+name: Test Every User
+method: GET
+url: $base_url/users
+timeout: 0
+body_type: none
+tests: |-
+  const users = noodle.response.json();
+
+  test("response contains users", () => {
+    expect(noodle.response.status).toBe(200);
+    expect(Array.isArray(users)).toBe(true);
+    expect(users.length).toBeGreaterThan(0);
+  });
+
+  if (Array.isArray(users)) {
+    for (const user of users) {
+      test("user " + user.id + " has contact details", () => {
+        expect(user.id).toBeGreaterThan(0);
+        expect(user.name).toMatch(/\S/);
+        expect(user.email).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+        expect(user.address.city).toMatch(/\S/);
+        if (user.website !== undefined) {
+          expect(user.website).toContain(".");
+        }
+      });
+    }
+    console.info("Checked users:", users.length);
+  }

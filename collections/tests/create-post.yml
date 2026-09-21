@@ -1,0 +1,52 @@
+# Runs independently: pre, capture, and post prepare values for read-only tests.
+# JSONPlaceholder echoes this POST without saving a real resource.
+name: Test Created Post and Script Values
+method: POST
+url: $base_url/posts
+timeout: 0
+tags:
+  - destructive
+body: |-
+  {
+    "title": "Scripted test example",
+    "userId": 1,
+    "published": true,
+    "note": null,
+    "tags": ["noodle", "tests"]
+  }
+body_type: json
+scripts:
+  pre: |-
+    const requestId = noodle.crypto.randomBytes(8, "hex");
+    noodle.request.headers.set("X-Request-ID", requestId);
+    noodle.request.body.setJson({ ...noodle.request.body.json(), requestId });
+  post: |-
+    noodle.run.set("tested_post_title", noodle.response.json().title.toUpperCase());
+tests: |-
+  test("created post matches the prepared request body", () => {
+    const { id, ...fields } = noodle.response.json();
+    expect(id).toBeGreaterThan(0);
+    expect(fields).toEqual(noodle.request.body.json());
+    expect(fields.requestId).toBe(noodle.request.headers.get("X-Request-ID"));
+  });
+
+  test("response preserves JSON value types", () => {
+    const post = noodle.response.json();
+    expect(post.published).toBe(true);
+    expect(post.note).toBeNull();
+    expect(post.tags).toContain("tests");
+    expect(post.tags).not.toContain("missing");
+  });
+
+  test("captures and post-script values are available", () => {
+    const post = noodle.response.json();
+    expect(noodle.run.get("tested_post_id")).toBe(post.id);
+    expect(noodle.run.get("tested_post_title")).toBe(post.title.toUpperCase());
+  });
+capture:
+  tested_post_id:
+    value: body.id
+assert:
+  - expression: status
+    operator: equals
+    value: 201

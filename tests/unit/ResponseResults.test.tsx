@@ -10,6 +10,66 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("ResponseResults", () => {
+  it("uses available width for test names while preserving duration spacing", async () => {
+    const { keymap } = setupKeymap()
+    const { renderOnce, captureCharFrame, resize } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              tests: {
+                evaluated: true,
+                logs: [],
+                results: [
+                  {
+                    name: "response is successful JSON",
+                    passed: true,
+                    message: "Test passed",
+                    durationMs: 1,
+                  },
+                  {
+                    name: "post has the expected identity and content",
+                    passed: false,
+                    message: "Expected values to be equal",
+                    durationMs: 12,
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 6 },
+    )
+    await renderOnce()
+    const lines = captureCharFrame().split("\n")
+    const shortRow = lines.find((line) => line.includes("PASS"))
+    const longRow = lines.find((line) => line.includes("FAIL"))
+    expect(shortRow).toMatch(/response is successful JSON\s+1ms/)
+    expect(longRow).toMatch(
+      /post has the expected identity and content {2}12ms/,
+    )
+    expect(shortRow?.indexOf("1ms")).toBe(longRow?.indexOf("12ms"))
+
+    await act(async () => {
+      resize(44, 6)
+      await renderOnce()
+    })
+    const narrowLines = captureCharFrame().split("\n")
+    expect(narrowLines.find((line) => line.includes("PASS"))).toMatch(
+      /\S 1ms\s*$/,
+    )
+    expect(narrowLines.find((line) => line.includes("FAIL"))).toMatch(
+      /\S 12ms\s*$/,
+    )
+
+    await act(async () => {
+      resize(90, 6)
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toBe(lines.join("\n"))
+  })
+
   it("renders expandable script status, timing, errors, and redacted logs", async () => {
     const { keymap, host } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

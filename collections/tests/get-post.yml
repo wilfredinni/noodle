@@ -1,0 +1,21 @@
+# Basic response checks with named tests and negated matchers.
+name: Test Post Response
+method: GET
+url: $base_url/posts/1
+timeout: 0
+body_type: none
+tests: |-
+  test("response is successful JSON", () => {
+    expect(noodle.response.status).toBe(200);
+    expect(noodle.response.headers.get("content-type")).toContain("application/json");
+  });
+
+  test("post has the expected identity and content", () => {
+    const post = noodle.response.json();
+    expect(post.id).toBe(1);
+    expect(post.userId).toBeGreaterThan(0);
+    expect(post.title).toBeDefined();
+    expect(post.title).not.toBe("");
+    expect(post.body).toMatch(/\S/);
+    expect(post.deletedAt).not.toBeDefined();
+  });

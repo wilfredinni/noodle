@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react"
+import { stringWidth } from "bun"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import type { JsonValue, Request } from "../schema"
@@ -161,6 +162,15 @@ export function ResponseResults({
   const captureNameWidth = cookieNameWidth(
     captureResults.map((result) => ({ name: result.variable })),
   )
+  const testNameWidth = Math.max(
+    1,
+    ...testResults.map((result) => stringWidth(result.name) + 1),
+  )
+  const testDurationWidth =
+    Math.max(
+      0,
+      ...testResults.map((result) => `${result.durationMs}ms`.length),
+    ) + 1
   const assertionPassed =
     assertions?.results.filter((result) => result.passed).length ?? 0
   const capturePassed =
@@ -541,8 +551,9 @@ export function ResponseResults({
                     kindLabel={result.passed ? "PASS" : "FAIL"}
                     kindColor={result.passed ? theme.success : theme.error}
                     name={result.name}
-                    value={`${result.durationMs}ms`}
-                    nameWidth={cookieNameWidth(testResults)}
+                    value={` ${result.durationMs}ms`}
+                    valueWidth={testDurationWidth}
+                    nameWidth={testNameWidth}
                     selected={selectedRowIdx === testRowOffset + index + 1}
                     expanded={expandedRow === id}
                     hovered={hoveredRow === id}

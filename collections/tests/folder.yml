@@ -1,0 +1,7 @@
+meta:
+  name: Scripted Tests
+  seq: 3
+tags:
+  - scripted-tests
+auth:
+  type: none
