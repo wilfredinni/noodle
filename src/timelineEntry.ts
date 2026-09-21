@@ -10,6 +10,7 @@ import type { ResponseExecutionResults } from "./executionResults"
 import {
   redactExecutionValue,
   redactScriptExecutionResult,
+  redactTestExecution,
 } from "./executionResults"
 import { interpolatePathParams } from "./requests/send"
 import {
@@ -244,6 +245,9 @@ export function buildTimelineEntry(
           ),
         }
       : undefined,
+    ...(result.execution?.tests
+      ? { tests: redactTestExecution(result.execution.tests, secretValues) }
+      : {}),
     assertions,
     network:
       result.status === "done"

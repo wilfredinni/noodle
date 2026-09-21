@@ -39,6 +39,7 @@ function failureLabel(
     http: "HTTP error",
     capture: "capture failure",
     assertion: "assertion failure",
+    test: "test failure",
   }[category]
 }
 
@@ -80,6 +81,24 @@ function formatAssertions(result: RequestRunResult): string[] {
       (assertion) =>
         `    ${assertion.passed ? color("✓", "green") : color("✗", "red")} ${assertion.expression} ${assertion.operator}${assertion.passed ? "" : `: ${assertion.message}`}`,
     ),
+  ]
+}
+
+function formatTests(result: RequestRunResult): string[] {
+  const tests = result.tests
+  if (!tests) return []
+  if (!tests.evaluated) return ["  Tests: not evaluated"]
+  const passed = tests.results.filter((test) => test.passed).length
+  return [
+    `  Tests: ${passed} passed, ${tests.results.length - passed} failed`,
+    ...tests.results
+      .filter((test) => !test.passed)
+      .map((test) => `    ${color("✗", "red")} ${test.name}: ${test.message}`),
+    ...(tests.error
+      ? [
+          `    Test script error: ${tests.error.name}: ${tests.error.message}${tests.error.line ? ` (tests.js:${tests.error.line}${tests.error.column ? `:${tests.error.column}` : ""})` : ""}`,
+        ]
+      : []),
   ]
 }
 
@@ -221,6 +240,7 @@ export function formatRunResult(result: RequestRunResult): string {
     ...formatScripts(result),
     ...formatCaptures(result),
     ...formatAssertions(result),
+    ...formatTests(result),
     ...(result.warnings ?? []).map(
       (warning) => `  ${color("warning", "yellow")}: ${warning}`,
     ),
@@ -245,6 +265,11 @@ export function formatCollectionRun(data: CollectionRunResult): string {
     `Summary: ${color(`${summary.requestSuccesses} passed`, "green")}, ${summary.requestFailures ? color(`${summary.requestFailures} failed`, "red") : "0 failed"}, ${summary.executed}/${summary.selected} executed, ${summary.skipped} skipped, ${summary.durationMs}ms`,
     `Assertions: ${summary.assertionPasses} passed, ${summary.assertionFailures} failed`,
     `Capture failures: ${summary.captureFailures}`,
+    ...(summary.testPasses !== undefined
+      ? [
+          `Tests: ${summary.testPasses} passed, ${summary.testFailures} failed, ${summary.testScriptErrors} script errors`,
+        ]
+      : []),
     ...(summary.failureCategories.length
       ? [`Failure categories: ${summary.failureCategories.join(", ")}`]
       : []),

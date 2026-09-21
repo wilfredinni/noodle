@@ -59,7 +59,10 @@ import {
 import { redactKnownSecrets, redactResponseHeaders } from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
-import { type ResponseExecutionResults } from "../executionResults"
+import {
+  testsSucceeded,
+  type ResponseExecutionResults,
+} from "../executionResults"
 import {
   scriptExecutionSucceeded,
   SCRIPT_LIMITS,
@@ -641,6 +644,7 @@ async function environmentFor(
     : undefined
 }
 export interface RequestRunResult {
+  tests?: ResponseExecutionResults["tests"]
   id: string
   method: Request["method"]
   url: string
@@ -682,10 +686,14 @@ export const RUN_FAILURE_CATEGORIES = [
   "http",
   "capture",
   "assertion",
+  "test",
 ] as const
 export type RunFailureCategory = (typeof RUN_FAILURE_CATEGORIES)[number]
 
 export interface CollectionRunSummary {
+  testPasses?: number
+  testFailures?: number
+  testScriptErrors?: number
   selected: number
   executed: number
   skipped: number
@@ -824,6 +832,7 @@ async function runRequest(
   if (assertionResults?.some((result) => !result.passed)) {
     failureCategories.push("assertion")
   }
+  if (!testsSucceeded(execution.tests)) failureCategories.push("test")
   const result: RequestRunResult = {
     id: request.id,
     method: prepared.method,
@@ -853,6 +862,7 @@ async function runRequest(
       timeMs: response.timeMs,
     },
     ok:
+      testsSucceeded(execution.tests) &&
       (execution.scripts?.results.every(scriptExecutionSucceeded) ?? true) &&
       response.status < 400 &&
       (captureResults?.every((capture) => capture.success) ?? true) &&
@@ -912,6 +922,10 @@ function summarizeRun(
   const captureResults = results.flatMap(
     (result) => result.captures?.results ?? [],
   )
+  const testGroups = results.flatMap((result) =>
+    result.tests ? [result.tests] : [],
+  )
+  const testResults = testGroups.flatMap((group) => group.results)
   const categories = new Set(
     results.flatMap((result) => result.failureCategories),
   )
@@ -922,6 +936,13 @@ function summarizeRun(
     skipped,
     requestSuccesses: results.filter((result) => result.ok).length,
     requestFailures: results.filter((result) => !result.ok).length,
+    ...(testGroups.length
+      ? {
+          testPasses: testResults.filter((result) => result.passed).length,
+          testFailures: testResults.filter((result) => !result.passed).length,
+          testScriptErrors: testGroups.filter((group) => group.error).length,
+        }
+      : {}),
     assertionPasses: assertionResults.filter((result) => result.passed).length,
     assertionFailures: assertionResults.filter((result) => !result.passed)
       .length,

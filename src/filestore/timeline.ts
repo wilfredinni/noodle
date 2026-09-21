@@ -107,12 +107,10 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
     : undefined
 }
 
-function boundedScriptResult(
-  result: ScriptExecutionResult,
-): ScriptExecutionResult {
+function boundedScriptLogs(source: ScriptLog[]): ScriptLog[] {
   const logs: ScriptLog[] = []
   let logBytes = 0
-  for (const log of result.logs) {
+  for (const log of source) {
     logBytes += byteSize(JSON.stringify(log))
     if (logBytes > INLINE_BODY_LIMIT) {
       logs.push({ level: "warn", message: "[TRUNCATED]" })
@@ -120,9 +118,15 @@ function boundedScriptResult(
     }
     logs.push({ ...log })
   }
+  return logs
+}
+
+function boundedScriptResult(
+  result: ScriptExecutionResult,
+): ScriptExecutionResult {
   return {
     ...result,
-    logs,
+    logs: boundedScriptLogs(result.logs),
     error: boundedScriptError(result.error),
     ...(result.persistence
       ? {
@@ -257,6 +261,22 @@ async function persistBodies(
           results: source.scripts.results.map(boundedScriptResult),
         }
       : undefined,
+    ...(source.tests
+      ? {
+          tests: {
+            ...source.tests,
+            results: source.tests.results.map((result) => ({
+              ...result,
+              name: boundedDiagnosticText(result.name),
+              message: boundedDiagnosticText(result.message),
+            })),
+            logs: boundedScriptLogs(source.tests.logs),
+            ...(source.tests.error
+              ? { error: boundedScriptError(source.tests.error) }
+              : {}),
+          },
+        }
+      : {}),
     assertions: source.assertions
       ? {
           ...source.assertions,
