@@ -33,77 +33,46 @@ for Homebrew and source builds.
 
 ## Quick start
 
-Create a collection, add a request, and open it in the terminal:
-
-```bash
-noodle collection create my-api
-noodle request create get \
-  --url https://httpbin.org/get \
-  --collection ./my-api
-noodle --collection ./my-api
-```
-
-Select the request and press **Ctrl+Return** to send it. Inspect the response
-body, headers, status, and timing beside the request.
-
-Every request is a readable `.yml` file. Edit it in Noodle or your editor,
-review it in Git, and keep it beside your code:
-
-```yaml
-name: Get
-method: GET
-url: https://httpbin.org/get
-headers:
-  Accept: application/json
-```
-
-Run the same collection from the CLI:
-
-```bash
-noodle request run get --collection ./my-api
-noodle collection run ./my-api --json
-```
-
 Follow the [quick start guide](https://noodlerest.dev/docs/getting-started/quick-start/)
-for a walkthrough.
+to create a collection, send your first request, and inspect the response.
 
 ## Features
 
-- **[File-based collections](https://noodlerest.dev/docs/guides/collections/):**
+- 📁 **[File-based collections](https://noodlerest.dev/docs/guides/collections/):**
   Keep requests in YAML, organize them into folders, and version them with Git.
-- **[Request editor](https://noodlerest.dev/docs/guides/using-the-request-pane/):**
+- ✏️ **[Request editor](https://noodlerest.dev/docs/guides/using-the-request-pane/):**
   Edit URLs, parameters, headers, JSON, XML, forms, and file uploads in the terminal.
-- **[Response inspection](https://noodlerest.dev/docs/guides/using-the-response-pane/):**
+- 🔍 **[Response inspection](https://noodlerest.dev/docs/guides/using-the-response-pane/):**
   Explore JSON and XML in Source or Visual views, filter JSON with JSONPath,
   and inspect headers and network traces.
-- **[Images and downloads](https://noodlerest.dev/docs/guides/using-the-response-pane/#images-and-binary-responses):**
+- 📥 **[Images and downloads](https://noodlerest.dev/docs/guides/using-the-response-pane/#images-and-binary-responses):**
   Preview supported images, save response files, and open them in their default app.
-- **[Environments and secrets](https://noodlerest.dev/docs/guides/using-environments/):**
+- 🗝️ **[Environments and secrets](https://noodlerest.dev/docs/guides/using-environments/):**
   Switch between environments, reuse variables, and store secrets in the OS vault.
-- **[Authentication](https://noodlerest.dev/docs/guides/authentication/):**
+- 🔐 **[Authentication](https://noodlerest.dev/docs/guides/authentication/):**
   Use bearer tokens, basic auth, API keys, OAuth 1.0a, OAuth 2.0, NTLMv2, and AWS SigV4.
-- **[Proxies and TLS](https://noodlerest.dev/docs/guides/settings/):**
+- 🛡️ **[Proxies and TLS](https://noodlerest.dev/docs/guides/settings/):**
   Configure proxy policies, custom certificate authorities, and mutual TLS.
-- **[Response assertions](https://noodlerest.dev/docs/guides/automation/#put-success-criteria-beside-the-request):**
+- 🧪 **[Response assertions](https://noodlerest.dev/docs/guides/automation/#put-success-criteria-beside-the-request):**
   Check status, timing, headers, and JSON values in the TUI or CI.
-- **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
+- 🎯 **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
   Pass response values to later requests or save them to an environment or secret.
-- **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
+- 📜 **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
   Prepare requests and process responses with sandboxed JavaScript, including
   helpers for signing, test data, timestamps, and cookies.
-- **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
+- ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, and JSON results.
-- **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
+- 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
   [cookies](https://noodlerest.dev/docs/guides/settings/#general):**
   Revisit past responses and manage a cookie jar for each collection.
-- **[Themes](https://noodlerest.dev/docs/reference/theming/) and
+- 🎨 **[Themes](https://noodlerest.dev/docs/reference/theming/) and
   [keybindings](https://noodlerest.dev/docs/reference/keybindings/):**
   Follow your terminal palette or choose a theme, and customize your shortcuts.
-- **[Import](https://noodlerest.dev/docs/import/import/) and
+- 🔄 **[Import](https://noodlerest.dev/docs/import/import/) and
   [export](https://noodlerest.dev/docs/import/export/):**
   Bring OpenAPI, Swagger, Postman, and Insomnia collections into Noodle;
   export to OpenAPI or Postman.
-- **[AI agent skills](https://noodlerest.dev/docs/guides/ai-agent-skills/):**
+- 🤖 **[AI agent skills](https://noodlerest.dev/docs/guides/ai-agent-skills/):**
   Install the Noodle skill with `noodle agent install` so coding agents can
   create, maintain, and run collections.
 
