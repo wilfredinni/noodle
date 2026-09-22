@@ -136,9 +136,11 @@ export function requestSensitiveValues(
         }
       }
       for (const part of url.search.slice(1).split("&")) {
+        const separator = part.indexOf("=")
         new URLSearchParams(part).forEach((value, name) => {
-          if (isSensitiveHeader(name))
-            values.push(value, part.slice(part.indexOf("=") + 1))
+          if (!isSensitiveHeader(name)) return
+          values.push(value)
+          if (separator >= 0) values.push(part.slice(separator + 1))
         })
       }
     } catch {
