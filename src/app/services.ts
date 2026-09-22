@@ -59,6 +59,7 @@ import {
 import { redactKnownSecrets, redactResponseHeaders } from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
+import { loadIterationData, validateExecutionCount } from "../iterationData"
 import {
   testsSucceeded,
   type ResponseExecutionResults,
@@ -420,7 +421,9 @@ export async function collectionList(
   if (!(await isCollectionRoot(absolutePath))) {
     return { path: absolutePath, tree: [] }
   }
-  const collection = await filestore.loadCollection(absolutePath)
+  const collection = await filestore.loadCollection(absolutePath, {
+    loadScripts: false,
+  })
   return { path: absolutePath, tree: collectionTree(collection.items) }
 }
 export async function collectionInspect(
@@ -528,6 +531,8 @@ async function auditFile(
             seq: parsed.meta?.seq,
             tags: parsed.tags,
             overrides: parsed.overrides,
+            scripts: parsed.scripts,
+            tests: parsed.tests,
             children: [],
           }),
           "utf8",
@@ -636,6 +641,7 @@ async function environmentFor(
     : undefined
 }
 export interface RequestRunResult {
+  iteration?: number
   tests?: ResponseExecutionResults["tests"]
   id: string
   method: Request["method"]
@@ -698,8 +704,9 @@ export interface CollectionRunSummary {
   failureCategories: RunFailureCategory[]
 }
 export interface CollectionRunResult {
+  iterations?: number
   results: RequestRunResult[]
-  skipped: { id: string; reason: "fail-fast" }[]
+  skipped: { id: string; reason: "fail-fast"; iteration?: number }[]
   failed: boolean
   failure?: { category: "configuration"; message: string }
   summary: CollectionRunSummary
@@ -707,6 +714,7 @@ export interface CollectionRunResult {
 }
 export type RunProgress = (completed: number, total: number) => void
 export type RequestRunDetail = {
+  iteration?: number
   requestId: string
   entry: TimelineEntry
 }
@@ -918,7 +926,11 @@ function summarizeRun(
       ? {
           testPasses: testResults.filter((result) => result.passed).length,
           testFailures: testResults.filter((result) => !result.passed).length,
-          testScriptErrors: testGroups.filter((group) => group.error).length,
+          testScriptErrors: testGroups.reduce(
+            (count, group) =>
+              count + (group.errors?.length ?? (group.error ? 1 : 0)),
+            0,
+          ),
         }
       : {}),
     assertionPasses: assertionResults.filter((result) => result.passed).length,
@@ -963,6 +975,7 @@ export async function collectionRun(
   failFast = false,
   onDetail?: RunDetail,
   delayMs = 0,
+  dataPath?: string,
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
@@ -974,12 +987,13 @@ export async function collectionRun(
   let policy: ProxyPolicy | undefined
   let tlsPolicy: TlsPolicy | undefined
   let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
+  let rows: Awaited<ReturnType<typeof loadIterationData>> | undefined
   try {
     if (!Number.isSafeInteger(delayMs) || delayMs < 0) {
       throw new Error("delay must be a non-negative safe integer")
     }
     dir = await requireCollectionRoot(path)
-    collection = await filestore.loadCollection(dir)
+    collection = await filestore.loadCollection(dir, { loadScripts: false })
     requests = selectCollectionRunRequests(
       collection.items,
       targets,
@@ -987,7 +1001,17 @@ export async function collectionRun(
       excludeTags,
     )
     selected = requests.length
+    if (dataPath !== undefined) {
+      rows = await loadIterationData(dataPath)
+      validateExecutionCount(selected, rows.length)
+      selected *= rows.length
+    }
     settings = await loadSettings(dir)
+    collection = {
+      ...collection,
+      scripts: settings.scripts,
+      tests: settings.tests,
+    }
     environment = await environmentFor(dir, settings, environmentName)
     policy = await proxyPolicyFor(
       dir,
@@ -1003,47 +1027,62 @@ export async function collectionRun(
   const cookies = cookieAccess.jar
   const results: RequestRunResult[] = []
   const skipped: CollectionRunResult["skipped"] = []
-  const runScope = new RunScope()
-  onProgress?.(0, requests.length)
+  const warnings = new Set(cookieAccess.warnings)
+  onProgress?.(0, selected)
+  let stopped = false
   try {
-    for (const [index, request] of requests.entries()) {
-      const result = await runRequest(
-        dir,
-        collection,
-        request,
-        runScope,
-        environment,
-        policy,
-        tlsPolicy,
-        cookies,
-        false,
-        onDetail,
+    for (let iteration = 0; iteration < (rows?.length ?? 1); iteration++) {
+      const data = rows?.[iteration]
+      const runScope = new RunScope(
+        data ? { index: iteration, count: rows!.length, data } : null,
       )
-      results.push(result)
-      onProgress?.(results.length, requests.length)
-      if (failFast && !result.ok) {
-        skipped.push(
-          ...requests.slice(index + 1).map((remaining) => ({
-            id: remaining.id,
-            reason: "fail-fast" as const,
-          })),
-        )
-        break
-      }
-      if (delayMs > 0 && index < requests.length - 1) {
-        await Bun.sleep(delayMs)
+      if (data)
+        for (const [name, value] of Object.entries(data))
+          runScope.set(name, structuredClone(value))
+      const iterationCookies = rows ? cookies?.cloneTransient() : cookies
+      try {
+        for (const request of requests) {
+          const identity = rows ? { iteration } : {}
+          if (stopped) {
+            skipped.push({ id: request.id, reason: "fail-fast", ...identity })
+            continue
+          }
+          if (delayMs > 0 && results.length > 0) await Bun.sleep(delayMs)
+          const result = await runRequest(
+            dir,
+            collection,
+            request,
+            runScope,
+            environment,
+            policy,
+            tlsPolicy,
+            iterationCookies,
+            false,
+            onDetail
+              ? (detail) => onDetail({ ...detail, ...identity })
+              : undefined,
+          )
+          results.push({ ...result, ...identity })
+          onProgress?.(results.length, selected)
+          if (failFast && !result.ok) stopped = true
+        }
+      } finally {
+        if (rows) await closeCookieJar(iterationCookies)
+        for (const warning of iterationCookies?.warnings ?? [])
+          warnings.add(warning)
       }
     }
   } finally {
     await closeCookieJar(cookies)
   }
-  const warnings = cookies?.warnings ?? cookieAccess.warnings
+  for (const warning of cookies?.warnings ?? []) warnings.add(warning)
   return {
+    ...(rows ? { iterations: rows.length } : {}),
     results,
     skipped,
     failed: results.some((result) => result.ok === false),
-    summary: summarizeRun(results, requests.length, skipped.length, startedAt),
-    ...(warnings.length > 0 ? { warnings } : {}),
+    summary: summarizeRun(results, selected, skipped.length, startedAt),
+    ...(warnings.size > 0 ? { warnings: [...warnings] } : {}),
   }
 }
 export async function requestCreate(

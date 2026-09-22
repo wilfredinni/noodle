@@ -1,0 +1,8 @@
+name: Inherited scripts and iteration data
+cookies:
+  enabled: false
+scripts:
+  pre: |-
+    noodle.run.set("collectionReady", true)
+tests: |-
+  test("successful response", () => expect(noodle.response.status).toBe(200))

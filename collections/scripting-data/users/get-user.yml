@@ -1,0 +1,14 @@
+name: Get user from dataset
+method: GET
+url: http://127.0.0.1:3137/users/$user_id
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+tests: |2-
+  test("matches the original row", () => {
+    const user = noodle.response.json()
+    expect(user).toHaveProperty("id", Number(noodle.iteration.data.user_id))
+    expect(user.email).toBeTypeOf("string")
+    expect(user.roles).toHaveLength(1)
+    expect(user).toMatchObject({ roles: ["member"] })
+  })
