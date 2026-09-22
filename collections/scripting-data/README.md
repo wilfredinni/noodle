@@ -1,13 +1,9 @@
 # Inheritance, JSON Schema and CSV/JSON data
 
 Two GET requests and two dataset rows exercise all four scripting additions.
-They use a local fixture API with no accounts, credentials, or external services.
-
-From the repository root, start the API in one terminal and leave it running:
-
-```bash
-bun collections/scripting-data/server.ts
-```
+They use the public [JSONPlaceholder API](https://jsonplaceholder.typicode.com/)
+over HTTPS, like the other sample requests. An internet connection is required;
+no local server, account, or API key is needed.
 
 To use the main sample collection, select **Inheritance, schemas and datasets**
 (`scripting-data`) in the sidebar and press F5. In **Data file**, enter
@@ -45,11 +41,12 @@ CLI paths start at the current directory; Runner paths start at the open collect
 | `users/nested/folder.yml` | An inner folder that adds pre/post/tests to its ancestors |
 | `users/nested/get-user.yml` | Exact execution order and iteration context in a nested request |
 | `users.csv` | String cells, a quoted comma, and a multiline field |
-| `users.json` | The same rows with numeric IDs and boolean expectations |
+| `users.json` | The same rows with numeric IDs |
 
-Each row supplies `$user_id`, `expected_email`, `expected_active`, and `case_name`.
-CSV cells remain strings; JSON retains numbers and booleans. Assertions normalize
-only their expected values so both files describe the same two cases.
+Each row supplies `$user_id`, `expected_email`, `expected_username`,
+`expected_city`, and `case_name`. CSV cells remain strings; JSON retains numeric
+IDs. Assertions convert the expected ID to a number so both files describe the
+same two cases.
 
 Every pre/post block appends its name to `exampleSteps` in RunScope. Tests verify
 the order: suite, outer folder, inner folder (where present), request, separately

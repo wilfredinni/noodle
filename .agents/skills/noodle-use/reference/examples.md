@@ -553,7 +553,8 @@ call resolves. For a complete runnable public-API example, use the repository's
 
 ## Inheritance and data runs
 
-See the runnable loopback collection at `collections/scripting-data` in the Noodle
+See the runnable JSONPlaceholder collection at `collections/scripting-data` in the Noodle
 repository. It includes collection and folder blocks, CSV and JSON data files,
 JSON Schema validation, and the property, length, type, and subset matchers.
-Run its `server.ts` with Bun, then use the collection command with `--data`.
+Use the collection command with `--data`, or load either dataset in F5.
+Internet access is required; no local server or API key is needed.

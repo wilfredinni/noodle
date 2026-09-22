@@ -1,6 +1,6 @@
 name: Get user with nested scripts and tests
 method: GET
-url: http://127.0.0.1:3137/users/$user_id
+url: https://jsonplaceholder.typicode.com/users/$user_id
 timeout: 0
 scripts:
   pre: |-

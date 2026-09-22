@@ -1,4 +1,4 @@
-user_id,expected_email,expected_active,case_name
-1,user1@example.com,true,"Active user, basic case"
-2,user2@example.com,false,"Inactive user
+user_id,expected_email,expected_username,expected_city,case_name
+1,Sincere@april.biz,Bret,Gwenborough,"First user, basic case"
+2,Shanna@melissa.tv,Antonette,Wisokyburgh,"Second user
 multiline CSV field"

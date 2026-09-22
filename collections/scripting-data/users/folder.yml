@@ -16,8 +16,7 @@ tests: |-
     expect(noodle.response.json()).toMatchSchema({
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
-      required: ["id", "email", "roles", "active"],
-      additionalProperties: false,
+      required: ["id", "email", "username", "address"],
       definitions: {
         userId: { type: "integer", minimum: 1 },
         email: { type: "string", format: "email" }
@@ -25,8 +24,12 @@ tests: |-
       properties: {
         id: { $ref: "#/definitions/userId" },
         email: { $ref: "#/definitions/email" },
-        roles: { type: "array", items: { type: "string" } },
-        active: { type: "boolean" }
+        username: { type: "string", minLength: 1 },
+        address: {
+          type: "object",
+          required: ["city"],
+          properties: { city: { type: "string", minLength: 1 } }
+        }
       }
     })
   })

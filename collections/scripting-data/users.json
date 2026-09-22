@@ -1,14 +1,16 @@
 [
   {
     "user_id": 1,
-    "expected_email": "user1@example.com",
-    "expected_active": true,
-    "case_name": "Active user, basic case"
+    "expected_email": "Sincere@april.biz",
+    "expected_username": "Bret",
+    "expected_city": "Gwenborough",
+    "case_name": "First user, basic case"
   },
   {
     "user_id": 2,
-    "expected_email": "user2@example.com",
-    "expected_active": false,
-    "case_name": "Inactive user\nmultiline CSV field"
+    "expected_email": "Shanna@melissa.tv",
+    "expected_username": "Antonette",
+    "expected_city": "Wisokyburgh",
+    "case_name": "Second user\nmultiline CSV field"
   }
 ]

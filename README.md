@@ -67,7 +67,7 @@ to create a collection, send your first request, and inspect the response.
   Share inline scripts and tests from collection settings and nested folders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
-  iteration data, and JSON results. Try the [local data-run example](collections/scripting-data).
+  iteration data, and JSON results. Try the [data-run example](collections/scripting-data).
 - 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
   [cookies](https://noodlerest.dev/docs/guides/settings/#general):**
   Revisit past responses and manage a cookie jar for each collection.
