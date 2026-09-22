@@ -1,4 +1,5 @@
 import type { Environment, KvEntry, Request, Response } from "../schema"
+import { withDefaultHttpsScheme } from "../requests/url"
 
 export const REDACTED = "[REDACTED]"
 
@@ -114,6 +115,7 @@ export function sensitiveHeaderValues(
 
 export function requestSensitiveValues(
   request: Pick<Request, "auth"> & {
+    url?: string
     headers: Record<string, string | KvEntry>
   },
 ): string[] {
@@ -122,6 +124,27 @@ export function requestSensitiveValues(
       typeof entry === "string" ? entry : entry.enabled ? entry.value : ""
     return isSensitiveHeader(name) ? sensitiveHeaderParts(name, value) : []
   })
+  if (request.url) {
+    try {
+      const url = new URL(withDefaultHttpsScheme(request.url))
+      for (const value of [url.username, url.password]) {
+        values.push(value)
+        try {
+          values.push(decodeURIComponent(value))
+        } catch {
+          // Retain the encoded credential even if its escapes are malformed.
+        }
+      }
+      for (const part of url.search.slice(1).split("&")) {
+        new URLSearchParams(part).forEach((value, name) => {
+          if (isSensitiveHeader(name))
+            values.push(value, part.slice(part.indexOf("=") + 1))
+        })
+      }
+    } catch {
+      // URL validation belongs to the request preparation and send boundaries.
+    }
+  }
   const auth = request.auth
   if (auth && auth.type !== "none" && auth.type !== "inherit") {
     if (auth.type === "bearer") values.push(auth.token)

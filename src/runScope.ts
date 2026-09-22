@@ -32,8 +32,35 @@ export class RunScope {
   private readonly secretVariables = new Set<string>()
   private readonly suppressedVariables = new Set<string>()
   private readonly knownSecrets = new Map<string, RedactionSecret>()
+  private readonly changed = new Set<string>()
+
+  fork(): RunScope {
+    const fork = new RunScope()
+    for (const [name, value] of this.values)
+      fork.values.set(name, structuredClone(value))
+    for (const name of this.secretVariables) fork.secretVariables.add(name)
+    for (const name of this.suppressedVariables)
+      fork.suppressedVariables.add(name)
+    fork.rememberSecrets(this.secretValues())
+    return fork
+  }
+
+  merge(fork: RunScope, secret?: (value: JsonValue) => boolean): void {
+    for (const name of fork.changed) {
+      if (fork.suppressedVariables.has(name)) this.suppress(name)
+      else if (fork.values.has(name))
+        this.set(
+          name,
+          structuredClone(fork.values.get(name)!),
+          fork.isSecret(name) || !!secret?.(fork.values.get(name)!),
+        )
+      else this.unset(name)
+    }
+    this.rememberSecrets(fork.secretValues())
+  }
 
   set(variable: string, value: JsonValue, secret = false): void {
+    this.changed.add(variable)
     this.values.set(variable, value)
     this.suppressedVariables.delete(variable)
     if (secret) this.secretVariables.add(variable)
@@ -56,6 +83,7 @@ export class RunScope {
   }
 
   unset(variable: string): void {
+    this.changed.add(variable)
     this.values.delete(variable)
     this.secretVariables.delete(variable)
     this.suppressedVariables.delete(variable)
