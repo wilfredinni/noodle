@@ -50,7 +50,7 @@ jobs:
           bun-version: 1.4.0
       - run: bun scripts/build-response-file-native.ts --check
       - run: bun install --frozen-lockfile
-      - run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --rerun-each=10 --timeout=30000
+      - run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
       - name: Test shipped addon inside standalone executable
         run: |
           set -euo pipefail
