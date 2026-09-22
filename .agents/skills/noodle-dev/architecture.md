@@ -149,7 +149,7 @@ display and completion.
 
 Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction happens before body compression. Marking or updating a secret leaves existing entries and sidecars unchanged. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
 
-Manual entries may also contain an entry-level `scripts` group with executed pre/post results, redacted logs/errors, and persistence outcomes. Individual diagnostic text and combined serialized logs are capped at 10,000 bytes with `[TRUNCATED]` markers; script source, capture results, and RunScope values are excluded. Binary responses retain redacted metadata only, with no body or sidecar. Automation does not create timeline entries.
+Manual entries may also contain an entry-level `scripts` group with executed pre/post results, redacted logs/errors, persistence outcomes, inherited origins, and child-call summaries. An optional `tests` group retains ordered results, logs, and block errors with source paths. Individual diagnostic text and combined serialized logs are capped at 10,000 bytes with `[TRUNCATED]` markers; script source, capture results, and RunScope values are excluded. Binary responses retain redacted metadata only, with no body or sidecar. Automation does not create timeline entries.
 
 ### File write conventions
 
@@ -385,13 +385,14 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      1. Merge folder overrides
      2. Overlay RunScope values for substitution
      3. Substitute the request once
-     4. Run optional scripts.pre through the phase-aware runner in preRequestScript.ts
+     4. Run collection, ancestor-folder, and request scripts.pre blocks through the phase-aware runner in preRequestScript.ts
      5. Commit successful pre request and RunScope mutations
      6. Pass only the prepared transport request to executor.send()
      7. Evaluate and commit captures in executionResults.ts
-     8. Run optional scripts.post with captures, response, and final-leg request readers;
+     8. Run collection, ancestor-folder, and request scripts.post blocks with captures, response, and final-leg request readers;
         atomically commit successful post RunScope and URL-scoped cookie writes
      9. Evaluate assertions against the same response resolver, even after post failure
+    10. Run read-only tests in the same ancestor order, retaining every block error
   → requests/send.ts transport-only executor pipeline:
      1. Build URL with path and query params
      2. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop
@@ -403,7 +404,7 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      7. fetch() with proxy/TLS options; classify request timeouts as transport failures and preserve caller cancellation
      8. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
      9. Manually follow HTTP(S) redirects; block downgrades, strip sensitive and known-secret headers across origins, disable auth signers, and reject preserved bodies containing known secrets while allowing body-dropping redirects
-  → ResponseExecutionResults contains optional script, capture, and assertion groups
+  → ResponseExecutionResults contains optional script, capture, assertion, and test groups
      Manual timeline entries retain bounded, redacted script diagnostics and logs; source and RunScope values stay excluded, and successful request snapshots use the mutated prepared request
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
@@ -413,14 +414,14 @@ Pre failure skips HTTP and response phases. Post runs once for each completed
 response, including HTTP/capture failures, never for intermediate or failed
 transport legs. All post request mutators throw a central read-only API error.
 Post failure retains the response, committed captures/pre writes, and logs,
-discarding only its own staged RunScope/cookie changes before assertions run.
+discarding only its own staged RunScope/cookie changes before later post blocks, assertions, and tests run.
 Successful post values are transient by default and reach later collection requests even
 after assertion failure. Manual/`request run` capture persistence uses the
 original captured value, not later post overwrites.
 
 Async `evaluateResponseExecution()` reuses one response resolver and invokes one
 post callback after capture commits, deferring outward result redaction until
-post-discovered secrets are registered. Each phase uses a fresh bounded VM;
+post-discovered secrets are registered. Each inherited or request block uses a fresh bounded VM;
 post response text transfers lazily as a VM string up to 5 MiB UTF-8, with native
 VM JSON parsing and explicit success/failure caching that preserves null.
 Ordinary bridge/RunScope limits remain 256 KiB and depth 32. Expose no host
@@ -560,7 +561,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same shared lifecycle runs pre → HTTP → captures → post → assertions after merging, environment/RunScope overlay, and one substitution pass; it records ordered fail-fast skips after response diagnostics finish and aggregates fixed failure categories without aggregate script counters. HTTP/capture errors still reach post; post errors still reach assertions and can coexist with HTTP/capture/assertion failures. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` script/capture/assertion groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `script`, `transport`, `http`, `capture`, and `assertion`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Request and non-root folder tags compose into effective request tags; include and exclude filters finish before environment, proxy, TLS, cookie, or request setup. The same shared lifecycle runs pre → HTTP → captures → post → assertions → tests after merging, environment/RunScope overlay, and one substitution pass; it records ordered fail-fast skips after response diagnostics finish and aggregates fixed failure categories without aggregate pre/post script counters. Test groups add pass, failure, and script-error counters. Optional CSV/JSON `--data` repeats the selection with a fresh RunScope and a transient copy of the initial cookie jar per row, preserving iteration identity in results and details. HTTP/capture errors still reach post; post errors still reach later blocks, assertions, and tests and can coexist with HTTP/capture/assertion/test failures. `RequestRunResult` carries the response or error plus optional `ResponseExecutionResults` script/capture/assertion/test groups and fixed-order `RunFailureCategory` values: `configuration`, `execution`, `script`, `transport`, `http`, `capture`, `assertion`, and `test`. Completed failures exit `1`, while pre-run configuration failures exit `2`; human output maps those categories to explicit failure labels. One-shot `--noproxy` and `--insecure` overrides use the same collection jar as the TUI. `commandResult.ts` centralizes the deterministic `{ status, data, errors }` JSON envelope and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 ### Extending assertions and response expressions
 

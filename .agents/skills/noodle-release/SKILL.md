@@ -36,6 +36,7 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 - Do not update every skill by default. Update only skills whose workflows or supported behavior changed.
 - The GitHub release body is generated from the matching `CHANGELOG.md` version section. Write it for release readers, not as a raw commit list.
 - The release summary belongs between the version/date heading and the first detailed section. It should be concise, release-reader oriented, and must not introduce claims absent from the detailed entries.
+- Keep each `CHANGELOG.md` prose paragraph and list item on one physical line. Never insert manual line breaks to satisfy a column width, terminal readability, or diff preference; the code formatter's `printWidth` does not apply to changelog prose. Preserve headings, blank lines, and intentional code blocks. The release-notes generator rejects manually wrapped prose.
 - Use a separate release-note bullet for each unrelated change within a section. Keep a single bullet when multiple details form one cohesive user-facing capability; do not split merely to mirror individual commits.
 - When an agent skill changes, add a separate `### 📚 Documentation` bullet for each changed skill; do not combine multiple skill updates into one entry.
 - Preserve the exact emoji headings in the release body; GitHub supports the Unicode emojis from `CHANGELOG.md`.

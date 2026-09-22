@@ -148,10 +148,11 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
   literal whitespace, empty-string no-ops, unknown-key rejection, and external
   path rejection without file reads.
 - Prove merge → environment/RunScope → substitute once → pre → HTTP → captures
-  → post → assertions, same-request capture visibility, isolated manual/request
-  scopes, ordered collection propagation, and capture persistence independent
+  → post → assertions → tests, same-request capture visibility, isolated
+  manual/request scopes, ordered collection propagation, and capture persistence independent
   of post failure/overwrites. HTTP/capture errors reach post; post errors still
-  reach assertions and collection fail-fast waits for all response diagnostics.
+  reach later post blocks, assertions, and tests, and collection fail-fast waits
+  for all response diagnostics.
 - Check final-leg readers after redirects, signing, and cookie/header
   preparation; reject every post request mutator and keep VM JSON objects
   isolated from the host response and capture/assertion resolver.

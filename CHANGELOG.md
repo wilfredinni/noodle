@@ -4,6 +4,37 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-22
+
+Noodle 0.9.3 adds scripted response tests, async request chaining, and shared scripts and tests at collection and folder level. CSV and JSON datasets let the CLI and TUI Runner repeat selected requests with fresh variables and cookies for each row, while expanded Results diagnostics keep failures traceable to their source.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-3-scripted-tests-and-data-runs/)
+
+### ✨ Features
+
+- Add inline `tests` after declarative assertions in manual sends, CLI runs, and the TUI Runner. Use synchronous or async `test` callbacks and `expect` matchers with `.not`, JSON Schema draft-07 validation, and property, length, type, and partial-object checks. Tests have read-only response and state access; failures make automation exit nonzero and participate in fail-fast.
+- Support top-level `await` in pre/post scripts with `noodle.runRequest(id)` for saved requests and `noodle.sendRequest(options)` for literal HTTP calls. Saved calls run the shared lifecycle and expose captures and script writes to their parent. Combined variable changes commit only when the enclosing script succeeds; child persistence stays transient. Calls share bounded nesting and call counts, cancellation, and wall deadlines.
+- Inherit inline pre, post, and test blocks from collection `settings.yml` and nested `folder.yml` files in collection-to-request order. Each block has a fresh sandbox; successful RunScope writes reach later blocks. Pre failure stops HTTP, while post and top-level test errors preserve later blocks and retain their individual source paths.
+- Run selected requests once per CSV or JSON row with `collection run --data` or the Runner's Data file field, including path completion and iteration counts. Validate the whole dataset before HTTP, preserve JSON value types, expose read-only `noodle.iteration`, and isolate variables and cookie changes between rows. Results and details identify each iteration, with delay and fail-fast continuing across row boundaries.
+- Show bounded, redacted test results, logs, inherited source labels, and child-request summaries in Results, CLI output, Runner details, and manual timeline history. Child bodies, script source, and runtime values remain excluded from history.
+
+### 🐞 Fixes
+
+- Keep test names and durations aligned while Results resizes, and measure cookie and result names in terminal display cells.
+- Make top-level test script errors visible in the Results summary even when every completed test passed; expandable details retain all block errors.
+- Redact URL credentials and sensitive query values in request diagnostics, including child calls and history, without treating valueless query parameter names as secret values.
+
+### 🔧 Refactors
+
+- Pin the QuickJS rejection-tracking patch build and verify the sandboxed JSON Schema bundle during builds and async scripting in standalone binary smoke checks.
+
+### 📚 Documentation
+
+- Document scripted tests, request chaining, inherited blocks, iteration data, and diagnostics across the README, agent instructions, in-app tips, and site guides, with sample collections for tests, chaining, and data runs.
+- Update `noodle-dev` with the async scheduler, inherited lifecycle, test diagnostics, dataset scopes, sandboxed schema validation, and regression guidance.
+- Update `noodle-use` with scripted-test matchers, async request APIs, inheritance, CSV/JSON data runs, and the expanded result and history formats.
+- Update `noodle-release` to preserve each changelog paragraph and list item on one physical line, with release validation rejecting manual wrapping.
+
 ## [0.9.2] - 2026-09-21
 
 Noodle 0.9.2 adds script time helpers for timestamps, timezone formatting, and elapsed durations in both pre-request and post-response scripts. macOS releases now include Intel binaries and verify signed artifacts before publication to prevent launch failures caused by invalid embedded signatures.
@@ -878,7 +909,8 @@ Path parameters, live network traces, mouse-first controls, and faster focus jum
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/wilfredinni/noodle/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/wilfredinni/noodle/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/wilfredinni/noodle/compare/v0.9.0...v0.9.1
 [0.7.5]: https://github.com/wilfredinni/noodle/compare/v0.7.4...v0.7.5

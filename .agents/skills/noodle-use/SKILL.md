@@ -193,7 +193,7 @@ discard the body may continue. A configured request timeout is a transport
 failure; caller-triggered cancellation remains owned by the caller. Keep
 credentials in declared secret variables so Noodle can apply these protections.
 
-For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, and delay, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
+For chaining, place the producer before its consumers and use `$captured_name` in later request fields. `collection run` and the TUI Runner share one transient scope in collection order after target and tag filtering, with a fresh scope for each dataset row; `request run` and manual sends use isolated scopes. In the Runner, choose requests or folders, environment, Include tags, Exclude tags, fail-fast, delay, and an optional Data file, then inspect ordered Results. See [automation](workflows/automation.md) and [annotated create/fetch/delete and login examples](reference/examples.md#chained-requests-with-response-capture).
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

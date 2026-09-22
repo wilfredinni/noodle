@@ -19,6 +19,10 @@ const TIPS = [
   "press {g} then {o} to focus the request pane's {+} menu",
   "response {Results} shows {✓}/{✗}/{–} for passed, failed, or unevaluated outcomes",
   "author {scripts.pre} and {scripts.post} in request YAML; inspect both phases in response {Results}",
+  "share {scripts} and {tests} from collection {settings.yml} or nested {folder.yml} files",
+  "add inline {tests} with {test} and {expect}; expand test rows in response {Results}",
+  "validate response JSON with {expect(value).toMatchSchema(schema)} in {tests}",
+  "await {noodle.runRequest} or {noodle.sendRequest} in pre/post scripts to chain HTTP calls",
   "script APIs use the {noodle.} prefix: {noodle.request}, {noodle.response}, and {noodle.run}",
   "use {noodle.random.seed} for repeatable test data; share generated values with {noodle.run.set}",
   "use {noodle.time} for timestamps, named timezones, and elapsed durations in pre or post scripts",
@@ -43,7 +47,8 @@ const TIPS = [
   "export a collection as OpenAPI or Postman with {noodle export <collection> --format <format> --output <path>}",
   "run a tagged collection suite with {noodle collection run <path> --tag smoke}",
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
-  "open the collection Runner with {F5} to select requests, filters, and an optional delay",
+  "open the collection Runner with {F5} to select requests, filters, a delay, or a CSV/JSON data file",
+  "repeat selected requests for each data row with {noodle collection run <path> --data <file>}",
   "open {^P}, choose Import Collection to bring a source into a new or current collection",
   "open {^P}, choose Export Collection to preview and write OpenAPI or Postman output",
   "clone a request with {^K}",
@@ -73,7 +78,7 @@ const TIPS = [
   "mark an environment value secret with {s} in environment browse mode",
   "temporarily disable TLS verification with {noodle --insecure}",
   "manual sends save timeline history with known secrets redacted at save time",
-  "timeline details retain redacted pre/post diagnostics and logs; script source stays in request YAML",
+  "timeline details retain redacted scripts, tests, and child-call summaries; source stays in YAML",
 ]
 
 interface TipPart {

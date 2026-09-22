@@ -139,7 +139,6 @@ Type errors fail even with `.not`:
 | `toMatch(pattern)` | String regex without flags, or RegExp with its explicit flags; leaves `lastIndex` unchanged |
 | `toBeGreaterThan(expected)` / `toBeGreaterThanOrEqual(expected)` | Finite numeric comparison, without coercion |
 | `toBeLessThan(expected)` / `toBeLessThanOrEqual(expected)` | Finite numeric comparison, without coercion |
-
 | `toMatchSchema(schema)` | JSON Schema draft-07 validation with standard formats and local references |
 | `toHaveProperty(key, expected?)` | Own literal string property, optionally compared with deep equality; dots do not traverse |
 | `toHaveLength(length)` | String or array length; expected length is a non-negative safe integer |
@@ -218,8 +217,9 @@ capture can overwrite a script value. Manual sends and `request run` use fresh
 scopes.
 
 The complete order is folder merge, environment/RunScope overlay, one
-substitution pass, pre, HTTP, capture commits, post, assertions. Assertion
-expectations keep the original substitution pass, not a second pass after post.
+substitution pass, inherited/request pre blocks, HTTP, capture commits,
+inherited/request post blocks, assertions, then inherited/request tests.
+Assertion expectations keep the original substitution pass, not a second pass after post.
 Post runs once for every completed response, including HTTP and capture errors,
 but never for intermediate redirects/auth challenges or transport failures. It
 sees successful captures. A post error preserves the response, captures, and
@@ -1003,6 +1003,8 @@ tls:
 ```
 
 - `collection_id`: generated UUID used to keep OS-vault accounts stable when the collection moves; preserve it and do not copy one collection's ID into another
+- `scripts`: optional inline `pre` and/or `post` blocks inherited by every request
+- `tests`: optional inline tests inherited by every request
 - `name`: optional display name; falls back to the collection directory name
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
@@ -1069,7 +1071,8 @@ Each entry has:
 | `response` | object | Optional binary metadata `bodyKind: "binary"`, normalized `contentType`, and sanitized `filename` (binary responses have no `body`/`bodyRef`); response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 | `assertions` | object | Optional redacted manual-send assertion group: `{ evaluated: boolean, results: AssertionResult[] }` |
-| `scripts` | object | Optional bounded, redacted pre/post diagnostics, logs, and persistence outcomes: `{ evaluated, results }`; source and RunScope values are excluded |
+| `scripts` | object | Optional bounded, redacted pre/post diagnostics, logs, persistence outcomes, inherited origins, and child-call summaries: `{ evaluated, results }`; source code and RunScope values are excluded |
+| `tests` | object | Optional bounded, redacted test results, logs, and block errors: `{ evaluated, results, logs, error?, errors? }`; source paths are retained without source code |
 
 The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment, proxy, and TLS secrets; substituted and literal credentials; cookie credentials; known captured secrets; and assertion result metadata are recursively redacted from request and response history. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction at save time also covers compressed request and response sidecars. Marking or updating a secret does not rewrite existing history. Unknown server data can remain visible, so timeline files are sensitive. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
