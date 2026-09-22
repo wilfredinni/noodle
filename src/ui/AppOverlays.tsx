@@ -571,6 +571,7 @@ export function AppOverlays({
         <TimelineDetailOverlay
           visible
           entry={detailEntry}
+          iteration={runnerDetail?.iteration}
           onClose={() => {
             if (runnerDetail) setRunnerDetail(null)
             else setTimelineDetailEntry(null)
@@ -580,7 +581,9 @@ export function AppOverlays({
           showCaptures={runnerDetail !== null}
           captureLifetimeNote={
             runnerDetail
-              ? "Available to later requests in this collection run."
+              ? runnerDetail.iteration !== undefined
+                ? "Available to later requests in this iteration."
+                : "Available to later requests in this collection run."
               : undefined
           }
           warnings={runnerDetail?.warnings}

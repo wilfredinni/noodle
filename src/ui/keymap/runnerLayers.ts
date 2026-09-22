@@ -59,7 +59,10 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.run",
-        enabled: () => unlocked() && state().canRun,
+        enabled: () =>
+          unlocked() &&
+          state().canRun &&
+          !(focus() === "runner-options" && state().optionIndex === 5),
         run: () => void state().run(),
       },
       {

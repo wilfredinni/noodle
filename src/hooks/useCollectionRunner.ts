@@ -11,6 +11,8 @@ import {
 import { findFolderByPath, flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
+import { resolve } from "node:path"
+import { DATA_LIMITS, loadIterationData, runResultKey } from "../iterationData"
 
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerTagFilter = "include" | "exclude"
@@ -50,6 +52,10 @@ export interface UseCollectionRunnerResult {
   failFast: boolean
   delayMsInput: string
   delayError: string | null
+  dataPath: string
+  dataError: string | null
+  iterationCount: number | null
+  setDataPath: (value: string) => Promise<void>
   optionIndex: number
   requestIndex: number
   requestRowIndex: number
@@ -94,7 +100,7 @@ export interface UseCollectionRunnerResult {
   run: () => Promise<void>
 }
 
-export const RUNNER_RUN_OPTION_INDEX = 5
+export const RUNNER_RUN_OPTION_INDEX = 6
 const OPTION_COUNT = RUNNER_RUN_OPTION_INDEX + 1
 
 type RunnerNavigationRow =
@@ -161,6 +167,13 @@ export function useCollectionRunner({
   const [excludeTagIndex, setExcludeTagIndex] = useState(0)
   const [failFast, setFailFast] = useState(false)
   const [delayMsInput, setDelayMsInputState] = useState("0")
+  const [dataPath, setDataPathState] = useState("")
+  const dataPathRef = useRef("")
+  const [dataPreview, setDataPreview] = useState<{
+    path: string
+    count: number | null
+    error: string | null
+  }>({ path: "", count: 1, error: null })
   const [optionIndex, setOptionIndexState] = useState(0)
   const [selectOpen, setSelectOpen] = useState(false)
   const [requestIndex, setRequestIndexState] = useState(0)
@@ -171,7 +184,6 @@ export function useCollectionRunner({
   >(new Map())
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [result, setResult] = useState<CollectionRunResult | null>(null)
-  const [runRequestIds, setRunRequestIds] = useState<string[]>([])
   const [runError, setRunError] = useState<string | null>(null)
   const runningRef = useRef(false)
   const parsedDelayMs = Number(delayMsInput)
@@ -254,6 +266,8 @@ export function useCollectionRunner({
     setExcludeTagIndex(0)
     setFailFast(false)
     setDelayMsInputState("0")
+    setDataPathState("")
+    dataPathRef.current = ""
     setOptionIndexState(0)
     setSelectOpen(false)
     setRequestIndexState(0)
@@ -262,7 +276,6 @@ export function useCollectionRunner({
     setResultDetails(new Map())
     setProgress({ completed: 0, total: 0 })
     setResult(null)
-    setRunRequestIds([])
     setRunError(null)
   }, [resetKey])
 
@@ -315,17 +328,60 @@ export function useCollectionRunner({
     }
   }, [collection, excludeTags, includeTags, selectedRequestIds])
 
+  const iterationCount = !dataPath
+    ? 1
+    : dataPreview.path === dataPath
+      ? dataPreview.count
+      : null
+  const dataError = !dataPath
+    ? null
+    : dataPreview.path !== dataPath
+      ? "Validating data file…"
+      : (dataPreview.error ??
+        ((iterationCount ?? 0) * preview.ids.size > DATA_LIMITS.executions
+          ? "Data run exceeds 10,000 request executions"
+          : null))
+  const setDataPath = useCallback(
+    async (path: string) => {
+      if (phase === "running") return
+      dataPathRef.current = path
+      setDataPathState(path)
+      if (!path) {
+        setDataPreview({ path, count: 1, error: null })
+        return
+      }
+      setDataPreview({ path, count: null, error: "Validating data file…" })
+      try {
+        const rows = await loadIterationData(path, collectionDir)
+        if (dataPathRef.current === path)
+          setDataPreview({ path, count: rows.length, error: null })
+      } catch (error) {
+        if (dataPathRef.current === path)
+          setDataPreview({
+            path,
+            count: null,
+            error: error instanceof Error ? error.message : String(error),
+          })
+      }
+    },
+    [phase, collectionDir],
+  )
+
   const resultRows = useMemo(() => {
     if (!result) return []
-    const results = new Map(result.results.map((entry) => [entry.id, entry]))
-    const skipped = new Map(result.skipped.map((entry) => [entry.id, entry]))
-    return runRequestIds.flatMap((id): RunnerResultRow[] => {
-      const entry = results.get(id)
-      if (entry) return [{ kind: "result", id, result: entry }]
-      const skip = skipped.get(id)
-      return skip ? [{ kind: "skipped", id, reason: skip.reason }] : []
-    })
-  }, [result, runRequestIds])
+    return [
+      ...result.results.map((entry): RunnerResultRow => ({
+        kind: "result",
+        id: runResultKey(entry.id, entry.iteration),
+        result: entry,
+      })),
+      ...result.skipped.map((entry): RunnerResultRow => ({
+        kind: "skipped",
+        id: runResultKey(entry.id, entry.iteration),
+        reason: entry.reason,
+      })),
+    ]
+  }, [result])
 
   const moveOption = useCallback(
     (direction: 1 | -1) => {
@@ -468,6 +524,8 @@ export function useCollectionRunner({
     phase !== "running" &&
     !hasUnsavedChanges &&
     delayMs !== null &&
+    dataError === null &&
+    iterationCount !== null &&
     selectedRequestIds.length > 0 &&
     preview.ids.size > 0 &&
     preview.error === null
@@ -480,6 +538,8 @@ export function useCollectionRunner({
       hasUnsavedChanges ||
       selectOpen ||
       delayMs === null ||
+      dataError !== null ||
+      iterationCount === null ||
       !collection ||
       selectedRequestIds.length === 0
     )
@@ -498,12 +558,11 @@ export function useCollectionRunner({
     if (nextRequests.length === 0) return
     runningRef.current = true
     const ids = nextRequests.map((request) => request.id)
-    setRunRequestIds(ids)
     setRunError(null)
     setResult(null)
     setResultIndex(0)
     setResultDetails(new Map())
-    setProgress({ completed: 0, total: ids.length })
+    setProgress({ completed: 0, total: ids.length * iterationCount })
     setPhase("running")
     try {
       const nextDetails = new Map<string, RequestRunDetail>()
@@ -518,8 +577,13 @@ export function useCollectionRunner({
         includeTags,
         excludeTags,
         failFast,
-        (detail) => nextDetails.set(detail.requestId, detail),
+        (detail) =>
+          nextDetails.set(
+            runResultKey(detail.requestId, detail.iteration),
+            detail,
+          ),
         delayMs,
+        dataPath ? resolve(collectionDir, dataPath) : undefined,
       )
       setResultDetails(nextDetails)
       setResult(next)
@@ -534,6 +598,9 @@ export function useCollectionRunner({
     collection,
     collectionDir,
     delayMs,
+    dataPath,
+    dataError,
+    iterationCount,
     environmentName,
     excludeTags,
     failFast,
@@ -566,6 +633,10 @@ export function useCollectionRunner({
     failFast,
     delayMsInput,
     delayError,
+    dataPath,
+    dataError,
+    iterationCount,
+    setDataPath,
     optionIndex,
     requestIndex,
     requestRowIndex,

@@ -903,10 +903,11 @@ export function AppInner({
       if (!row || row.kind !== "result") return
       const detail = runnerRef.current.resultDetails.get(row.id)
       const request = runnerRef.current.requests.find(
-        (candidate) => candidate.id === row.id,
+        (candidate) => candidate.id === row.result.id,
       )
       if (!detail || !request) return
       overlays.setRunnerDetail({
+        iteration: row.result.iteration,
         entry: detail.entry,
         execution: row.result,
         request,
