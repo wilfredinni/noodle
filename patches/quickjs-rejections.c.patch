@@ -1,0 +1,133 @@
+diff --git a/c/interface.c b/c/interface.c
+index ff68294..8e37a9f 100644
+--- a/c/interface.c
++++ b/c/interface.c
+@@ -123,15 +123,23 @@ char *qts_host_load_module_source(JSRuntime *rt, JSContext *ctx, const char *mod
+ char *qts_host_normalize_module(JSRuntime *rt, JSContext *ctx, const char *module_base_name, const char *module_name);
+ #endif
+ 
++typedef struct qts_Rejection {
++  JSContext *ctx;
++  JSValue promise;
++  JSValue reason;
++  struct qts_Rejection *next;
++} qts_Rejection;
++
+ typedef struct qts_RuntimeData {
+   bool debug_log;
++  bool rejection_oom;
++  qts_Rejection *rejections;
+ } qts_RuntimeData;
+ 
+ qts_RuntimeData *qts_get_runtime_data(JSRuntime *rt) {
+   qts_RuntimeData *data = JS_GetRuntimeOpaque(rt);
+   if (data == NULL) {
+-    data = malloc(sizeof(qts_RuntimeData));
+-    data->debug_log = false;
++    data = calloc(1, sizeof(qts_RuntimeData));
+     JS_SetRuntimeOpaque(rt, data);
+   }
+   return data;
+@@ -141,6 +149,66 @@ qts_RuntimeData *qts_get_context_rt_data(JSContext *ctx) {
+   return qts_get_runtime_data(JS_GetRuntime(ctx));
+ }
+ 
++static void qts_free_rejection(qts_Rejection *entry) {
++  JS_FreeValue(entry->ctx, entry->promise);
++  JS_FreeValue(entry->ctx, entry->reason);
++  js_free(entry->ctx, entry);
++}
++
++static void qts_clear_rejections(JSContext *ctx) {
++  qts_RuntimeData *data = qts_get_context_rt_data(ctx);
++  qts_Rejection **cursor = &data->rejections;
++  while (*cursor) {
++    qts_Rejection *entry = *cursor;
++    if (entry->ctx == ctx) {
++      *cursor = entry->next;
++      qts_free_rejection(entry);
++    } else {
++      cursor = &entry->next;
++    }
++  }
++}
++
++static void qts_track_rejection(JSContext *ctx, JSValueConst promise,
++                                JSValueConst reason, BOOL handled, void *opaque) {
++  qts_RuntimeData *data = qts_get_context_rt_data(ctx);
++  qts_Rejection **cursor = &data->rejections;
++  while (*cursor) {
++    qts_Rejection *entry = *cursor;
++    if (JS_VALUE_GET_PTR(entry->promise) == JS_VALUE_GET_PTR(promise)) {
++      if (handled) {
++        *cursor = entry->next;
++        qts_free_rejection(entry);
++      }
++      return;
++    }
++    cursor = &entry->next;
++  }
++  if (handled) return;
++  qts_Rejection *entry = js_malloc(ctx, sizeof(*entry));
++  if (!entry) {
++    data->rejection_oom = true;
++    return;
++  }
++  entry->ctx = ctx;
++  entry->promise = JS_DupValue(ctx, promise);
++  entry->reason = JS_DupValue(ctx, reason);
++  entry->next = NULL;
++  *cursor = entry;
++}
++
++static JSValue qts_check_rejections(JSContext *ctx, JSValueConst this_val,
++                                    int argc, JSValueConst *argv) {
++  qts_RuntimeData *data = qts_get_context_rt_data(ctx);
++  if (data->rejection_oom) return JS_ThrowOutOfMemory(ctx);
++  if (!data->rejections) return JS_UNDEFINED;
++  qts_Rejection *entry = data->rejections;
++  data->rejections = entry->next;
++  JSValue reason = JS_DupValue(ctx, entry->reason);
++  qts_free_rejection(entry);
++  return JS_Throw(ctx, reason);
++}
++
+ void qts_log(char *msg) {
+   fputs(PKG, stderr);
+   fputs(msg, stderr);
+@@ -404,7 +472,9 @@ HostRefId QTS_GetHostRefId(JSValueConst *value) {
+  */
+ 
+ JSRuntime *QTS_NewRuntime() {
+-  return JS_NewRuntime();
++  JSRuntime *rt = JS_NewRuntime();
++  if (rt) JS_SetHostPromiseRejectionTracker(rt, qts_track_rejection, NULL);
++  return rt;
+ }
+ 
+ void QTS_FreeRuntime(JSRuntime *rt) {
+@@ -488,10 +558,17 @@ JSContext *QTS_NewContext(JSRuntime *rt, IntrinsicsFlags intrinsics) {
+     return NULL;
+   }
+ 
++  JSValue global = JS_GetGlobalObject(ctx);
++  JS_DefinePropertyValueStr(ctx, global, "__quickjsCheckUnhandledRejections",
++      JS_NewCFunction(ctx, qts_check_rejections, "checkUnhandledRejections", 0),
++      JS_PROP_CONFIGURABLE);
++  JS_FreeValue(ctx, global);
++
+   return ctx;
+ }
+ 
+ void QTS_FreeContext(JSContext *ctx) {
++  qts_clear_rejections(ctx);
+   JS_FreeContext(ctx);
+ }
+ 
+@@ -1399,4 +1476,4 @@ JSValue *QTS_bjson_decode(JSContext *ctx, JSValueConst *data) {
+ 
+   JSValue value = JS_ReadObject(ctx, buffer, length, 0);
+   return jsvalue_to_heap(value);
+-}
+\ No newline at end of file
++}
