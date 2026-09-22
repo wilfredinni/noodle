@@ -71,6 +71,32 @@ references and must resolve in the active environment before sending.
 
 <a id="inline-pre-request-script"></a>
 
+
+### Inherited scripts and tests
+
+Declare inline `scripts.pre`, `scripts.post`, and `tests` in collection
+`settings.yml`, nested `folder.yml`, or request YAML. Each phase accumulates
+blocks in this order: collection, outer folders, inner folders, request.
+An empty block is a no-op and does not disable inherited blocks.
+
+Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
+successful RunScope writes are visible to later blocks. A pre failure stops
+remaining pre blocks and HTTP. A post failure rolls back only that block and
+continues later posts, assertions, and tests. A top-level test error stops only
+its block. Successful persistence intents keep execution order; collection
+runs and F5 suppress persistence as before. Saved `noodle.runRequest()` calls
+use the same inheritance and cycle protections.
+
+Inherited diagnostics include optional `source: { scope, path }`, where scope
+is `collection`, `folder`, or `request` and path is collection-relative.
+Tests also expose `errors` for multiple block errors; legacy `error` remains
+the first error. CLI, Results, and history show origins without retaining source
+code. Script logs and errors retain the existing redaction and size limits.
+
+Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
+budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test
+records produce a test script error, and later blocks are still invoked.
+
 ### Inline scripted tests
 
 Use declarative `assert` for simple response contracts and a request-level
@@ -96,7 +122,7 @@ or thenables before finalizing results. Results retain declaration order, includ
 duplicate names. Names must be non-empty strings. A failed matcher or callback
 fails that test and later tests continue. A top-level error stops the script but
 preserves completed results. Empty source is a successful no-op. `tests` must be
-an inline string; file paths, inherited tests, and modules are unsupported.
+an inline string; file paths and modules are unsupported.
 Source is never variable-substituted. Network APIs and state mutations are unavailable.
 
 Every matcher supports `.not`, for example `expect(value).not.toBeNull()`.
@@ -113,6 +139,12 @@ Type errors fail even with `.not`:
 | `toMatch(pattern)` | String regex without flags, or RegExp with its explicit flags; leaves `lastIndex` unchanged |
 | `toBeGreaterThan(expected)` / `toBeGreaterThanOrEqual(expected)` | Finite numeric comparison, without coercion |
 | `toBeLessThan(expected)` / `toBeLessThanOrEqual(expected)` | Finite numeric comparison, without coercion |
+
+| `toMatchSchema(schema)` | JSON Schema draft-07 validation with standard formats and local references |
+| `toHaveProperty(key, expected?)` | Own literal string property, optionally compared with deep equality; dots do not traverse |
+| `toHaveLength(length)` | String or array length; expected length is a non-negative safe integer |
+| `toBeTypeOf(type)` | JavaScript `typeof`, including `object` for null; rejects invalid type names |
+| `toMatchObject(partial)` | Recursive object subset; arrays compare completely and in order |
 
 Cyclic values, unsafe prototypes/keys, accessors, non-transferable values, and
 oversized matcher values are rejected. Deep equality requires JSON-compatible
@@ -134,7 +166,7 @@ source/matcher values and retained test records, depth 32 JSON values, and the
 lazy 5 MiB response text limit. Unresolved Promises and resource limits stop the
 group while keeping completed results.
 
-Results add `tests: { evaluated, results, logs, error? }`. Each ordered result
+Results add `tests: { evaluated, results, logs, error?, errors? }`. Each ordered result
 contains `name`, `passed`, `message`, and `durationMs`; `error` describes a
 separate top-level script failure. Known secrets are redacted from names,
 messages, errors, and logs. Failed tests or a script error add failure category
@@ -646,18 +678,18 @@ Every manual send and automation request follows this order:
 1. Merge folder overrides.
 2. Overlay the current RunScope for substitution.
 3. Substitute the request once.
-4. Run the request-level pre-script against a staged prepared copy.
+4. Run pre blocks in collection, outer folder, inner folder, request order against staged prepared copies.
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures in declaration order.
-8. Execute post using committed captures and the final prepared request; commit
+8. Execute post blocks in the same ancestor order using committed captures and the final prepared request; commit
    successful transient RunScope and URL-scoped cookie changes together.
 9. Evaluate assertions against the same response views, including after post failure.
-10. Execute request-level scripted tests, including after any completed response failure.
+10. Execute test blocks in the same ancestor order, including after any completed response failure.
 
 Manual sends and `request run` use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order after target
-and tag filtering. HTTP/capture errors still reach post; post errors still reach assertions and tests;
+and tag filtering, with a fresh scope for each dataset row. HTTP/capture errors still reach post; post errors still reach assertions and tests;
 transport failures have no response views to evaluate.
 
 ### Header and param values
@@ -1114,3 +1146,79 @@ and normalized error. Results, Runner details, CLI JSON, and concise human outpu
 show child calls, including caught failures. A caught failure does not fail the
 parent. Manual history retains bounded, redacted summaries without child bodies,
 variable values, or separate child timeline entries.
+
+
+## JSON Schema validation
+
+```javascript
+test("valid user", () => {
+  expect(noodle.response.json()).toMatchSchema({
+    type: "object",
+    required: ["id", "email"],
+    properties: {
+      id: { type: "integer" },
+      email: { type: "string", format: "email" }
+    }
+  })
+})
+```
+
+`toMatchSchema(schema)` uses Ajv 8 and ajv-formats inside QuickJS. Compilation
+and validation share the invocation's CPU, memory, and stack limits. Schemas
+use draft-07 by default; explicit other dialects fail. Boolean schemas and
+local fragment references such as `#/definitions/user` are supported. Remote
+and file references, async schemas, and custom validators are unavailable.
+Validation never coerces types, applies defaults, or removes properties.
+
+`.not.toMatchSchema(schema)` passes only when valid schema validation fails.
+An invalid schema fails even under `.not`. Failure details show the first
+data path, failed keyword, and message, bounded and redacted like other tests.
+
+
+## CSV and JSON iteration data
+
+```bash
+noodle collection run ./my-api --data ./data/users.csv
+noodle collection run ./my-api users/ --data ./data/users.json --tag smoke --delay 100 --fail-fast --json
+```
+
+`--data` is optional and independent of the `--json` output flag. In F5, enter
+the optional **Data file** path, check the iteration count, and select **Run**.
+Relative CLI paths start at the current directory; relative F5 paths start at
+the collection root. Both accept absolute paths. F5 revalidates at run start.
+The path and results are temporary Runner options.
+
+CSV uses a header row as variable names and keeps cells as strings, including
+quoted commas and multiline fields; a UTF-8 BOM is accepted. JSON requires a
+non-empty array of objects and preserves JSON value types:
+
+```json
+[{ "user_id": 1, "active": true }, { "user_id": 2, "active": false }]
+```
+
+The entire file is validated before requests are sent. Empty files, invalid or
+unsafe variable names, duplicate CSV headers, and inconsistent CSV rows fail.
+Names use letters, digits, or underscores. Limits are 5 MiB per file, 1,000
+rows, and 10,000 selected request executions. Rows must fit the existing
+256 KiB/depth-32 bridge limits, including the iteration wrapper.
+
+Each row runs every selected request in collection order. Its variables
+override environment values for `$name` substitution and `noodle.run.get`;
+successful captures and scripts can replace them during that iteration.
+`noodle.env.get` continues to read the original environment snapshot.
+`noodle.iteration` is deeply read-only `{ index, count, data }`, with zero-based
+`index` and the original row in `data`. It is `null` without data and is shared
+with child requests. JavaScript objects in `data` retain their JSON types.
+
+Each row starts with fresh variables and an in-memory copy of the same initial
+cookie jar. Cookies change within that row only and are never persisted.
+Fail-fast skips every remaining request and row. Delay applies between all
+consecutive executions, including row boundaries. Results, skips, and details
+carry zero-based `iteration`; the collection result adds `iterations`. F5 groups
+results by iteration and counts progress across all executions. Human labels
+show iteration numbers starting at one. Datasets themselves are not included
+in results or history.
+
+Exit codes remain `0` for success, `1` for execution/response validation failure,
+and `2` for configuration or invalid data. Without `--data`, behavior and result
+shapes remain unchanged.

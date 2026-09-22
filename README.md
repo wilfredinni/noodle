@@ -56,15 +56,18 @@ to create a collection, send your first request, and inspect the response.
 - 🧪 **[Response assertions](https://noodlerest.dev/docs/guides/automation/#put-success-criteria-beside-the-request):**
   Check status, timing, headers, and JSON values in the TUI or CI.
 - ✅ **[Scripted tests](https://noodlerest.dev/docs/guides/scripted-tests/):**
-  Check responses with synchronous or async tests and conditional assertions.
+  Check responses with synchronous or async tests, JSON Schema draft-07,
+  property, length, type, and partial-object matchers.
 - 🎯 **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
   Pass response values to later requests or save them to an environment or secret.
 - 📜 **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
   Prepare requests and process responses with sandboxed JavaScript. Await saved
   requests or direct HTTP calls, reuse captured values, and use signing, test
   data, timestamp, and cookie helpers. Try the [request chaining examples](collections/async-scripting).
+  Share inline scripts and tests from collection settings and nested folders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
-  Run requests or folders with tag filters, fail-fast behavior, delays, and JSON results.
+  Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
+  iteration data, and JSON results. Try the [local data-run example](collections/scripting-data).
 - 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
   [cookies](https://noodlerest.dev/docs/guides/settings/#general):**
   Revisit past responses and manage a cookie jar for each collection.

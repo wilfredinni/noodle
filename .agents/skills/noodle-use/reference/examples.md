@@ -550,3 +550,10 @@ successful script writes are also available through `noodle.run.get` when the
 call resolves. For a complete runnable public-API example, use the repository's
 `collections/async-scripting/` folder. See the
 [request chaining contract](../schema.md#async-scripts-and-request-chaining).
+
+## Inheritance and data runs
+
+See the runnable loopback collection at `collections/scripting-data` in the Noodle
+repository. It includes collection and folder blocks, CSV and JSON data files,
+JSON Schema validation, and the property, length, type, and subset matchers.
+Run its `server.ts` with Bun, then use the collection command with `--data`.

@@ -126,3 +126,14 @@ cached-only nested OAuth, secret registration after failure, and parent staged
 cookie semantics. Tests await callbacks but reject network APIs at the host
 boundary. Child summaries use the shared Results/CLI/history paths and never
 retain child bodies. See [the public contract](../noodle-use/schema.md#async-scripts-and-request-chaining).
+
+## Inheritance, schemas, and iteration data
+
+`scriptInheritance.ts` builds collection/folder/request blocks for the shared lifecycle.
+Keep separate invocations, per-block rollback, ordered persistence, optional origins,
+and legacy test error compatibility. `scriptSchemaValidator.ts` is bundled for QuickJS
+with `bun scripts/build-schema-validator.ts`; check the committed bundle with `--check`.
+Never compile or validate user schemas on the host. `iterationData.ts` validates whole
+files before execution; collectionRun owns row scopes and transient cookie snapshots.
+Runner uses iteration/request keys for rows and detail lookup. Maintain the existing
+no-data output and execution semantics. See noodle-use/schema.md for the public contract.
