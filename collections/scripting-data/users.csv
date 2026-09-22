@@ -1,3 +1,4 @@
-user_id
-1
-2
+user_id,expected_email,expected_active,case_name
+1,user1@example.com,true,"Active user, basic case"
+2,user2@example.com,false,"Inactive user
+multiline CSV field"

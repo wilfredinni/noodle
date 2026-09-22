@@ -1,26 +1,65 @@
 # Inheritance, JSON Schema and CSV/JSON data
 
-From the repository root, start the local API in one terminal:
+Two GET requests and two dataset rows exercise all four scripting additions.
+They use a local fixture API with no accounts, credentials, or external services.
+
+From the repository root, start the API in one terminal and leave it running:
 
 ```bash
 bun collections/scripting-data/server.ts
 ```
 
-Run both users with either file in another terminal:
+To use the main sample collection, select **Inheritance, schemas and datasets**
+(`scripting-data`) in the sidebar and press F5. In **Data file**, enter
+`./scripting-data/users.csv` or `./scripting-data/users.json`, then select **Run**.
+Keep only this folder selected when running these datasets.
+
+You can also open this suite as its own collection:
+
+```bash
+bun src/app/cli.ts ./collections/scripting-data
+```
+
+Then press F5 and use `./users.csv` or `./users.json` in **Data file**.
+Type `./` to complete collection paths or `@/` to complete paths from your home
+directory. Select a suggestion with Enter or Tab.
+
+Both datasets produce **2 iterations, 4 successful requests and 28 passing tests**.
+Results identify the collection/folder/request that declared each inherited block.
+
+For the CLI, run either dataset from the repository root:
 
 ```bash
 bun src/app/cli.ts collection run ./collections/scripting-data --data ./collections/scripting-data/users.csv --noproxy
 bun src/app/cli.ts collection run ./collections/scripting-data --data ./collections/scripting-data/users.json --noproxy --json
 ```
 
-For the TUI, open `bun src/app/cli.ts ./collections/scripting-data`, press F5,
-and enter `users.csv` or `users.json` in **Data file**. Select **Run**.
-CLI paths start at the current directory; Runner paths start at the collection root.
+CLI paths start at the current directory; Runner paths start at the open collection root.
 
-Each row runs the request with `$user_id`. CSV values are strings; JSON keeps
-numbers. Collection pre runs before folder pre, and tests run collection,
-folder, then request. Results show each block's file. The request tests require
-iteration data, so run this example through the CLI collection command or F5.
+| File | Demonstrates |
+| --- | --- |
+| `settings.yml` | Collection-level pre, post, and tests when opened independently |
+| `folder.yml` | Equivalent suite setup when opened inside the main sample collection |
+| `users/folder.yml` | Inherited pre/post/tests; draft-07 schema with local references and email format |
+| `users/get-user.yml` | Request pre/post; dataset assertions; all four new matchers and their negations; negated schema |
+| `users/nested/folder.yml` | An inner folder that adds pre/post/tests to its ancestors |
+| `users/nested/get-user.yml` | Exact execution order and iteration context in a nested request |
+| `users.csv` | String cells, a quoted comma, and a multiline field |
+| `users.json` | The same rows with numeric IDs and boolean expectations |
+
+Each row supplies `$user_id`, `expected_email`, `expected_active`, and `case_name`.
+CSV cells remain strings; JSON retains numbers and booleans. Assertions normalize
+only their expected values so both files describe the same two cases.
+
+Every pre/post block appends its name to `exampleSteps` in RunScope. Tests verify
+the order: suite, outer folder, inner folder (where present), request, separately
+for pre and post. The suite resets that trace before each request. When this
+directory is opened independently, `settings.yml` supplies the suite blocks and
+the root `folder.yml` is ignored. When the parent collection is open, its child
+`scripting-data/folder.yml` supplies them instead.
+
+The request URLs and tests require iteration data. Run them through F5 or the
+collection CLI with a dataset, rather than sending a request manually.
 
 Rows start with fresh variables and independent cookies copied from the initial
 jar. Captures and scripts may override row values, while `noodle.iteration.data`

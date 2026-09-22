@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { scheduler } from "node:timers/promises"
 import { act, useRef, useState } from "react"
 import {
   RGBA,
@@ -19,6 +22,8 @@ import type { Focus } from "../../src/ui/focus"
 import type { Collection } from "../../src/schema"
 import type { collectionRun } from "../../src/app/services"
 import { setupKeymap } from "./_helpers"
+import { collapseUserPath } from "../../src/userPath"
+import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 
 const testRender = createTestRender()
 const collection: Collection = {
@@ -104,6 +109,109 @@ const folderCollection: Collection = {
 }
 
 describe("CollectionRunnerView", () => {
+  it("completes home and collection data paths and runs the selected file", async () => {
+    const dir = await mkdtemp(join(process.cwd(), ".runner-data-"))
+    const file = join(dir, "users data.json")
+    const { keymap, host, cleanup } = setupKeymap()
+    let current: UseCollectionRunnerResult | null = null
+    const paths: unknown[] = []
+    const runCollection: typeof collectionRun = async (...args) => {
+      paths.push(args[12])
+      return {
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: {
+          selected: 0,
+          executed: 0,
+          skipped: 0,
+          requestSuccesses: 0,
+          requestFailures: 0,
+          assertionPasses: 0,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 0,
+          failureCategories: [],
+        },
+      }
+    }
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      current = useCollectionRunner({
+        collection,
+        collectionDir: dir,
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: true,
+        insecure: false,
+        systemProxy: { bypass: [] },
+        resetKey: 1,
+        runCollection,
+      })
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <CollectionRunnerView
+              runner={current}
+              focus="runner-options"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
+              onOpenResultDetail={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    try {
+      await writeFile(file, '[{"id":1},{"id":2}]')
+      const render = await testRender(<Harness />, { width: 100, height: 28 })
+      const waitFor = async (predicate: () => boolean) => {
+        const deadline = Date.now() + 2000
+        while (!predicate()) {
+          await act(async () => {
+            await scheduler.yield()
+            await render.renderOnce()
+          })
+          if (Date.now() > deadline)
+            throw Error(
+              `Timed out waiting for completion:\n${render.captureCharFrame()}`,
+            )
+        }
+      }
+      await render.renderOnce()
+      for (const prefix of [`${collapseUserPath(dir)}/`, "./"]) {
+        await act(async () => {
+          current!.showConfigure()
+          current!.setOptionIndex(5)
+          await current!.setDataPath(prefix)
+        })
+        await render.renderOnce()
+        await waitFor(() =>
+          render.captureCharFrame().includes("│ users data.json"),
+        )
+        await act(async () => {
+          host.press("return")
+        })
+        await waitFor(() => current!.iterationCount === 2)
+        expect(current!.dataPath).toBe(`${prefix}users data.json`)
+        expect(current!.dataError).toBeNull()
+        expect(current!.optionIndex).toBe(5)
+        await act(async () => {
+          await current!.run()
+        })
+      }
+      expect(paths).toEqual([file, file])
+    } finally {
+      cleanup()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("groups repeated requests by iteration and opens the matching detail through resize", async () => {
     const { keymap } = setupKeymap()
     let current: UseCollectionRunnerResult | null = null

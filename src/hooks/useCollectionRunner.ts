@@ -12,6 +12,7 @@ import { findFolderByPath, flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
 import { resolve } from "node:path"
+import { expandUserPath } from "../userPath"
 import { DATA_LIMITS, loadIterationData, runResultKey } from "../iterationData"
 
 export type RunnerPhase = "configure" | "running" | "results"
@@ -35,6 +36,7 @@ export interface UseCollectionRunnerOptions {
 }
 
 export interface UseCollectionRunnerResult {
+  collectionDir: string
   phase: RunnerPhase
   scopeLabel: string
   items: CollectionItem[]
@@ -352,7 +354,10 @@ export function useCollectionRunner({
       }
       setDataPreview({ path, count: null, error: "Validating data file…" })
       try {
-        const rows = await loadIterationData(path, collectionDir)
+        const rows = await loadIterationData(
+          expandUserPath(path),
+          collectionDir,
+        )
         if (dataPathRef.current === path)
           setDataPreview({ path, count: rows.length, error: null })
       } catch (error) {
@@ -583,7 +588,7 @@ export function useCollectionRunner({
             detail,
           ),
         delayMs,
-        dataPath ? resolve(collectionDir, dataPath) : undefined,
+        dataPath ? resolve(collectionDir, expandUserPath(dataPath)) : undefined,
       )
       setResultDetails(nextDetails)
       setResult(next)
@@ -616,6 +621,7 @@ export function useCollectionRunner({
   ])
 
   return {
+    collectionDir,
     phase,
     scopeLabel: folderPath ? `Folder: ${folderPath}` : "Entire collection",
     items,

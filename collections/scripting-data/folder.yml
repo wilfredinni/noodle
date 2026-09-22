@@ -1,6 +1,10 @@
-name: Inherited scripts and iteration data
-cookies:
-  enabled: false
+# The collection root ignores folder.yml. This equivalent setup is used when
+# opening the parent collections/ directory instead of this standalone suite.
+meta:
+  name: Inheritance, schemas and datasets
+  seq: 4
+tags:
+  - scripting-data
 scripts:
   pre: |-
     noodle.run.set("collectionReady", true)

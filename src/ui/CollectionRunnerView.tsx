@@ -35,6 +35,7 @@ import { flattenRequests } from "./tree"
 import { ActionButton } from "./ActionButton"
 import { Badge } from "./Badge"
 import { SettingsField } from "./settings/SettingsField"
+import { VarInput } from "./VarInput"
 import { runResultKey } from "../iterationData"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -54,7 +55,7 @@ const OPTION_DESCRIPTIONS = [
   "Skip requests with any excluded tag.",
   "Stop running after the first failed request.",
   "Wait between completed requests before starting the next.",
-  "Optional CSV or JSON path, relative to the collection root.",
+  "Optional CSV or JSON.",
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
@@ -580,6 +581,24 @@ export function CollectionRunnerView({
                       </box>
                     ) : index === 3 ? (
                       <Checkbox checked={runner.failFast} theme={theme} />
+                    ) : index === 5 ? (
+                      <VarInput
+                        value={runner.dataPath}
+                        env={null}
+                        variableAware={false}
+                        isEditing
+                        isFocused={active && !configurationLocked}
+                        onChange={runner.setDataPath}
+                        pathCompletion={{
+                          kind: "file",
+                          relativeRoot: runner.collectionDir,
+                        }}
+                        placeholder="./data.csv or @/Downloads/data.json"
+                        backgroundColor="transparent"
+                        focusedBackgroundColor="transparent"
+                        paddingX={0}
+                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                      />
                     ) : (
                       <box
                         style={{
@@ -590,19 +609,9 @@ export function CollectionRunnerView({
                         }}
                       >
                         <input
-                          id={
-                            index === 4
-                              ? "runner-delay-input"
-                              : "runner-data-input"
-                          }
-                          value={
-                            index === 4 ? runner.delayMsInput : runner.dataPath
-                          }
-                          onInput={
-                            index === 4
-                              ? runner.setDelayMsInput
-                              : runner.setDataPath
-                          }
+                          id="runner-delay-input"
+                          value={runner.delayMsInput}
+                          onInput={runner.setDelayMsInput}
                           focused={active && !configurationLocked}
                           backgroundColor="transparent"
                           focusedBackgroundColor="transparent"

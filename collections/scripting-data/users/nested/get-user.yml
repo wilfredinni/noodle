@@ -1,0 +1,21 @@
+name: Get user with nested scripts and tests
+method: GET
+url: http://127.0.0.1:3137/users/$user_id
+timeout: 0
+scripts:
+  pre: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "request-pre"])
+  post: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "request-post"])
+tests: |-
+  test("outer and inner folders run before the request in both phases", () => {
+    expect(noodle.run.get("exampleSteps")).toEqual([
+      "suite-pre", "users-pre", "nested-pre", "request-pre",
+      "suite-post", "users-post", "nested-post", "request-post"
+    ])
+  })
+  test("nested requests read the same iteration row", () => {
+    expect(noodle.response.json()).toHaveProperty("id", Number(noodle.iteration.data.user_id))
+    expect(noodle.iteration.index).toBeGreaterThanOrEqual(0)
+    expect(noodle.iteration.index).toBeLessThan(noodle.iteration.count)
+  })

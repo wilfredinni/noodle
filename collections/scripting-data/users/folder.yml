@@ -1,20 +1,35 @@
 meta:
   name: Users
+  seq: 1
 tags:
   - smoke
 scripts:
   pre: |-
     if (!noodle.run.get("collectionReady")) throw Error("collection pre did not run")
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "users-pre"])
     noodle.request.headers.set("X-Example", "inherited")
+  post: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "users-post"])
+    noodle.run.set("lastUserId", noodle.response.json().id)
 tests: |-
   test("user schema", () => {
     expect(noodle.response.json()).toMatchSchema({
+      $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
-      required: ["id", "email", "roles"],
+      required: ["id", "email", "roles", "active"],
+      additionalProperties: false,
+      definitions: {
+        userId: { type: "integer", minimum: 1 },
+        email: { type: "string", format: "email" }
+      },
       properties: {
-        id: { type: "integer" },
-        email: { type: "string", format: "email" },
-        roles: { type: "array", items: { type: "string" } }
+        id: { $ref: "#/definitions/userId" },
+        email: { $ref: "#/definitions/email" },
+        roles: { type: "array", items: { type: "string" } },
+        active: { type: "boolean" }
       }
     })
+  })
+  test("folder post exposes the response id", () => {
+    expect(noodle.run.get("lastUserId")).toBe(noodle.response.json().id)
   })

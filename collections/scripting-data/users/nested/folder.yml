@@ -1,0 +1,15 @@
+meta:
+  name: Nested inheritance
+  seq: 2
+scripts:
+  pre: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "nested-pre"])
+    noodle.request.headers.set("X-Nested-Example", "true")
+  post: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "nested-post"])
+tests: |-
+  test("inner folder adds its own pre and post", () => {
+    const steps = noodle.run.get("exampleSteps")
+    expect(steps).toContain("nested-pre")
+    expect(steps).toContain("nested-post")
+  })
