@@ -216,6 +216,23 @@ describe("inline test sandbox", () => {
     expect(JSON.stringify(result)).not.toContain("quickjs")
     expect(result.result.error).not.toHaveProperty("stack")
   })
+  it("awaits registered async tests after a top-level error", async () => {
+    const result = await run(`
+      test("async pass", async () => { await Promise.resolve(); await 1; expect(1).toBe(1) });
+      test("async fail", async () => { await 1; expect(1).toBe(2) });
+      test("sync pass", () => expect(true).toBe(true));
+      throw Error("top failed");
+    `)
+    expect(result.result.error?.message).toBe("top failed")
+    expect(result.tests?.map(({ name, passed }) => ({ name, passed }))).toEqual(
+      [
+        { name: "async pass", passed: true },
+        { name: "async fail", passed: false },
+        { name: "sync pass", passed: true },
+      ],
+    )
+  })
+
   it("validates declarations and treats empty source as evaluated with zero tests", async () => {
     for (const source of [
       'test("",()=>{})',
@@ -237,28 +254,35 @@ describe("inline test sandbox", () => {
       "external script paths are not supported",
     )
   })
-  it("rejects native Promises and thenables without running asynchronous jobs", async () => {
+  it("awaits async tests and thenables in declaration order, retaining failures", async () => {
     const result = await run(`
       test("promise", () => Promise.resolve(1));
-      test("thenable", () => ({then() { console.log("never"); }}));
+      test("thenable", () => ({then(resolve) { resolve(); }}));
       test("hidden promise", () => Object.setPrototypeOf(Promise.resolve(1), null));
       test("getter", () => ({get then() { throw Error("then getter failed"); }}));
-      test("async", async () => { await 1; console.log("never"); });
+      test("async", async () => { await 1; throw Error("async failed"); });
       test("after", () => expect(2).toBe(2));
+      test("read-only", async () => {
+        await Promise.resolve();
+        expect(typeof noodle.runRequest).toBe("undefined");
+        expect(typeof noodle.sendRequest).toBe("undefined");
+        noodle.run.set("forbidden", 1);
+      });
     `)
     expect(result.tests?.slice(0, 3).map((test) => test.message)).toEqual(
-      Array(3).fill("async tests are not supported"),
+      Array(3).fill("Test passed"),
     )
     expect(result.tests?.[3]?.message).toBe("then getter failed")
-    expect(result.tests?.[4]?.message).toBe("async tests are not supported")
-    expect(result.tests?.at(-1)?.passed).toBe(true)
+    expect(result.tests?.[4]?.message).toBe("async failed")
+    expect(result.tests?.[5]?.passed).toBe(true)
+    expect(result.tests?.[6]?.message).toContain("read-only")
     expect(result.result.logs).toEqual([])
-    expect(result.result.error?.name).toBe("ScriptAsyncUnsupportedError")
+    expect(result.result.error).toBeUndefined()
     const queued = await run(
-      'Promise.resolve().then(()=>console.log("never")); test("sync",()=>{})',
+      'await Promise.resolve().then(()=>console.log("awaited")); test("sync",()=>{})',
     )
-    expect(queued.result.error?.name).toBe("ScriptAsyncUnsupportedError")
-    expect(queued.result.logs).toEqual([])
+    expect(queued.result.error).toBeUndefined()
+    expect(queued.result.logs).toEqual([{ level: "log", message: "awaited" }])
   })
   it("exposes the test contract and applicable existing helpers only in tests", async () => {
     const result = await run(`test("contract", () => {

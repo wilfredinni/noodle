@@ -134,6 +134,20 @@ describe("saveTimelineEntry", () => {
               { level: "info", message: "omitted" },
             ],
             error: { name: oversized, message: oversized, line: 3, column: 4 },
+            requests: [
+              {
+                kind: "saved",
+                requestId: "login",
+                depth: 1,
+                method: "POST",
+                url: oversized,
+                status: 401,
+                durationMs: 5,
+                success: false,
+                failureCategories: ["http"],
+                error: { name: "Error", message: oversized },
+              },
+            ],
             persistence: [
               {
                 variable: "TOKEN",
@@ -168,6 +182,14 @@ describe("saveTimelineEntry", () => {
         column: 4,
       },
       persistence: [{ error: { name: "Error", message: "[TRUNCATED]" } }],
+      requests: [
+        {
+          requestId: "login",
+          url: "[TRUNCATED]",
+          success: false,
+          error: { message: "[TRUNCATED]" },
+        },
+      ],
     })
     expect(
       await readFile(join(dir, ".timeline", "scripts.yml"), "utf8"),

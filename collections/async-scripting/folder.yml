@@ -1,0 +1,7 @@
+meta:
+  name: Async Request Chaining
+  seq: 3
+tags:
+  - async-scripting
+auth:
+  type: none

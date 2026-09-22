@@ -106,6 +106,45 @@ afterEach(async () => {
 })
 
 describe("post-response lifecycle", () => {
+  it("retains child cookies and received cookies after parent variable rollback", async () => {
+    const jar = await openJar()
+    const scope = new RunScope()
+    const child: Request = {
+      ...base(),
+      id: "child",
+      scripts: {
+        post: 'noodle.cookies.set({name:"child",value:"child-cookie"}); noodle.run.set("CHILD", true)',
+      },
+    }
+    const root: Request = {
+      ...base(),
+      id: "root",
+      scripts: {
+        post: 'noodle.cookies.set({name:"parent",value:"parent-cookie"}); await noodle.runRequest("child"); throw Error("rollback parent")',
+      },
+    }
+    const result = await executeRequestLifecycle({
+      request: root,
+      runScope: scope,
+      collection: {
+        id: "test",
+        name: "Test",
+        items: [root, child].map((data) => ({ type: "request", data })),
+      },
+      transport: {
+        proxyPolicy: { kind: "direct", source: "cli" },
+        cookies: jar,
+      },
+    })
+    expect(result.status).toBe("done")
+    expect(result.execution.scripts?.results[0]?.success).toBe(false)
+    expect(scope.get("CHILD")).toBeUndefined()
+    const current = jar.scriptTransaction(root.url, () => {})!
+    expect(current.get("child")).toBe("child-cookie")
+    expect(current.get("parent")).toBeNull()
+    expect(current.get("received")).toBe("r")
+  })
+
   it("carries time values across requests and retains pre/post failure semantics", async () => {
     const scope = new RunScope()
     const first = await send(
