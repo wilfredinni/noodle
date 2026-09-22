@@ -88,13 +88,14 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 9. Evaluate assertions, including after post failure.
 10. Run optional read-only scripted tests, including after HTTP, capture, post, or assertion failure.
 
-Use `scripts.pre` for synchronous request preparation and `scripts.post` for
+Use `scripts.pre` for synchronous or async request preparation and `scripts.post` for
 response extraction or conditional processing that cannot be expressed
 declaratively. Script source is literal and never variable-
 substituted. Noodle readers and state APIs live under the frozen `noodle` namespace; bare
 reader aliases are unavailable. Only the tests phase adds global `test` and `expect`. Pre exposes `noodle.request`, `noodle.env`, `noodle.run`,
-`noodle.crypto`, `noodle.random`, `noodle.time`, and captured global `console` APIs. Imports, network calls, host APIs, timers, returned
-Promises, and queued async work are unsupported. Script request mutations are
+`noodle.crypto`, `noodle.random`, `noodle.time`, and captured global `console` APIs. Pre/post support top-level await and Promise-returning
+`noodle.runRequest(id)` and `noodle.sendRequest(options)`; await each call.
+Imports, raw fetch, host APIs, timers, and background work are unavailable. Script request mutations are
 in-memory only. Successful pre RunScope mutations commit before HTTP and are
 visible to later collection requests even if later phases fail. Read the complete API and
 limits in [schema.md](schema.md#inline-request-scripts).
@@ -138,8 +139,7 @@ Explicit durable precedence is pre, capture, post. Later transient writes do
 not change a saved snapshot. VM failure discards intents; storage failure keeps
 runtime changes but fails automation with redacted persistence diagnostics.
 
-Treat collections containing scripts as trusted code. Although the sandbox has
-no network API, a script can read selected-environment secrets with `noodle.env.get`
+Treat collections containing scripts as trusted code. A script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
 Manual timeline history retains bounded, redacted pre/post diagnostics, logs, persistence outcomes, and scripted test results/errors/logs. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
@@ -171,10 +171,10 @@ Supported matchers: `toBe`, `toEqual`, `toBeTruthy`, `toBeFalsy`, `toBeDefined`,
 [matcher reference](schema.md#inline-scripted-tests) for exact types and limits.
 
 Tests cannot mutate request, response, RunScope, environment, or cookies.
-Callbacks execute synchronously in declaration order; duplicate names remain
-separate. Failed callbacks do not stop later tests. Top-level errors and
-resource limits retain already completed results. Promises, thenables, async
-jobs, external files, inheritance, and modules are unsupported. Empty source is
+Callbacks start immediately; returned Promises and thenables are awaited and
+results keep declaration order. Duplicate names remain separate. Failed
+callbacks do not stop later tests. Top-level errors and resource limits retain
+completed results. Network APIs, external files, inheritance, and modules are unavailable. Empty source is
 a no-op, source is never substituted, and non-string `tests` values are invalid.
 
 Read `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs,
@@ -266,3 +266,18 @@ Auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`
 Keep OAuth consumer secrets, token secrets, client secrets, passwords, and private signing keys in secret environment variables. OAuth 2 token responses live in the OS credential vault, with a session-only memory fallback if the vault is unavailable; never write tokens, authorization codes, PKCE verifiers, or generated state into collection files. Browser authorization is a TUI-only human workflow. Non-interactive `request run` and `collection run` may reuse or refresh stored browser credentials, and may acquire client-credentials or password tokens directly, but never open a browser.
 
 Noodle cannot generate client-code snippets for NTLM, AWS SigV4, OAuth 1.0a, or OAuth 2.0 requests. Keep these requests in the collection and run them with noodle instead.
+
+### Request chaining
+
+Use `await noodle.runRequest("folder/request")` for a saved same-collection
+request, or `await noodle.sendRequest({ url, method, headers, body, timeout })`
+for literal HTTP values. Both return read-only response readers and throw on
+HTTP or execution failures. Catch errors to inspect `response`, `execution`,
+and `failureCategories`. Children share staged variables transactionally; a
+failed child rolls back its writes and a failed parent rolls back the combined
+variables. Nested persistence is transient. Persist selected results explicitly
+in the parent and use request setters to change the already-substituted current
+request. HTTP/cookie effects are not rolled back. Limits: one outstanding call,
+ten calls per top-level request, four child levels, 30-second ancestor-bounded
+wall time, and 500 ms VM execution excluding network waiting. See
+[the full contract](schema.md#async-scripts-and-request-chaining).

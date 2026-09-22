@@ -176,3 +176,14 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
   with `NOODLE_TEST_BINARY` set to the compiled binary's absolute path to
   exercise post processing and hostile-allocation recovery without changing
   release scripts.
+
+## Async scripting regressions
+
+Run `tests/integration/asyncScripts.test.ts` for chaining, transactional captures,
+failure handling, cancellation, deadlines, recursion, call limits, and literal
+inputs. `inlineTestsCli.test.ts` covers source and compiled CLI async lifecycle
+behavior. Keep rendered child summaries and legacy timeline round trips covered.
+Repeat changed async files with `--rerun-each=10`; use loopback fixtures and await
+the actual producer. Complete the full suite, lint, typecheck, formatting,
+binary build, compiled scripting checks, and independent request-security/TUI
+reviews before handoff.

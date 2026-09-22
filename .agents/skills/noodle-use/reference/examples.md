@@ -79,8 +79,7 @@ tests: |
 
 Use `assert` for simple response contracts and `tests` for conditional logic.
 Both execute after capture/post processing; tests run last, even when earlier
-response checks fail. Tests cannot mutate state, and async callbacks are
-unsupported. Read results and redacted logs from `tests` in the existing run
+response checks fail. Tests cannot mutate state or call the network; async callbacks are awaited. Read results and redacted logs from `tests` in the existing run
 result. See the [matcher reference](../schema.md#inline-scripted-tests).
 
 ## Request with sandboxed inline scripts
@@ -127,7 +126,7 @@ and later requests and is discarded when the run ends. Human output reports the
 script status and log count without printing `console` messages; JSON places
 redacted logs in the request's `scripts` group.
 
-Use only synchronous `noodle.request`, `noodle.env`, `noodle.run`,
+Use synchronous `noodle.request`, `noodle.env`, `noodle.run`,
 `noodle.crypto`, `noodle.random`, and global `console` APIs.
 Post also exposes bounded response text/JSON, metadata and headers, with the
 final prepared request read-only. Capture commits happen before post and
@@ -138,7 +137,8 @@ session lifetime and cookie saves remain deferred. Both phases stage changes
 and roll back only the failing invocation. Pre failure prevents HTTP; post
 failure preserves the response and captures. Prefer a declarative capture when
 conditional processing is unnecessary.
-Imports, fetch, timers, host modules, and Promises are unavailable. See
+Top-level await and request chaining are supported in pre/post. Imports, raw
+fetch, timers, and host modules remain unavailable. See
 [schema.md](../schema.md#inline-request-scripts) for exact methods and fixed
 resource limits.
 
@@ -530,3 +530,23 @@ my-api/
 requests can use `inherit`. `get-health.yml` and the `posts/` requests omit auth
 and default to no authentication. A root `folder.yml` would be ignored.
 `settings.yml` points to `development` as the default environment.
+
+## Await a saved request and reuse its captures
+
+```yaml
+name: Authenticated profile
+method: GET
+url: https://api.example.com/me
+scripts:
+  pre: |-
+    const login = await noodle.runRequest("auth/login");
+    const token = login.json().token;
+    noodle.run.set("TOKEN", token);
+    noodle.request.headers.set("Authorization", `Bearer ${token}`);
+```
+
+Create `auth/login.yml` with the API's login request first. Its captures and
+successful script writes are also available through `noodle.run.get` when the
+call resolves. For a complete runnable public-API example, use the repository's
+`collections/async-scripting/` folder. See the
+[request chaining contract](../schema.md#async-scripts-and-request-chaining).
