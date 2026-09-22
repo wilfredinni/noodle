@@ -28,6 +28,13 @@ export type CaptureResult =
     }
 
 export class RunScope {
+  constructor(
+    readonly iteration: {
+      index: number
+      count: number
+      data: Record<string, JsonValue>
+    } | null = null,
+  ) {}
   private readonly values = new Map<string, JsonValue>()
   private readonly secretVariables = new Set<string>()
   private readonly suppressedVariables = new Set<string>()
@@ -35,7 +42,7 @@ export class RunScope {
   private readonly changed = new Set<string>()
 
   fork(): RunScope {
-    const fork = new RunScope()
+    const fork = new RunScope(this.iteration)
     for (const [name, value] of this.values)
       fork.values.set(name, structuredClone(value))
     for (const name of this.secretVariables) fork.secretVariables.add(name)

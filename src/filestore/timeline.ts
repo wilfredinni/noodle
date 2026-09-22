@@ -101,6 +101,14 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
   return error
     ? {
         ...error,
+        ...(error.source
+          ? {
+              source: {
+                ...error.source,
+                path: boundedDiagnosticText(error.source.path),
+              },
+            }
+          : {}),
         name: boundedDiagnosticText(error.name),
         message: boundedDiagnosticText(error.message),
       }
@@ -116,7 +124,17 @@ function boundedScriptLogs(source: ScriptLog[]): ScriptLog[] {
       logs.push({ level: "warn", message: "[TRUNCATED]" })
       break
     }
-    logs.push({ ...log })
+    logs.push({
+      ...log,
+      ...(log.source
+        ? {
+            source: {
+              ...log.source,
+              path: boundedDiagnosticText(log.source.path),
+            },
+          }
+        : {}),
+    })
   }
   return logs
 }
@@ -126,6 +144,14 @@ function boundedScriptResult(
 ): ScriptExecutionResult {
   return {
     ...result,
+    ...(result.source
+      ? {
+          source: {
+            ...result.source,
+            path: boundedDiagnosticText(result.source.path),
+          },
+        }
+      : {}),
     logs: boundedScriptLogs(result.logs),
     error: boundedScriptError(result.error),
     ...(result.requests
@@ -285,10 +311,25 @@ async function persistBodies(
             ...source.tests,
             results: source.tests.results.map((result) => ({
               ...result,
+              ...(result.source
+                ? {
+                    source: {
+                      ...result.source,
+                      path: boundedDiagnosticText(result.source.path),
+                    },
+                  }
+                : {}),
               name: boundedDiagnosticText(result.name),
               message: boundedDiagnosticText(result.message),
             })),
             logs: boundedScriptLogs(source.tests.logs),
+            ...(source.tests.errors
+              ? {
+                  errors: source.tests.errors.map((error) =>
+                    boundedScriptError(error)!,
+                  ),
+                }
+              : {}),
             ...(source.tests.error
               ? { error: boundedScriptError(source.tests.error) }
               : {}),

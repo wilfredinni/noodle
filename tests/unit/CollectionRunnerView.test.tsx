@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { scheduler } from "node:timers/promises"
 import { act, useRef, useState } from "react"
 import {
   RGBA,
@@ -19,6 +22,8 @@ import type { Focus } from "../../src/ui/focus"
 import type { Collection } from "../../src/schema"
 import type { collectionRun } from "../../src/app/services"
 import { setupKeymap } from "./_helpers"
+import { collapseUserPath } from "../../src/userPath"
+import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 
 const testRender = createTestRender()
 const collection: Collection = {
@@ -104,6 +109,219 @@ const folderCollection: Collection = {
 }
 
 describe("CollectionRunnerView", () => {
+  it("completes home and collection data paths and runs the selected file", async () => {
+    const dir = await mkdtemp(join(process.cwd(), ".runner-data-"))
+    const file = join(dir, "users data.json")
+    const { keymap, host, cleanup } = setupKeymap()
+    let current: UseCollectionRunnerResult | null = null
+    const paths: unknown[] = []
+    const runCollection: typeof collectionRun = async (...args) => {
+      paths.push(args[12])
+      return {
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: {
+          selected: 0,
+          executed: 0,
+          skipped: 0,
+          requestSuccesses: 0,
+          requestFailures: 0,
+          assertionPasses: 0,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 0,
+          failureCategories: [],
+        },
+      }
+    }
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      current = useCollectionRunner({
+        collection,
+        collectionDir: dir,
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: true,
+        insecure: false,
+        systemProxy: { bypass: [] },
+        resetKey: 1,
+        runCollection,
+      })
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <CollectionRunnerView
+              runner={current}
+              focus="runner-options"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
+              onOpenResultDetail={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    try {
+      await writeFile(file, '[{"id":1},{"id":2}]')
+      const render = await testRender(<Harness />, { width: 100, height: 28 })
+      const waitFor = async (predicate: () => boolean) => {
+        const deadline = Date.now() + 2000
+        while (!predicate()) {
+          await act(async () => {
+            await scheduler.yield()
+            await render.renderOnce()
+          })
+          if (Date.now() > deadline)
+            throw Error(
+              `Timed out waiting for completion:\n${render.captureCharFrame()}`,
+            )
+        }
+      }
+      await render.renderOnce()
+      for (const prefix of [`${collapseUserPath(dir)}/`, "./"]) {
+        await act(async () => {
+          current!.showConfigure()
+          current!.setOptionIndex(5)
+          await current!.setDataPath(prefix)
+        })
+        await render.renderOnce()
+        await waitFor(() =>
+          render.captureCharFrame().includes("│ users data.json"),
+        )
+        await act(async () => {
+          host.press("return")
+        })
+        await waitFor(() => current!.iterationCount === 2)
+        expect(current!.dataPath).toBe(`${prefix}users data.json`)
+        expect(current!.dataError).toBeNull()
+        expect(current!.optionIndex).toBe(5)
+        await act(async () => {
+          await current!.run()
+        })
+      }
+      expect(paths).toEqual([file, file])
+    } finally {
+      cleanup()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("groups repeated requests by iteration and opens the matching detail through resize", async () => {
+    const { keymap } = setupKeymap()
+    let current: UseCollectionRunnerResult | null = null
+    const opened: string[] = []
+    const runCollection: typeof collectionRun = async (...args) => {
+      const results = [0, 1].map((iteration) => ({
+        id: "health",
+        iteration,
+        method: "GET" as const,
+        url: `https://example.com/${iteration}`,
+        ok: true,
+        failureCategories: [],
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          timeMs: 1,
+        },
+      }))
+      for (const result of results)
+        args[10]?.({
+          requestId: "health",
+          iteration: result.iteration,
+          entry: { request: { url: result.url } } as never,
+        })
+      return {
+        iterations: 2,
+        results,
+        skipped: [],
+        failed: false,
+        summary: {
+          selected: 2,
+          executed: 2,
+          skipped: 0,
+          requestSuccesses: 2,
+          requestFailures: 0,
+          assertionPasses: 0,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 1,
+          failureCategories: [],
+        },
+      }
+    }
+    function Harness() {
+      const ref = useRef<ScrollBoxRenderable | null>(null)
+      const runner = useCollectionRunner({
+        collection,
+        collectionDir: "/tmp/collection",
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: true,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 1,
+        runCollection,
+      })
+      current = runner
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-requests"
+              hasUnsavedChanges={false}
+              detailScrollRef={ref}
+              onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
+              onOpenResultDetail={(index) =>
+                opened.push(
+                  runner.resultDetails.get(runner.resultRows[index]!.id)!.entry
+                    .request.url,
+                )
+              }
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+    const render = await testRender(<Harness />, { width: 120, height: 30 })
+    await render.renderOnce()
+    await act(async () => {
+      await current!.run()
+    })
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("Iteration 1/2")
+    expect(render.captureCharFrame()).toContain("Iteration 2/2")
+    for (let index = 0; index < 2; index++) {
+      const row = render.renderer.root.findDescendantById(
+        `runner-result-${index}`,
+      )!
+      await act(async () => {
+        await render.mockMouse.click(
+          row.screenX + 1,
+          row.screenY,
+          MouseButtons.LEFT,
+        )
+      })
+      await render.renderOnce()
+    }
+    expect(opened).toEqual(["https://example.com/0", "https://example.com/1"])
+    await act(async () => {
+      render.resize(80, 30)
+    })
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("Iteration 2/2")
+  })
   it("keeps runner and run result rows compact", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
@@ -275,7 +493,7 @@ describe("CollectionRunnerView", () => {
       .split("\n")
       .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
     expect(restoredRows.every((row) => row.includes("[x]"))).toBe(true)
-    await act(async () => current!.setOptionIndex(5))
+    await act(async () => current!.setOptionIndex(6))
     await render.renderOnce()
     await render.renderOnce()
     const runButton = render.renderer.root.findDescendantById(
@@ -344,7 +562,7 @@ describe("CollectionRunnerView", () => {
       await Promise.resolve()
     })
     await render.renderOnce()
-    expect(current!.optionIndex).toBe(5)
+    expect(current!.optionIndex).toBe(6)
     const completedButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -489,7 +707,7 @@ describe("CollectionRunnerView", () => {
       "runner-include-tag-1",
     )!
     expect(secondTag.screenY).toBeGreaterThan(firstTag.screenY)
-    await act(async () => current!.setOptionIndex(5))
+    await act(async () => current!.setOptionIndex(6))
     await render.renderOnce()
     await render.renderOnce()
     const scrolled = render.captureCharFrame()
@@ -502,11 +720,11 @@ describe("CollectionRunnerView", () => {
     expect(runButton.screenY).toBeGreaterThan(delay.screenY)
     expect(runButton.width).toBe("r Run 0 requests".length + 2)
     expect(runButton.width).toBe(initialRunButtonWidth)
-    expect(current!.optionIndex).toBe(5)
+    expect(current!.optionIndex).toBe(6)
     expect(
       runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)
-    expect(scrolled).toContain("Fail fast")
+    expect(scrolled).toContain("Data file")
     expect(scrolled).toContain("Delay (ms)")
     expect(scrolled).toContain("r Run 0 requests")
     expect(
@@ -650,9 +868,8 @@ describe("CollectionRunnerView", () => {
     expect(openSelectButton).toBe(runButton)
     expect({
       x: openSelectButton.screenX,
-      y: openSelectButton.screenY,
       width: openSelectButton.width,
-    }).toEqual(runButtonGeometry)
+    }).toEqual({ x: runButtonGeometry.x, width: runButtonGeometry.width })
     expect(render.captureCharFrame()).toContain("r Run 0 requests")
     await act(async () => host.press("escape"))
     await render.renderOnce()
@@ -694,7 +911,7 @@ describe("CollectionRunnerView", () => {
     expect(current!.selectOpen).toBe(false)
     await act(async () => current!.optionLast())
     await render.renderOnce()
-    expect(current!.optionIndex).toBe(5)
+    expect(current!.optionIndex).toBe(6)
     expect(
       runButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
     ).toBe(true)

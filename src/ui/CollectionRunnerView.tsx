@@ -35,6 +35,8 @@ import { flattenRequests } from "./tree"
 import { ActionButton } from "./ActionButton"
 import { Badge } from "./Badge"
 import { SettingsField } from "./settings/SettingsField"
+import { VarInput } from "./VarInput"
+import { runResultKey } from "../iterationData"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -44,6 +46,7 @@ const OPTION_LABELS = [
   "Exclude tags",
   "Fail fast",
   "Delay (ms)",
+  "Data file",
 ] as const
 
 const OPTION_DESCRIPTIONS = [
@@ -52,6 +55,7 @@ const OPTION_DESCRIPTIONS = [
   "Skip requests with any excluded tag.",
   "Stop running after the first failed request.",
   "Wait between completed requests before starting the next.",
+  "Optional CSV or JSON.",
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
@@ -206,11 +210,24 @@ export function CollectionRunnerView({
   const resultIndexById = new Map(
     runner.resultRows.map((row, index) => [row.id, index]),
   )
-  const resultRunnerRows = runnerRows.filter((row) =>
-    row.kind === "folder"
-      ? row.requestIds.some((id) => resultIndexById.has(id))
-      : resultIndexById.has(row.request.id),
-  )
+  const resultRunnerRows: (
+    | (RunnerListRow & { iteration?: number })
+    | { kind: "iteration"; iteration: number }
+  )[] = []
+  for (let index = 0; index < (runner.result?.iterations ?? 1); index++) {
+    const iteration =
+      runner.result?.iterations === undefined ? undefined : index
+    const rows = runnerRows.filter((row) =>
+      row.kind === "folder"
+        ? row.requestIds.some((id) =>
+            resultIndexById.has(runResultKey(id, iteration)),
+          )
+        : resultIndexById.has(runResultKey(row.request.id, iteration)),
+    )
+    if (iteration !== undefined && rows.length)
+      resultRunnerRows.push({ kind: "iteration", iteration })
+    resultRunnerRows.push(...rows.map((row) => ({ ...row, iteration })))
+  }
   const requestBaseLabelWidth = Math.max(0, requestContentWidth - 11)
   const requestTagWidths = runner.requests.map((request) =>
     (runner.requestTags.get(request.id) ?? []).reduce(
@@ -455,7 +472,11 @@ export function CollectionRunnerView({
                     title={label}
                     description={OPTION_DESCRIPTIONS[index]}
                     error={
-                      index === 4 ? (runner.delayError ?? undefined) : undefined
+                      index === 4
+                        ? (runner.delayError ?? undefined)
+                        : index === 5
+                          ? (runner.dataError ?? undefined)
+                          : undefined
                     }
                     active={active}
                     alignItems={
@@ -560,6 +581,24 @@ export function CollectionRunnerView({
                       </box>
                     ) : index === 3 ? (
                       <Checkbox checked={runner.failFast} theme={theme} />
+                    ) : index === 5 ? (
+                      <VarInput
+                        value={runner.dataPath}
+                        env={null}
+                        variableAware={false}
+                        isEditing
+                        isFocused={active && !configurationLocked}
+                        onChange={runner.setDataPath}
+                        pathCompletion={{
+                          kind: "file",
+                          relativeRoot: runner.collectionDir,
+                        }}
+                        placeholder="./data.csv or @/Downloads/data.json"
+                        backgroundColor="transparent"
+                        focusedBackgroundColor="transparent"
+                        paddingX={0}
+                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                      />
                     ) : (
                       <box
                         style={{
@@ -589,6 +628,15 @@ export function CollectionRunnerView({
                   </SettingsField>
                 )
               })}
+              {runner.dataPath && runner.iterationCount !== null ? (
+                <text
+                  fg={theme.textMuted}
+                >{`${runner.iterationCount} iterations · ${runner.matchedIds.size * runner.iterationCount} request executions`}</text>
+              ) : null}
+            </box>
+          </scrollbox>
+          <box style={{ flexDirection: "column", flexShrink: 0 }}>
+            <box style={{ height: 1, minHeight: 1, flexShrink: 0 }}>
               <ActionButton
                 id="runner-run-button"
                 shortcut={running ? SPINNER_FRAMES[spinnerIndex] : "r"}
@@ -598,7 +646,7 @@ export function CollectionRunnerView({
                 label={
                   running
                     ? `Running ${currentRequest}/${runner.progress.total}`
-                    : `Run ${runner.matchedIds.size} request${runner.matchedIds.size === 1 ? "" : "s"}`
+                    : `Run ${runner.matchedIds.size * (runner.iterationCount ?? 1)} request${runner.matchedIds.size * (runner.iterationCount ?? 1) === 1 ? "" : "s"}`
                 }
                 disabled={!runner.runAvailable && !running}
                 onAction={() => {
@@ -609,18 +657,18 @@ export function CollectionRunnerView({
                 }}
               />
             </box>
-          </scrollbox>
-          {hasUnsavedChanges ? (
-            <text fg={theme.warning}>
-              Save pending changes in the request workspace before running.
-            </text>
-          ) : null}
-          {runner.previewError ? (
-            <text fg={theme.error}>{runner.previewError}</text>
-          ) : null}
-          {runner.runError ? (
-            <text fg={theme.error}>{runner.runError}</text>
-          ) : null}
+            {hasUnsavedChanges ? (
+              <text fg={theme.warning}>
+                Save pending changes in the request workspace before running.
+              </text>
+            ) : null}
+            {runner.previewError ? (
+              <text fg={theme.error}>{runner.previewError}</text>
+            ) : null}
+            {runner.runError ? (
+              <text fg={theme.error}>{runner.runError}</text>
+            ) : null}
+          </box>
         </Frame>
         {splitHandle}
         <Frame
@@ -853,11 +901,20 @@ export function CollectionRunnerView({
                     </>
                   ) : null}
                   {resultRunnerRows.map((runnerRow) => {
+                    if (runnerRow.kind === "iteration")
+                      return (
+                        <text
+                          key={`iteration-${runnerRow.iteration}`}
+                          fg={theme.accent}
+                          attributes={TextAttributes.BOLD}
+                          style={{ marginTop: 1 }}
+                        >{`Iteration ${runnerRow.iteration + 1}/${runner.result?.iterations}`}</text>
+                      )
                     if (runnerRow.kind === "folder") {
                       return (
                         <box
-                          key={`folder-${runnerRow.path}`}
-                          id={`runner-result-folder-${runnerRow.path}`}
+                          key={`folder-${runResultKey(runnerRow.path, runnerRow.iteration)}`}
+                          id={`runner-result-folder-${runResultKey(runnerRow.path, runnerRow.iteration)}`}
                           style={{
                             flexDirection: "row",
                             height: 1,
@@ -876,7 +933,9 @@ export function CollectionRunnerView({
                       )
                     }
 
-                    const index = resultIndexById.get(runnerRow.request.id)
+                    const index = resultIndexById.get(
+                      runResultKey(runnerRow.request.id, runnerRow.iteration),
+                    )
                     if (index === undefined) return null
                     const row = runner.resultRows[index]
                     if (!row) return null

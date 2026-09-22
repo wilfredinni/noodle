@@ -24,7 +24,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Inspect collection cookies and storage health | `noodle cookie list --collection <dir> --json` |
 | Clear cookies or recover unreadable cookie storage | `noodle cookie clear --collection <dir> --json` |
 | Download an original response body | `noodle request run <id> --collection <dir> --output <file> --json` |
-| Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] ... --json` |
+| Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] [--data <csv-or-json>] ... --json` |
 
 ## Rules
 
@@ -63,8 +63,8 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment. Without either an environment or an earlier capture, unresolved variables fail before sending.
 - Structured results recursively redact known environment, proxy, TLS, request-credential, cookie, and secret-capture values and mask sensitive response headers. A `persist: secret` capture is fully redacted regardless of value. Human capture output never includes values. Arbitrary server payload fields remain visible, so treat all structured run output as sensitive.
 - The shared request flow is fixed: merge folder overrides; overlay environment/RunScope; substitute once; execute and commit pre; HTTP; capture commits; execute and commit post; assertions; scripted tests. HTTP/capture errors still reach post; post errors still reach assertions and tests. Transport failures do not run response phases. Successful script RunScope writes remain available to later collection requests after later failures. Request mutations are pre-only and never written back to YAML. Post readers reflect the final prepared HTTP leg.
-- Optional request-level `tests` runs after declarative assertions whenever a response exists. Use global `test(name, callback)` and `expect(actual)` with read-only `noodle.*` readers. Tests may be synchronous or async; callbacks are awaited in declaration-order results. Mutations, network calls, external files, inherited tests, and modules are unsupported. See [the schema and matcher reference](../schema.md#inline-scripted-tests).
-- Read scripted checks from `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs, error? }`. Ordered results contain `name`, `passed`, `message`, and `durationMs`; a top-level `error` is separate from callback failures and preserves completed results. Pre/transport failures report `evaluated: false`; requests without tests omit the group. Known secrets are redacted from names, messages, errors, and logs. Human output prints counts and concise failures, without logs.
+- Optional request-level `tests` runs after declarative assertions whenever a response exists. Use global `test(name, callback)` and `expect(actual)` with read-only `noodle.*` readers. Tests may be synchronous or async; callbacks are awaited in declaration-order results. Mutations, network calls, external files and modules are unsupported. See [the schema and matcher reference](../schema.md#inline-scripted-tests).
+- Read scripted checks from `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs, error?, errors? }`. Ordered results contain `name`, `passed`, `message`, and `durationMs`; a top-level `error` is separate from callback failures and preserves completed results. Pre/transport failures report `evaluated: false`; requests without tests omit the group. Known secrets are redacted from names, messages, errors, and logs. Human output prints counts and concise failures, without logs.
 - Failed callbacks or test-script errors add `test` after `assertion` in the stable failure-category order and make runs fail. Summaries include `testPasses`, `testFailures`, and `testScriptErrors` when test groups exist. Fail-fast waits for all response diagnostics, and successful pre/post/capture writes survive test failures. Manual timeline history retains bounded test diagnostics; automation does not write history.
 - Prefer captures for declarative extraction and `scripts.post` for conditional processing, such as `if (noodle.response.status === 201) noodle.run.set("id", noodle.response.json().id)`. Post-response text has a lazy 5 MiB UTF-8 cap; cached JSON stays in the VM and extracted RunScope values retain 256 KiB/depth-32 limits. Cookie access, when available, is final-URL-scoped `get/set/delete`; unknown attributes and domains are rejected, cookies are host-only, and deletion removes all applicable matches. Cookie and RunScope writes commit atomically but cookie durability remains deferred. See [schema](../schema.md#inline-request-scripts) for exact inputs and restrictions.
 - Run commands contact remote servers and may write cookie-jar state, bootstrap a `collection_id`, refresh OAuth credentials, and persist declared captures or explicit script environment/secret intents during CLI `request run`. Collection runs suppress both forms of persistence. `persist: environment` updates plaintext and refuses secret downgrades; `persist: secret` stores through the OS vault and can upgrade plaintext. Capture persistence requires the `--env` or settings environment, runs sequentially with partial success, and happens after successful extraction even when HTTP or assertions fail. Script intents use the bounded batch and rollback semantics described above. Run commands do not write response timeline entries or RunScope values into request YAML or collection settings. Execute runs only when the
@@ -80,3 +80,78 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 ## Fall back to files
 
 Use direct YAML/dotenv edits when the CLI cannot express the change: folders and inheritance, request headers, params, auth, bodies, form data, inline pre/post scripts, scripted tests, captures, assertions, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request sequence.
+
+
+## Inherited scripts and tests
+
+Declare inline `scripts.pre`, `scripts.post`, and `tests` in collection
+`settings.yml`, nested `folder.yml`, or request YAML. Each phase accumulates
+blocks in this order: collection, outer folders, inner folders, request.
+An empty block is a no-op and does not disable inherited blocks.
+
+Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
+successful RunScope writes are visible to later blocks. A pre failure stops
+remaining pre blocks and HTTP. A post failure rolls back only that block and
+continues later posts, assertions, and tests. A top-level test error stops only
+its block. Successful persistence intents keep execution order; collection
+runs and F5 suppress persistence as before. Saved `noodle.runRequest()` calls
+use the same inheritance and cycle protections.
+
+Inherited diagnostics include optional `source: { scope, path }`, where scope
+is `collection`, `folder`, or `request` and path is collection-relative.
+Tests also expose `errors` for multiple block errors; legacy `error` remains
+the first error. CLI, Results, and history show origins without retaining source
+code. Script logs and errors retain the existing redaction and size limits.
+
+Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
+budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test
+records produce a test script error, and later blocks are still invoked.
+
+
+## CSV and JSON iteration data
+
+```bash
+noodle collection run ./my-api --data ./data/users.csv
+noodle collection run ./my-api users/ --data ./data/users.json --tag smoke --delay 100 --fail-fast --json
+```
+
+`--data` is optional and independent of the `--json` output flag. In F5, enter
+the optional **Data file** path, check the iteration count, and select **Run**.
+Relative CLI paths start at the current directory; relative F5 paths start at
+the collection root. Both accept absolute paths. F5 revalidates at run start.
+The path and results are temporary Runner options.
+
+CSV uses a header row as variable names and keeps cells as strings, including
+quoted commas and multiline fields; a UTF-8 BOM is accepted. JSON requires a
+non-empty array of objects and preserves JSON value types:
+
+```json
+[{ "user_id": 1, "active": true }, { "user_id": 2, "active": false }]
+```
+
+The entire file is validated before requests are sent. Empty files, invalid or
+unsafe variable names, duplicate CSV headers, and inconsistent CSV rows fail.
+Names use letters, digits, or underscores. Limits are 5 MiB per file, 1,000
+rows, and 10,000 selected request executions. Rows must fit the existing
+256 KiB/depth-32 bridge limits, including the iteration wrapper.
+
+Each row runs every selected request in collection order. Its variables
+override environment values for `$name` substitution and `noodle.run.get`;
+successful captures and scripts can replace them during that iteration.
+`noodle.env.get` continues to read the original environment snapshot.
+`noodle.iteration` is deeply read-only `{ index, count, data }`, with zero-based
+`index` and the original row in `data`. It is `null` without data and is shared
+with child requests. JavaScript objects in `data` retain their JSON types.
+
+Each row starts with fresh variables and an in-memory copy of the same initial
+cookie jar. Cookies change within that row only and are never persisted.
+Fail-fast skips every remaining request and row. Delay applies between all
+consecutive executions, including row boundaries. Results, skips, and details
+carry zero-based `iteration`; the collection result adds `iterations`. F5 groups
+results by iteration and counts progress across all executions. Human labels
+show iteration numbers starting at one. Datasets themselves are not included
+in results or history.
+
+Exit codes remain `0` for success, `1` for execution/response validation failure,
+and `2` for configuration or invalid data. Without `--data`, behavior and result
+shapes remain unchanged.

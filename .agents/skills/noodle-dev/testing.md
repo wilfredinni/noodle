@@ -187,3 +187,14 @@ Repeat changed async files with `--rerun-each=10`; use loopback fixtures and awa
 the actual producer. Complete the full suite, lint, typecheck, formatting,
 binary build, compiled scripting checks, and independent request-security/TUI
 reviews before handoff.
+
+## Inherited blocks and data runs
+
+Run `tests/integration/scriptInheritance.test.ts`, `iterationData.test.ts`,
+`inlineTestsCli.test.ts`, and the inlineTests, useCollectionRunner,
+CollectionRunnerView, and ResponseResults unit suites. Cover block order, rollback,
+child cycles, source labels, multiple errors, invalid schemas under negation,
+whole-file validation, typed rows, precedence, cookie isolation, skipped rows,
+delay, and iteration-specific detail lookup. Repeat changed asynchronous tests ten
+times. Run inlineTestsCli with `NOODLE_TEST_BINARY` after building to exercise
+Ajv compilation limits and datasets in the standalone runtime.

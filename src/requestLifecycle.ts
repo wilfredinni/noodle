@@ -8,6 +8,7 @@ import type {
 } from "./schema"
 import { executor } from "./requests"
 import type { TransportExecutionOptions } from "./requests/send"
+import { requestScriptBlocks, labelScriptResult } from "./scriptInheritance"
 import { mergeFolderOverrides } from "./requests/mergeFolderOverrides"
 import { substitute, type SubstitutedRequest } from "./requests/substitute"
 import { RunScope, type CaptureResult } from "./runScope"
@@ -131,6 +132,14 @@ export async function executeRequestLifecycle(options: {
     requestPath,
     transport = {},
   } = options
+  const blocks = requestScriptBlocks(request, collection, requestPath)
+  const inherited = blocks.some((block) => block.source.scope !== "request")
+  const diagnostics = inherited ? { consoleBytes: 0, testBytes: 0 } : undefined
+  const declared = {
+    ...request,
+    scripts: blocks.some((block) => block.scripts) ? { pre: "" } : undefined,
+    tests: blocks.some((block) => block.tests !== undefined) ? "" : undefined,
+  }
   const effectiveEnvironment = runScope.environment(environment ?? undefined)
   const secretValues: RedactionSecret[] = [
     ...executionSecretValues(
@@ -153,6 +162,7 @@ export async function executeRequestLifecycle(options: {
   const scriptOptions = (): ScriptRequestOptions => {
     const requests: ScriptRequestSummary[] = []
     return {
+      diagnostics,
       signal: transport.signal,
       deadline: scriptContext.deadline,
       requests,
@@ -346,20 +356,22 @@ export async function executeRequestLifecycle(options: {
     timeline = timelineRequest(merged, prepared)
     secretValues.push(...requestSensitiveValues(prepared))
 
-    if (merged.scripts?.pre !== undefined) {
+    for (const block of blocks) {
+      if (block.scripts?.pre === undefined) continue
       const scriptResult = await runPreRequestScript(
-        merged.scripts.pre,
+        block.scripts.pre,
         prepared,
         environment,
         runScope,
         scriptOptions(),
       )
+      if (inherited) labelScriptResult(scriptResult, block.source)
       secretValues.push(...scriptResult.secretValues)
       runScope.rememberSecrets(scriptResult.secretValues)
       scriptResults.push(scriptResult.result)
       if (!scriptResult.result.success) {
         const execution = withScriptResults(
-          unevaluatedExecutionResults(merged),
+          unevaluatedExecutionResults(declared),
           scriptResults,
           secretValues,
         )
@@ -410,20 +422,25 @@ export async function executeRequestLifecycle(options: {
         runtimeSecrets.push(...values)
         transport.onSensitiveValues?.(values)
       },
-      onPreparedRequest:
-        merged.scripts?.post !== undefined || merged.tests !== undefined
-          ? (snapshot) => {
-              sentRequest = snapshot
-              transport.onPreparedRequest?.(snapshot)
-            }
-          : transport.onPreparedRequest,
+      onPreparedRequest: blocks.some(
+        (block) =>
+          block.scripts?.post !== undefined || block.tests !== undefined,
+      )
+        ? (snapshot) => {
+            sentRequest = snapshot
+            transport.onPreparedRequest?.(snapshot)
+          }
+        : transport.onPreparedRequest,
     })
     secretValues.push(
       ...runtimeSecrets,
       ...responseSensitiveValues(rawResponse),
     )
     let rawCaptures: CaptureResult[] = []
-    let postIntents: ScriptPersistenceIntent[] = []
+    const posts: {
+      result: ScriptExecutionResult
+      intents: ScriptPersistenceIntent[]
+    }[] = []
     let responseExecution = await evaluateResponseExecution(
       prepared,
       rawResponse,
@@ -433,20 +450,26 @@ export async function executeRequestLifecycle(options: {
         rawCaptures = results
       },
       async () => {
-        if (merged.scripts?.post === undefined) return
-        const post = await runRequestScript(
-          "post",
-          merged.scripts.post,
-          sentRequest,
-          environment,
-          runScope,
-          { response: rawResponse, cookies: transport.cookies },
-          scriptOptions(),
-        )
-        scriptResults.push(post.result)
-        secretValues.push(...post.secretValues)
-        runScope.rememberSecrets(post.secretValues)
-        postIntents = post.persistenceIntents ?? []
+        for (const block of blocks) {
+          if (block.scripts?.post === undefined) continue
+          const post = await runRequestScript(
+            "post",
+            block.scripts.post,
+            sentRequest,
+            environment,
+            runScope,
+            { response: rawResponse, cookies: transport.cookies },
+            scriptOptions(),
+          )
+          if (inherited) labelScriptResult(post, block.source)
+          scriptResults.push(post.result)
+          secretValues.push(...post.secretValues)
+          runScope.rememberSecrets(post.secretValues)
+          posts.push({
+            result: post.result,
+            intents: post.persistenceIntents ?? [],
+          })
+        }
       },
     )
     if (options.persistCaptures) {
@@ -462,13 +485,13 @@ export async function executeRequestLifecycle(options: {
       )
         await options.onEnvironmentPersisted?.().catch(() => {})
     }
-    const postResult = scriptResults.find((result) => result.phase === "post")
-    if (postResult) await persistScripts(postResult, postIntents)
-    if (merged.tests !== undefined) {
+    for (const post of posts) await persistScripts(post.result, post.intents)
+    for (const block of blocks) {
+      if (block.tests === undefined) continue
       runScope.rememberSecrets(secretValues)
       const tested = await runRequestScript(
         "tests",
-        merged.tests,
+        block.tests,
         sentRequest,
         environment,
         runScope,
@@ -476,15 +499,28 @@ export async function executeRequestLifecycle(options: {
           response: rawResponse,
           cookies: transport.cookies,
         },
-        { signal: transport.signal, deadline: scriptContext.deadline },
+        {
+          signal: transport.signal,
+          deadline: scriptContext.deadline,
+          diagnostics,
+          sourceBytes: inherited
+            ? Buffer.byteLength(JSON.stringify(block.source))
+            : undefined,
+        },
       )
+      if (inherited) labelScriptResult(tested, block.source)
       secretValues.push(...tested.secretValues)
       runScope.rememberSecrets(tested.secretValues)
-      responseExecution.tests = {
+      const group = (responseExecution.tests ??= {
         evaluated: true,
-        results: tested.tests ?? [],
-        logs: tested.result.logs,
-        ...(tested.result.error ? { error: tested.result.error } : {}),
+        results: [],
+        logs: [],
+      })
+      group.results.push(...(tested.tests ?? []))
+      group.logs.push(...tested.result.logs)
+      if (tested.result.error) {
+        group.error ??= tested.result.error
+        if (inherited) (group.errors ??= []).push(tested.result.error)
       }
     }
     secretValues.push(...runScope.secretValues())
@@ -525,11 +561,11 @@ export async function executeRequestLifecycle(options: {
     const execution =
       scriptResults.length > 0
         ? withScriptResults(
-            unevaluatedExecutionResults(request),
+            unevaluatedExecutionResults(declared),
             scriptResults,
             secretValues,
           )
-        : unevaluatedExecutionResults(request)
+        : unevaluatedExecutionResults(declared)
     return {
       status: "error",
       request: timeline,

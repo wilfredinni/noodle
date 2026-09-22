@@ -56,6 +56,68 @@ afterEach(async () => {
 })
 
 describe("inline tests CLI and compiled binary", () => {
+  it("runs inherited schema tests and typed datasets with CLI exit codes and limits", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      `cookies:\n  enabled: false\nscripts:\n  pre: 'noodle.run.set("root", true)'\ntests: |\n  test("schema",()=>expect(noodle.response.json()).toMatchSchema({type:"object",required:["id"],properties:{id:{type:"integer"}}}));\n`,
+    )
+    await save(
+      "data",
+      'test("row",()=>{expect(noodle.run.get("root")).toBe(true);expect(noodle.iteration.data.id).toBe(noodle.iteration.index+1);expect(noodle.response.json()).toHaveProperty("id",7);expect([1]).toHaveLength(1);expect(7).toBeTypeOf("number");expect({a:{b:1,c:2}}).toMatchObject({a:{b:1}})})',
+    )
+    await writeFile(join(dir, "rows.json"), '[{"id":1},{"id":2}]')
+    const run = await cli(
+      "collection",
+      "run",
+      dir,
+      "data",
+      "--data",
+      join(dir, "rows.json"),
+      "--noproxy",
+      "--json",
+    )
+    expect(run.code).toBe(0)
+    const result = JSON.parse(run.stdout).data
+    expect(result.iterations).toBe(2)
+    expect(
+      result.results.map((entry: { iteration: number }) => entry.iteration),
+    ).toEqual([0, 1])
+    expect(result.results[0].tests.results[0].source).toEqual({
+      scope: "collection",
+      path: "settings.yml",
+    })
+    await writeFile(join(dir, "rows.json"), "[null]")
+    expect(
+      (
+        await cli(
+          "collection",
+          "run",
+          dir,
+          "--data",
+          join(dir, "rows.json"),
+          "--noproxy",
+          "--json",
+        )
+      ).code,
+    ).toBe(2)
+    await save(
+      "data",
+      'test("compile limit",()=>expect("x").toMatchSchema({allOf:Array.from({length:3000},()=>({minLength:1}))}))',
+    )
+    const limited = await cli(
+      "request",
+      "run",
+      "data",
+      "--collection",
+      dir,
+      "--noproxy",
+      "--json",
+    )
+    expect(limited.code).toBe(1)
+    expect(JSON.parse(limited.stdout).data.result.tests.error.name).toMatch(
+      /Limit|Timeout/,
+    )
+  })
   it("chains requests with async tests in manual and collection runs, retaining nested diagnostics", async () => {
     await save(
       "login",

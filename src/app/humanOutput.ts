@@ -8,6 +8,7 @@ import type {
   WorkspaceAuditResult,
 } from "./services"
 import { scriptExecutionSucceeded } from "../preRequestScript"
+import { scriptSourceLabel } from "../scriptInheritance"
 import { formatScriptRequestSummary } from "../scriptRequests"
 
 type Color = "red" | "green" | "yellow" | "cyan" | "dim"
@@ -55,7 +56,7 @@ function formatScripts(result: RequestRunResult): string[] {
         : "failed"
     const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
     return [
-      `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}`,
+      `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}${script.source ? ` (${scriptSourceLabel(script.source)})` : ""}`,
       ...(script.requests ?? []).map(
         (request) =>
           `    ${formatScriptRequestSummary(request)}${request.error ? `: ${request.error.message}` : ""}`,
@@ -97,13 +98,15 @@ function formatTests(result: RequestRunResult): string[] {
   return [
     `  Tests: ${passed} passed, ${tests.results.length - passed} failed`,
     ...tests.results
-      .filter((test) => !test.passed)
-      .map((test) => `    ${color("✗", "red")} ${test.name}: ${test.message}`),
-    ...(tests.error
-      ? [
-          `    Test script error: ${tests.error.name}: ${tests.error.message}${tests.error.line ? ` (tests.js:${tests.error.line}${tests.error.column ? `:${tests.error.column}` : ""})` : ""}`,
-        ]
-      : []),
+      .filter((test) => !test.passed || test.source)
+      .map(
+        (test) =>
+          `    ${test.passed ? color("✓", "green") : color("✗", "red")} ${test.name}${test.source ? ` (${scriptSourceLabel(test.source)})` : ""}: ${test.message}`,
+      ),
+    ...(tests.errors ?? (tests.error ? [tests.error] : [])).map(
+      (error) =>
+        `    Test script error: ${error.name}: ${error.message}${error.source ? ` (${scriptSourceLabel(error.source)})` : ""}${error.line ? ` (tests.js:${error.line}${error.column ? `:${error.column}` : ""})` : ""}`,
+    ),
   ]
 }
 
@@ -259,9 +262,16 @@ export function formatRequestRun(data: { result: RequestRunResult }): string {
 export function formatCollectionRun(data: CollectionRunResult): string {
   const summary = data.summary
   return [
-    ...data.results.flatMap((result) => formatRunResult(result).split("\n")),
+    ...(data.iterations ? [`Iterations: ${data.iterations}`] : []),
+    ...data.results.flatMap((result) => [
+      ...(result.iteration !== undefined
+        ? [`Iteration ${result.iteration + 1}/${data.iterations}`]
+        : []),
+      ...formatRunResult(result).split("\n"),
+    ]),
     ...data.skipped.map(
-      (request) => `- ${request.id}  skipped (${request.reason})`,
+      (request) =>
+        `- ${request.iteration !== undefined ? `Iteration ${request.iteration + 1}: ` : ""}${request.id}  skipped (${request.reason})`,
     ),
     ...(data.failure
       ? [`${color("configuration error", "red")}: ${data.failure.message}`]

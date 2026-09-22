@@ -1,0 +1,38 @@
+name: Get user from dataset
+method: GET
+url: https://jsonplaceholder.typicode.com/users/$user_id
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+scripts:
+  pre: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "request-pre"])
+  post: |-
+    noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "request-post"])
+tests: |-
+  test("matches the original CSV or JSON row", () => {
+    const user = noodle.response.json()
+    const row = noodle.iteration.data
+    expect(user).toHaveProperty("id", Number(row.user_id))
+    expect(user.email).toBe(row.expected_email)
+    expect(user.email).toBeTypeOf("string")
+    expect(user.username).toHaveLength(row.expected_username.length)
+    expect(user).toMatchObject({
+      username: row.expected_username,
+      address: { city: row.expected_city }
+    })
+  })
+  test("new matchers also support negation", () => {
+    const user = noodle.response.json()
+    expect(user).not.toHaveProperty("password")
+    expect(user.username).not.toHaveLength(0)
+    expect(user.id).not.toBeTypeOf("string")
+    expect(user).not.toMatchObject({ address: { city: "Unknown" } })
+    expect(user).not.toMatchSchema({ type: "object", required: ["password"] })
+  })
+  test("collection, folder and request blocks accumulate in order", () => {
+    expect(noodle.run.get("exampleSteps")).toEqual([
+      "suite-pre", "users-pre", "request-pre",
+      "suite-post", "users-post", "request-post"
+    ])
+  })

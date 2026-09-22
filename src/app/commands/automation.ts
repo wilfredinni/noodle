@@ -269,6 +269,11 @@ const collection = defineCommand({
           default: "0",
           description: "Milliseconds to wait between requests",
         },
+        data: {
+          type: "string",
+          description:
+            "CSV or JSON iteration data file (relative to the current directory)",
+        },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
         json: jsonArg,
@@ -301,6 +306,7 @@ const collection = defineCommand({
                 args["fail-fast"],
                 undefined,
                 args.delay.trim() === "" ? Number.NaN : Number(args.delay),
+                args.data,
               )
               return {
                 data,

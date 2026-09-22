@@ -181,7 +181,17 @@ export class CollectionCookieJar {
   private currentStatus: CookieJarStatus = { state: "encrypted" }
   private closed = false
 
-  private constructor(readonly file: string) {}
+  private constructor(
+    readonly file: string,
+    private readonly transient = false,
+  ) {}
+
+  cloneTransient(): CollectionCookieJar {
+    const copy = new CollectionCookieJar(this.file, true)
+    copy.jar = CookieJar.deserializeSync(this.jar.serializeSync()!)
+    copy.currentStatus = { ...this.currentStatus }
+    return copy
+  }
 
   static async open(
     configDir: string,
@@ -473,6 +483,7 @@ export class CollectionCookieJar {
   }
 
   async refresh(): Promise<void> {
+    if (this.transient) return
     await this.enqueue(async () => {
       const lock = await acquireLock(this.file)
       try {
@@ -492,6 +503,10 @@ export class CollectionCookieJar {
   }
 
   scheduleSave(): void {
+    if (this.transient) {
+      this.journal = []
+      return
+    }
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => {
       this.timer = null
@@ -500,6 +515,10 @@ export class CollectionCookieJar {
   }
 
   async saveNow(): Promise<void> {
+    if (this.transient) {
+      this.journal = []
+      return
+    }
     this.clearTimer()
     await this.enqueue(async () => {
       if (this.journal.length === 0) return
@@ -528,6 +547,12 @@ export class CollectionCookieJar {
   }
 
   async reset(): Promise<{ backupPath?: string }> {
+    if (this.transient) {
+      this.jar = newCookieJar()
+      this.journal = []
+      this.emit()
+      return {}
+    }
     this.clearTimer()
     let result: { backupPath?: string } = {}
     await this.enqueue(async () => {

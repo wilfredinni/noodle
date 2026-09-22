@@ -1,5 +1,6 @@
 import * as yaml from "../yaml"
 import type { Request } from "../schema"
+import { serializeScriptFields } from "./scriptSource"
 import { authToObj } from "./auth"
 
 function yamlVal(val: string, indent = 0): string {
@@ -92,17 +93,7 @@ export function serializeRequest(req: Request): string {
     out += `file_path: ${yamlVal(req.filePath)}\n`
   }
 
-  if (req.scripts) {
-    out += "scripts:\n"
-    for (const phase of ["pre", "post"] as const) {
-      const script = req.scripts[phase]
-      if (script === undefined) continue
-      const endsWithNewline = script.endsWith("\n")
-      out += `  ${phase}: |2${endsWithNewline ? "+" : "-"}\n`
-      const source = endsWithNewline ? script.slice(0, -1) : script
-      for (const line of source.split("\n")) out += `    ${line}\n`
-    }
-  }
+  out += serializeScriptFields({ scripts: req.scripts })
 
   if (req.captures && Object.keys(req.captures).length > 0) {
     out += "capture:\n"
@@ -127,12 +118,7 @@ export function serializeRequest(req: Request): string {
     )
   }
 
-  if (req.tests !== undefined) {
-    const endsWithNewline = req.tests.endsWith("\n")
-    out += `tests: |2${endsWithNewline ? "+" : "-"}\n`
-    const source = endsWithNewline ? req.tests.slice(0, -1) : req.tests
-    for (const line of source.split("\n")) out += `  ${line}\n`
-  }
+  out += serializeScriptFields({ tests: req.tests })
 
   if (req.auth && req.auth.type !== "none") {
     out += yaml.dump(

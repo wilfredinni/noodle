@@ -10,6 +10,66 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("ResponseResults", () => {
+  it("shows every inherited test error and schema detail with its origin", async () => {
+    const { keymap, host } = setupKeymap()
+    const source = { scope: "collection" as const, path: "settings.yml" }
+    const error = { name: "Error", message: "collection failed", source }
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              tests: {
+                evaluated: true,
+                results: [
+                  {
+                    name: "schema",
+                    passed: false,
+                    message: "/email: format must match email",
+                    durationMs: 1,
+                    source,
+                  },
+                ],
+                logs: [],
+                errors: [
+                  error,
+                  {
+                    name: "Error",
+                    message: "folder failed",
+                    source: { scope: "folder", path: "users/folder.yml" },
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("1 failed · script error")
+    expect(render.captureCharFrame()).toMatch(
+      /ERROR\s+Test script\s+collection failed/,
+    )
+    await act(async () => {
+      host.press("return")
+    })
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("collection failed")
+    expect(render.captureCharFrame()).toContain("users/folder.yml")
+    await act(async () => {
+      host.press("down")
+    })
+    await render.renderOnce()
+    await act(async () => {
+      host.press("return")
+    })
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain(
+      "/email: format must match email",
+    )
+    expect(render.captureCharFrame()).toContain("settings.yml")
+  })
   it("shows caught child failures inside a successful script at narrow widths", async () => {
     const { keymap, host } = setupKeymap()
     const { renderOnce, captureCharFrame, resize } = await testRender(

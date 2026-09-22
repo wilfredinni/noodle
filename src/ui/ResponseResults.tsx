@@ -8,6 +8,7 @@ import {
   type ResponseExecutionResults,
 } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
+import { scriptSourceLabel } from "../scriptInheritance"
 import { formatScriptRequestSummary } from "../scriptRequests"
 import { CookieRow, cookieNameWidth } from "./CookieRow"
 import { useTheme } from "./theme"
@@ -46,6 +47,8 @@ export function ResponseResults({
   const [selectedRowIdx, setSelectedRowIdx] = useState(0)
   const tests = execution?.tests
   const testResults = tests?.evaluated ? tests.results : []
+  const testErrors = tests?.errors ?? (tests?.error ? [tests.error] : [])
+  const hasTestErrors = testErrors.length > 0
   const scripts = execution?.scripts
   const assertions = execution?.assertions
   const captures = execution?.captures
@@ -165,7 +168,14 @@ export function ResponseResults({
   )
   const testNameWidth = Math.max(
     1,
-    ...testResults.map((result) => stringWidth(result.name) + 1),
+    ...testResults.map(
+      (result) =>
+        stringWidth(
+          result.source
+            ? `[${result.source.scope}] ${result.name}`
+            : result.name,
+        ) + 1,
+    ),
   )
   const testDurationWidth =
     Math.max(
@@ -237,7 +247,7 @@ export function ResponseResults({
                     name={
                       result.phase === "pre" ? "Pre-request" : "Post-response"
                     }
-                    value={`${result.durationMs}ms, ${logCount}${result.requests?.length ? `, ${result.requests.length} call${result.requests.length === 1 ? "" : "s"}` : ""}${persistenceCount ? `, ${result.persistence?.some((outcome) => outcome.status === "failed") ? "persistence failed" : result.persistence?.every((outcome) => outcome.status === "transient") ? `${persistenceCount} transient` : `${persistenceCount} saved`}` : ""}`}
+                    value={`${result.source ? scriptSourceLabel(result.source) + " · " : ""}${result.durationMs}ms, ${logCount}${result.requests?.length ? `, ${result.requests.length} call${result.requests.length === 1 ? "" : "s"}` : ""}${persistenceCount ? `, ${result.persistence?.some((outcome) => outcome.status === "failed") ? "persistence failed" : result.persistence?.every((outcome) => outcome.status === "transient") ? `${persistenceCount} transient` : `${persistenceCount} saved`}` : ""}`}
                     nameWidth={
                       execution?.scripts?.results.some(
                         (script) => script.phase === "post",
@@ -251,7 +261,12 @@ export function ResponseResults({
                     details={[
                       { label: "Phase", value: result.phase },
                       { label: "Scope", value: result.scope },
-                      { label: "Source", value: result.sourceKind },
+                      {
+                        label: "Source",
+                        value: result.source
+                          ? scriptSourceLabel(result.source)
+                          : result.sourceKind,
+                      },
                       { label: "Duration", value: `${result.durationMs}ms` },
                       ...(result.requests ?? []).flatMap((request) => [
                         {
@@ -501,7 +516,7 @@ export function ResponseResults({
                 }
               >
                 {tests.evaluated
-                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${tests.error ? " · script error" : ""}`
+                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${hasTestErrors ? " · script error" : ""}`
                   : "Not evaluated"}
               </text>
             ) : null}
@@ -510,12 +525,12 @@ export function ResponseResults({
             <>
               <CookieRow
                 id="response-test-script"
-                kindLabel={tests.error ? "ERROR" : "LOGS"}
-                kindColor={tests.error ? theme.error : theme.textMuted}
+                kindLabel={hasTestErrors ? "ERROR" : "LOGS"}
+                kindColor={hasTestErrors ? theme.error : theme.textMuted}
                 name="Test script"
                 value={
-                  tests.error
-                    ? tests.error.message
+                  hasTestErrors
+                    ? testErrors[0]!.message
                     : `${tests.logs.length} log${tests.logs.length === 1 ? "" : "s"}`
                 }
                 nameWidth={12}
@@ -523,23 +538,29 @@ export function ResponseResults({
                 expanded={expandedRow === "response-test-script"}
                 hovered={hoveredRow === "response-test-script"}
                 details={[
-                  ...(tests.error
-                    ? [
-                        { label: "Error", value: tests.error.name },
-                        { label: "Message", value: tests.error.message },
-                        ...(tests.error.line
-                          ? [
-                              {
-                                label: "Location",
-                                value: `tests.js:${tests.error.line}${tests.error.column ? `:${tests.error.column}` : ""}`,
-                              },
-                            ]
-                          : []),
-                      ]
-                    : []),
+                  ...testErrors.flatMap((error) => [
+                    ...(error.source
+                      ? [
+                          {
+                            label: "Source",
+                            value: scriptSourceLabel(error.source),
+                          },
+                        ]
+                      : []),
+                    { label: "Error", value: error.name },
+                    { label: "Message", value: error.message },
+                    ...(error.line
+                      ? [
+                          {
+                            label: "Location",
+                            value: `tests.js:${error.line}${error.column ? `:${error.column}` : ""}`,
+                          },
+                        ]
+                      : []),
+                  ]),
                   ...tests.logs.map((log) => ({
                     label: log.level.toUpperCase(),
-                    value: log.message,
+                    value: `${log.source ? scriptSourceLabel(log.source) + ": " : ""}${log.message}`,
                   })),
                 ]}
                 onSelect={() => setSelectedRowIdx(testRowOffset)}
@@ -563,7 +584,11 @@ export function ResponseResults({
                     key={id}
                     kindLabel={result.passed ? "PASS" : "FAIL"}
                     kindColor={result.passed ? theme.success : theme.error}
-                    name={result.name}
+                    name={
+                      result.source
+                        ? `[${result.source.scope}] ${result.name}`
+                        : result.name
+                    }
                     value={` ${result.durationMs}ms`}
                     valueWidth={testDurationWidth}
                     nameWidth={testNameWidth}
@@ -572,6 +597,14 @@ export function ResponseResults({
                     hovered={hoveredRow === id}
                     details={[
                       { label: "Name", value: result.name },
+                      ...(result.source
+                        ? [
+                            {
+                              label: "Source",
+                              value: scriptSourceLabel(result.source),
+                            },
+                          ]
+                        : []),
                       { label: "Message", value: result.message },
                       { label: "Duration", value: `${result.durationMs}ms` },
                     ]}

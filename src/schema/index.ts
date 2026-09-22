@@ -112,7 +112,12 @@ export interface FolderOverrides {
   auth?: Auth
 }
 
-export interface Folder {
+export interface ScriptFields {
+  scripts?: { pre: string; post?: string } | { pre?: string; post: string }
+  tests?: string
+}
+
+export interface Folder extends ScriptFields {
   id: string
   name: string
   path: string
@@ -255,7 +260,7 @@ export type Auth =
   | OAuth1Auth
   | OAuth2Auth
 
-export interface Request {
+export interface Request extends ScriptFields {
   id: string
   name: string
   method: Method
@@ -274,13 +279,11 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
-  scripts?: { pre: string; post?: string } | { pre?: string; post: string }
-  tests?: string
   captures?: Record<string, CaptureEntry>
   assertions?: ResponseAssertion[]
 }
 
-export interface Collection {
+export interface Collection extends ScriptFields {
   id: string
   name: string
   items: CollectionItem[]
@@ -396,7 +399,7 @@ export interface TimelineBodyRef {
   size: number
 }
 
-export interface CollectionSettings {
+export interface CollectionSettings extends ScriptFields {
   collectionId?: string
   name?: string
   description?: string

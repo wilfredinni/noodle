@@ -70,6 +70,7 @@ export function formatHeaderEntries(
 export function TimelineDetailOverlay({
   visible,
   entry,
+  iteration,
   onClose,
   initialTab = "request",
   execution,
@@ -88,6 +89,7 @@ export function TimelineDetailOverlay({
   onExportBody = async () => {},
 }: {
   visible: boolean
+  iteration?: number
   entry: TimelineEntry | null
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
@@ -376,6 +378,12 @@ export function TimelineDetailOverlay({
           minHeight: 0,
         }}
       >
+        {iteration !== undefined ? (
+          <text
+            fg={theme.accent}
+            flexShrink={0}
+          >{`Iteration ${iteration + 1}`}</text>
+        ) : null}
         <Tabs
           tabs={tabs}
           activeId={activeTab}
