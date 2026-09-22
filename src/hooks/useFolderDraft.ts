@@ -139,6 +139,12 @@ export function applyDraftOp(
 }
 
 export function folderEqual(a: Folder, b: Folder): boolean {
+  if (
+    a.scripts?.pre !== b.scripts?.pre ||
+    a.scripts?.post !== b.scripts?.post ||
+    a.tests !== b.tests
+  )
+    return false
   if (a.name !== b.name) return false
   if (a.seq !== b.seq) return false
   if (!recordsEqual(a.overrides?.headers ?? {}, b.overrides?.headers ?? {}))

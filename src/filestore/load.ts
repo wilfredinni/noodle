@@ -9,6 +9,7 @@ import type {
   Folder,
   Request,
 } from "../schema"
+import { parseScripts, parseTests } from "../lang/scriptSource"
 import { parseCollectionProxyStrict } from "../proxy"
 import { parseCollectionTlsStrict } from "../tls"
 
@@ -100,6 +101,7 @@ export function extractFileErrors(error: Error): CollectionFileError[] {
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
 export interface LoadOptions {
+  loadScripts?: boolean
   readOnly?: boolean
   tolerant?: boolean
 }
@@ -159,6 +161,8 @@ async function walk(
         meta?: import("../schema").FolderMeta
         tags?: string[]
         overrides?: import("../schema").FolderOverrides
+        scripts?: Folder["scripts"]
+        tests?: string
       } = {}
       let folderYmlContent = ""
       try {
@@ -193,6 +197,8 @@ async function walk(
         seq: folderMeta.meta?.seq,
         tags: folderMeta.tags,
         overrides: folderMeta.overrides,
+        ...(folderMeta.scripts ? { scripts: folderMeta.scripts } : {}),
+        ...(folderMeta.tests !== undefined ? { tests: folderMeta.tests } : {}),
         children,
       }
       folders.push({ item: { type: "folder", data: folder }, seq: folder.seq })
@@ -279,6 +285,19 @@ export async function loadCollection(
   const root = await realpath(dir)
   const fileErrors: CollectionFileError[] = []
   const items = await walk(dir, "", new Set(), root, options, fileErrors)
+  let settings: CollectionSettings = {}
+  if (options.loadScripts !== false) {
+    try {
+      settings = await loadSettings(dir)
+    } catch (error) {
+      fileErrors.push(
+        parseUserFriendlyFileError(
+          "settings.yml",
+          error instanceof Error ? error.message : String(error),
+        ),
+      )
+    }
+  }
 
   if (fileErrors.length > 0) {
     const first = fileErrors[0]
@@ -293,7 +312,13 @@ export async function loadCollection(
     throw err
   }
 
-  return { id, name: id, items }
+  return {
+    id,
+    name: id,
+    items,
+    ...(settings.scripts ? { scripts: settings.scripts } : {}),
+    ...(settings.tests !== undefined ? { tests: settings.tests } : {}),
+  }
 }
 
 export async function loadCollectionBrowse(dir: string): Promise<Collection> {
@@ -352,13 +377,22 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
     "proxy",
     "tls",
     "cookies",
+    "scripts",
+    "tests",
   ])
   const unknownKey = Object.keys(obj).find((key) => !allowed.has(key))
   if (unknownKey) {
     throw new Error(`settings.yml: unknown key "${unknownKey}"`)
   }
 
-  const settings: CollectionSettings = {}
+  const settings: CollectionSettings = {
+    ...(obj.scripts !== undefined
+      ? { scripts: parseScripts(obj.scripts, "settings.yml") }
+      : {}),
+    ...(obj.tests !== undefined
+      ? { tests: parseTests(obj.tests, "settings.yml") }
+      : {}),
+  }
   if (obj.collection_id !== undefined) {
     if (
       typeof obj.collection_id !== "string" ||

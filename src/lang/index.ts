@@ -6,11 +6,7 @@ import { parseFolder, serializeFolder } from "./folder"
 export interface Lang {
   parseRequest(id: string, yaml: string): Request
   serializeRequest(req: Request): string
-  parseFolder(yaml: string): {
-    meta?: import("../schema").FolderMeta
-    tags?: string[]
-    overrides?: import("../schema").FolderOverrides
-  }
+  parseFolder(yaml: string): ReturnType<typeof parseFolder>
   serializeFolder(folder: Folder): string
 }
 

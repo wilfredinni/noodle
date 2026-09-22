@@ -1,5 +1,6 @@
 import * as yaml from "../yaml"
 import type { Folder, FolderMeta, FolderOverrides } from "../schema"
+import { parseScripts, parseTests, serializeScriptFields } from "./scriptSource"
 import { authToObj, parseAuth } from "./auth"
 import { parseKvMap, parseTags } from "./parse"
 
@@ -20,6 +21,8 @@ export function parseFolder(yamlText: string): {
   meta?: FolderMeta
   tags?: string[]
   overrides?: FolderOverrides
+  scripts?: Folder["scripts"]
+  tests?: string
 } {
   let doc: unknown
   try {
@@ -35,7 +38,14 @@ export function parseFolder(yamlText: string): {
 
   const raw = doc as RawFolder
 
-  const knownKeys = new Set(["meta", "tags", "headers", "auth"])
+  const knownKeys = new Set([
+    "meta",
+    "tags",
+    "headers",
+    "auth",
+    "scripts",
+    "tests",
+  ])
   for (const key of Object.keys(raw)) {
     if (!knownKeys.has(key)) {
       throw new Error(`lang.parseFolder: unknown field "${key}"`)
@@ -68,7 +78,17 @@ export function parseFolder(yamlText: string): {
     }
   }
 
-  return { meta, tags: parseTags(raw.tags, "lang.parseFolder"), overrides }
+  return {
+    meta,
+    tags: parseTags(raw.tags, "lang.parseFolder"),
+    overrides,
+    ...(raw.scripts !== undefined
+      ? { scripts: parseScripts(raw.scripts, "lang.parseFolder") }
+      : {}),
+    ...(raw.tests !== undefined
+      ? { tests: parseTests(raw.tests, "lang.parseFolder") }
+      : {}),
+  }
 }
 
 function yamlVal(val: string, indent = 0): string {
@@ -120,5 +140,5 @@ export function serializeFolder(folder: Folder): string {
     }
   }
 
-  return out
+  return out + serializeScriptFields(folder)
 }

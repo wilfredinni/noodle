@@ -4,6 +4,11 @@ import { dirname, join } from "node:path"
 import * as yaml from "../yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
+import {
+  parseScripts,
+  parseTests,
+  serializeScriptFields,
+} from "../lang/scriptSource"
 import { collectionTlsToYaml } from "../tls"
 import { parseCollectionProxyStrict } from "../proxy"
 
@@ -157,10 +162,19 @@ export async function saveSettings(
     if (Object.keys(cookies).length > 0) data.cookies = cookies
   }
 
+  const scriptFields = serializeScriptFields({
+    scripts: parseScripts(settings.scripts, "settings.yml"),
+    tests: parseTests(settings.tests, "settings.yml"),
+  })
   const targetPath = join(dir, "settings.yml")
   const temporaryPath = join(dir, `.settings.${randomUUID()}.tmp`)
   try {
-    await writeFile(temporaryPath, yaml.dump(data), "utf8")
+    await writeFile(
+      temporaryPath,
+      (Object.keys(data).length ? yaml.dump(data) : "") + scriptFields ||
+        "{}\n",
+      "utf8",
+    )
     await rename(temporaryPath, targetPath)
   } catch (e) {
     await unlink(temporaryPath).catch(() => {})

@@ -13,6 +13,7 @@ import type {
   ScriptExecutionError,
   ScriptLog,
   TestResult,
+  ScriptSource,
 } from "./preRequestScript"
 import {
   environmentSecretValues,
@@ -31,6 +32,7 @@ export interface ExecutionResultGroup<T> {
 export interface TestExecutionGroup extends ExecutionResultGroup<TestResult> {
   logs: ScriptLog[]
   error?: ScriptExecutionError
+  errors?: ScriptExecutionError[]
 }
 
 export function testsSucceeded(tests: TestExecutionGroup | undefined): boolean {
@@ -38,8 +40,30 @@ export function testsSucceeded(tests: TestExecutionGroup | undefined): boolean {
     !tests ||
     (tests.evaluated &&
       !tests.error &&
+      !tests.errors?.length &&
       tests.results.every((result) => result.passed))
   )
+}
+
+export function redactScriptSource(
+  source: ScriptSource | undefined,
+  redact: (value: string) => string,
+) {
+  return source ? { ...source, path: redact(source.path) } : undefined
+}
+
+export function redactScriptError(
+  error: ScriptExecutionError,
+  redact: (value: string) => string,
+): ScriptExecutionError {
+  return {
+    ...error,
+    name: redact(error.name),
+    message: redact(error.message),
+    ...(error.source
+      ? { source: redactScriptSource(error.source, redact) }
+      : {}),
+  }
 }
 
 export function redactTestExecution(
@@ -58,17 +82,25 @@ export function redactTestExecution(
     ...tests,
     results: tests.results.map((result) => ({
       ...result,
+      ...(result.source
+        ? { source: redactScriptSource(result.source, redact) }
+        : {}),
       name: redact(result.name),
       message: redact(result.message),
     })),
-    logs: tests.logs.map((log) => ({ ...log, message: redact(log.message) })),
+    logs: tests.logs.map((log) => ({
+      ...log,
+      message: redact(log.message),
+      ...(log.source ? { source: redactScriptSource(log.source, redact) } : {}),
+    })),
+    ...(tests.errors
+      ? {
+          errors: tests.errors.map((error) => redactScriptError(error, redact)),
+        }
+      : {}),
     ...(tests.error
       ? {
-          error: {
-            ...tests.error,
-            name: redact(tests.error.name),
-            message: redact(tests.error.message),
-          },
+          error: redactScriptError(tests.error, redact),
         }
       : {}),
   }
@@ -123,9 +155,15 @@ export function redactScriptExecutionResult(
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   return {
     ...result,
+    ...(result.source
+      ? { source: redactScriptSource(result.source, redact) }
+      : {}),
     logs: result.logs.map((entry) => ({
       ...entry,
       message: redact(entry.message),
+      ...(entry.source
+        ? { source: redactScriptSource(entry.source, redact) }
+        : {}),
     })),
     ...(result.requests
       ? {
@@ -149,11 +187,7 @@ export function redactScriptExecutionResult(
       : {}),
     ...(result.error
       ? {
-          error: {
-            ...result.error,
-            name: redact(result.error.name),
-            message: redact(result.error.message),
-          },
+          error: redactScriptError(result.error, redact),
         }
       : {}),
     ...(result.persistence

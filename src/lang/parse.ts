@@ -23,7 +23,7 @@ import {
 import { isValidVariableName } from "../requests/substitute"
 import { isValidTag } from "../tags"
 import { parseAuth } from "./auth"
-import { isExternalScriptSource } from "./scriptSource"
+import { parseScripts, parseTests } from "./scriptSource"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -189,14 +189,7 @@ export function parseRequest(id: string, yamlText: string): Request {
   const tls = parseRequestTls(raw.tls)
   const tags = parseTags(raw.tags, "lang.parseRequest")
   const scripts = parseScripts(raw.scripts)
-  if (raw.tests !== undefined) {
-    if (typeof raw.tests !== "string")
-      throw new Error("lang.parseRequest: tests must be a string")
-    if (isExternalScriptSource(raw.tests))
-      throw new Error(
-        "lang.parseRequest: tests must be inline source; external test files are not supported",
-      )
-  }
+  const tests = parseTests(raw.tests)
   const captures = parseCaptures(raw.capture)
   const assertions = parseAssertions(raw.assert)
 
@@ -256,7 +249,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     filePath,
     auth,
     ...(scripts ? { scripts } : {}),
-    ...(raw.tests !== undefined ? { tests: raw.tests as string } : {}),
+    ...(tests !== undefined ? { tests } : {}),
     ...(captures ? { captures } : {}),
     ...(assertions ? { assertions } : {}),
   }
@@ -265,42 +258,6 @@ export function parseRequest(id: string, yamlText: string): Request {
     return { ...requestWithTls, pathParams }
   }
   return requestWithTls as Request
-}
-
-function parseScripts(value: unknown): Request["scripts"] {
-  if (value === undefined) return undefined
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error('lang.parseRequest: "scripts" must be a mapping')
-  }
-  const keys = Object.keys(value)
-  if (keys.length === 0) {
-    throw new Error('lang.parseRequest: "scripts" must contain "pre" or "post"')
-  }
-  for (const key of keys) {
-    if (key !== "pre" && key !== "post") {
-      throw new Error(`lang.parseRequest: unknown scripts field "${key}"`)
-    }
-  }
-  for (const key of keys) {
-    const source = (value as Record<string, unknown>)[key]
-    if (typeof source !== "string") {
-      throw new Error(`lang.parseRequest: scripts.${key} must be a string`)
-    }
-    if (isExternalScriptSource(source)) {
-      throw new Error(
-        `lang.parseRequest: scripts.${key} must be inline source; external script paths are not supported`,
-      )
-    }
-  }
-  if (Object.hasOwn(value, "pre")) {
-    return {
-      pre: (value as { pre: string }).pre,
-      ...(Object.hasOwn(value, "post")
-        ? { post: (value as { post: string }).post }
-        : {}),
-    }
-  }
-  return { post: (value as { post: string }).post }
 }
 
 export function parseTags(
