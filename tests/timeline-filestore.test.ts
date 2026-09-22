@@ -38,6 +38,39 @@ function makeEntry(over: Partial<TimelineEntry> = {}): TimelineEntry {
 }
 
 describe("loadTimeline", () => {
+  it("round-trips inherited test errors and origins alongside legacy history", async () => {
+    const source = { scope: "collection" as const, path: "settings.yml" }
+    const error = { name: "Error", message: "root", source }
+    const entry = makeEntry({
+      tests: {
+        evaluated: true,
+        results: [
+          {
+            name: "inherited",
+            passed: true,
+            message: "Test passed",
+            durationMs: 1,
+            source,
+          },
+        ],
+        logs: [{ level: "log", message: "diagnostic", source }],
+        error,
+        errors: [
+          error,
+          {
+            name: "Error",
+            message: "folder",
+            source: { scope: "folder", path: "nested/folder.yml" },
+          },
+        ],
+      },
+    })
+    await saveTimelineEntry(dir, "inherited", makeEntry())
+    await saveTimelineEntry(dir, "inherited", entry)
+    const loaded = await loadTimeline(dir, "inherited")
+    expect(loaded[0]?.tests).toEqual(entry.tests)
+    expect(loaded[1]?.tests).toBeUndefined()
+  })
   it("returns empty array when no timeline file exists", async () => {
     const result = await loadTimeline(dir, "req-1")
     expect(result).toEqual([])

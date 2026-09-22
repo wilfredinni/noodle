@@ -569,6 +569,10 @@ describe("app keymap layers", () => {
     host.press("return")
     context.runner.runnerRef.current.optionIndex = 5
     host.press("return")
+    host.press("r")
+    expect(calls.runnerRun).toBe(0)
+    context.runner.runnerRef.current.optionIndex = 6
+    host.press("return")
     context.runner.runnerRef.current.canRun = false
     host.press("return")
     context.runner.runnerRef.current.canRun = true

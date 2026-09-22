@@ -55,6 +55,21 @@ const cases = [
   ["toBeGreaterThanOrEqual", "3", "3", "4"],
   ["toBeLessThan", "3", "4", "3"],
   ["toBeLessThanOrEqual", "3", "3", "2"],
+  [
+    "toMatchSchema",
+    "{id: 1}",
+    '{type: "object", required: ["id"]}',
+    '{type: "string"}',
+  ],
+  ["toHaveProperty", "{id: 1}", '"id", 1', '"id", 2'],
+  ["toHaveLength", '"hello"', "5", "4"],
+  ["toBeTypeOf", "1", '"number"', '"string"'],
+  [
+    "toMatchObject",
+    "{id: 1, nested: {a: 2, b: 3}}",
+    "{nested: {a: 2}}",
+    "{nested: {a: 3}}",
+  ],
 ] as const
 
 describe("inline test schema", () => {
@@ -98,6 +113,79 @@ describe("inline test schema", () => {
 })
 
 describe("inline test sandbox", () => {
+  it("validates draft-07 formats and local refs without mutations, including negation and invalid schemas", async () => {
+    const result = await run(`
+      const schema = {type:"object", required:["id", "email"], additionalProperties:false, properties:{id:{$ref:"#/definitions/id"}, email:{type:"string",format:"email"}}, definitions:{id:{type:"integer"}}};
+      test("valid",()=>expect({id:1,email:"a@example.com"}).toMatchSchema(schema));
+      test("invalid",()=>expect({id:"1",email:"bad"}).not.toMatchSchema(schema));
+      test("required",()=>expect({}).toMatchSchema(schema));
+      test("format",()=>expect({id:1,email:"bad"}).toMatchSchema(schema));
+      test("no mutation",()=>{const value={extra:true}; expect(value).toMatchSchema({type:"object",properties:{id:{default:7}}}); expect(value).toEqual({extra:true});});
+      for (const schema of [{type:"wrong"}, {required:"x"}, {$schema:"https://json-schema.org/draft/2020-12/schema"}, {$ref:"https://example.com/schema"}, {$ref:"file:///schema"}, {$ref:"#/missing"}, {$async:true}]) test("invalid schema",()=>expect({}).not.toMatchSchema(schema));
+      test("dialect",()=>expect(1).toMatchSchema({$schema:"https://json-schema.org/draft-07/schema#",type:"integer"}));
+      test("boolean",()=>{expect(null).toMatchSchema(true);expect(null).not.toMatchSchema(false)});
+    `)
+    expect(result.result.error).toBeUndefined()
+    expect(result.tests?.map((test) => test.passed)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+    ])
+    expect(result.tests?.[2]?.message).toContain("/: required")
+    expect(result.tests?.[3]?.message).toContain("/email: format")
+  })
+  it("supports own literal properties, exact arrays, typeof and rejects invalid arguments under negation", async () => {
+    const result = await run(`
+      test("properties",()=>{expect({"a.b":3}).toHaveProperty("a.b",3);expect({a:{b:3}}).not.toHaveProperty("a.b"); expect({}).not.toHaveProperty("toString"); expect({a:null}).toHaveProperty("a",null)});
+      test("arrays",()=>{expect({a:[1,2],b:1}).toMatchObject({a:[1,2]});expect({a:[1,2]}).not.toMatchObject({a:[1]});expect([1]).toHaveLength(1)});
+      test("typeof",()=>{expect(()=>{}).toBeTypeOf("function");expect(Symbol()).toBeTypeOf("symbol");expect(1n).toBeTypeOf("bigint");expect(null).toBeTypeOf("object")});
+      test("bad key",()=>expect({}).not.toHaveProperty(3));
+      test("bad length",()=>expect([]).not.toHaveLength(-1));
+      test("bad type",()=>expect(null).not.toBeTypeOf("null"));
+      test("bad partial",()=>expect({}).not.toMatchObject([]));
+    `)
+    expect(result.tests?.map((test) => test.passed)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ])
+  })
+  it("redacts schema diagnostics and bounds recursive validation inside the sandbox", async () => {
+    const scope = new RunScope()
+    scope.rememberSecrets(["private-field"])
+    const result = await run(
+      'test("schema",()=>expect({}).toMatchSchema({type:"object",required:["private-field"]}))',
+      scope,
+    )
+    expect(JSON.stringify(result.tests)).not.toContain("private-field")
+    const bounded = await run(
+      'test("compile",()=>expect("x").toMatchSchema({allOf:Array.from({length:3000},()=>({minLength:1}))}))',
+    )
+    expect(bounded.result.success).toBe(false)
+    expect(bounded.result.error?.name).toMatch(/Limit|Runtime/)
+    expect(
+      (
+        await run(
+          'test("recovery",()=>expect(1).toMatchSchema({type:"integer"}))',
+        )
+      ).tests?.[0]?.passed,
+    ).toBe(true)
+  })
   it("supports every matcher and its negation with both passing and failing outcomes", async () => {
     expect(cases.map(([name]) => name)).toEqual([...TEST_MATCHERS])
     const opposite: Record<string, string> = {

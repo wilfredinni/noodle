@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { tmpdir } from "node:os"
 import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import {
@@ -75,6 +78,80 @@ function renderHook(
 }
 
 describe("useCollectionRunner", () => {
+  it("validates relative data files, retains repeated request details and revalidates before sending", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "runner-data-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await writeFile(join(dir, "data.json"), '[{"id":1},{"id":2}]')
+      const calls: unknown[] = []
+      const runCollection: typeof collectionRun = async (...args) => {
+        calls.push(args[12])
+        const results = [0, 1].map((iteration) => ({
+          id: "root",
+          iteration,
+          method: "GET" as const,
+          url: `https://example.com/${iteration}`,
+          ok: true,
+          failureCategories: [],
+        }))
+        for (const result of results)
+          args[10]?.({
+            requestId: "root",
+            iteration: result.iteration,
+            entry: { request: { url: result.url } } as never,
+          })
+        return {
+          iterations: 2,
+          results,
+          skipped: [],
+          failed: false,
+          summary: {
+            selected: 2,
+            executed: 2,
+            skipped: 0,
+            requestSuccesses: 2,
+            requestFailures: 0,
+            assertionPasses: 0,
+            assertionFailures: 0,
+            captureFailures: 0,
+            durationMs: 1,
+            failureCategories: [],
+          },
+        }
+      }
+      const harness = renderHook({ collectionDir: dir, runCollection })
+      const render = await harness.render
+      await render.renderOnce()
+      await act(async () => {
+        await harness.get().setDataPath("data.json")
+      })
+      expect(harness.get().iterationCount).toBe(2)
+      expect(harness.get().dataError).toBeNull()
+      await act(async () => {
+        await harness.get().run()
+      })
+      expect(calls).toEqual([join(dir, "data.json")])
+      expect(harness.get().resultRows.map((row) => row.id)).toEqual([
+        "0:root",
+        "1:root",
+      ])
+      expect(harness.get().resultDetails.get("0:root")?.entry.request.url).toBe(
+        "https://example.com/0",
+      )
+      expect(harness.get().resultDetails.get("1:root")?.entry.request.url).toBe(
+        "https://example.com/1",
+      )
+      await act(async () => {
+        await harness.get().setDataPath("missing.csv")
+      })
+      expect(harness.get().canRun).toBe(false)
+      await act(async () => harness.reset())
+      expect(harness.get().dataPath).toBe("")
+      expect(harness.get().iterationCount).toBe(1)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
   it("navigates only interactive Runner options", async () => {
     const harness = renderHook()
     const render = await harness.render
@@ -84,12 +161,12 @@ describe("useCollectionRunner", () => {
     await act(async () => harness.get().optionUp())
     expect(harness.get().optionIndex).toBe(0)
     await act(async () => harness.get().optionLast())
-    expect(harness.get().optionIndex).toBe(5)
+    expect(harness.get().optionIndex).toBe(6)
     expect(harness.get().failFast).toBe(false)
     await act(async () => harness.get().toggleFailFast())
     expect(harness.get().failFast).toBe(true)
     await act(async () => harness.get().optionDown())
-    expect(harness.get().optionIndex).toBe(5)
+    expect(harness.get().optionIndex).toBe(6)
     await act(async () => harness.get().optionFirst())
     expect(harness.get().optionIndex).toBe(0)
   })
