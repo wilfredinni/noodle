@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto"
 import releaseVariant from "@jitl/quickjs-singlefile-mjs-release-sync"
+import schemaValidatorSource from "./scriptSchemaValidator.bundle.txt" with { type: "text" }
 import {
   newQuickJSWASMModuleFromVariant,
   newVariant,
@@ -120,11 +121,23 @@ export const TEST_MATCHERS = Object.freeze([
   "toBeGreaterThanOrEqual",
   "toBeLessThan",
   "toBeLessThanOrEqual",
+  "toMatchSchema",
+  "toHaveProperty",
+  "toHaveLength",
+  "toBeTypeOf",
+  "toMatchObject",
 ] as const)
 
 export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
   Object.freeze([
     api("noodle", "", "global", "noodle: Noodle", "Noodle scripting APIs."),
+    api(
+      "noodle",
+      "iteration",
+      "property",
+      "iteration: { index: number; count: number; data: object } | null",
+      "Read-only original dataset row and iteration position.",
+    ),
     api(
       "noodle",
       "runRequest",
@@ -482,7 +495,12 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
         global: "expect" as const,
         member,
         kind: member === "not" ? ("property" as const) : ("method" as const),
-        signature: member === "not" ? "Matchers" : `${member}(expected?): void`,
+        signature:
+          member === "not"
+            ? "Matchers"
+            : member === "toHaveProperty"
+              ? "toHaveProperty(key, expected?): void"
+              : `${member}(expected?): void`,
         description:
           member === "not"
             ? "Negate the matcher."
@@ -492,7 +510,13 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
     ),
   ])
 
+export type ScriptSource = {
+  scope: "collection" | "folder" | "request"
+  path: string
+}
+
 export type TestResult = {
+  source?: ScriptSource
   name: string
   passed: boolean
   message: string
@@ -500,11 +524,13 @@ export type TestResult = {
 }
 
 export type ScriptLog = {
+  source?: ScriptSource
   level: "log" | "info" | "warn" | "error"
   message: string
 }
 
 export type ScriptExecutionError = {
+  source?: ScriptSource
   name: string
   message: string
   line?: number
@@ -513,7 +539,8 @@ export type ScriptExecutionError = {
 
 export type ScriptExecutionResult = {
   phase: ScriptPhase
-  scope: "request"
+  scope: ScriptSource["scope"]
+  source?: ScriptSource
   sourceKind: "inline"
   success: boolean
   durationMs: number
@@ -645,6 +672,21 @@ export async function runRequestScript(
   const testResults = new Map<number, TestResult>()
   const testStarts = new Map<number, { name: string; time: number }>()
   let testResultBytes = 0
+  const diagnostics = options.diagnostics
+  const reserveTest = (bytes: number) => {
+    testResultBytes += bytes
+    if (diagnostics) diagnostics.testBytes += bytes
+    if (
+      testResultBytes > SCRIPT_LIMITS.bridgeValueBytes ||
+      (diagnostics?.testBytes ?? 0) > SCRIPT_LIMITS.bridgeValueBytes
+    ) {
+      testLimitError = {
+        name: "ScriptApiValidationError",
+        message: "test results exceed the 262144-byte limit",
+      }
+      throw apiError(testLimitError.message)
+    }
+  }
   let testCount = 0
   let testLimitError: ScriptExecutionError | undefined
   const cookies =
@@ -777,14 +819,9 @@ export async function runRequestScript(
     "tests.start": ([value]) => {
       const name = requireString(value, "test name")
       if (!name.trim()) throw apiError("test name must be a non-empty string")
-      testResultBytes += byteLength(JSON.stringify(name)) + 96
-      if (testResultBytes > SCRIPT_LIMITS.bridgeValueBytes) {
-        testLimitError = {
-          name: "ScriptApiValidationError",
-          message: "test results exceed the 262144-byte limit",
-        }
-        throw apiError(testLimitError.message)
-      }
+      reserveTest(
+        byteLength(JSON.stringify(name)) + 96 + (options.sourceBytes ?? 0),
+      )
       const id = testCount++
       testStarts.set(id, { name, time: performance.now() })
       return id
@@ -798,14 +835,7 @@ export async function runRequestScript(
         "Test failed",
       )
       const start = testStarts.get(id)!
-      testResultBytes += byteLength(JSON.stringify(message))
-      if (testResultBytes > SCRIPT_LIMITS.bridgeValueBytes) {
-        testLimitError = {
-          name: "ScriptApiValidationError",
-          message: "test results exceed the 262144-byte limit",
-        }
-        throw apiError(testLimitError.message)
-      }
+      reserveTest(byteLength(JSON.stringify(message)))
       testResults.set(id, {
         name: start.name,
         passed,
@@ -1004,6 +1034,7 @@ export async function runRequestScript(
       }
       return result
     },
+    "iteration:get": () => runScope.iteration,
     "run.get": ([nameValue]) => {
       const name = requireName(nameValue)
       const value = stagedScope.get(name)
@@ -1057,6 +1088,18 @@ export async function runRequestScript(
         ([messageValue, completeValue]: unknown[]) => {
           const complete = requireBoolean(completeValue, "console completion")
           if (
+            diagnostics &&
+            diagnostics.consoleBytes >= SCRIPT_LIMITS.consoleBytes
+          ) {
+            if (!consoleClosed) {
+              if (openConsoleEntry) openConsoleEntry.message = "[TRUNCATED]"
+              else logs.push({ level, message: "[TRUNCATED]" })
+              openConsoleEntry = undefined
+              consoleClosed = true
+            }
+            return false
+          }
+          if (
             consoleClosed ||
             (!openConsoleEntry &&
               (logs.length >= SCRIPT_LIMITS.consoleEntries ||
@@ -1064,7 +1107,9 @@ export async function runRequestScript(
           )
             return false
           const message = requireString(messageValue, "console message")
-          const remaining = SCRIPT_LIMITS.consoleBytes - consoleBytes
+          const remaining =
+            SCRIPT_LIMITS.consoleBytes -
+            Math.max(consoleBytes, diagnostics?.consoleBytes ?? 0)
           const retained = truncateUtf8(message, remaining)
           consoleClosed = byteLength(retained) < byteLength(message)
           if (openConsoleEntry) openConsoleEntry.message += retained
@@ -1073,7 +1118,12 @@ export async function runRequestScript(
             logs.push(openConsoleEntry)
           }
           consoleBytes += byteLength(retained)
-          if (phase === "tests" && consoleClosed && openConsoleEntry) {
+          if (diagnostics) diagnostics.consoleBytes += byteLength(retained)
+          if (
+            (phase === "tests" || diagnostics) &&
+            consoleClosed &&
+            openConsoleEntry
+          ) {
             if (byteLength(openConsoleEntry.message) < 11) logs.pop()
             else openConsoleEntry.message = "[TRUNCATED]"
           }
@@ -1471,7 +1521,7 @@ function requireUrl(value: unknown): string {
   return url
 }
 
-function validateJson(value: unknown): JsonValue {
+export function validateJson(value: unknown): JsonValue {
   const seen = new Set<object>()
   const visit = (current: unknown, depth: number): JsonValue => {
     if (depth > SCRIPT_LIMITS.bridgeJsonDepth) {
@@ -1764,8 +1814,11 @@ function bootstrapSource(
     ),
   }))
   return `
+${tests ? schemaValidatorSource : ""}
 (() => {
   "use strict";
+  const matchSchema = globalThis.__noodleMatchSchema;
+  delete globalThis.__noodleMatchSchema;
   const bridge = globalThis.__noodleBridge;
   const ArrayCtor = Array;
   const ErrorCtor = Error;
@@ -2083,7 +2136,7 @@ function bootstrapSource(
     if (descriptor.kind === "property") {
       if (hasOwn(parent, name)) continue;
       objectDefineProperty(parent, name, {
-        get: () => call(operation + ":get", []),
+        get: () => operation === "iteration" ? freezeJson(call(operation + ":get", [])) : call(operation + ":get", []),
         set: (value) => call(operation + ":set", [value]),
         enumerable: true,
       });
@@ -2157,9 +2210,43 @@ const testBootstrapSource = String.raw`
     }
     return true;
   };
-  const match = (name, actual, expected) => {
+  const subset = (actual, partial) => {
+    if (partial === null || typeof partial !== "object" || arrayIsArray(partial)) return equal(actual, partial);
+    if (actual === null || typeof actual !== "object" || arrayIsArray(actual)) return false;
+    for (const key of objectKeys(partial)) if (!hasOwn(actual, key) || !subset(actual[key], partial[key])) return false;
+    return true;
+  };
+  let matcherDetail = "";
+  const match = (name, actual, expected, args) => {
+    matcherDetail = "";
+    if (name === "toBeTypeOf") {
+      if (typeof expected !== "string" || !setHas(new SetCtor(["undefined", "object", "boolean", "number", "bigint", "string", "symbol", "function"]), expected)) throw apiError("toBeTypeOf requires a JavaScript typeof name");
+      return typeof actual === expected;
+    }
     const value = boundedValue(actual, name === "toEqual" || (name === "toContain" && arrayIsArray(actual)));
     switch (name) {
+      case "toMatchSchema": {
+        const schema = jsonParse(jsonStringify(boundedValue(expected, true)));
+        const detail = matchSchema(jsonParse(jsonStringify(boundedValue(actual, true))), schema);
+        matcherDetail = detail === null ? "" : ": " + detail;
+        return detail === null;
+      }
+      case "toHaveProperty": {
+        if (typeof expected !== "string") throw apiError("toHaveProperty requires a string property name");
+        boundedValue(expected);
+        const wanted = args.length > 1 ? boundedValue(args[1]) : undefined;
+        return value != null && hasOwn(ObjectCtor(value), expected) && (args.length < 2 || equal(value[expected], wanted));
+      }
+      case "toHaveLength": {
+        if (!numberIsSafeInteger(expected) || expected < 0) throw apiError("toHaveLength requires a non-negative safe integer");
+        if (typeof value !== "string" && !arrayIsArray(value)) throw apiError("toHaveLength requires a string or array");
+        return value.length === expected;
+      }
+      case "toMatchObject": {
+        const partial = boundedValue(expected, true);
+        if (partial === null || typeof partial !== "object" || arrayIsArray(partial)) throw apiError("toMatchObject requires an object");
+        return subset(value, partial);
+      }
       case "toBe": boundedValue(expected); return objectIs(actual, expected);
       case "toEqual": return equal(value, boundedValue(expected, true));
       case "toBeTruthy": return !!actual;
@@ -2207,10 +2294,10 @@ const testBootstrapSource = String.raw`
     const positive = objectCreate(null), negative = objectCreate(null);
     for (const [target, negated] of [[positive, false], [negative, true]]) {
       for (const name of ${JSON.stringify(TEST_MATCHERS)}) {
-        objectDefineProperty(target, name, { enumerable: true, value: objectFreeze((expected) => {
-          const passed = match(name, actual, expected);
+        objectDefineProperty(target, name, { enumerable: true, value: objectFreeze((...args) => {
+          const passed = match(name, actual, args[0], args);
           if (passed === negated) {
-            const error = new ErrorCtor("Expected value " + (negated ? "not " : "") + "to satisfy " + name);
+            const error = new ErrorCtor("Expected value " + (negated ? "not " : "") + "to satisfy " + name + matcherDetail);
             error.name = "TestAssertionError";
             throw error;
           }

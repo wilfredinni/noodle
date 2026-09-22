@@ -30,6 +30,8 @@ export type ScriptRequestResult = {
 }
 
 export type ScriptRequestOptions = {
+  diagnostics?: { consoleBytes: number; testBytes: number }
+  sourceBytes?: number
   signal?: AbortSignal
   deadline?: number
   requests?: ScriptRequestSummary[]
