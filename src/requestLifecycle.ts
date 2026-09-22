@@ -18,6 +18,7 @@ import {
   redactResponseExecution,
   unevaluatedExecutionResults,
   type ResponseExecutionResults,
+  testsSucceeded,
 } from "./executionResults"
 import {
   runPreRequestScript,
@@ -25,7 +26,17 @@ import {
   type ScriptExecutionResult,
   type ScriptPersistenceIntent,
   type ScriptPersistenceOutcome,
+  SCRIPT_LIMITS,
+  scriptExecutionSucceeded,
+  validatePreparedRequest,
 } from "./preRequestScript"
+import type {
+  ScriptRequestOptions,
+  ScriptRequestResult,
+  ScriptRequestSummary,
+} from "./scriptRequests"
+import { validateId } from "./requestId"
+import { findRequestById } from "./ui/tree"
 import {
   executionResultSecrets,
   redactKnownSecrets,
@@ -59,6 +70,40 @@ export type RequestLifecycleResult =
       failureCategory: RequestLifecycleFailureCategory
     })
 
+type ScriptCallContext = {
+  budget: { calls: number }
+  stack: string[]
+  depth: number
+  deadline?: number
+}
+
+export function lifecycleFailureCategories(
+  result: RequestLifecycleResult,
+): (
+  | RequestLifecycleFailureCategory
+  | "http"
+  | "capture"
+  | "assertion"
+  | "test"
+)[] {
+  if (result.status === "error") return [result.failureCategory]
+  const categories: ReturnType<typeof lifecycleFailureCategories> = []
+  if (
+    result.execution.scripts?.results.some(
+      (script) => !scriptExecutionSucceeded(script),
+    )
+  )
+    categories.push("script")
+  if (result.response.status >= 400) categories.push("http")
+  if (result.execution.captures?.results.some((capture) => !capture.success))
+    categories.push("capture")
+  if (
+    result.execution.assertions?.results.some((assertion) => !assertion.passed)
+  )
+    categories.push("assertion")
+  if (!testsSucceeded(result.execution.tests)) categories.push("test")
+  return categories
+}
 export async function executeRequestLifecycle(options: {
   request: Request
   runScope: RunScope
@@ -76,6 +121,7 @@ export async function executeRequestLifecycle(options: {
     execution: ResponseExecutionResults,
   ) => Promise<ResponseExecutionResults>
   onEnvironmentPersisted?: () => Promise<void>
+  scriptContext?: ScriptCallContext
 }): Promise<RequestLifecycleResult> {
   const {
     request,
@@ -99,6 +145,163 @@ export async function executeRequestLifecycle(options: {
   const scriptResults: ScriptExecutionResult[] = []
   const runtimeSecrets: string[] = []
   runScope.rememberSecrets(secretValues)
+  const scriptContext = options.scriptContext ?? {
+    budget: { calls: 0 },
+    stack: [request.id],
+    depth: 0,
+  }
+  const scriptOptions = (): ScriptRequestOptions => {
+    const requests: ScriptRequestSummary[] = []
+    return {
+      signal: transport.signal,
+      deadline: scriptContext.deadline,
+      requests,
+      execute: async (kind, input, scope, signal, deadline) => {
+        const started = performance.now()
+        const summary: ScriptRequestSummary = {
+          kind,
+          ...(kind === "saved" && typeof input === "string"
+            ? { requestId: input }
+            : {}),
+          depth: scriptContext.depth + 1,
+          method: "GET",
+          url: "",
+          durationMs: 0,
+          success: false,
+          failureCategories: [],
+        }
+        let dispatched = false
+        try {
+          // Retain the first rejected call as well as the ten permitted calls.
+          const call = ++scriptContext.budget.calls
+          if (call <= SCRIPT_LIMITS.requestCalls + 1) requests.push(summary)
+          if (call > SCRIPT_LIMITS.requestCalls)
+            throw new Error(
+              `Script request limit is ${SCRIPT_LIMITS.requestCalls} calls per top-level request`,
+            )
+          if (summary.depth > SCRIPT_LIMITS.requestDepth)
+            throw new Error(
+              `Script request depth limit is ${SCRIPT_LIMITS.requestDepth}`,
+            )
+          signal.throwIfAborted()
+          const childTransport: TransportExecutionOptions = {
+            ...transport,
+            signal,
+            oauthMode: "cached-only",
+            onNetworkEvent: undefined,
+            onPreparedRequest: undefined,
+            knownSensitiveValues: [
+              ...(transport.knownSensitiveValues ?? []),
+              ...scope.secretValues(),
+            ],
+            onSensitiveValues: (values) => {
+              scope.rememberSecrets(values)
+              transport.onSensitiveValues?.(values)
+            },
+          }
+          let result: ScriptRequestResult
+          if (kind === "saved") {
+            if (typeof input !== "string" || input.endsWith(".yml"))
+              throw new Error("runRequest requires a request ID without .yml")
+            validateId(input)
+            summary.requestId = input
+            if (!collection) throw new Error("runRequest requires a collection")
+            const child = findRequestById(collection.items, input)
+            if (!child)
+              throw new Error(
+                `Request "${input}" was not found in the current collection`,
+              )
+            summary.method = child.method
+            summary.url = child.url
+            if (scriptContext.stack.includes(input))
+              throw new Error(
+                `Recursive request call: ${[...scriptContext.stack, input].join(" -> ")}`,
+              )
+            dispatched = true
+            const lifecycle = await executeRequestLifecycle({
+              request: child,
+              collection,
+              requestPath: input,
+              environment,
+              runScope: scope,
+              transport: childTransport,
+              scriptContext: {
+                budget: scriptContext.budget,
+                stack: [...scriptContext.stack, input],
+                depth: summary.depth,
+                deadline,
+              },
+            })
+            scope.rememberSecrets(lifecycle.secretValues)
+            summary.url = lifecycle.prepared?.url ?? child.url
+            summary.method = lifecycle.prepared?.method ?? child.method
+            for (const script of lifecycle.execution.scripts?.results ?? [])
+              requests.push(...(script.requests ?? []))
+            result = {
+              failureCategories: lifecycleFailureCategories(lifecycle),
+              execution: lifecycle.execution,
+              ...(lifecycle.status === "done"
+                ? { response: lifecycle.response }
+                : {
+                    error: {
+                      name: lifecycle.error.name,
+                      message: lifecycle.error.message,
+                    },
+                  }),
+            }
+          } else {
+            const child = literalScriptRequest(input, request.sendCookies)
+            summary.method = child.method
+            summary.url = child.url
+            scope.rememberSecrets(requestSensitiveValues(child))
+            childTransport.knownSensitiveValues = [
+              ...(childTransport.knownSensitiveValues ?? []),
+              ...scope.secretValues(),
+            ]
+            dispatched = true
+            const response = await executor.send(child, childTransport)
+            scope.rememberSecrets(responseSensitiveValues(response))
+            result = {
+              response,
+              failureCategories: response.status >= 400 ? ["http"] : [],
+            }
+          }
+          signal.throwIfAborted()
+          summary.status = result.response?.status
+          summary.failureCategories = result.failureCategories
+          summary.success = result.failureCategories.length === 0
+          if (!summary.success) {
+            result.error ??= {
+              name: "ScriptRequestError",
+              message: `Called request failed: ${result.failureCategories.join(", ")}${result.response ? ` (HTTP ${result.response.status})` : ""}`,
+            }
+          }
+          summary.error = result.error
+          return result
+        } catch (error) {
+          const normalized = redactLifecycleError(
+            error instanceof Error ? error : new Error(String(error)),
+            scope.secretValues(),
+          )
+          summary.failureCategories = [
+            dispatched ? "transport" : "configuration",
+          ]
+          summary.error = { name: normalized.name, message: normalized.message }
+          return {
+            failureCategories: summary.failureCategories,
+            error: summary.error,
+          }
+        } finally {
+          summary.durationMs = Math.max(
+            0,
+            Math.round((performance.now() - started) * 100) / 100,
+          )
+          runScope.rememberSecrets(scope.secretValues())
+          secretValues.push(...scope.secretValues())
+        }
+      },
+    }
+  }
   const persistScripts = async (
     result: ScriptExecutionResult,
     intents: ScriptPersistenceIntent[] = [],
@@ -149,6 +352,7 @@ export async function executeRequestLifecycle(options: {
         prepared,
         environment,
         runScope,
+        scriptOptions(),
       )
       secretValues.push(...scriptResult.secretValues)
       runScope.rememberSecrets(scriptResult.secretValues)
@@ -237,6 +441,7 @@ export async function executeRequestLifecycle(options: {
           environment,
           runScope,
           { response: rawResponse, cookies: transport.cookies },
+          scriptOptions(),
         )
         scriptResults.push(post.result)
         secretValues.push(...post.secretValues)
@@ -271,6 +476,7 @@ export async function executeRequestLifecycle(options: {
           response: rawResponse,
           cookies: transport.cookies,
         },
+        { signal: transport.signal, deadline: scriptContext.deadline },
       )
       secretValues.push(...tested.secretValues)
       runScope.rememberSecrets(tested.secretValues)
@@ -386,6 +592,55 @@ function withScriptResults(
       ),
     },
   }
+}
+
+function literalScriptRequest(
+  input: unknown,
+  sendCookies?: boolean,
+): SubstitutedRequest {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("sendRequest options must be an object")
+  const options = input as Record<string, unknown>
+  for (const key of Object.keys(options))
+    if (!["url", "method", "headers", "body", "timeout"].includes(key))
+      throw new Error(`Unknown sendRequest option "${key}"`)
+  if (typeof options.url !== "string")
+    throw new Error("sendRequest url must be a string")
+  if (options.method !== undefined && typeof options.method !== "string")
+    throw new Error("sendRequest method must be a string")
+  if (options.body !== undefined && typeof options.body !== "string")
+    throw new Error("sendRequest body must be a string")
+  if (
+    options.headers !== undefined &&
+    (!options.headers ||
+      typeof options.headers !== "object" ||
+      Array.isArray(options.headers))
+  )
+    throw new Error("sendRequest headers must be a string-valued object")
+  const timeout =
+    options.timeout === undefined ? SCRIPT_LIMITS.wallTimeMs : options.timeout
+  if (
+    typeof timeout !== "number" ||
+    !Number.isSafeInteger(timeout) ||
+    timeout < 0
+  )
+    throw new Error(
+      "sendRequest timeout must be a non-negative safe integer in milliseconds",
+    )
+  const request: SubstitutedRequest = {
+    id: "script-request",
+    name: "Script request",
+    method: (options.method ?? "GET") as Request["method"],
+    url: options.url,
+    timeout,
+    headers: (options.headers ?? {}) as Record<string, string>,
+    params: [],
+    sendCookies,
+    ...(options.body !== undefined ? { body: options.body as string } : {}),
+  }
+  validatePreparedRequest(request)
+  new Headers(request.headers)
+  return request
 }
 
 export function timelineRequest(

@@ -8,6 +8,7 @@ import type {
   WorkspaceAuditResult,
 } from "./services"
 import { scriptExecutionSucceeded } from "../preRequestScript"
+import { formatScriptRequestSummary } from "../scriptRequests"
 
 type Color = "red" | "green" | "yellow" | "cyan" | "dim"
 
@@ -55,6 +56,10 @@ function formatScripts(result: RequestRunResult): string[] {
     const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
     return [
       `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}`,
+      ...(script.requests ?? []).map(
+        (request) =>
+          `    ${formatScriptRequestSummary(request)}${request.error ? `: ${request.error.message}` : ""}`,
+      ),
       ...(script.error
         ? [
             `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.phase === "pre" ? "pre-request" : "post-response"}.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,

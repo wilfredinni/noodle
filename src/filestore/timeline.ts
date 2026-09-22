@@ -128,6 +128,24 @@ function boundedScriptResult(
     ...result,
     logs: boundedScriptLogs(result.logs),
     error: boundedScriptError(result.error),
+    ...(result.requests
+      ? {
+          requests: result.requests.slice(0, 11).map((request) => ({
+            kind: request.kind,
+            ...(request.requestId !== undefined
+              ? { requestId: boundedDiagnosticText(request.requestId) }
+              : {}),
+            depth: request.depth,
+            method: request.method,
+            url: boundedDiagnosticText(request.url),
+            ...(request.status !== undefined ? { status: request.status } : {}),
+            durationMs: request.durationMs,
+            success: request.success,
+            failureCategories: request.failureCategories,
+            error: boundedScriptError(request.error),
+          })),
+        }
+      : {}),
     ...(result.persistence
       ? {
           persistence: result.persistence.map((outcome) => ({

@@ -56,6 +56,99 @@ afterEach(async () => {
 })
 
 describe("inline tests CLI and compiled binary", () => {
+  it("chains requests with async tests in manual and collection runs, retaining nested diagnostics", async () => {
+    await save(
+      "login",
+      'test("child", async () => { await 1; expect(noodle.response.json().id).toBe(7) })',
+      {
+        captures: { ID: { value: "body.id", enabled: true } },
+        scripts: {
+          pre: 'noodle.run.set("CHILD", "transient", { persist: "environment" })',
+        },
+      },
+    )
+    await save(
+      "a",
+      'test("parent", async () => { await 1; expect(noodle.run.get("ID")).toBe(7) })',
+      {
+        scripts: {
+          pre: 'const child = await noodle.runRequest("login"); noodle.request.headers.set("X-ID", String(child.json().id));',
+        },
+      },
+    )
+    await save(
+      "b",
+      'test("later", async () => { await 1; expect(noodle.run.get("ID")).toBe(7) })',
+    )
+    const single = await cli(
+      "request",
+      "run",
+      "a",
+      "--collection",
+      dir,
+      "--noproxy",
+      "--json",
+    )
+    expect(single.code).toBe(0)
+    const parsed = JSON.parse(single.stdout).data.result
+    expect(parsed.scripts.results[0].requests[0]).toMatchObject({
+      kind: "saved",
+      requestId: "login",
+      status: 200,
+      success: true,
+    })
+    const human = await cli(
+      "request",
+      "run",
+      "a",
+      "--collection",
+      dir,
+      "--noproxy",
+    )
+    expect(human.stdout).toContain("PASS GET login (200)")
+    const batch = await cli(
+      "collection",
+      "run",
+      dir,
+      "a",
+      "b",
+      "--noproxy",
+      "--json",
+    )
+    expect(batch.code).toBe(0)
+    expect(JSON.parse(batch.stdout).data.summary.executed).toBe(2)
+    expect(
+      (
+        await cli(
+          "request",
+          "run",
+          "b",
+          "--collection",
+          dir,
+          "--noproxy",
+          "--json",
+        )
+      ).code,
+    ).toBe(1)
+    await save(
+      "login",
+      'test("child fails", async () => { await 1; expect(1).toBe(2) })',
+    )
+    const failed = await cli(
+      "request",
+      "run",
+      "a",
+      "--collection",
+      dir,
+      "--noproxy",
+      "--json",
+    )
+    expect(failed.code).toBe(1)
+    expect(JSON.parse(failed.stdout).data.result.failureCategories).toContain(
+      "script",
+    )
+  })
+
   it("preserves structured tests, logs, failures, summaries, exit codes and downloads", async () => {
     await save(
       "a",

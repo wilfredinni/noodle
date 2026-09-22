@@ -660,3 +660,13 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Keybindings                 | `src/ui/keybind.ts`, `src/ui/keymap/`, `src/ui/useOverlayIntercepts.ts`                                                                                                                                                                                                                                                      |
 | Borders                     | `src/ui/borders.ts`                                                                                                                                                                                                                                                                                                          |
 | Pure helpers                | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `selection.ts`)                                                                                                                                                                                                                    |
+
+## Async script calls
+
+`scriptAsync.ts` pumps bounded QuickJS Promise jobs and cancels pending host work
+before disposing the VM. `preRequestScript.ts` owns guest capabilities and the
+deferred-Promise bridge. `requestLifecycle.ts` owns saved-request recursion and
+literal transport calls, with one call budget per top-level request. `RunScope`
+fork/merge isolates script and child changes, while secret discovery survives
+rollback. All manual and runner paths use this lifecycle. Results and timeline
+history keep optional bounded child summaries for legacy compatibility.

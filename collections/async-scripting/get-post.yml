@@ -1,0 +1,23 @@
+name: Fetch and Capture Post
+method: GET
+url: https://jsonplaceholder.typicode.com/posts/1
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: none
+scripts:
+  post: |2-
+    await Promise.resolve();
+    noodle.run.set("async_post_id", noodle.response.json().id);
+capture:
+  async_user_id:
+    value: body.userId
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+tests: |2-
+  test("post has an author", async () => {
+    const post = await Promise.resolve(noodle.response.json());
+    expect(post.userId).toBeGreaterThan(0);
+  });

@@ -70,7 +70,12 @@ import {
   type ScriptPersistenceIntent,
   type ScriptPersistenceOutcome,
 } from "../preRequestScript"
-import { executeRequestLifecycle } from "../requestLifecycle"
+import {
+  executeRequestLifecycle,
+  lifecycleFailureCategories,
+} from "../requestLifecycle"
+import { validateId } from "../requestId"
+export { validateId } from "../requestId"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
 import { isValidVariableName } from "../variableReference"
@@ -93,19 +98,6 @@ export interface CliError {
 }
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-export function validateId(id: string): void {
-  if (
-    !id ||
-    id === "." ||
-    id.startsWith("./") ||
-    id.startsWith("/") ||
-    id.includes("..") ||
-    id.includes("\\")
-  )
-    throw new Error(`invalid request id "${id}"`)
-  if (id.split("/").some((segment) => !segment || segment.startsWith(".")))
-    throw new Error(`invalid request id "${id}"`)
 }
 export function validateCollectionName(name: string): void {
   if (
@@ -818,21 +810,7 @@ async function runRequest(
     ...lifecycle.secretValues,
     ...runScope.secretValues(),
   ]
-  const failureCategories: RunFailureCategory[] = []
-  if (
-    execution.scripts?.results.some(
-      (result) => !scriptExecutionSucceeded(result),
-    )
-  )
-    failureCategories.push("script")
-  if (response.status >= 400) failureCategories.push("http")
-  if (captureResults?.some((result) => !result.success)) {
-    failureCategories.push("capture")
-  }
-  if (assertionResults?.some((result) => !result.passed)) {
-    failureCategories.push("assertion")
-  }
-  if (!testsSucceeded(execution.tests)) failureCategories.push("test")
+  const failureCategories = lifecycleFailureCategories(lifecycle)
   const result: RequestRunResult = {
     id: request.id,
     method: prepared.method,

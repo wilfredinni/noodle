@@ -1,8 +1,35 @@
 import { describe, expect, it } from "bun:test"
 import {
   redactKnownSecrets,
+  requestSensitiveValues,
   responseSensitiveValues,
 } from "../../src/secrets/redact"
+
+describe("request redaction", () => {
+  it("does not treat valueless sensitive query names as secrets", () => {
+    for (const query of ["token", "token=", "%74oken", "token&password="]) {
+      const url = `https://api.example.com/x?${query}`
+      const secrets = requestSensitiveValues({ url, headers: {} })
+
+      expect(secrets).toEqual([])
+      expect(redactKnownSecrets(`token missing: ${url}`, secrets)).toBe(
+        `token missing: ${url}`,
+      )
+    }
+  })
+
+  it("retains encoded and decoded query secrets alongside valueless parameters", () => {
+    const url =
+      "https://api.example.com/x?token&api_key=child%2Bpassword+value%3D"
+    const secrets = requestSensitiveValues({ url, headers: {} })
+
+    expect(
+      redactKnownSecrets(`token ${url} child+password value=`, secrets),
+    ).toBe(
+      "token https://api.example.com/x?token&api_key=[REDACTED] [REDACTED]",
+    )
+  })
+})
 
 describe("response redaction", () => {
   it("redacts primitive query values without replacing IDs or URL paths", () => {

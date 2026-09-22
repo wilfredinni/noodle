@@ -8,6 +8,7 @@ import {
   type ResponseExecutionResults,
 } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
+import { formatScriptRequestSummary } from "../scriptRequests"
 import { CookieRow, cookieNameWidth } from "./CookieRow"
 import { useTheme } from "./theme"
 
@@ -75,7 +76,7 @@ export function ResponseResults({
   const rowKey = [
     ...scriptResults.map(
       (result) =>
-        `script:${result.phase}:${scriptExecutionSucceeded(result)}:${result.durationMs}:${JSON.stringify(result.persistence ?? [])}`,
+        `script:${result.phase}:${scriptExecutionSucceeded(result)}:${result.durationMs}:${JSON.stringify(result.persistence ?? [])}:${JSON.stringify(result.requests ?? [])}`,
     ),
     ...assertionResults.map((result) => `assertion:${result.expression}`),
     ...(showCaptures
@@ -236,7 +237,7 @@ export function ResponseResults({
                     name={
                       result.phase === "pre" ? "Pre-request" : "Post-response"
                     }
-                    value={`${result.durationMs}ms, ${logCount}${persistenceCount ? `, ${result.persistence?.some((outcome) => outcome.status === "failed") ? "persistence failed" : result.persistence?.every((outcome) => outcome.status === "transient") ? `${persistenceCount} transient` : `${persistenceCount} saved`}` : ""}`}
+                    value={`${result.durationMs}ms, ${logCount}${result.requests?.length ? `, ${result.requests.length} call${result.requests.length === 1 ? "" : "s"}` : ""}${persistenceCount ? `, ${result.persistence?.some((outcome) => outcome.status === "failed") ? "persistence failed" : result.persistence?.every((outcome) => outcome.status === "transient") ? `${persistenceCount} transient` : `${persistenceCount} saved`}` : ""}`}
                     nameWidth={
                       execution?.scripts?.results.some(
                         (script) => script.phase === "post",
@@ -252,6 +253,18 @@ export function ResponseResults({
                       { label: "Scope", value: result.scope },
                       { label: "Source", value: result.sourceKind },
                       { label: "Duration", value: `${result.durationMs}ms` },
+                      ...(result.requests ?? []).flatMap((request) => [
+                        {
+                          label: "Request",
+                          value: formatScriptRequestSummary(request),
+                        },
+                        ...(request.requestId
+                          ? [{ label: "URL", value: request.url }]
+                          : []),
+                        ...(request.error
+                          ? [{ label: "Failure", value: request.error.message }]
+                          : []),
+                      ]),
                       ...(result.persistence
                         ? [
                             {

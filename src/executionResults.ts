@@ -127,6 +127,26 @@ export function redactScriptExecutionResult(
       ...entry,
       message: redact(entry.message),
     })),
+    ...(result.requests
+      ? {
+          requests: result.requests.map((request) => ({
+            ...request,
+            url: redact(request.url),
+            ...(request.requestId !== undefined
+              ? { requestId: redact(request.requestId) }
+              : {}),
+            ...(request.error
+              ? {
+                  error: {
+                    ...request.error,
+                    name: redact(request.error.name),
+                    message: redact(request.error.message),
+                  },
+                }
+              : {}),
+          })),
+        }
+      : {}),
     ...(result.error
       ? {
           error: {

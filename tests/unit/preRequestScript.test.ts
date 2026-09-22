@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   runPreRequestScript,
+  runRequestScript,
   SCRIPT_API_CONTRACT,
   SCRIPT_LIMITS,
   scriptWasmMemoryForTests,
@@ -24,6 +25,47 @@ function request(
 }
 
 describe("pre-request script sandbox", () => {
+  it("rolls back unhandled Promise rejections while allowing caught failures", async () => {
+    for (const phase of ["pre", "post", "tests"] as const) {
+      for (const source of [
+        'Promise.reject(Error("unhandled"))',
+        'new Promise((resolve, reject) => reject(Error("unhandled")))',
+        'Promise.resolve().then(() => { throw Error("unhandled") })',
+        '(async () => { await 1; throw Error("unhandled") })()',
+      ]) {
+        const scope = new RunScope()
+        const result = await runRequestScript(
+          phase,
+          `${phase === "tests" ? "" : 'noodle.run.set("STAGED", 1);'} ${source}`,
+          request(),
+          undefined,
+          scope,
+          {
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "{}",
+              timeMs: 1,
+            },
+          },
+        )
+        expect(result.result.success).toBe(false)
+        expect(result.result.error?.message).toBe("unhandled")
+        expect(scope.get("STAGED")).toBeUndefined()
+      }
+    }
+    const scope = new RunScope()
+    const caught = await runPreRequestScript(
+      'if (typeof globalThis.__quickjsCheckUnhandledRejections !== "undefined") throw Error("exposed tracker"); const failure = Promise.reject(Error("caught")); await 1; try { await failure } catch {} noodle.run.set("STAGED", 1)',
+      request(),
+      undefined,
+      scope,
+    )
+    expect(caught.result.success).toBe(true)
+    expect(scope.get("STAGED")).toBe(1)
+  })
+
   it("stages durable snapshots without changing baseline reads or transient semantics", async () => {
     const scope = new RunScope()
     const environment = {
@@ -323,7 +365,7 @@ describe("pre-request script sandbox", () => {
     expect(scope.secretValues()).toContain("initial-header-secret")
   })
 
-  it("rejects unsafe values, async work, oversized sources, and invalid API input", async () => {
+  it("rejects unsafe values, imports, oversized sources, and invalid API input", async () => {
     const cases: Array<[string, string]> = [
       [`noodle.run.set("x", {constructor: 1})`, "ScriptApiValidationError"],
       [
@@ -385,10 +427,8 @@ describe("pre-request script sandbox", () => {
         `noodle.run.set("x", "x".repeat(${SCRIPT_LIMITS.bridgeValueBytes}))`,
         "ScriptApiValidationError",
       ],
-      [`Promise.resolve(1)`, "ScriptAsyncUnsupportedError"],
-      [`Promise.resolve().then(() => 1)`, "ScriptAsyncUnsupportedError"],
       [`import value from "host"`, "ScriptSyntaxError"],
-      [`import("host")`, "ScriptAsyncUnsupportedError"],
+      [`await import("host")`, "ScriptRuntimeError"],
       [`noodle.request.url = "ftp://example.com"`, "ScriptApiValidationError"],
       [`noodle.request.url = ""`, "ScriptApiValidationError"],
       [`noodle.request.method = "TRACE"`, "ScriptApiValidationError"],

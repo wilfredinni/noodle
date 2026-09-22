@@ -10,6 +10,61 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("ResponseResults", () => {
+  it("shows caught child failures inside a successful script at narrow widths", async () => {
+    const { keymap, host } = setupKeymap()
+    const { renderOnce, captureCharFrame, resize } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              scripts: {
+                evaluated: true,
+                results: [
+                  {
+                    phase: "pre",
+                    scope: "request",
+                    sourceKind: "inline",
+                    success: true,
+                    durationMs: 12,
+                    logs: [],
+                    requests: [
+                      {
+                        kind: "saved",
+                        requestId: "login",
+                        depth: 1,
+                        method: "POST",
+                        url: "https://example.test/login",
+                        status: 401,
+                        durationMs: 8,
+                        success: false,
+                        failureCategories: ["http"],
+                      },
+                    ],
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 72, height: 14 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toMatch(/Scripts\s+Passed/)
+    expect(captureCharFrame()).toContain("1 call")
+    await act(async () => {
+      host.press("return")
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain("FAIL POST login (401), 8ms, http")
+    expect(captureCharFrame()).toContain("https://example.test/login")
+    await act(async () => {
+      resize(44, 14)
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain("FAIL POST login")
+  })
+
   it("uses available width for test names while preserving duration spacing", async () => {
     const { keymap } = setupKeymap()
     const { renderOnce, captureCharFrame, resize } = await testRender(

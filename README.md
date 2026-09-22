@@ -56,12 +56,13 @@ to create a collection, send your first request, and inspect the response.
 - 🧪 **[Response assertions](https://noodlerest.dev/docs/guides/automation/#put-success-criteria-beside-the-request):**
   Check status, timing, headers, and JSON values in the TUI or CI.
 - ✅ **[Scripted tests](https://noodlerest.dev/docs/guides/scripted-tests/):**
-  Check responses with programmable tests and conditional assertions.
+  Check responses with synchronous or async tests and conditional assertions.
 - 🎯 **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
   Pass response values to later requests or save them to an environment or secret.
 - 📜 **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
-  Prepare requests and process responses with sandboxed JavaScript, including
-  helpers for signing, test data, timestamps, and cookies.
+  Prepare requests and process responses with sandboxed JavaScript. Await saved
+  requests or direct HTTP calls, reuse captured values, and use signing, test
+  data, timestamp, and cookie helpers. Try the [request chaining examples](collections/async-scripting).
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, and JSON results.
 - 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and

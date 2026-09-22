@@ -1,0 +1,33 @@
+name: Chain Saved and Direct Requests
+method: GET
+url: https://jsonplaceholder.typicode.com/posts/1
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: none
+scripts:
+  pre: |2-
+    const post = await noodle.runRequest("async-scripting/get-post");
+    const userId = noodle.run.get("async_user_id");
+    if (post.json().userId !== userId) throw Error("Missing child capture");
+    const user = await noodle.sendRequest({
+      url: "https://jsonplaceholder.typicode.com/users/" + userId,
+      headers: { Accept: "application/json" },
+    });
+    noodle.run.set("async_username", user.json().username);
+    // Substitution has already happened. Edit the current request explicitly.
+    noodle.request.headers.set("X-User-Name", noodle.run.get("async_username"));
+  post: |2-
+    try {
+      await noodle.sendRequest({ url: "https://jsonplaceholder.typicode.com/posts/0" });
+    } catch (error) {
+      if (!error.response || error.response.status !== 404) throw error;
+      noodle.run.set("async_missing_post", true);
+    }
+tests: |2-
+  test("child values are available", async () => {
+    await Promise.resolve();
+    expect(noodle.run.get("async_username")).toBeDefined();
+    expect(noodle.run.get("async_missing_post")).toBe(true);
+    expect(noodle.response.status).toBe(200);
+  });

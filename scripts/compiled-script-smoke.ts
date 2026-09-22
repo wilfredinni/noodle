@@ -15,9 +15,10 @@ try {
     join(collection, "script.yml"),
     `name: Script
 method: GET
-url: https://example.com
+url: http://127.0.0.1:1
 scripts:
   pre: |-
+    await Promise.resolve();
     noodle.random.seed(42);
     if (noodle.random.uuid() !== "5fb9220d-9b0f-4d32-a248-6492457c3890")
       throw new Error("compiled-faker-seed-failed");
@@ -25,7 +26,7 @@ scripts:
       throw new Error("compiled-time-zone-failed");
     noodle.run.set("id", noodle.crypto.randomBytes(8, "hex"));
     noodle.request.headers.set("X-Request-ID", noodle.run.get("id"));
-    throw new Error("${marker}")
+    Promise.reject(new Error("${marker}"))
 `,
   )
 
@@ -36,6 +37,7 @@ scripts:
     "script",
     "--collection",
     collection,
+    "--noproxy",
     "--json",
   ])
   const output = JSON.parse(run.stdout.toString())
