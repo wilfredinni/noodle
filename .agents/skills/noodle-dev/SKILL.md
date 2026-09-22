@@ -136,4 +136,4 @@ with `bun scripts/build-schema-validator.ts`; check the committed bundle with `-
 Never compile or validate user schemas on the host. `iterationData.ts` validates whole
 files before execution; collectionRun owns row scopes and transient cookie snapshots.
 Runner uses iteration/request keys for rows and detail lookup. Maintain the existing
-no-data output and execution semantics. See noodle-use/schema.md for the public contract.
+no-data output and execution semantics. See ../noodle-use/schema.md for the public contract.

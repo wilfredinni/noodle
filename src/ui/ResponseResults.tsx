@@ -48,6 +48,7 @@ export function ResponseResults({
   const tests = execution?.tests
   const testResults = tests?.evaluated ? tests.results : []
   const testErrors = tests?.errors ?? (tests?.error ? [tests.error] : [])
+  const hasTestErrors = testErrors.length > 0
   const scripts = execution?.scripts
   const assertions = execution?.assertions
   const captures = execution?.captures
@@ -515,7 +516,7 @@ export function ResponseResults({
                 }
               >
                 {tests.evaluated
-                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${tests.error ? " · script error" : ""}`
+                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${hasTestErrors ? " · script error" : ""}`
                   : "Not evaluated"}
               </text>
             ) : null}
@@ -524,12 +525,12 @@ export function ResponseResults({
             <>
               <CookieRow
                 id="response-test-script"
-                kindLabel={tests.error ? "ERROR" : "LOGS"}
-                kindColor={tests.error ? theme.error : theme.textMuted}
+                kindLabel={hasTestErrors ? "ERROR" : "LOGS"}
+                kindColor={hasTestErrors ? theme.error : theme.textMuted}
                 name="Test script"
                 value={
-                  tests.error
-                    ? tests.error.message
+                  hasTestErrors
+                    ? testErrors[0]!.message
                     : `${tests.logs.length} log${tests.logs.length === 1 ? "" : "s"}`
                 }
                 nameWidth={12}

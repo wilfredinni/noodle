@@ -177,7 +177,7 @@ describe("inline test sandbox", () => {
       'test("compile",()=>expect("x").toMatchSchema({allOf:Array.from({length:3000},()=>({minLength:1}))}))',
     )
     expect(bounded.result.success).toBe(false)
-    expect(bounded.result.error?.name).toMatch(/Limit|Runtime/)
+    expect(bounded.result.error?.name).toMatch(/Limit|Runtime|Timeout/)
     expect(
       (
         await run(

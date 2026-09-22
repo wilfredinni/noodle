@@ -31,7 +31,6 @@ describe("ResponseResults", () => {
                   },
                 ],
                 logs: [],
-                error,
                 errors: [
                   error,
                   {
@@ -48,6 +47,10 @@ describe("ResponseResults", () => {
       { width: 100, height: 20 },
     )
     await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("1 failed · script error")
+    expect(render.captureCharFrame()).toMatch(
+      /ERROR\s+Test script\s+collection failed/,
+    )
     await act(async () => {
       host.press("return")
     })
