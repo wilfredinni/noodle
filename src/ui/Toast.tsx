@@ -12,9 +12,15 @@ type ToastVariant = "info" | "success" | "warning" | "error"
 
 let showToastFn: ((message: string, variant?: ToastVariant) => void) | null =
   null
+let takeToastMessageFn: (() => string | null) | null = null
 
 export function showToast(message: string, variant?: ToastVariant) {
   showToastFn?.(message, variant)
+}
+
+// Dismiss the transient toast and retrieve its last message for the detail view.
+export function takeToastMessage(): string | null {
+  return takeToastMessageFn?.() ?? null
 }
 
 export function Toast() {
@@ -33,7 +39,9 @@ export function Toast() {
   }, [])
 
   useEffect(() => {
+    let lastMessage: string | null = null
     const show = (message: string, variant?: ToastVariant) => {
+      lastMessage = message
       setState((previous) => ({
         id: (previous?.id ?? 0) + 1,
         message,
@@ -41,9 +49,16 @@ export function Toast() {
       }))
       dismissLater()
     }
+    const takeMessage = () => {
+      clearTimeout(timerRef.current)
+      setState(null)
+      return lastMessage
+    }
     showToastFn = show
+    takeToastMessageFn = takeMessage
     return () => {
       if (showToastFn === show) showToastFn = null
+      if (takeToastMessageFn === takeMessage) takeToastMessageFn = null
       clearTimeout(timerRef.current)
     }
   }, [dismissLater])
@@ -78,6 +93,11 @@ export function Toast() {
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={theme.primary}
+      bottomTitle={
+        width >= 40 && state.message.includes("\n")
+          ? "Details: command palette"
+          : undefined
+      }
       horizontalScrollbarOptions={{ visible: false }}
       verticalScrollbarOptions={{
         trackOptions: {

@@ -24,6 +24,7 @@ export const EDITABLE_OVERLAYS = new Set([
 export const HARD_BLOCKING_OVERLAYS = new Set([
   "help",
   "about",
+  "notification",
   "env-delete",
   "collection-unregister",
   "undo-all",

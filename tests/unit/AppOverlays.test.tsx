@@ -122,6 +122,16 @@ async function renderOverlays(
 }
 
 describe("AppOverlays routing", () => {
+  it("renders notification details from their own state", async () => {
+    const { frame, cleanup } = await renderOverlays({
+      activeOverlay: "notification",
+      notificationMessage: "Demo / Login (pre-request)",
+    })
+    expect(frame).toContain("Notification")
+    expect(frame).toContain("Demo / Login (pre-request)")
+    cleanup()
+  })
+
   it("should render no overlay when every overlay is hidden", async () => {
     const { frame, cleanup } = await renderOverlays({})
     expect(frame).toBe("")

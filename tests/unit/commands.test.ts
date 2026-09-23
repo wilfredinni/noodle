@@ -58,6 +58,7 @@ function minimalContext(): CommandBuilderContext {
     onLayoutChange: () => true,
     setHelpVisible: () => {},
     setAboutVisible: () => {},
+    setNotificationMessage: () => {},
     setNewEnvironmentVisible: () => {},
     setEnvironmentPickerVisible: () => {},
     setNewRequestVisible: () => {},
@@ -91,6 +92,19 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("offers keyboard access to the last notification", () => {
+    const context = minimalContext()
+    context.setNotificationMessage = jest.fn()
+    const command = buildCommandPaletteCommands(context).find(
+      (command) => command.id === "app.notification",
+    )
+    expect(command?.label).toBe("Show Last Notification")
+    expect(command?.run()).toBe(true)
+    expect(context.setNotificationMessage).toHaveBeenCalledWith(
+      "No notifications yet.",
+    )
+  })
+
   it("shows configured shortcuts for binary file commands after saving", () => {
     const ctx = minimalContext()
     ctx.responseFileShortcutsAvailable = true

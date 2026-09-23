@@ -1660,6 +1660,7 @@ export function AppInner({
         onLayoutChange,
         setHelpVisible: overlays.setHelpVisible,
         setAboutVisible: overlays.setAboutVisible,
+        setNotificationMessage: overlays.setNotificationMessage,
         setNewEnvironmentVisible: overlays.setNewEnvironmentVisible,
         setEnvironmentPickerVisible: overlays.setEnvironmentPickerVisible,
         setNewRequestVisible: overlays.setNewRequestVisible,
