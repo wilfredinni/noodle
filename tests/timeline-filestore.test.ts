@@ -68,7 +68,7 @@ describe("loadTimeline", () => {
     await saveTimelineEntry(dir, "inherited", makeEntry())
     await saveTimelineEntry(dir, "inherited", entry)
     const loaded = await loadTimeline(dir, "inherited")
-    expect(loaded[0]?.tests).toEqual({ ...entry.tests!, logs: [] })
+    expect(loaded[0]?.tests).toEqual(entry.tests)
     expect(loaded[1]?.tests).toBeUndefined()
   })
   it("returns empty array when no timeline file exists", async () => {
@@ -194,17 +194,30 @@ describe("saveTimelineEntry", () => {
         ],
       },
     })
+    entry.tests = {
+      evaluated: true,
+      results: [],
+      logs: entry.scripts!.results[0]!.logs,
+      invocations: [{ ...entry.scripts!.results[0]!, phase: "tests" }],
+    }
     await saveTimelineEntry(dir, "scripts", makeEntry())
     const persisted = await saveTimelineEntry(dir, "scripts", entry)
     const loaded = await loadTimeline(dir, "scripts")
 
     expect(loaded[0]?.scripts).toEqual(persisted.scripts)
+    expect(loaded[0]?.tests?.logs).toEqual(persisted.scripts?.results[0]?.logs)
+    expect(loaded[0]?.tests?.invocations?.[0]?.logs).toEqual(
+      persisted.scripts?.results[0]?.logs,
+    )
     expect(loaded[1]?.scripts).toBeUndefined()
     expect(loaded[0]?.scripts?.results[0]).toMatchObject({
       phase: "post",
       success: false,
       durationMs: 7,
-      logs: [],
+      logs: [
+        { level: "info", message: "ready" },
+        { level: "warn", message: "[TRUNCATED]" },
+      ],
       error: {
         name: "[TRUNCATED]",
         message: "[TRUNCATED]",

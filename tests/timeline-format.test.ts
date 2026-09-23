@@ -593,6 +593,20 @@ describe("buildDetailRequestHeaders", () => {
 describe("buildTimelineEntry", () => {
   it("snapshots redacted pre/post diagnostics without script source or runtime values", () => {
     const secret = "timeline-script-secret"
+    const testSource = {
+      scope: "folder" as const,
+      scopeId: "nested",
+      path: "nested/folder.yml",
+      sourceKind: "external" as const,
+      sourcePath: `./scripts/${secret}.js`,
+    }
+    const testLogs = [
+      {
+        level: "warn" as const,
+        message: `tests ${secret} literal-token`,
+        source: testSource,
+      },
+    ]
     const req: Request = {
       id: "script",
       name: "Script",
@@ -605,6 +619,22 @@ describe("buildTimelineEntry", () => {
       auth: { type: "bearer", token: "literal-token" },
     }
     const execution: ResponseExecutionResults = {
+      tests: {
+        evaluated: true,
+        results: [],
+        logs: testLogs,
+        invocations: [
+          {
+            phase: "tests",
+            scope: "folder",
+            sourceKind: "external",
+            source: testSource,
+            success: true,
+            durationMs: 1,
+            logs: testLogs,
+          },
+        ],
+      },
       scripts: {
         evaluated: true,
         results: [
@@ -665,14 +695,25 @@ describe("buildTimelineEntry", () => {
       "pre",
       "post",
     ])
-    expect(entry.scripts?.results[0]?.logs).toEqual([])
+    expect(entry.scripts?.results[0]?.logs[0]?.message).toBe(
+      "[REDACTED] [REDACTED]",
+    )
     expect(entry.scripts?.results[1]).toMatchObject({
       success: false,
       durationMs: 5,
-      logs: [],
+      logs: [{ level: "error", message: "cookie=[REDACTED] [REDACTED]" }],
       error: { name: "[REDACTED]", message: "[REDACTED]", line: 2, column: 3 },
       persistence: [{ error: { name: "[REDACTED]", message: "[REDACTED]" } }],
     })
+    expect(entry.tests?.logs).toEqual([
+      {
+        level: "warn",
+        message: "tests [REDACTED] [REDACTED]",
+        source: { ...testSource, sourcePath: "./scripts/[REDACTED].js" },
+      },
+    ])
+    expect(entry.tests?.invocations?.[0]?.logs).toEqual(entry.tests?.logs)
+    expect(execution.tests?.logs[0]?.message).toContain(secret)
     expect(JSON.stringify(entry)).not.toContain(secret)
     expect(JSON.stringify(entry.request)).not.toContain("scripts")
     expect(JSON.stringify(entry)).not.toContain("captures")

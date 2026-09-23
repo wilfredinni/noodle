@@ -416,7 +416,9 @@ describe("inline tests lifecycle", () => {
     })
     expect(bounded.tests?.results[0]?.name).toBe("[TRUNCATED]")
     expect(bounded.tests?.results[0]?.message).toBe("[TRUNCATED]")
-    expect(bounded.tests?.logs).toEqual([])
+    expect(bounded.tests?.logs).toEqual([
+      { level: "warn", message: "[TRUNCATED]" },
+    ])
     expect(bounded.tests?.error?.message).toBe("[TRUNCATED]")
   })
   it("redacts before error cleanup and discards partial oversized diagnostics", async () => {

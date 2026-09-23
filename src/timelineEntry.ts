@@ -239,29 +239,14 @@ export function buildTimelineEntry(
           evaluated: result.execution.scripts.evaluated,
           results: result.execution.scripts.results.map((script) =>
             redactScriptExecutionResult(
-              { ...script, logs: [] },
+              script,
               executionResultSecrets(secretValues),
             ),
           ),
         }
       : undefined,
     ...(result.execution?.tests
-      ? {
-          tests: redactTestExecution(
-            {
-              ...result.execution.tests,
-              logs: [],
-              ...(result.execution.tests.invocations
-                ? {
-                    invocations: result.execution.tests.invocations.map(
-                      (invocation) => ({ ...invocation, logs: [] }),
-                    ),
-                  }
-                : {}),
-            },
-            secretValues,
-          ),
-        }
+      ? { tests: redactTestExecution(result.execution.tests, secretValues) }
       : {}),
     assertions,
     network:

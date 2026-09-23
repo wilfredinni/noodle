@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { inspect } from "node:util"
 import { lang } from "../../src/lang"
 import { filestore, loadSettings, saveSettings } from "../../src/filestore"
+import { loadTimeline, saveTimelineEntry } from "../../src/filestore/timeline"
 import {
   collectionAudit,
   collectionRun,
@@ -426,7 +427,7 @@ it("proves exact nested order, once per request, captures, assertions and inheri
   expect(JSON.stringify(details)).toContain("collection-post")
 })
 
-it("reloads manual sources, keeps dynamic children on the same cache and excludes logs from history", async () => {
+it("reloads manual sources, keeps dynamic children on the same cache and retains history logs without source code", async () => {
   const path = join(dir, "scripts/a.js")
   await fs.writeFile(
     path,
@@ -457,8 +458,16 @@ it("reloads manual sources, keeps dynamic children on the same cache and exclude
   )
   if (first.status !== "done") throw Error("expected response")
   const history = buildTimelineEntry(req, first)
-  expect(JSON.stringify(history)).not.toContain("live-marker")
-  expect(JSON.stringify(history)).not.toContain("test-marker")
+  expect(history.scripts?.results[0]?.logs[0]?.message).toBe("live-marker")
+  expect(history.tests?.logs[0]?.message).toBe("test-marker")
+  expect(history.tests?.invocations?.[0]?.logs[0]?.message).toBe("test-marker")
+  expect(JSON.stringify(history)).not.toContain("noodle.request.headers.set")
+  expect(history.request).not.toHaveProperty("scripts")
+  expect(history.request).not.toHaveProperty("tests")
+  await saveTimelineEntry(dir, req.id, history)
+  const [stored] = await loadTimeline(dir, req.id)
+  expect(stored?.scripts).toEqual(history.scripts)
+  expect(stored?.tests).toEqual(history.tests)
   await fs.writeFile(path, 'noodle.request.headers.set("X-Order", "second")')
   await execute()
   expect(hits).toEqual(["first", "second"])

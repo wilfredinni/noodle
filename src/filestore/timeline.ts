@@ -15,6 +15,7 @@ import * as yaml from "../yaml"
 import type {
   ScriptExecutionError,
   ScriptExecutionResult,
+  ScriptLog,
 } from "../preRequestScript"
 import type {
   JsonValue,
@@ -124,6 +125,23 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
     : undefined
 }
 
+function boundedScriptLogs(source: ScriptLog[]): ScriptLog[] {
+  const logs: ScriptLog[] = []
+  let logBytes = 0
+  for (const log of source) {
+    logBytes += byteSize(JSON.stringify(log))
+    if (logBytes > INLINE_BODY_LIMIT) {
+      logs.push({ level: "warn", message: "[TRUNCATED]" })
+      break
+    }
+    logs.push({
+      ...log,
+      ...(log.source ? { source: { ...log.source } } : {}),
+    })
+  }
+  return logs
+}
+
 function boundedScriptResult(
   result: ScriptExecutionResult,
 ): ScriptExecutionResult {
@@ -143,7 +161,7 @@ function boundedScriptResult(
           },
         }
       : {}),
-    logs: [],
+    logs: boundedScriptLogs(result.logs),
     error: boundedScriptError(result.error),
     ...(result.requests
       ? {
@@ -327,7 +345,7 @@ async function persistBodies(
               name: boundedDiagnosticText(result.name),
               message: boundedDiagnosticText(result.message),
             })),
-            logs: [],
+            logs: boundedScriptLogs(source.tests.logs),
             ...(source.tests.invocations
               ? {
                   invocations:
