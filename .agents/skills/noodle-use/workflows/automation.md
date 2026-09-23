@@ -63,7 +63,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment. Without either an environment or an earlier capture, unresolved variables fail before sending.
 - Structured results recursively redact known environment, proxy, TLS, request-credential, cookie, and secret-capture values and mask sensitive response headers. A `persist: secret` capture is fully redacted regardless of value. Human capture output never includes values. Arbitrary server payload fields remain visible, so treat all structured run output as sensitive.
 - The shared request flow is fixed: merge folder overrides; overlay environment/RunScope; substitute once; execute and commit pre; HTTP; capture commits; execute and commit post; assertions; scripted tests. HTTP/capture errors still reach post; post errors still reach assertions and tests. Transport failures do not run response phases. Successful script RunScope writes remain available to later collection requests after later failures. Request mutations are pre-only and never written back to YAML. Post readers reflect the final prepared HTTP leg.
-- Optional request-level `tests` runs after declarative assertions whenever a response exists. Use global `test(name, callback)` and `expect(actual)` with read-only `noodle.*` readers. Tests may be synchronous or async; callbacks are awaited in declaration-order results. Mutations, network calls, external files and modules are unsupported. See [the schema and matcher reference](../schema.md#inline-scripted-tests).
+- Optional request-level `tests` runs after declarative assertions whenever a response exists. Use global `test(name, callback)` and `expect(actual)` with read-only `noodle.*` readers. Tests may be synchronous or async; callbacks are awaited in declaration-order results. Mutations, network calls and modules are unsupported in tests; external JavaScript source files are supported. See [the schema and matcher reference](../schema.md#inline-scripted-tests).
 - Read scripted checks from `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs, error?, errors? }`. Ordered results contain `name`, `passed`, `message`, and `durationMs`; a top-level `error` is separate from callback failures and preserves completed results. Pre/transport failures report `evaluated: false`; requests without tests omit the group. Known secrets are redacted from names, messages, errors, and logs. Human output prints counts and concise failures, without logs.
 - Failed callbacks or test-script errors add `test` after `assertion` in the stable failure-category order and make runs fail. Summaries include `testPasses`, `testFailures`, and `testScriptErrors` when test groups exist. Fail-fast waits for all response diagnostics, and successful pre/post/capture writes survive test failures. Manual timeline history retains bounded test diagnostics; automation does not write history.
 - Prefer captures for declarative extraction and `scripts.post` for conditional processing, such as `if (noodle.response.status === 201) noodle.run.set("id", noodle.response.json().id)`. Post-response text has a lazy 5 MiB UTF-8 cap; cached JSON stays in the VM and extracted RunScope values retain 256 KiB/depth-32 limits. Cookie access, when available, is final-URL-scoped `get/set/delete`; unknown attributes and domains are rejected, cookies are host-only, and deletion removes all applicable matches. Cookie and RunScope writes commit atomically but cookie durability remains deferred. See [schema](../schema.md#inline-request-scripts) for exact inputs and restrictions.
@@ -84,10 +84,17 @@ Use direct YAML/dotenv edits when the CLI cannot express the change: folders and
 
 ## Inherited scripts and tests
 
-Declare inline `scripts.pre`, `scripts.post`, and `tests` in collection
-`settings.yml`, nested `folder.yml`, or request YAML. Each phase accumulates
-blocks in this order: collection, outer folders, inner folders, request.
-An empty block is a no-op and does not disable inherited blocks.
+Declare `scripts.pre`, `scripts.post`, and `tests` in collection `settings.yml`,
+nested `folder.yml`, or request YAML. Each field accepts one inline JavaScript
+string or a collection-relative external reference such as `./scripts/sign.js`.
+Empty strings are no-ops and are omitted by canonical serialization.
+
+For every request: collection pre → folder pre (outermost to nearest) → request
+pre → HTTP → captures → request post → folder post (nearest to outermost) →
+collection post → assertions → tests (collection, outer folders, inner folders,
+request). Collection and folder hooks run once per request, including each selected
+request and dataset row. Ancestors use file paths, not display names; root
+`folder.yml` remains ignored. Existing inherited tests remain supported.
 
 Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
 successful RunScope writes are visible to later blocks. A pre failure stops
@@ -97,11 +104,15 @@ its block. Successful persistence intents keep execution order; collection
 runs and F5 suppress persistence as before. Saved `noodle.runRequest()` calls
 use the same inheritance and cycle protections.
 
-Inherited diagnostics include optional `source: { scope, path }`, where scope
-is `collection`, `folder`, or `request` and path is collection-relative.
-Tests also expose `errors` for multiple block errors; legacy `error` remains
-the first error. CLI, Results, and history show origins without retaining source
-code. Script logs and errors retain the existing redaction and size limits.
+Every executed block identifies its phase, scope, scope ID, source kind, duration,
+logs, and normalized error. `source.path` remains the declaring YAML path;
+`source.scopeId` identifies the collection, folder path, or request ID;
+`source.sourceKind` is `inline` or `external`, and external blocks add
+`source.sourcePath`, such as `./scripts/sign.js`. Test groups retain ordered
+`invocations` even for files declaring zero tests, and `errors` with legacy
+first `error` compatibility. JSON and live Results retain bounded redacted logs.
+New history entries retain outcome summaries but no script/test logs, source
+code, or RunScope values. Existing history remains readable.
 
 Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
 budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test
