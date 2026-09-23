@@ -534,12 +534,14 @@ describe("VarInput — edit mode (isEditing=true)", () => {
       await mockInput.typeText("o")
     })
     await renderOnce()
-    const spans = captureSpans().lines.flatMap((l) => l.spans)
     const primaryRgba = hexToRgba(theme.primary)
-    const brownHighlights = spans.filter(
-      (s) => s.text.includes("$brown") && s.fg.equals(primaryRgba),
+    const highlightedRows = captureSpans().lines.map((line) =>
+      line.spans
+        .filter((span) => span.fg.equals(primaryRgba))
+        .map((span) => span.text)
+        .join(""),
     )
-    expect(brownHighlights.length).toBeGreaterThanOrEqual(1)
+    expect(highlightedRows.some((row) => row.includes("$brown"))).toBe(true)
     cleanup()
   })
 

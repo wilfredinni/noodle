@@ -22,6 +22,26 @@ function response(overrides: Partial<Response> = {}): Response {
 }
 
 describe("response expressions", () => {
+  it("matches the current key segment and retains the complete insertion value", () => {
+    const complete = createResponseExpressionCompleter(response())
+    expect(complete("body.SER")).toEqual([
+      { value: "body.user", label: "user", matchQuery: "SER" },
+      { value: "body.users", label: "users", matchQuery: "SER" },
+    ])
+    expect(complete("headers.type")).toEqual([
+      {
+        value: "headers.Content-Type",
+        label: "Content-Type",
+        matchQuery: "type",
+      },
+    ])
+    expect(complete("body.user.profile.am")).toEqual([
+      { value: "body.user.profile.name", label: "name", matchQuery: "am" },
+    ])
+    expect(complete("time")).toEqual([
+      { value: "response.time", label: "response.time" },
+    ])
+  })
   it("suggests static roots and one response segment at a time", () => {
     const complete = createResponseExpressionCompleter(response())
 
@@ -34,31 +54,31 @@ describe("response expressions", () => {
     ])
     expect(complete("headers.")).toEqual([
       { value: "headers.", label: "headers." },
-      { value: "headers.Content-Type", label: "Content-Type" },
-      { value: "headers.X-Trace", label: "X-Trace" },
+      { value: "headers.Content-Type", label: "Content-Type", matchQuery: "" },
+      { value: "headers.X-Trace", label: "X-Trace", matchQuery: "" },
     ])
     expect(complete("Headers.")).toEqual([
       { value: "headers.", label: "headers." },
-      { value: "headers.Content-Type", label: "Content-Type" },
-      { value: "headers.X-Trace", label: "X-Trace" },
+      { value: "headers.Content-Type", label: "Content-Type", matchQuery: "" },
+      { value: "headers.X-Trace", label: "X-Trace", matchQuery: "" },
     ])
     expect(complete("body.")).toEqual([
       { value: "body.", label: "body." },
-      { value: "body.id", label: "id" },
-      { value: "body.user", label: "user" },
-      { value: "body.users", label: "users" },
+      { value: "body.id", label: "id", matchQuery: "" },
+      { value: "body.user", label: "user", matchQuery: "" },
+      { value: "body.users", label: "users", matchQuery: "" },
     ])
     expect(complete("body.user.")).toEqual([
-      { value: "body.user.profile", label: "profile" },
+      { value: "body.user.profile", label: "profile", matchQuery: "" },
     ])
     expect(complete("body.user.profile.")).toEqual([
-      { value: "body.user.profile.name", label: "name" },
+      { value: "body.user.profile.name", label: "name", matchQuery: "" },
     ])
     expect(complete("body.users[")).toEqual([
-      { value: "body.users[0]", label: "[0]" },
+      { value: "body.users[0]", label: "[0]", matchQuery: "" },
     ])
     expect(complete("body.users[0].")).toEqual([
-      { value: "body.users[0].id", label: "id" },
+      { value: "body.users[0].id", label: "id", matchQuery: "" },
     ])
     expect(complete("body.us").map(({ value }) => value)).toEqual([
       "body.user",
@@ -76,11 +96,11 @@ describe("response expressions", () => {
 
     expect(complete("headers.")).toEqual([
       { value: "headers.", label: "headers." },
-      { value: "headers.X-Trace", label: "X-Trace" },
+      { value: "headers.X-Trace", label: "X-Trace", matchQuery: "" },
     ])
     expect(complete("body.")).toEqual([
       { value: "body.", label: "body." },
-      { value: "body.valid", label: "valid" },
+      { value: "body.valid", label: "valid", matchQuery: "" },
     ])
 
     const invalidJson = createResponseExpressionCompleter(
@@ -88,7 +108,11 @@ describe("response expressions", () => {
     )
     expect(invalidJson("headers.")).toEqual(
       expect.arrayContaining([
-        { value: "headers.Content-Type", label: "Content-Type" },
+        {
+          value: "headers.Content-Type",
+          label: "Content-Type",
+          matchQuery: "",
+        },
       ]),
     )
     expect(invalidJson("body.")).toEqual([{ value: "body.", label: "body." }])

@@ -1,18 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { MouseButton } from "@opentui/core"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../../schema"
-import { registerVariableCompletion } from "../variable-completion/variableCompletionInterceptor"
-import {
-  createPortal,
-  useRenderer,
-  useTerminalDimensions,
-} from "@opentui/react"
-import { useTheme } from "../theme"
-import {
-  useVariableCompletion,
-  MAX_COMPLETION_VISIBLE,
-} from "../variable-completion/useVariableCompletion"
+import { Autocomplete } from "../Autocomplete"
+import { useVariableCompletion } from "../variable-completion/useVariableCompletion"
 
 export function CodeEditorCompletion({
   editor,
@@ -25,69 +15,27 @@ export function CodeEditorCompletion({
   isEditing: boolean
   value: string
 }) {
-  const theme = useTheme()
-  const renderer = useRenderer()
-  const { width: terminalWidth, height: terminalHeight } =
-    useTerminalDimensions()
-  const [completionDismissed, setCompletionDismissed] = useState(false)
-  const [completionIndex, setCompletionIndex] = useState(0)
-
-  const getEditor = useCallback(() => {
-    if (!editor || editor.isDestroyed) return null
-    return editor
-  }, [editor])
-
+  const [dismissed, setDismissed] = useState(false)
+  const getEditor = useCallback(
+    () => (editor && !editor.isDestroyed ? editor : null),
+    [editor],
+  )
   const variableNames = useMemo(() => Object.keys(env?.vars ?? {}), [env?.vars])
-
-  const { completion, makeHandleKey, acceptSuggestion } = useVariableCompletion(
-    {
-      getEditor,
-      variableNames,
-      value,
-      isEditing,
-    },
-  )
-
-  const selectCompletion = useCallback(
-    (name: string): boolean => {
-      if (!acceptSuggestion(name)) return false
-      setCompletionDismissed(true)
-      return true
-    },
-    [acceptSuggestion],
-  )
-
-  const handleKey = useMemo(
-    () =>
-      makeHandleKey({
-        completionDismissed,
-        completionIndex,
-        setCompletionIndex,
-        setCompletionDismissed,
-        onAccept: () => {},
-      }),
-    [completionDismissed, completionIndex, makeHandleKey],
-  )
+  const { completion, acceptSuggestion } = useVariableCompletion({
+    getEditor,
+    variableNames,
+    value,
+    isEditing,
+  })
 
   useEffect(() => {
-    if (!isEditing || !editor || completion.suggestions.length === 0) return
-    const dispose = registerVariableCompletion(handleKey)
-    return () => {
-      dispose()
-    }
-  }, [completion.suggestions.length, editor, handleKey, isEditing])
-
-  useEffect(() => {
-    setCompletionDismissed(false)
-    setCompletionIndex(0)
+    setDismissed(false)
   }, [completion.token?.prefix])
 
   useEffect(() => {
     if (!isEditing || !editor) return
     editor.refreshHighlights()
-    const onChange = () => {
-      setCompletionDismissed(false)
-    }
+    const onChange = () => setDismissed(false)
     editor.on("content-changed", onChange)
     return () => {
       editor.off("content-changed", onChange)
@@ -97,67 +45,29 @@ export function CodeEditorCompletion({
   if (
     !isEditing ||
     !editor ||
-    completionDismissed ||
+    dismissed ||
     !completion.token ||
     completion.suggestions.length === 0 ||
     completion.isComplete
   )
     return null
 
-  const cursor = editor.visualCursor
-  const menuHeight =
-    Math.min(completion.suggestions.length, MAX_COMPLETION_VISIBLE) + 2
-  const menuWidth = 18
-  const x = Math.max(
-    0,
-    Math.min(editor.x + cursor.visualCol, terminalWidth - menuWidth),
-  )
-  const y = Math.max(
-    0,
-    Math.min(editor.y + cursor.visualRow + 1, terminalHeight - menuHeight),
-  )
-
-  return createPortal(
-    <box
+  return (
+    <Autocomplete
       id="var-completion-menu"
-      style={{
-        position: "absolute",
-        top: y,
-        left: x,
-        zIndex: 10000,
-        flexDirection: "column",
-        minWidth: 16,
-        backgroundColor: theme.backgroundPanel,
-        paddingLeft: 1,
-        paddingRight: 1,
+      items={completion.suggestions.map((name) => ({
+        key: name,
+        label: `$${name}`,
+      }))}
+      query={completion.token.prefix}
+      value={value}
+      getEditor={getEditor}
+      onSelect={(index) => {
+        if (!acceptSuggestion(completion.suggestions[index]!)) return false
+        setDismissed(true)
+        return true
       }}
-      borderStyle="single"
-      borderColor={theme.borderActive}
-    >
-      {completion.suggestions
-        .slice(0, MAX_COMPLETION_VISIBLE)
-        .map((name, index) => (
-          <box
-            key={name}
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT || !selectCompletion(name))
-                return
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={() => setCompletionIndex(index)}
-            style={{
-              backgroundColor:
-                index === completionIndex ? theme.backgroundElement : undefined,
-            }}
-          >
-            <text fg={index === completionIndex ? theme.primary : theme.text}>
-              ${name}
-            </text>
-          </box>
-        ))}
-    </box>,
-    renderer.root,
-    null,
+      onDismiss={() => setDismissed(true)}
+    />
   )
 }

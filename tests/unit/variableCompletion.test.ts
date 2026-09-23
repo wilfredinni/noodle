@@ -12,6 +12,14 @@ function env(vars: Record<string, string>): Environment {
 }
 
 describe("variable completion", () => {
+  it("matches any part of a variable name without changing its ordering", () => {
+    expect(
+      getVariableSuggestions(
+        ["USER_TOKEN", "token", "api_token_value"],
+        "ToKeN",
+      ),
+    ).toEqual(["api_token_value", "token", "USER_TOKEN"])
+  })
   it("finds an empty token immediately after a dollar sign", () => {
     expect(getVariableToken("https://$", 9)).toEqual({
       start: 8,

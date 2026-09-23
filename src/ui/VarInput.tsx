@@ -9,30 +9,20 @@ import {
   useState,
 } from "react"
 import {
-  BoxRenderable,
-  CliRenderEvents,
   InputRenderable,
   MouseButton,
   ScrollBoxRenderable,
   TextareaRenderable,
   type OptimizedBuffer,
 } from "@opentui/core"
-import {
-  createPortal,
-  extend,
-  useRenderer,
-  useTerminalDimensions,
-} from "@opentui/react"
+import { extend } from "@opentui/react"
+import { Autocomplete } from "./Autocomplete"
 import { useTheme } from "./theme"
 import { FrameInteractionContext } from "./Frame"
 import { VarText } from "./VarText"
 import type { Environment, ParamEntry } from "../schema"
 import { highlightVariables } from "./variable-completion/variableHighlight"
-import { registerVariableCompletion } from "./variable-completion/variableCompletionInterceptor"
-import {
-  useVariableCompletion,
-  MAX_COMPLETION_VISIBLE,
-} from "./variable-completion/useVariableCompletion"
+import { useVariableCompletion } from "./variable-completion/useVariableCompletion"
 import { usePathCompletion } from "./path-completion/usePathCompletion"
 import type { PathCompletionOptions } from "./path-completion/pathCompletion"
 
@@ -93,7 +83,9 @@ export interface VarInputHandle {
   focus: () => void
 }
 
-export type ValueCompletion = string | { value: string; label: string }
+export type ValueCompletion =
+  | string
+  | { value: string; label: string; matchQuery?: string }
 
 export interface VarInputProps {
   value: string
@@ -148,8 +140,6 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     const inputRef = useRef<InputRenderable | null>(null)
     const textareaRef = useRef<TextareaRenderable | null>(null)
     const [completionDismissed, setCompletionDismissed] = useState(false)
-    const [completionIndex, setCompletionIndex] = useState(0)
-    const prevPrefixRef = useRef("")
 
     const getEditable = useCallback(() => {
       const editable = inputRef.current ?? textareaRef.current
@@ -168,13 +158,12 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const inputFocused = isFocused ?? true
 
-    const { completion, makeHandleKey, acceptSuggestion } =
-      useVariableCompletion({
-        getEditor: getEditable,
-        variableNames: suggestionNames,
-        value,
-        isEditing: variableAware && isEditing && inputFocused,
-      })
+    const { completion, acceptSuggestion } = useVariableCompletion({
+      getEditor: getEditable,
+      variableNames: suggestionNames,
+      value,
+      isEditing: variableAware && isEditing && inputFocused,
+    })
 
     const applyHighlights = useCallback(() => {
       const editable = getEditable()
@@ -250,27 +239,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       [acceptSuggestion, handleCompletionAccepted],
     )
 
-    const handleCompletionKey = useMemo(
-      () =>
-        makeHandleKey({
-          completionDismissed,
-          completionIndex,
-          setCompletionIndex,
-          setCompletionDismissed,
-          onAccept: handleCompletionAccepted,
-        }),
-      [
-        completionDismissed,
-        completionIndex,
-        handleCompletionAccepted,
-        makeHandleKey,
-      ],
-    )
-
     const { token, suggestions, isComplete } = completion
     const valueSuggestions = useMemo(() => {
       if (!completionValues) return []
-      const prefix = value.toLowerCase()
       return completionValues
         .map((suggestion) =>
           typeof suggestion === "string"
@@ -280,9 +251,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         .filter(
           (suggestion) =>
             suggestion.value !== value &&
-            suggestion.value.toLowerCase().startsWith(prefix),
+            (suggestion.matchQuery === undefined
+              ? suggestion.value
+              : suggestion.label
+            )
+              .toLowerCase()
+              .includes((suggestion.matchQuery ?? value).toLowerCase()),
         )
-        .slice(0, MAX_COMPLETION_VISIBLE)
     }, [completionValues, value])
 
     const selectValueCompletion = useCallback(
@@ -299,83 +274,6 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       [getEditable, onChange, valueSuggestions],
     )
 
-    useEffect(() => {
-      const editable = getEditable()
-      if (
-        !isEditing ||
-        !inputFocused ||
-        !editable?.focused ||
-        completionDismissed ||
-        valueSuggestions.length === 0
-      )
-        return
-      return registerVariableCompletion((key) => {
-        if (key.defaultPrevented) return false
-        if (key.name === "up" || key.name === "down") {
-          setCompletionIndex((current) => {
-            const next = current + (key.name === "up" ? -1 : 1)
-            return next < 0
-              ? valueSuggestions.length - 1
-              : next >= valueSuggestions.length
-                ? 0
-                : next
-          })
-          return true
-        }
-        if (key.name === "tab" || key.name === "return") {
-          return selectValueCompletion(
-            Math.min(completionIndex, valueSuggestions.length - 1),
-          )
-        }
-        if (key.name === "escape") {
-          setCompletionDismissed(true)
-          return true
-        }
-        return false
-      })
-    }, [
-      completionDismissed,
-      completionIndex,
-      getEditable,
-      inputFocused,
-      isEditing,
-      selectValueCompletion,
-      valueSuggestions,
-    ])
-
-    useEffect(() => {
-      const editable = getEditable()
-      if (
-        !isEditing ||
-        !inputFocused ||
-        !editable?.focused ||
-        completionDismissed ||
-        !token ||
-        suggestions.length === 0 ||
-        isComplete
-      ) {
-        return
-      }
-      return registerVariableCompletion(handleCompletionKey)
-    }, [
-      completionDismissed,
-      getEditable,
-      handleCompletionKey,
-      inputFocused,
-      isComplete,
-      isEditing,
-      suggestions.length,
-      token,
-    ])
-
-    useEffect(() => {
-      const prefix = token?.prefix ?? ""
-      if (prefix !== prevPrefixRef.current) {
-        setCompletionIndex(0)
-        prevPrefixRef.current = prefix
-      }
-    }, [token?.prefix])
-
     const showCompletion =
       isEditing &&
       inputFocused &&
@@ -391,46 +289,47 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       valueSuggestions.length > 0
 
     const completionPopup = pathCompletionState.active ? (
-      <CompletionPopup
+      <Autocomplete
+        key="paths"
         id="path-completion-menu"
-        items={pathCompletionState.items
-          .slice(0, MAX_COMPLETION_VISIBLE)
-          .map((item) => ({
-            key: `${item.type}:${item.name}`,
-            label: item.type === "directory" ? `${item.name}/` : item.name,
-          }))}
-        completionIndex={pathCompletionState.selectedIndex}
+        items={pathCompletionState.items.map((item) => ({
+          key: `${item.type}:${item.name}`,
+          label: item.type === "directory" ? `${item.name}/` : item.name,
+        }))}
+        query={pathCompletionState.query}
         message={pathCompletionState.message}
-        isEditing={isEditing && inputFocused}
-        getEditable={getEditable}
+        getEditor={getEditable}
         value={value}
-        onSelect={pathCompletionState.selectItem}
-        onHighlight={pathCompletionState.setSelectedIndex}
+        onSelect={(index, trigger) =>
+          pathCompletionState.selectItem(index, trigger !== "tab")
+        }
+        onDismiss={pathCompletionState.dismiss}
       />
     ) : showValueCompletion ? (
-      <CompletionPopup
+      <Autocomplete
+        key="values"
         id="value-completion-menu"
         items={valueSuggestions.map((suggestion) => ({
           key: suggestion.value,
           label: suggestion.label,
+          matchQuery: suggestion.matchQuery,
         }))}
-        completionIndex={completionIndex}
-        isEditing={isEditing && inputFocused}
-        getEditable={getEditable}
+        query={value}
+        getEditor={getEditable}
         value={value}
         onSelect={selectValueCompletion}
-        onHighlight={setCompletionIndex}
+        onDismiss={() => setCompletionDismissed(true)}
       />
     ) : showCompletion ? (
-      <CompletionPopup
+      <Autocomplete
+        key="variables"
         id="var-completion-menu"
         items={suggestions.map((name) => ({ key: name, label: `$${name}` }))}
-        completionIndex={completionIndex}
-        isEditing={isEditing && inputFocused}
-        getEditable={getEditable}
+        query={token.prefix}
+        getEditor={getEditable}
         value={value}
         onSelect={(index) => selectCompletion(suggestions[index]!)}
-        onHighlight={setCompletionIndex}
+        onDismiss={() => setCompletionDismissed(true)}
       />
     ) : null
 
@@ -539,146 +438,3 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     )
   },
 )
-
-function CompletionPopup({
-  id,
-  items,
-  completionIndex,
-  message,
-  isEditing,
-  getEditable,
-  value,
-  onSelect,
-  onHighlight,
-}: {
-  id: string
-  items: { key: string; label: string }[]
-  completionIndex: number
-  message?: string
-  isEditing: boolean
-  getEditable: () => (InputRenderable | TextareaRenderable) | null
-  value: string
-  onSelect?: (index: number) => boolean
-  onHighlight?: (index: number) => void
-}) {
-  const renderer = useRenderer()
-  const { width: terminalWidth, height: terminalHeight } =
-    useTerminalDimensions()
-  const theme = useTheme()
-  const [completionAnchor, setCompletionAnchor] = useState<{
-    x: number
-    y: number
-  } | null>(null)
-  const popupRef = useRef<BoxRenderable | null>(null)
-  const anchorReadyRef = useRef(getEditable() !== null)
-
-  useEffect(() => {
-    const readAnchor = () => {
-      const editable = getEditable()
-      if (!isEditing || !editable) return null
-      const cursor = editable.visualCursor
-      const visibleCount = Math.max(
-        message ? 1 : 0,
-        Math.min(items.length, MAX_COMPLETION_VISIBLE),
-      )
-      const menuHeight = visibleCount + 2
-      const menuWidth = 18
-      const rawX = editable.screenX + cursor.visualCol
-      const rawY = editable.screenY + cursor.visualRow + 1
-      return {
-        x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
-        y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
-      }
-    }
-    const updateAnchor = () => {
-      const next = readAnchor()
-      setCompletionAnchor((current) =>
-        current?.x === next?.x && current?.y === next?.y ? current : next,
-      )
-    }
-    updateAnchor()
-    const revealAfterAnchor = () => {
-      const popup = popupRef.current
-      if (popup) popup.visible = true
-    }
-    const syncAfterLayout = () => {
-      const next = readAnchor()
-      const popup = popupRef.current
-      if (!next || !popup) return
-      popup.left = next.x
-      popup.top = next.y
-      if (!anchorReadyRef.current) {
-        anchorReadyRef.current = true
-        renderer.once(CliRenderEvents.FRAME, revealAfterAnchor)
-      }
-    }
-    renderer.once(CliRenderEvents.FRAME, syncAfterLayout)
-    return () => {
-      renderer.off(CliRenderEvents.FRAME, syncAfterLayout)
-      renderer.off(CliRenderEvents.FRAME, revealAfterAnchor)
-    }
-  }, [
-    getEditable,
-    isEditing,
-    items.length,
-    message,
-    renderer,
-    terminalHeight,
-    terminalWidth,
-    value,
-  ])
-
-  if (!completionAnchor) {
-    return null
-  }
-
-  return createPortal(
-    <box
-      ref={popupRef}
-      id={id}
-      visible={anchorReadyRef.current}
-      style={{
-        position: "absolute",
-        top: completionAnchor.y,
-        left: completionAnchor.x,
-        zIndex: 10000,
-        flexDirection: "column",
-        flexShrink: 0,
-        minWidth: 16,
-        backgroundColor: theme.backgroundPanel,
-        paddingLeft: 1,
-        paddingRight: 1,
-      }}
-      borderStyle="single"
-      borderColor={theme.borderActive}
-    >
-      {message ? <text fg={theme.textMuted}>{message}</text> : null}
-      {items.slice(0, MAX_COMPLETION_VISIBLE).map((item, index) => (
-        <box
-          key={item.key}
-          onMouseDown={
-            onSelect
-              ? (event) => {
-                  if (event.button !== MouseButton.LEFT || !onSelect(index))
-                    return
-                  event.preventDefault()
-                  event.stopPropagation()
-                }
-              : undefined
-          }
-          onMouseOver={onHighlight ? () => onHighlight(index) : undefined}
-          style={{
-            backgroundColor:
-              index === completionIndex ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={index === completionIndex ? theme.primary : theme.text}>
-            {item.label}
-          </text>
-        </box>
-      ))}
-    </box>,
-    renderer.root,
-    null,
-  )
-}

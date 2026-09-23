@@ -42,7 +42,7 @@ export function getVariableSuggestions(
 ): string[] {
   const normalizedPrefix = prefix.toLowerCase()
   return [...new Set(names)]
-    .filter((name) => name.toLowerCase().startsWith(normalizedPrefix))
+    .filter((name) => name.toLowerCase().includes(normalizedPrefix))
     .sort((a, b) => a.localeCompare(b))
 }
 

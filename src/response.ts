@@ -24,6 +24,7 @@ export type ResponseResolver = (expression: string) => ResponseExpressionResult
 export interface ResponseExpressionSuggestion {
   value: string
   label: string
+  matchQuery?: string
 }
 
 export type ResponseExpressionCompleter = (
@@ -69,9 +70,14 @@ export function createResponseExpressionCompleter(
   const parsedBody = body ? parseResponseBody(body) : undefined
 
   return (prefix) => {
-    const suggestions = [...staticSuggestions]
+    const suggestions: ResponseExpressionSuggestion[] = [...staticSuggestions]
     if (prefix.toLowerCase().startsWith("headers.")) {
-      suggestions.push(...headerSuggestions)
+      suggestions.push(
+        ...headerSuggestions.map((suggestion) => ({
+          ...suggestion,
+          matchQuery: prefix.slice("headers.".length),
+        })),
+      )
     }
     if (parsedBody?.kind !== "success") {
       return matchingSuggestions(suggestions, prefix)
@@ -108,7 +114,10 @@ export function createResponseExpressionCompleter(
     for (const candidate of candidates) {
       try {
         parseResponseExpression(candidate.value)
-        suggestions.push(candidate)
+        suggestions.push({
+          ...candidate,
+          matchQuery: indexMatch?.[2] ?? propertyMatch?.[2] ?? "",
+        })
       } catch {
         // Ignore JSON keys that response expressions cannot address.
       }
@@ -261,8 +270,9 @@ function matchingSuggestions(
   suggestions: ResponseExpressionSuggestion[],
   prefix: string,
 ): ResponseExpressionSuggestion[] {
-  const normalized = prefix.toLowerCase()
-  return suggestions.filter(({ value }) =>
-    value.toLowerCase().startsWith(normalized),
+  return suggestions.filter(({ value, label, matchQuery }) =>
+    (matchQuery === undefined ? value : label)
+      .toLowerCase()
+      .includes((matchQuery ?? prefix).toLowerCase()),
   )
 }
