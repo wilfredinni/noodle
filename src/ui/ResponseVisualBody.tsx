@@ -7,6 +7,7 @@ import {
 } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { useTheme } from "./theme"
+import { highlightMatches } from "./highlightMatches"
 import { ResponseFilter } from "./ResponseFilter"
 import { truncateToWidth } from "./format"
 import {
@@ -486,33 +487,6 @@ export function ResponseVisualBody({
     ],
   )
 
-  const highlight = (text: string) => {
-    if (!settled) return text
-    const lower = text.toLowerCase()
-    const needle = settled.toLowerCase()
-    const parts = []
-    let offset = 0
-    for (
-      let index = lower.indexOf(needle);
-      index !== -1;
-      index = lower.indexOf(needle, offset)
-    ) {
-      parts.push(
-        <span key={`plain-${offset}`}>{text.slice(offset, index)}</span>,
-      )
-      parts.push(
-        <span key={`match-${index}`} fg={theme.primary}>
-          <b>
-            <u>{text.slice(index, index + needle.length)}</u>
-          </b>
-        </span>,
-      )
-      offset = index + needle.length
-    }
-    parts.push(<span key="tail">{text.slice(offset)}</span>)
-    return parts
-  }
-
   return (
     <box
       style={{
@@ -612,7 +586,7 @@ export function ResponseVisualBody({
                     wrapMode="none"
                     fg={theme[part.color]}
                   >
-                    {highlight(part.text)}
+                    {highlightMatches(part.text, settled, theme.primary)}
                   </text>
                 ))}
               </box>

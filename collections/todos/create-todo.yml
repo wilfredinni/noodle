@@ -10,6 +10,7 @@ body: |-
   {
     "title": "my todo",
     "completed": false,
-    "userId": 1
+    "userId": 1,
+    "apikey": "$x_api_key"
   }
 body_type: json
