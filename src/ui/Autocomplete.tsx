@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   BoxRenderable,
   CliRenderEvents,
@@ -52,6 +52,7 @@ export function Autocomplete({
     useTerminalDimensions()
   const theme = useTheme()
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [top, setTop] = useState(0)
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
   const popupRef = useRef<BoxRenderable | null>(null)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -61,23 +62,44 @@ export function Autocomplete({
     Math.min(10, terminalHeight - 2, Math.max(message ? 1 : 0, items.length)),
   )
   const menuHeight = visibleCount + 2
+  const labelWidth = useMemo(() => {
+    let width = 0
+    for (const item of items) {
+      width = Math.max(width, Bun.stringWidth(item.label))
+      if (width >= terminalWidth) return terminalWidth
+    }
+    return width
+  }, [items, terminalWidth])
   const menuWidth = Math.min(
     terminalWidth,
     Math.max(
       18,
-      items.reduce(
-        (width, item) => Math.max(width, Bun.stringWidth(item.label)),
-        0,
-      ) +
-        4 +
-        (items.length > visibleCount ? 1 : 0),
+      labelWidth + 4 + (items.length > visibleCount ? 1 : 0),
       Bun.stringWidth(message ?? "") + 4,
     ),
   )
   const index = Math.max(0, Math.min(selectedIndex, items.length - 1))
+  const start = Math.max(
+    0,
+    Math.min(Math.floor(top) - 3, items.length - visibleCount),
+  )
+  const end = Math.min(items.length, start + visibleCount + 6)
+  const mounted = anchor !== null && visibleCount > 0
+
+  useEffect(() => {
+    const scroll = scrollRef.current
+    if (!scroll) return
+    const change = ({ position }: { position: number }) => setTop(position)
+    setTop(scroll.scrollTop)
+    scroll.verticalScrollBar.on("change", change)
+    return () => {
+      scroll.verticalScrollBar.off("change", change)
+    }
+  }, [mounted])
 
   useEffect(() => {
     setSelectedIndex(0)
+    setTop(0)
     scrollRef.current?.scrollTo(0)
   }, [id, query, value])
 
@@ -117,14 +139,20 @@ export function Autocomplete({
   }, [getEditor, index, items.length, onDismiss, onSelect, visibleCount])
 
   useEffect(() => {
-    const revealSelection = () =>
-      scrollRef.current?.scrollChildIntoView(`${id}-item-${index}`)
+    const revealSelection = () => {
+      const scroll = scrollRef.current
+      if (!scroll) return
+      const row = index + (message ? 1 : 0)
+      if (row < scroll.scrollTop) scroll.scrollTo(row)
+      else if (row >= scroll.scrollTop + visibleCount)
+        scroll.scrollTo(row - visibleCount + 1)
+    }
     revealSelection()
     renderer.once(CliRenderEvents.FRAME, revealSelection)
     return () => {
       renderer.off(CliRenderEvents.FRAME, revealSelection)
     }
-  }, [id, index, items.length, renderer, visibleCount])
+  }, [index, items.length, message, mounted, renderer, visibleCount])
 
   useEffect(() => {
     const readAnchor = () => {
@@ -224,39 +252,47 @@ export function Autocomplete({
             {message}
           </text>
         ) : null}
-        {items.map((item, itemIndex) => (
-          <box
-            key={item.key}
-            id={`${id}-item-${itemIndex}`}
-            height={1}
-            flexShrink={0}
-            width="100%"
-            backgroundColor={
-              itemIndex === index ? theme.backgroundElement : undefined
-            }
-            onMouseOver={() => setSelectedIndex(itemIndex)}
-            onMouseDown={(event) => {
-              if (
-                event.button !== MouseButton.LEFT ||
-                !onSelect(itemIndex, "mouse")
-              )
-                return
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-          >
-            <text
-              fg={itemIndex === index ? theme.primary : theme.text}
-              wrapMode="none"
-            >
-              {highlightMatches(
-                item.label,
-                item.matchQuery ?? query,
-                theme.primary,
-              )}
-            </text>
-          </box>
-        ))}
+        <box height={items.length} width="100%" flexShrink={0}>
+          {items.slice(start, end).map((item, offset) => {
+            const itemIndex = start + offset
+            return (
+              <box
+                key={item.key}
+                id={`${id}-item-${itemIndex}`}
+                height={1}
+                position="absolute"
+                top={itemIndex}
+                left={0}
+                flexShrink={0}
+                width="100%"
+                backgroundColor={
+                  itemIndex === index ? theme.backgroundElement : undefined
+                }
+                onMouseOver={() => setSelectedIndex(itemIndex)}
+                onMouseDown={(event) => {
+                  if (
+                    event.button !== MouseButton.LEFT ||
+                    !onSelect(itemIndex, "mouse")
+                  )
+                    return
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+              >
+                <text
+                  fg={itemIndex === index ? theme.primary : theme.text}
+                  wrapMode="none"
+                >
+                  {highlightMatches(
+                    item.label,
+                    item.matchQuery ?? query,
+                    theme.primary,
+                  )}
+                </text>
+              </box>
+            )
+          })}
+        </box>
       </scrollbox>
     </box>,
     renderer.root,

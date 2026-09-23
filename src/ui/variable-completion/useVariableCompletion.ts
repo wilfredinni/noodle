@@ -41,9 +41,7 @@ export function useVariableCompletion({
       : []
     const tokenText = token ? text.slice(token.start + 1, token.end) : ""
     const isComplete =
-      suggestions.length === 1 &&
-      cursorOffset === token?.end &&
-      suggestions[0] === tokenText
+      cursorOffset === token?.end && suggestions.includes(tokenText)
     return { token, suggestions, isComplete }
   }, [getEditor, variableNames, value])
 

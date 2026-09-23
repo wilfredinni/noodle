@@ -78,11 +78,15 @@ function menuId(kind: Kind) {
 function Harness({
   kind,
   candidates = names,
+  variables = environment,
+  initialText = initialValue(kind),
 }: {
   kind: Kind
   candidates?: string[]
+  variables?: typeof environment
+  initialText?: string
 }) {
-  const [value, setValue] = useState(initialValue(kind))
+  const [value, setValue] = useState(initialText)
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
   const attachEditor = useCallback((next: CodeEditorRenderable | null) => {
     setEditor(next)
@@ -104,7 +108,7 @@ function Harness({
         />
         <CodeEditorCompletion
           editor={editor}
-          env={environment}
+          env={variables}
           isEditing
           value={value}
         />
@@ -113,7 +117,7 @@ function Harness({
   return (
     <VarInput
       value={value}
-      env={environment}
+      env={variables}
       isEditing
       onChange={setValue}
       variableAware={kind === "variables"}
@@ -178,10 +182,102 @@ async function mount(
     })
     await render()
   }
-  return { ...view, render, press, scroll, editor, cleanup }
+  return { ...view, render, press, scroll, editor, cleanup, keymap }
 }
 
 describe("shared autocomplete", () => {
+  it.each(["variables", "code"] as Kind[])(
+    "leaves an exact %s token intact and lets Tab reach normal navigation",
+    async (kind) => {
+      const view = await mount(
+        kind,
+        <Harness
+          kind={kind}
+          initialText="$token"
+          variables={{
+            name: "test",
+            vars: { token: "x", api_token: "y", token_suffix: "z" },
+          }}
+        />,
+        "$token",
+      )
+      const keys: string[] = []
+      const dispose = view.keymap.intercept(
+        "key",
+        (ctx) => {
+          keys.push(ctx.event.name)
+        },
+        { priority: 0 },
+      )
+      try {
+        expect(
+          view.renderer.root.findDescendantById(menuId(kind)),
+        ).toBeUndefined()
+        const editor = view.editor()
+        await view.press("tab")
+        expect(keys).toEqual(["tab"])
+        expect(editor.plainText).toBe("$token")
+      } finally {
+        dispose()
+        view.cleanup()
+      }
+    },
+  )
+
+  it("bounds mounted rows for thousands of suggestions while keeping the last item reachable", async () => {
+    const many = Array.from(
+      { length: 5000 },
+      (_, index) => `needle_${String(index).padStart(4, "0")}`,
+    )
+    const view = await mount(
+      "values",
+      <Harness kind="values" candidates={many} />,
+      many[0]!,
+    )
+    const rowCount = () => {
+      const pending = [...view.scroll().content.getChildren()]
+      let count = 0
+      while (pending.length) {
+        const child = pending.pop()!
+        if (child.id.startsWith("value-completion-menu-item-")) count++
+        pending.push(...child.getChildren())
+      }
+      return count
+    }
+    try {
+      expect(rowCount()).toBeGreaterThan(0)
+      expect(rowCount()).toBeLessThanOrEqual(16)
+      await view.press("up")
+      expect(view.captureCharFrame()).toContain(many[4999]!)
+      expect(rowCount()).toBeLessThanOrEqual(16)
+      await view.press("down")
+      expect(view.captureCharFrame()).toContain(many[0]!)
+      const slider = view.scroll().verticalScrollBar.slider
+      await act(async () => {
+        await view.mockMouse.drag(
+          slider.x,
+          slider.y,
+          slider.x,
+          slider.y + slider.height,
+        )
+      })
+      await view.render()
+      expect(view.captureCharFrame()).toContain(many[4999]!)
+      expect(rowCount()).toBeLessThanOrEqual(16)
+      const row = view.renderer.root.findDescendantById(
+        "value-completion-menu-item-4999",
+      )!
+      const editor = view.editor()
+      await act(async () => {
+        await view.mockMouse.click(row.x + 1, row.y)
+      })
+      await view.render()
+      expect(editor.plainText).toBe(many[4999]!)
+    } finally {
+      view.cleanup()
+    }
+  })
+
   it("keeps Tab browsing directories and Return finalizing a directory selection", async () => {
     function DirectoryHarness() {
       const [value, setValue] = useState("@/folder")
