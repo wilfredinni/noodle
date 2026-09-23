@@ -119,7 +119,8 @@ export function createScriptSourceResolver(collectionDir?: string) {
         source: { ...origin, sourceKind: "external", sourcePath: declaration },
       }
     } catch (error) {
-      // OS errors include host paths; only our fixed reasons may cross this boundary.
+      // OS errors include host paths, including in `cause` when inspected.
+      // Only our fixed reasons may cross this boundary; omit the original cause.
       const reasons = [
         "source must be a regular file",
         "source changed while being resolved",

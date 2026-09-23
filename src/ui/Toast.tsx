@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { createPortal, useRenderer } from "@opentui/react"
+import { stringWidth } from "bun"
+import {
+  createPortal,
+  useRenderer,
+  useTerminalDimensions,
+} from "@opentui/react"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 
@@ -15,6 +20,7 @@ export function showToast(message: string, variant?: ToastVariant) {
 export function Toast() {
   const theme = useTheme()
   const renderer = useRenderer()
+  const { width } = useTerminalDimensions()
   const [state, setState] = useState<{
     message: string
     variant: ToastVariant
@@ -43,6 +49,11 @@ export function Toast() {
         bottom: 2,
         right: 2,
         zIndex: 10003,
+        width:
+          state.message
+            .split("\n")
+            .reduce((width, line) => Math.max(width, stringWidth(line)), 0) + 6,
+        maxWidth: Math.max(1, width - 4),
       }}
       paddingLeft={2}
       paddingRight={2}

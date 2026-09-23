@@ -125,6 +125,7 @@ import {
   unregisterCollection,
 } from "./settings/collectionRegistry"
 import {
+  formatCollectionImportMessage,
   runCollectionImport,
   type CollectionImportValues,
 } from "./collectionImport"
@@ -1342,9 +1343,7 @@ export function AppInner({
       })
         .then(async (result) => {
           if (!result) return
-          const importMessage = result.warnings?.length
-            ? `Imported with ${result.warnings.length} unconverted script(s). Foreign runtime APIs were not converted.`
-            : "Collection imported"
+          const importMessage = formatCollectionImportMessage(result.warnings)
           if (values.destination === "current") {
             await onEnvListChanged().catch(() => {})
             overlays.setImportCollectionVisible(false)

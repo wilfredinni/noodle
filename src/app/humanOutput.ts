@@ -99,7 +99,7 @@ function formatTests(result: RequestRunResult): string[] {
     `  Tests: ${passed} passed, ${tests.results.length - passed} failed`,
     ...(tests.invocations ?? []).map(
       (invocation) =>
-        `    Tests: ${scriptSourceLabel(invocation.source)}, ${invocation.durationMs}ms, ${invocation.success ? "passed" : "failed"}`,
+        `    Tests: ${scriptSourceLabel(invocation.source)}, ${invocation.durationMs}ms, ${invocation.success ? "completed" : "script error"}`,
     ),
     ...tests.results
       .filter((test) => !test.passed || test.source)

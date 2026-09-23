@@ -247,6 +247,58 @@ describe("human CLI output", () => {
     expect(output).not.toContain("hidden log")
   })
 
+  it("distinguishes test script completion from failed callbacks", () => {
+    const source = { scope: "request" as const, path: "a.yml", scopeId: "a" }
+    for (const success of [true, false]) {
+      const output = plain(
+        formatRequestRun({
+          result: {
+            id: "a",
+            method: "GET",
+            url: "http://localhost/",
+            ok: false,
+            failureCategories: ["test"],
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "",
+              timeMs: 1,
+            },
+            tests: {
+              evaluated: true,
+              logs: [],
+              results: [
+                {
+                  name: "status",
+                  passed: false,
+                  message: "Expected 200",
+                  durationMs: 1,
+                },
+              ],
+              invocations: [
+                {
+                  phase: "tests",
+                  scope: "request",
+                  sourceKind: "inline",
+                  source,
+                  success,
+                  durationMs: 3,
+                  logs: [],
+                },
+              ],
+            },
+          },
+        }),
+      )
+      expect(output).toContain(
+        `Tests: request: a, 3ms, ${success ? "completed" : "script error"}`,
+      )
+      expect(output).toContain("Tests: 0 passed, 1 failed")
+      expect(output).toContain("✗ status: Expected 200")
+    }
+  })
+
   it("summarizes captures without printing captured values", () => {
     const output = plain(
       formatRequestRun({

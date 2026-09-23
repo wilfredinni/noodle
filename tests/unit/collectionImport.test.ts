@@ -3,7 +3,10 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import type { ImportOptions } from "../../src/app/import"
-import { runCollectionImport } from "../../src/ui/collectionImport"
+import {
+  formatCollectionImportMessage,
+  runCollectionImport,
+} from "../../src/ui/collectionImport"
 
 const RESULT = {
   path: "/collections/imported",
@@ -12,6 +15,38 @@ const RESULT = {
 }
 
 describe("runCollectionImport", () => {
+  it("shows bounded script warning locations and phases, including omitted counts", () => {
+    const warnings = [
+      "pre-request",
+      "after-response",
+      "test",
+      "pre-request",
+    ].map((phase, index) => ({
+      code: "foreign-script-not-converted" as const,
+      format: "postman" as const,
+      itemPath: ["Collection", `Request ${index + 1}`],
+      phase,
+      message: "Foreign runtime APIs were not converted.",
+    }))
+    const message = formatCollectionImportMessage(warnings)
+    expect(message).toContain("4 unconverted script(s)")
+    expect(message).toContain("Collection / Request 1 (pre-request)")
+    expect(message).toContain("Collection / Request 2 (after-response)")
+    expect(message).toContain("Collection / Request 3 (test)")
+    expect(message).not.toContain("Request 4")
+    expect(message).toContain("and 1 more")
+    expect(message).toContain("Foreign runtime APIs were not converted.")
+    warnings[0]!.itemPath = ["界".repeat(1000), "\n\u001b[2J"]
+    warnings[0]!.phase = "pre\n" + "x".repeat(1000)
+    const bounded = formatCollectionImportMessage(warnings)
+    expect(bounded).not.toContain("\u001b")
+    expect(bounded).not.toContain("pre\n")
+    for (const line of bounded.split("\n"))
+      expect(Bun.stringWidth(line)).toBeLessThanOrEqual(64)
+    expect(formatCollectionImportMessage(undefined)).toBe("Collection imported")
+    expect(formatCollectionImportMessage([])).toBe("Collection imported")
+  })
+
   it("expands paths and builds a new-collection import", async () => {
     let received: ImportOptions | undefined
     const result = await runCollectionImport({

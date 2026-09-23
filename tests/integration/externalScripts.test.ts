@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { inspect } from "node:util"
 import { lang } from "../../src/lang"
 import { filestore, loadSettings, saveSettings } from "../../src/filestore"
 import {
@@ -225,6 +226,9 @@ it("confines files and rejects missing, directory, oversize and invalid UTF-8 so
       expect(String(error)).not.toContain(dir)
       expect(String(error)).not.toContain(outside)
       expect(String(error)).not.toContain("private content")
+      // Inspection includes nested causes, unlike String(error).
+      expect(inspect(error)).not.toContain(dir)
+      expect(inspect(error)).not.toContain(outside)
     }
   }
   await fs.writeFile(
