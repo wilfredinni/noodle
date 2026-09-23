@@ -23,6 +23,8 @@ export function makeOverlayState(
     setHelpVisible: noop,
     aboutVisible: false,
     setAboutVisible: noop,
+    notificationMessage: null,
+    setNotificationMessage: noop,
     environmentPickerVisible: false,
     setEnvironmentPickerVisible: noop,
     yamlEditor: initialYamlEditorState,

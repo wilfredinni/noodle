@@ -280,3 +280,124 @@ describe("rendered post-response parity", () => {
     }
   })
 })
+
+it("renders external scopes for manual sends and Runner, retaining configuration diagnostics", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "noodle-external-tui-"))
+  let hits = 0
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch() {
+      hits++
+      return Response.json({ id: 1 })
+    },
+  })
+  try {
+    await mkdir(join(dir, "nested"))
+    await writeFile(
+      join(dir, "settings.yml"),
+      "cookies:\n  enabled: false\nscripts:\n  pre: ./pre.js\n",
+    )
+    await writeFile(join(dir, "pre.js"), 'noodle.run.set("ready", true)')
+    await writeFile(
+      join(dir, "post.js"),
+      'console.log("live-only"); throw Error("external post failure")',
+    )
+    await writeFile(
+      join(dir, "tests.js"),
+      'test("ready",()=>expect(noodle.run.get("ready")).toBe(true))',
+    )
+    await writeFile(
+      join(dir, "nested/folder.yml"),
+      "scripts:\n  post: ./post.js\ntests: ./tests.js\n",
+    )
+    const req: Request = {
+      id: "nested/a",
+      name: "A",
+      method: "GET",
+      url: `http://127.0.0.1:${server.port}/`,
+      headers: {},
+      params: [],
+      timeout: 0,
+    }
+    await writeFile(join(dir, "nested/a.yml"), lang.serializeRequest(req))
+    const collection = await filestore.loadCollection(dir)
+    let complete = Promise.withResolvers<void>()
+    let manual: UseResponseResult
+    let runner: UseCollectionRunnerResult
+    function Harness() {
+      manual = useResponse(
+        req,
+        undefined,
+        () => complete.resolve(),
+        collection,
+        req.id,
+        { kind: "direct", source: "cli" },
+        undefined,
+        undefined,
+        dir,
+      )
+      runner = useCollectionRunner({
+        collection,
+        collectionDir: dir,
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: true,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 0,
+      })
+      const execution =
+        runner.result?.results[0] ??
+        (manual.state.status === "done" || manual.state.status === "error"
+          ? manual.state.execution
+          : undefined)
+      return <ResponseResults execution={execution} focused />
+    }
+    const { keymap, host } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 110, height: 40 },
+    )
+    await act(async () => manual!.trySend())
+    await act(async () => complete.promise)
+    await render.renderOnce()
+    expect(hits).toBe(1)
+    expect(render.captureCharFrame()).toContain("folder: nested")
+    expect(render.captureCharFrame()).toContain("./post.js")
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("./post.js:1")
+    await act(async () => runner!.run())
+    expect(
+      runner!.result?.results[0]?.scripts?.results[1]?.logs[0]?.message,
+    ).toBe("live-only")
+    expect(
+      runner!.result?.results[0]?.tests?.invocations?.[0]?.source?.scope,
+    ).toBe("folder")
+    await rm(join(dir, "tests.js"))
+    complete = Promise.withResolvers<void>()
+    await act(async () => manual!.trySend())
+    await act(async () => complete.promise)
+    expect(manual!.state.status).toBe("error")
+    if (manual!.state.status === "error") {
+      expect(manual!.state.error.message).toContain("configuration error")
+      expect(manual!.state.execution?.tests?.evaluated).toBe(false)
+      expect(manual!.state.execution?.scripts?.evaluated).toBe(false)
+    }
+    await act(async () => runner!.run())
+    expect(runner!.result?.failure?.category).toBe("configuration")
+    expect(runner!.result?.results).toEqual([])
+    expect(hits).toBe(2)
+  } finally {
+    server.stop(true)
+    await rm(dir, { recursive: true, force: true })
+  }
+})

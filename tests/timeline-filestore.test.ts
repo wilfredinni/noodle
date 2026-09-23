@@ -194,11 +194,21 @@ describe("saveTimelineEntry", () => {
         ],
       },
     })
+    entry.tests = {
+      evaluated: true,
+      results: [],
+      logs: entry.scripts!.results[0]!.logs,
+      invocations: [{ ...entry.scripts!.results[0]!, phase: "tests" }],
+    }
     await saveTimelineEntry(dir, "scripts", makeEntry())
     const persisted = await saveTimelineEntry(dir, "scripts", entry)
     const loaded = await loadTimeline(dir, "scripts")
 
     expect(loaded[0]?.scripts).toEqual(persisted.scripts)
+    expect(loaded[0]?.tests?.logs).toEqual(persisted.scripts?.results[0]?.logs)
+    expect(loaded[0]?.tests?.invocations?.[0]?.logs).toEqual(
+      persisted.scripts?.results[0]?.logs,
+    )
     expect(loaded[1]?.scripts).toBeUndefined()
     expect(loaded[0]?.scripts?.results[0]).toMatchObject({
       phase: "post",

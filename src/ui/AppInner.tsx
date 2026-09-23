@@ -125,6 +125,7 @@ import {
   unregisterCollection,
 } from "./settings/collectionRegistry"
 import {
+  formatCollectionImportMessage,
   runCollectionImport,
   type CollectionImportValues,
 } from "./collectionImport"
@@ -1342,11 +1343,15 @@ export function AppInner({
       })
         .then(async (result) => {
           if (!result) return
+          const importMessage = formatCollectionImportMessage(result.warnings)
           if (values.destination === "current") {
             await onEnvListChanged().catch(() => {})
             overlays.setImportCollectionVisible(false)
             onReloadCollection()
-            showToast("Collection imported", "success")
+            showToast(
+              importMessage,
+              result.warnings?.length ? "warning" : "success",
+            )
             return
           }
 
@@ -1361,6 +1366,7 @@ export function AppInner({
             )
           }
           overlays.setImportCollectionVisible(false)
+          if (result.warnings?.length) showToast(importMessage, "warning")
           overlays.setImportOpenPending({
             path: result.path,
             name: result.name,
@@ -1654,6 +1660,7 @@ export function AppInner({
         onLayoutChange,
         setHelpVisible: overlays.setHelpVisible,
         setAboutVisible: overlays.setAboutVisible,
+        setNotificationMessage: overlays.setNotificationMessage,
         setNewEnvironmentVisible: overlays.setNewEnvironmentVisible,
         setEnvironmentPickerVisible: overlays.setEnvironmentPickerVisible,
         setNewRequestVisible: overlays.setNewRequestVisible,

@@ -23,6 +23,7 @@ import type { TlsPolicy } from "../tls"
 import type { CollectionMode } from "../collectionPath"
 import type { ExternalEditor } from "../externalEditor"
 import type { ResponseFileActions } from "./responseFileContext"
+import { takeToastMessage } from "./Toast"
 import {
   saveRequest,
   saveFolder,
@@ -105,6 +106,7 @@ export interface CommandBuilderContext {
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setNotificationMessage: (message: string | null) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewEnvironmentVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEnvironmentPickerVisible: (
@@ -680,6 +682,17 @@ export function buildCommandPaletteCommands(
       run: () => {
         setAboutVisible(true)
         return openAbout()
+      },
+    },
+    {
+      id: "app.notification",
+      label: "Show Last Notification",
+      section: "System",
+      run: () => {
+        ctx.setNotificationMessage(
+          takeToastMessage() ?? "No notifications yet.",
+        )
+        return true
       },
     },
     {

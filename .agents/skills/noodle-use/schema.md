@@ -74,10 +74,17 @@ references and must resolve in the active environment before sending.
 
 ### Inherited scripts and tests
 
-Declare inline `scripts.pre`, `scripts.post`, and `tests` in collection
-`settings.yml`, nested `folder.yml`, or request YAML. Each phase accumulates
-blocks in this order: collection, outer folders, inner folders, request.
-An empty block is a no-op and does not disable inherited blocks.
+Declare `scripts.pre`, `scripts.post`, and `tests` in collection `settings.yml`,
+nested `folder.yml`, or request YAML. Each field accepts one inline JavaScript
+string or a collection-relative external reference such as `./scripts/sign.js`.
+Empty strings are no-ops and are omitted by canonical serialization.
+
+For every request: collection pre → folder pre (outermost to nearest) → request
+pre → HTTP → captures → request post → folder post (nearest to outermost) →
+collection post → assertions → tests (collection, outer folders, inner folders,
+request). Collection and folder hooks run once per request, including each selected
+request and dataset row. Ancestors use file paths, not display names; root
+`folder.yml` remains ignored. Existing inherited tests remain supported.
 
 Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
 successful RunScope writes are visible to later blocks. A pre failure stops
@@ -87,11 +94,15 @@ its block. Successful persistence intents keep execution order; collection
 runs and F5 suppress persistence as before. Saved `noodle.runRequest()` calls
 use the same inheritance and cycle protections.
 
-Inherited diagnostics include optional `source: { scope, path }`, where scope
-is `collection`, `folder`, or `request` and path is collection-relative.
-Tests also expose `errors` for multiple block errors; legacy `error` remains
-the first error. CLI, Results, and history show origins without retaining source
-code. Script logs and errors retain the existing redaction and size limits.
+Every executed block identifies its phase, scope, scope ID, source kind, duration,
+logs, and normalized error. `source.path` remains the declaring YAML path;
+`source.scopeId` identifies the collection, folder path, or request ID;
+`source.sourceKind` is `inline` or `external`, and external blocks add
+`source.sourcePath`, such as `./scripts/sign.js`. Test groups retain ordered
+`invocations` even for files declaring zero tests, and `errors` with legacy
+first `error` compatibility. JSON and live Results retain bounded redacted logs.
+New history entries retain outcome summaries but no script/test logs, source
+code, or RunScope values. Existing history remains readable.
 
 Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
 budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test
@@ -175,17 +186,66 @@ for all diagnostics. Requests without tests keep their previous output.
 
 Human output shows counts and concise failures. JSON includes structured results
 and redacted logs. The existing TUI Results view shows expandable scripted tests
-and logs in manual sends, Runner details, and timeline history. Manual history
-retains bounded, redacted diagnostics, with the existing 10,000-byte diagnostic
-text/log limits; it excludes test source and runtime values. There is no test
+and logs in manual sends and Runner details. Manual history retains bounded,
+redacted outcome summaries with the existing 10,000-byte text limit; it excludes
+script/test logs, source code and runtime values. There is no test
 editor, autocomplete, dedicated Console panel, or importer conversion.
+
+### External JavaScript sources
+
+All paths start at the collection root, including declarations in nested folders.
+Use `./scripts/name.js` with forward slashes. Absolute paths, `..`, empty or `.`
+segments, backslashes, NUL, and non-`.js` file references are rejected. The host
+resolves the root and target with `realpath`, rejects symlink escapes, requires a
+regular file, reads at most 256 KiB, and rejects invalid UTF-8. In-root symlinks
+are supported. The sandbox receives only the text, never filesystem access or
+resolved absolute paths. Imports, `require`, and module loading remain unsupported.
+
+Before a manual send or `request run`, Noodle loads every applicable pre/post/test
+source. Before a collection run or Runner starts, it loads sources for every
+selected request. Missing, invalid or unreadable files are configuration failures
+(CLI exit 2), before scripts or HTTP. Reads are deduplicated by canonical real
+path for that run, including dataset rows; a new send reads current contents.
+Dynamic `noodle.runRequest(id)` children load their applicable sources before
+the child's first pre block, sharing the run cache. Unselected requests do not
+block a run unless dynamically called. There is no watcher or cross-run cache.
+
+```yaml
+# settings.yml
+scripts:
+  pre: ./scripts/collection-pre.js
+  post: ./scripts/collection-post.js
+tests: ./scripts/common-tests.js
+```
+
+```yaml
+# users/admin/folder.yml, still relative to the collection root
+scripts:
+  pre: ./scripts/admin-pre.js
+  post: ./scripts/admin-post.js
+```
+
+```yaml
+# users/admin/get-user.yml
+name: Get user
+method: GET
+url: http://127.0.0.1:3000/users/1
+scripts:
+  pre: ./scripts/sign.js
+  post: |
+    noodle.run.set("id", noodle.response.json().id)
+tests: ./scripts/user-tests.js
+```
+
+Multiple requests or scopes may reference one shared test file. Each invocation
+still runs independently, with the existing read-only test APIs and limits.
 
 ### Inline request scripts
 
 An optional `scripts` mapping accepts string-valued `pre` and/or `post` members.
 Empty mappings, unknown members, and non-string sources are invalid. Empty
-strings are valid no-ops. Standalone external-path-looking sources are rejected
-with a phase-specific explanation; Noodle never resolves or reads script files.
+strings are valid no-ops and omitted during serialization. External references
+use `./path/to/file.js`; malformed standalone file references are configuration errors.
 Canonical YAML preserves source whitespace in literal blocks ordered pre then
 post immediately before `capture` and `assert`:
 
@@ -217,8 +277,9 @@ capture can overwrite a script value. Manual sends and `request run` use fresh
 scopes.
 
 The complete order is folder merge, environment/RunScope overlay, one
-substitution pass, inherited/request pre blocks, HTTP, capture commits,
-inherited/request post blocks, assertions, then inherited/request tests.
+substitution pass, pre blocks (collection, outer folders, inner folders, request),
+HTTP, capture commits, post blocks (request, inner folders, outer folders,
+collection), assertions, then tests (collection, outer folders, inner folders, request).
 Assertion expectations keep the original substitution pass, not a second pass after post.
 Post runs once for every completed response, including HTTP and capture errors,
 but never for intermediate redirects/auth challenges or transport failures. It
@@ -535,7 +596,7 @@ selected-environment secrets, and a script can place them in the prepared URL,
 headers, or body that Noodle sends immediately afterward.
 
 Requests with scripts return `scripts: { evaluated, results }` containing only
-executed results in pre/post order with `phase: pre|post`, `scope: request`, `sourceKind: inline`, `success`,
+executed results in pre/post order with `phase: pre|post`, `scope: collection|folder|request`, `sourceKind: inline|external`, `success`,
 `durationMs`, redacted `logs`, an optional normalized error, and optional
 `persistence` outcomes with variable, target, operation, status
 (`saved|transient|failed`), and redacted errors only. `success` records VM
@@ -547,8 +608,8 @@ expandable logs and phase-specific error locations. Script failures participate
 in the fixed failure-category order and collection continuation/fail-fast only
 after available response diagnostics finish. No Console panel or script editor
 is added. Manual `.timeline` entries retain bounded, redacted pre/post results,
-logs, errors, and persistence outcomes; diagnostic text and combined serialized
-logs are limited to 10,000 bytes with `[TRUNCATED]` markers. Script source,
+errors, origins, and persistence outcomes; diagnostic text is limited to
+10,000 bytes with `[TRUNCATED]` markers. Script/test logs are not persisted. Script source,
 capture results, and RunScope values are excluded. Successful manual request
 snapshots reflect prepared request mutations. Automation does not create history.
 
@@ -682,10 +743,10 @@ Every manual send and automation request follows this order:
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures in declaration order.
-8. Execute post blocks in the same ancestor order using committed captures and the final prepared request; commit
+8. Execute post blocks in request, inner folder, outer folder, collection order using committed captures and the final prepared request; commit
    successful transient RunScope and URL-scoped cookie changes together.
 9. Evaluate assertions against the same response views, including after post failure.
-10. Execute test blocks in the same ancestor order, including after any completed response failure.
+10. Execute test blocks in collection, outer folder, inner folder, request order, including after any completed response failure.
 
 Manual sends and `request run` use isolated scopes. `collection run` and the TUI
 Runner share one scope across selected requests in collection order after target

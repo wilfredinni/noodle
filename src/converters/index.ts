@@ -1,8 +1,17 @@
 import type { Collection, Environment } from "../schema"
 
+export interface ImportWarning {
+  code: "foreign-script-not-converted"
+  format: "postman" | "insomnia"
+  itemPath: string[]
+  phase: string
+  message: string
+}
+
 export interface ImportResult {
   collection: Collection
   environments: Environment[]
+  warnings?: ImportWarning[]
 }
 
 export interface Importer {

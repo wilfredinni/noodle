@@ -59,6 +59,7 @@ export type ActiveOverlay =
   | "request-finder"
   | "help"
   | "about"
+  | "notification"
   | "theme"
   | "environment-picker"
   | "env-delete"
@@ -101,6 +102,9 @@ export function useOverlayState({
     useState<ResponseFilePending | null>(null)
   const responseFileRef = useRef<SaveResponseOverlayHandle | null>(null)
   const [aboutVisible, setAboutVisible] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(
+    null,
+  )
   const [environmentPickerVisible, setEnvironmentPickerVisible] =
     useState(false)
   const [yamlEditor, setYamlEditor] = useState<YamlEditorState>(
@@ -175,6 +179,7 @@ export function useOverlayState({
     if (requestFinderVisible) return "request-finder"
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
+    if (notificationMessage !== null) return "notification"
     if (previewIndex !== null) return "theme"
     if (environmentPickerVisible) return "environment-picker"
     if (envDeletePending !== null) return "env-delete"
@@ -209,6 +214,7 @@ export function useOverlayState({
     requestFinderVisible,
     helpVisible,
     aboutVisible,
+    notificationMessage,
     previewIndex,
     environmentPickerVisible,
     envDeletePending,
@@ -243,6 +249,8 @@ export function useOverlayState({
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
+    notificationMessage,
+    setNotificationMessage,
     environmentPickerVisible,
     setEnvironmentPickerVisible,
     yamlEditor,

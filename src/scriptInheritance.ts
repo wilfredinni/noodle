@@ -12,7 +12,11 @@ export function requestScriptBlocks(
     blocks.push({
       scripts: collection.scripts,
       tests: collection.tests,
-      source: { scope: "collection", path: "settings.yml" },
+      source: {
+        scope: "collection",
+        scopeId: collection.id,
+        path: "settings.yml",
+      },
     })
     const parts = path.split("/")
     for (let index = 1; index < parts.length; index++) {
@@ -22,14 +26,18 @@ export function requestScriptBlocks(
         blocks.push({
           scripts: folder.scripts,
           tests: folder.tests,
-          source: { scope: "folder", path: `${folderPath}/folder.yml` },
+          source: {
+            scope: "folder",
+            scopeId: folderPath,
+            path: `${folderPath}/folder.yml`,
+          },
         })
     }
   }
   blocks.push({
     scripts: request.scripts,
     tests: request.tests,
-    source: { scope: "request", path: `${path}.yml` },
+    source: { scope: "request", scopeId: path, path: `${path}.yml` },
   })
   return blocks.filter((block) => block.scripts || block.tests !== undefined)
 }
@@ -40,6 +48,7 @@ export function labelScriptResult(
 ): void {
   result.result.scope = source.scope
   result.result.source = source
+  result.result.sourceKind = source.sourceKind ?? "inline"
   result.result.logs = result.result.logs.map((log) => ({ ...log, source }))
   if (result.result.error) result.result.error.source = source
   if (result.tests)
@@ -47,5 +56,7 @@ export function labelScriptResult(
 }
 
 export function scriptSourceLabel(source?: ScriptSource): string {
-  return source ? `${source.scope}: ${source.path}` : ""
+  return source
+    ? `${source.scope}: ${source.scopeId ?? source.path}${source.sourcePath ? ` (${source.sourcePath})` : ""}`
+    : ""
 }

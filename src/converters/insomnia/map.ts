@@ -7,7 +7,7 @@ import type {
   ParamEntry,
   Request,
 } from "../../schema"
-import type { ImportResult } from "../index"
+import type { ImportResult, ImportWarning } from "../index"
 import { METHOD_UPPER, setOwn, slugify } from "../shared"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
 
@@ -332,6 +332,47 @@ export function mapExport(root: RawResource): ImportResult {
     )
   }
   const resources = rawResources as RawResource[]
+  const warnings: ImportWarning[] = []
+  const resourcesById = new Map(
+    resources.map((resource) => [stringValue(resource._id), resource]),
+  )
+  for (const resource of resources) {
+    if (
+      ![
+        "workspace",
+        "request_group",
+        "folder",
+        "request",
+        "unit_test",
+      ].includes(stringValue(resource._type))
+    )
+      continue
+    const path: string[] = []
+    const visited = new Set<RawResource>()
+    let current: RawResource | undefined = resource
+    while (current && !visited.has(current)) {
+      visited.add(current)
+      path.unshift(
+        stringValue(current.name) || stringValue(current._id) || "unnamed",
+      )
+      current = resourcesById.get(stringValue(current.parentId))
+    }
+    for (const phase of [
+      "preRequestScript",
+      "afterResponseScript",
+      ...(resource._type === "unit_test" ? ["code"] : []),
+    ]) {
+      if (!stringValue(resource[phase]).trim()) continue
+      warnings.push({
+        code: "foreign-script-not-converted",
+        format: "insomnia",
+        itemPath: path,
+        phase: phase === "code" ? "test" : phase,
+        message:
+          "Insomnia runtime API was not converted; recreate this script in Noodle.",
+      })
+    }
+  }
   const workspaces = resources.filter(
     (resource) => resource._type === "workspace",
   )
@@ -421,5 +462,6 @@ export function mapExport(root: RawResource): ImportResult {
       items: mapItems(workspaceId, ""),
     },
     environments: mapEnvironments(resources, workspaceId),
+    ...(warnings.length ? { warnings } : {}),
   }
 }

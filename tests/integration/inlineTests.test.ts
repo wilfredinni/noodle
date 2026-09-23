@@ -211,7 +211,7 @@ describe("inline tests lifecycle", () => {
     })
     expect(hits).toEqual([])
     expect((await send(base())).execution).not.toHaveProperty("tests")
-    expect((await send(base({ tests: "" }))).execution.tests).toEqual({
+    expect((await send(base({ tests: "" }))).execution.tests).toMatchObject({
       evaluated: true,
       results: [],
       logs: [],

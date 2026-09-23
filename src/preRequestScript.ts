@@ -9,7 +9,6 @@ import {
 import type { Environment, JsonValue, Method, Response } from "./schema"
 import { responseByteSize, responseText } from "./responseBody"
 import { CookieValidationError, type CollectionCookieJar } from "./cookies"
-import { isExternalScriptSource } from "./lang/scriptSource"
 import type { SubstitutedRequest } from "./requests/substitute"
 import { withDefaultHttpsScheme } from "./requests/url"
 import { RunScope, secretRedactionValues } from "./runScope"
@@ -513,6 +512,9 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
 export type ScriptSource = {
   scope: "collection" | "folder" | "request"
   path: string
+  scopeId?: string
+  sourceKind?: "inline" | "external"
+  sourcePath?: string
 }
 
 export type TestResult = {
@@ -541,7 +543,7 @@ export type ScriptExecutionResult = {
   phase: ScriptPhase
   scope: ScriptSource["scope"]
   source?: ScriptSource
-  sourceKind: "inline"
+  sourceKind: "inline" | "external"
   success: boolean
   durationMs: number
   logs: ScriptLog[]
@@ -721,11 +723,6 @@ export async function runRequestScript(
       message: `${label} script exceeds the ${SCRIPT_LIMITS.sourceBytes}-byte source limit`,
     })
   }
-  if (isExternalScriptSource(source))
-    return failure({
-      name: "ScriptApiValidationError",
-      message: `${label} scripts must be inline source; external script paths are not supported`,
-    })
 
   const requireName = (value: unknown): string => {
     const name = requireString(value, "name")

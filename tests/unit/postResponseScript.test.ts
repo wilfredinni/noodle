@@ -35,15 +35,15 @@ const runPost = (
   })
 
 describe("post-response sandbox", () => {
-  it("rejects external-looking sources without interpreting comments or regex as files", async () => {
+  it("evaluates literal source without file loading, preserving comments and regex", async () => {
     for (const source of [
       "./post.js",
       "/tmp/post",
       "@/post.ts",
       "C:\\post.mjs",
     ])
-      expect((await runPost(source)).result.error?.message).toContain(
-        "Post-response scripts must be inline source",
+      expect((await runPost(source)).result.error?.name).toBe(
+        "ScriptSyntaxError",
       )
     for (const source of ["// post.js", "/* post.js */", "/inline/g", ""])
       expect((await runPost(source)).result.success).toBe(true)

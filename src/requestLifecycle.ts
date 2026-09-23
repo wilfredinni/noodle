@@ -9,6 +9,12 @@ import type {
 import { executor } from "./requests"
 import type { TransportExecutionOptions } from "./requests/send"
 import { requestScriptBlocks, labelScriptResult } from "./scriptInheritance"
+import {
+  createScriptSourceResolver,
+  ScriptSourceError,
+  type ResolvedScriptBlock,
+  type ScriptSourceResolver,
+} from "./scriptSourceResolver"
 import { mergeFolderOverrides } from "./requests/mergeFolderOverrides"
 import { substitute, type SubstitutedRequest } from "./requests/substitute"
 import { RunScope, type CaptureResult } from "./runScope"
@@ -48,6 +54,7 @@ import {
 
 export type RequestLifecycleFailureCategory =
   | "execution"
+  | "configuration"
   | "script"
   | "transport"
 
@@ -122,6 +129,7 @@ export async function executeRequestLifecycle(options: {
     execution: ResponseExecutionResults,
   ) => Promise<ResponseExecutionResults>
   onEnvironmentPersisted?: () => Promise<void>
+  scriptSources?: ScriptSourceResolver
   scriptContext?: ScriptCallContext
 }): Promise<RequestLifecycleResult> {
   const {
@@ -132,13 +140,22 @@ export async function executeRequestLifecycle(options: {
     requestPath,
     transport = {},
   } = options
-  const blocks = requestScriptBlocks(request, collection, requestPath)
-  const inherited = blocks.some((block) => block.source.scope !== "request")
+  const declarations = requestScriptBlocks(request, collection, requestPath)
+  const scriptSources =
+    options.scriptSources ?? createScriptSourceResolver(transport.collectionDir)
+  let blocks: ResolvedScriptBlock[] = []
+  const inherited = declarations.some(
+    (block) => block.source.scope !== "request",
+  )
   const diagnostics = inherited ? { consoleBytes: 0, testBytes: 0 } : undefined
   const declared = {
     ...request,
-    scripts: blocks.some((block) => block.scripts) ? { pre: "" } : undefined,
-    tests: blocks.some((block) => block.tests !== undefined) ? "" : undefined,
+    scripts: declarations.some((block) => block.scripts)
+      ? { pre: "" }
+      : undefined,
+    tests: declarations.some((block) => block.tests !== undefined)
+      ? ""
+      : undefined,
   }
   const effectiveEnvironment = runScope.environment(environment ?? undefined)
   const secretValues: RedactionSecret[] = [
@@ -235,6 +252,7 @@ export async function executeRequestLifecycle(options: {
               environment,
               runScope: scope,
               transport: childTransport,
+              scriptSources,
               scriptContext: {
                 budget: scriptContext.budget,
                 stack: [...scriptContext.stack, input],
@@ -348,6 +366,7 @@ export async function executeRequestLifecycle(options: {
   }
 
   try {
+    blocks = await scriptSources.resolveBlocks(declarations)
     const merged =
       collection && requestPath
         ? mergeFolderOverrides(request, collection, requestPath)
@@ -357,15 +376,15 @@ export async function executeRequestLifecycle(options: {
     secretValues.push(...requestSensitiveValues(prepared))
 
     for (const block of blocks) {
-      if (block.scripts?.pre === undefined) continue
+      if (block.pre === undefined) continue
       const scriptResult = await runPreRequestScript(
-        block.scripts.pre,
+        block.pre.text,
         prepared,
         environment,
         runScope,
         scriptOptions(),
       )
-      if (inherited) labelScriptResult(scriptResult, block.source)
+      labelScriptResult(scriptResult, block.pre.source)
       secretValues.push(...scriptResult.secretValues)
       runScope.rememberSecrets(scriptResult.secretValues)
       scriptResults.push(scriptResult.result)
@@ -423,8 +442,7 @@ export async function executeRequestLifecycle(options: {
         transport.onSensitiveValues?.(values)
       },
       onPreparedRequest: blocks.some(
-        (block) =>
-          block.scripts?.post !== undefined || block.tests !== undefined,
+        (block) => block.post !== undefined || block.tests !== undefined,
       )
         ? (snapshot) => {
             sentRequest = snapshot
@@ -450,18 +468,18 @@ export async function executeRequestLifecycle(options: {
         rawCaptures = results
       },
       async () => {
-        for (const block of blocks) {
-          if (block.scripts?.post === undefined) continue
+        for (const block of blocks.toReversed()) {
+          if (block.post === undefined) continue
           const post = await runRequestScript(
             "post",
-            block.scripts.post,
+            block.post.text,
             sentRequest,
             environment,
             runScope,
             { response: rawResponse, cookies: transport.cookies },
             scriptOptions(),
           )
-          if (inherited) labelScriptResult(post, block.source)
+          labelScriptResult(post, block.post.source)
           scriptResults.push(post.result)
           secretValues.push(...post.secretValues)
           runScope.rememberSecrets(post.secretValues)
@@ -491,7 +509,7 @@ export async function executeRequestLifecycle(options: {
       runScope.rememberSecrets(secretValues)
       const tested = await runRequestScript(
         "tests",
-        block.tests,
+        block.tests.text,
         sentRequest,
         environment,
         runScope,
@@ -504,11 +522,11 @@ export async function executeRequestLifecycle(options: {
           deadline: scriptContext.deadline,
           diagnostics,
           sourceBytes: inherited
-            ? Buffer.byteLength(JSON.stringify(block.source))
+            ? Buffer.byteLength(JSON.stringify(block.tests.source))
             : undefined,
         },
       )
-      if (inherited) labelScriptResult(tested, block.source)
+      labelScriptResult(tested, block.tests.source)
       secretValues.push(...tested.secretValues)
       runScope.rememberSecrets(tested.secretValues)
       const group = (responseExecution.tests ??= {
@@ -516,6 +534,7 @@ export async function executeRequestLifecycle(options: {
         results: [],
         logs: [],
       })
+      ;(group.invocations ??= []).push(tested.result)
       group.results.push(...(tested.tests ?? []))
       group.logs.push(...tested.result.logs)
       if (tested.result.error) {
@@ -572,9 +591,11 @@ export async function executeRequestLifecycle(options: {
       prepared,
       error: safeError,
       failureCategory:
-        aborted || Array.isArray((normalized as NetworkError).network)
-          ? "transport"
-          : "execution",
+        error instanceof ScriptSourceError
+          ? "configuration"
+          : aborted || Array.isArray((normalized as NetworkError).network)
+            ? "transport"
+            : "execution",
       execution,
       secretValues,
     }

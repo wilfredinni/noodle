@@ -31,6 +31,7 @@ export interface ExecutionResultGroup<T> {
 
 export interface TestExecutionGroup extends ExecutionResultGroup<TestResult> {
   logs: ScriptLog[]
+  invocations?: ScriptExecutionResult[]
   error?: ScriptExecutionError
   errors?: ScriptExecutionError[]
 }
@@ -49,7 +50,18 @@ export function redactScriptSource(
   source: ScriptSource | undefined,
   redact: (value: string) => string,
 ) {
-  return source ? { ...source, path: redact(source.path) } : undefined
+  return source
+    ? {
+        ...source,
+        path: redact(source.path),
+        ...(source.scopeId !== undefined
+          ? { scopeId: redact(source.scopeId) }
+          : {}),
+        ...(source.sourcePath !== undefined
+          ? { sourcePath: redact(source.sourcePath) }
+          : {}),
+      }
+    : undefined
 }
 
 export function redactScriptError(
@@ -80,6 +92,13 @@ export function redactTestExecution(
   const redact = (value: string) => redactKnownSecrets(value, diagnosticSecrets)
   return {
     ...tests,
+    ...(tests.invocations
+      ? {
+          invocations: tests.invocations.map((result) =>
+            redactScriptExecutionResult(result, diagnosticSecrets),
+          ),
+        }
+      : {}),
     results: tests.results.map((result) => ({
       ...result,
       ...(result.source

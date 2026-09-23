@@ -2,6 +2,7 @@ import { realpathSync } from "node:fs"
 import { relative, resolve, sep } from "node:path"
 import type { ImportOptions } from "../app/import"
 import { expandUserPath } from "../userPath"
+import { truncateToWidth } from "./format"
 
 export type CollectionImportDestination = "new" | "current"
 
@@ -15,9 +16,29 @@ export interface CollectionImportResult {
   path: string
   name: string
   formattedJsonBodies: number
+  warnings?: import("../converters").ImportWarning[]
 }
 
 type ImportRunner = (options: ImportOptions) => Promise<CollectionImportResult>
+
+export function formatCollectionImportMessage(
+  warnings: CollectionImportResult["warnings"],
+): string {
+  if (!warnings?.length) return "Collection imported"
+  const label = (value: string, width: number) =>
+    truncateToWidth(JSON.stringify(value).slice(1, -1), width)
+  return [
+    `Imported with ${warnings.length} unconverted script(s).`,
+    ...warnings
+      .slice(0, 3)
+      .map(
+        ({ itemPath, phase }) =>
+          `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`,
+      ),
+    ...(warnings.length > 3 ? [`and ${warnings.length - 3} more`] : []),
+    "Foreign runtime APIs were not converted.",
+  ].join("\n")
+}
 
 function canonicalPath(path: string): string {
   try {

@@ -75,6 +75,11 @@ import {
   executeRequestLifecycle,
   lifecycleFailureCategories,
 } from "../requestLifecycle"
+import {
+  createScriptSourceResolver,
+  type ScriptSourceResolver,
+} from "../scriptSourceResolver"
+import { requestScriptBlocks } from "../scriptInheritance"
 import { validateId } from "../requestId"
 export { validateId } from "../requestId"
 import { effectiveRequestTags, isValidTag } from "../tags"
@@ -497,6 +502,7 @@ async function auditFile(
   root: string,
   fix: boolean,
   issues: AuditIssue[],
+  scriptSources: ScriptSourceResolver,
 ): Promise<void> {
   const rel = relative(root, path)
   const name = basename(path)
@@ -506,6 +512,9 @@ async function auditFile(
       const settings = content.trim()
         ? parseCollectionSettings(yamlLoad(content))
         : {}
+      await scriptSources.resolveBlocks([
+        { ...settings, source: { scope: "collection", path: "settings.yml" } },
+      ])
       if (fix) {
         await saveSettings(root, settings)
         issues.push({
@@ -519,6 +528,10 @@ async function auditFile(
     }
     if (name === "folder.yml") {
       const parsed = lang.parseFolder(content)
+      if (rel !== "folder.yml")
+        await scriptSources.resolveBlocks([
+          { ...parsed, source: { scope: "folder", path: rel } },
+        ])
       if (fix) {
         const folderPath = relative(root, join(path, ".."))
         const id = basename(folderPath)
@@ -573,6 +586,7 @@ async function auditFile(
     }
     const id = rel.slice(0, -4)
     const request = lang.parseRequest(id, content)
+    await scriptSources.resolveBlocks(requestScriptBlocks(request))
     if (fix) {
       await saveRequest(root, request)
       issues.push({
@@ -604,6 +618,7 @@ export async function collectionAudit(
   const root = await realpath(resolve(path))
   await requireCollectionRoot(root)
   const issues: AuditIssue[] = []
+  const scriptSources = createScriptSourceResolver(root)
   async function walk(dir: string): Promise<void> {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
@@ -616,14 +631,14 @@ export async function collectionAudit(
         entry.name.endsWith(".env") &&
         relative(root, file).startsWith(".environments/")
       )
-        await auditFile(file, root, fix, issues)
+        await auditFile(file, root, fix, issues, scriptSources)
       else if (
         (entry.name === "settings.yml" &&
           file === join(root, "settings.yml")) ||
         (entry.name !== "settings.yml" &&
           (entry.name === "folder.yml" || entry.name.endsWith(".yml")))
       )
-        await auditFile(file, root, fix, issues)
+        await auditFile(file, root, fix, issues, scriptSources)
     }
   }
   await walk(root)
@@ -732,6 +747,7 @@ async function runRequest(
   persistCaptures = false,
   onDetail?: RunDetail,
   output?: PreparedResponseOutput,
+  scriptSources?: ScriptSourceResolver,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -739,6 +755,7 @@ async function runRequest(
     environment,
     collection,
     requestPath: request.id,
+    scriptSources,
     ...(persistCaptures
       ? {
           persistScriptChanges: (intents) =>
@@ -987,6 +1004,7 @@ export async function collectionRun(
   let policy: ProxyPolicy | undefined
   let tlsPolicy: TlsPolicy | undefined
   let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
+  let scriptSources: ScriptSourceResolver
   let rows: Awaited<ReturnType<typeof loadIterationData>> | undefined
   try {
     if (!Number.isSafeInteger(delayMs) || delayMs < 0) {
@@ -1012,6 +1030,11 @@ export async function collectionRun(
       scripts: settings.scripts,
       tests: settings.tests,
     }
+    scriptSources = createScriptSourceResolver(dir)
+    for (const request of requests)
+      await scriptSources.resolveBlocks(
+        requestScriptBlocks(request, collection),
+      )
     environment = await environmentFor(dir, settings, environmentName)
     policy = await proxyPolicyFor(
       dir,
@@ -1061,6 +1084,8 @@ export async function collectionRun(
             onDetail
               ? (detail) => onDetail({ ...detail, ...identity })
               : undefined,
+            undefined,
+            scriptSources,
           )
           results.push({ ...result, ...identity })
           onProgress?.(results.length, selected)
@@ -1129,6 +1154,8 @@ export async function requestRun(
       (item) => item.id === id,
     )
     if (!request) throw new Error(`request not found: ${id}`)
+    const scriptSources = createScriptSourceResolver(dir)
+    await scriptSources.resolveBlocks(requestScriptBlocks(request, collection))
     onProgress?.(0, 1)
     const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
     const cookies = cookieAccess.jar
@@ -1151,6 +1178,7 @@ export async function requestRun(
         true,
         undefined,
         destination,
+        scriptSources,
       )
     } finally {
       await closeCookieJar(cookies)

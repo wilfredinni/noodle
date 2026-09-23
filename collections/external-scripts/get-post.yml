@@ -1,0 +1,17 @@
+name: External Pre, Post and Shared Tests
+method: GET
+url: https://jsonplaceholder.typicode.com/posts/1
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+scripts:
+  pre: "./external-scripts/prepare-request.js"
+  post: "./external-scripts/process-response.js"
+capture:
+  external_post_id:
+    value: body.id
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+tests: "./external-scripts/post-tests.js"

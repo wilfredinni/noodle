@@ -49,8 +49,9 @@ IDs. Assertions convert the expected ID to a number so both files describe the
 same two cases.
 
 Every pre/post block appends its name to `exampleSteps` in RunScope. Tests verify
-the order: suite, outer folder, inner folder (where present), request, separately
-for pre and post. The suite resets that trace before each request. When this
+the order: suite, outer folder, inner folder (where present), request for pre;
+request, inner folder, outer folder, suite for post. Tests run after assertions,
+from suite to request. The suite resets that trace before each request. When this
 directory is opened independently, `settings.yml` supplies the suite blocks and
 the root `folder.yml` is ignored. When the parent collection is open, its child
 `scripting-data/folder.yml` supplies them instead.

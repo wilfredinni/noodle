@@ -1,0 +1,17 @@
+name: HTTP Call from an External Script
+method: GET
+url: https://jsonplaceholder.typicode.com/posts/2
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+scripts:
+  pre: "./external-scripts/fetch-user.js"
+  post: "./external-scripts/process-response.js"
+capture:
+  external_post_id:
+    value: body.id
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+tests: "./external-scripts/post-tests.js"

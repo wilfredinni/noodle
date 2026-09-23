@@ -2,6 +2,7 @@ import type { RefObject } from "react"
 import { basename } from "node:path"
 import { HelpOverlay } from "./overlays/HelpOverlay"
 import { AboutOverlay } from "./overlays/AboutOverlay"
+import { NotificationOverlay } from "./overlays/NotificationOverlay"
 import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
 import {
   CommandPaletteOverlay,
@@ -262,6 +263,13 @@ export function AppOverlays({
           onClose={() => setAboutVisible(false)}
         />
       )}
+      {activeOverlay === "notification" &&
+        overlays.notificationMessage !== null && (
+          <NotificationOverlay
+            message={overlays.notificationMessage}
+            onClose={() => overlays.setNotificationMessage(null)}
+          />
+        )}
       {activeOverlay === "env-delete" && envDeletePending !== null && (
         <ConfirmOverlay
           visible

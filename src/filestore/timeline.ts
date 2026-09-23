@@ -106,6 +106,16 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
               source: {
                 ...error.source,
                 path: boundedDiagnosticText(error.source.path),
+                ...(error.source.scopeId !== undefined
+                  ? { scopeId: boundedDiagnosticText(error.source.scopeId) }
+                  : {}),
+                ...(error.source.sourcePath !== undefined
+                  ? {
+                      sourcePath: boundedDiagnosticText(
+                        error.source.sourcePath,
+                      ),
+                    }
+                  : {}),
               },
             }
           : {}),
@@ -126,14 +136,7 @@ function boundedScriptLogs(source: ScriptLog[]): ScriptLog[] {
     }
     logs.push({
       ...log,
-      ...(log.source
-        ? {
-            source: {
-              ...log.source,
-              path: boundedDiagnosticText(log.source.path),
-            },
-          }
-        : {}),
+      ...(log.source ? { source: { ...log.source } } : {}),
     })
   }
   return logs
@@ -149,6 +152,12 @@ function boundedScriptResult(
           source: {
             ...result.source,
             path: boundedDiagnosticText(result.source.path),
+            ...(result.source.scopeId !== undefined
+              ? { scopeId: boundedDiagnosticText(result.source.scopeId) }
+              : {}),
+            ...(result.source.sourcePath !== undefined
+              ? { sourcePath: boundedDiagnosticText(result.source.sourcePath) }
+              : {}),
           },
         }
       : {}),
@@ -316,6 +325,20 @@ async function persistBodies(
                     source: {
                       ...result.source,
                       path: boundedDiagnosticText(result.source.path),
+                      ...(result.source.scopeId !== undefined
+                        ? {
+                            scopeId: boundedDiagnosticText(
+                              result.source.scopeId,
+                            ),
+                          }
+                        : {}),
+                      ...(result.source.sourcePath !== undefined
+                        ? {
+                            sourcePath: boundedDiagnosticText(
+                              result.source.sourcePath,
+                            ),
+                          }
+                        : {}),
                     },
                   }
                 : {}),
@@ -323,6 +346,12 @@ async function persistBodies(
               message: boundedDiagnosticText(result.message),
             })),
             logs: boundedScriptLogs(source.tests.logs),
+            ...(source.tests.invocations
+              ? {
+                  invocations:
+                    source.tests.invocations.map(boundedScriptResult),
+                }
+              : {}),
             ...(source.tests.errors
               ? {
                   errors: source.tests.errors.map((error) =>

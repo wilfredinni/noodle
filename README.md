@@ -60,11 +60,9 @@ to create a collection, send your first request, and inspect the response.
   property, length, type, and partial-object matchers.
 - 🎯 **[Response captures](https://noodlerest.dev/docs/guides/automation/#pass-response-values-forward):**
   Pass response values to later requests or save them to an environment or secret.
-- 📜 **[Inline scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
-  Prepare requests and process responses with sandboxed JavaScript. Await saved
-  requests or direct HTTP calls, reuse captured values, and use signing, test
-  data, timestamp, and cookie helpers. Try the [request chaining examples](collections/async-scripting).
-  Share inline scripts and tests from collection settings and nested folders.
+- 📜 **[Scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
+  Prepare requests and process responses with sandboxed JavaScript.
+  Share scripts and tests across collections and folders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
   iteration data, and JSON results. Try the [data-run example](collections/scripting-data).
@@ -87,6 +85,8 @@ to create a collection, send your first request, and inspect the response.
 - [All guides and references](https://noodlerest.dev/docs/)
 - [CLI commands](https://noodlerest.dev/docs/getting-started/cli/)
 - [Collection format](https://noodlerest.dev/docs/reference/collection-format/)
+- [Script scopes and inheritance](https://noodlerest.dev/docs/guides/pre-request-scripting/#inherited-scripts-and-tests)
+- [External JavaScript files](https://noodlerest.dev/docs/guides/pre-request-scripting/#external-javascript-files)
 - [Script cookbook](https://noodlerest.dev/docs/guides/script-cookbook/)
 - [Changelog](CHANGELOG.md)
 

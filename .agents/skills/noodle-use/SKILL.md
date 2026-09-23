@@ -142,7 +142,7 @@ runtime changes but fails automation with redacted persistence diagnostics.
 Treat collections containing scripts as trusted code. A script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
-Manual timeline history retains bounded, redacted pre/post diagnostics, logs, persistence outcomes, and scripted test results/errors/logs. Script source, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
+Manual timeline history retains bounded, redacted pre/post outcome summaries, persistence outcomes, and scripted test results/errors. Script logs, test logs, source code, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
 
 ### Scripted response tests
 
@@ -175,7 +175,7 @@ Tests cannot mutate request, response, RunScope, environment, or cookies.
 Callbacks start immediately; returned Promises and thenables are awaited and
 results keep declaration order. Duplicate names remain separate. Failed
 callbacks do not stop later tests. Top-level errors and resource limits retain
-completed results. Network APIs, external files, and modules are unavailable. Empty source is
+completed results. Network APIs and modules are unavailable in tests; external source files use the confined host resolver. Empty source is
 a no-op, source is never substituted, and non-string `tests` values are invalid.
 
 Read `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs,
@@ -286,10 +286,17 @@ wall time, and 500 ms VM execution excluding network waiting. See
 
 ## Inherited scripts and tests
 
-Declare inline `scripts.pre`, `scripts.post`, and `tests` in collection
-`settings.yml`, nested `folder.yml`, or request YAML. Each phase accumulates
-blocks in this order: collection, outer folders, inner folders, request.
-An empty block is a no-op and does not disable inherited blocks.
+Declare `scripts.pre`, `scripts.post`, and `tests` in collection `settings.yml`,
+nested `folder.yml`, or request YAML. Each field accepts one inline JavaScript
+string or a collection-relative external reference such as `./scripts/sign.js`.
+Empty strings are no-ops and are omitted by canonical serialization.
+
+For every request: collection pre → folder pre (outermost to nearest) → request
+pre → HTTP → captures → request post → folder post (nearest to outermost) →
+collection post → assertions → tests (collection, outer folders, inner folders,
+request). Collection and folder hooks run once per request, including each selected
+request and dataset row. Ancestors use file paths, not display names; root
+`folder.yml` remains ignored. Existing inherited tests remain supported.
 
 Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
 successful RunScope writes are visible to later blocks. A pre failure stops
@@ -299,11 +306,15 @@ its block. Successful persistence intents keep execution order; collection
 runs and F5 suppress persistence as before. Saved `noodle.runRequest()` calls
 use the same inheritance and cycle protections.
 
-Inherited diagnostics include optional `source: { scope, path }`, where scope
-is `collection`, `folder`, or `request` and path is collection-relative.
-Tests also expose `errors` for multiple block errors; legacy `error` remains
-the first error. CLI, Results, and history show origins without retaining source
-code. Script logs and errors retain the existing redaction and size limits.
+Every executed block identifies its phase, scope, scope ID, source kind, duration,
+logs, and normalized error. `source.path` remains the declaring YAML path;
+`source.scopeId` identifies the collection, folder path, or request ID;
+`source.sourceKind` is `inline` or `external`, and external blocks add
+`source.sourcePath`, such as `./scripts/sign.js`. Test groups retain ordered
+`invocations` even for files declaring zero tests, and `errors` with legacy
+first `error` compatibility. JSON and live Results retain bounded redacted logs.
+New history entries retain outcome summaries but no script/test logs, source
+code, or RunScope values. Existing history remains readable.
 
 Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
 budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test

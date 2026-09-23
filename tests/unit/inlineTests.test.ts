@@ -74,13 +74,12 @@ const cases = [
 
 describe("inline test schema", () => {
   const prefix = "name: Test\nmethod: GET\nurl: http://127.0.0.1/\n"
-  it("strictly parses tests and rejects external source without reading files", () => {
+  it("strictly parses tests and rejects malformed references without reading files", () => {
     for (const value of ["null", "1", "false", "[]", "{}"])
       expect(() =>
         lang.parseRequest("x", `${prefix}tests: ${value}\n`),
       ).toThrow("tests must be a string")
     for (const path of [
-      "./test.js",
       "../tests",
       "/tmp/test",
       "file:///tmp/test.js",
@@ -89,7 +88,7 @@ describe("inline test schema", () => {
     ])
       expect(() =>
         lang.parseRequest("x", `${prefix}tests: '${path}'\n`),
-      ).toThrow("external test files are not supported")
+      ).toThrow("invalid external script path")
     expect(lang.parseRequest("x", prefix)).not.toHaveProperty("tests")
     expect(lang.serializeRequest(lang.parseRequest("x", prefix))).not.toContain(
       "tests:",
@@ -105,6 +104,10 @@ describe("inline test schema", () => {
     ]) {
       const original = { ...lang.parseRequest("x", prefix), tests: source }
       const yaml = lang.serializeRequest(original)
+      if (!source) {
+        expect(lang.parseRequest("x", yaml).tests).toBeUndefined()
+        continue
+      }
       expect(yaml).toContain("tests: |2")
       expect(lang.parseRequest("x", yaml).tests).toBe(source)
       expect(lang.serializeRequest(lang.parseRequest("x", yaml))).toBe(yaml)
@@ -339,7 +342,7 @@ describe("inline test sandbox", () => {
       expect(result.tests).toEqual([])
     }
     expect((await run("./tests.js")).result.error?.message).toContain(
-      "external script paths are not supported",
+      "unexpected token",
     )
   })
   it("awaits async tests and thenables in declaration order, retaining failures", async () => {
