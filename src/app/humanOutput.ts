@@ -345,10 +345,15 @@ export function formatImport(data: {
   path: string
   name: string
   formattedJsonBodies?: number
+  warnings?: import("../converters").ImportWarning[]
 }): string {
   return [
     `${color("✓", "green")} Imported ${data.name}`,
     `  ${data.path}`,
+    ...(data.warnings ?? []).map(
+      (warning) =>
+        `  Warning: ${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(warning.phase)}): ${warning.message}`,
+    ),
     ...(data.formattedJsonBodies === undefined
       ? []
       : [

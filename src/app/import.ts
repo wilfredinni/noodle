@@ -8,6 +8,7 @@ import {
   registerImporter,
   supportedFormats,
   type ImportResult,
+  type ImportWarning,
 } from "../converters/index"
 import {
   loadSettings,
@@ -201,9 +202,12 @@ export interface ImportOptions {
 
 let _importersRegistered = false
 
-export async function runImport(
-  options: ImportOptions,
-): Promise<{ path: string; name: string; formattedJsonBodies: number }> {
+export async function runImport(options: ImportOptions): Promise<{
+  path: string
+  name: string
+  formattedJsonBodies: number
+  warnings?: ImportWarning[]
+}> {
   if (!_importersRegistered) {
     const { openApiImporter } = await import("../converters/openapi/index")
     const { swaggerImporter } = await import("../converters/swagger/index")
@@ -350,10 +354,13 @@ export async function runImport(
   }
 
   if (!options.silent)
-    process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)
+    process.stdout.write(
+      `Imported ${result.collection.name} → ${collDir}\n${(result.warnings ?? []).map((warning) => `Warning: ${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(warning.phase)}): ${warning.message}\n`).join("")}`,
+    )
   return {
     path: collDir,
     name: result.collection.name,
     formattedJsonBodies: formatted.formattedJsonBodies,
+    ...(result.warnings?.length ? { warnings: result.warnings } : {}),
   }
 }

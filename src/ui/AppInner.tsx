@@ -1342,11 +1342,17 @@ export function AppInner({
       })
         .then(async (result) => {
           if (!result) return
+          const importMessage = result.warnings?.length
+            ? `Imported with ${result.warnings.length} unconverted script(s). Foreign runtime APIs were not converted.`
+            : "Collection imported"
           if (values.destination === "current") {
             await onEnvListChanged().catch(() => {})
             overlays.setImportCollectionVisible(false)
             onReloadCollection()
-            showToast("Collection imported", "success")
+            showToast(
+              importMessage,
+              result.warnings?.length ? "warning" : "success",
+            )
             return
           }
 
@@ -1361,6 +1367,7 @@ export function AppInner({
             )
           }
           overlays.setImportCollectionVisible(false)
+          if (result.warnings?.length) showToast(importMessage, "warning")
           overlays.setImportOpenPending({
             path: result.path,
             name: result.name,

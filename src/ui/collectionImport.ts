@@ -15,6 +15,7 @@ export interface CollectionImportResult {
   path: string
   name: string
   formattedJsonBodies: number
+  warnings?: import("../converters").ImportWarning[]
 }
 
 type ImportRunner = (options: ImportOptions) => Promise<CollectionImportResult>

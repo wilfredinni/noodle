@@ -19,7 +19,7 @@ import type {
   ParamEntry,
   Request,
 } from "../../schema"
-import type { ImportResult } from "../index"
+import type { ImportResult, ImportWarning } from "../index"
 import { slugify, METHOD_UPPER, setOwn } from "../shared"
 import { parsePathToken } from "../../requests/pathParams"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
@@ -504,6 +504,43 @@ function mapItems(
 export function mapCollection(col: Collection): ImportResult {
   const name = col.name || "postman-import"
   const collectionId = slugify(name)
+  const warnings: ImportWarning[] = []
+  function scripts(item: Record<string, unknown>, path: string[]) {
+    if (Array.isArray(item.event))
+      for (const event of item.event) {
+        const script = event?.script
+        if (
+          !script ||
+          !(
+            (typeof script.exec === "string" && script.exec.trim()) ||
+            (Array.isArray(script.exec) &&
+              script.exec.some(
+                (line: unknown) => typeof line === "string" && line.trim(),
+              )) ||
+            (typeof script.src === "string" && script.src.trim()) ||
+            (script.src && typeof script.src === "object")
+          )
+        )
+          continue
+        warnings.push({
+          code: "foreign-script-not-converted",
+          format: "postman",
+          itemPath: path,
+          phase: typeof event.listen === "string" ? event.listen : "unknown",
+          message:
+            "Postman runtime API was not converted; recreate this script in Noodle.",
+        })
+      }
+    if (Array.isArray(item.item))
+      item.item.forEach((child, index) => {
+        if (child && typeof child === "object")
+          scripts(child, [
+            ...path,
+            typeof child.name === "string" ? child.name : `item-${index + 1}`,
+          ])
+      })
+  }
+  scripts(col.toJSON(), [name])
 
   const rootItems = mapItems(col.items, "", new Set<string>())
 
@@ -524,5 +561,6 @@ export function mapCollection(col: Collection): ImportResult {
   return {
     collection: { id: collectionId, name, items: rootItems },
     environments,
+    ...(warnings.length ? { warnings } : {}),
   }
 }

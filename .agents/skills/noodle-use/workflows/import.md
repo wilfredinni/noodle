@@ -122,10 +122,11 @@ Postman imports map:
 - Folder hierarchy → noodle folder structure
 - Folder auth → the matching nested `folder.yml` override
 - Request auth → inline `auth` on requests (or `inherit` if same as parent)
-- Pre-request and post-response scripts → not imported. Noodle supports
-  request-level inline `scripts.pre` and `scripts.post`, but automatic Postman
-  script conversion remains unsupported.
-- Tests → not imported
+- Pre-request/post-response scripts and tests → detected, not converted. Structured
+  warnings include the foreign item path, original phase, format, and a message
+  explaining that the foreign runtime API was not converted. Human output and
+  `--json` expose these warnings; no `pm.*` or `insomnia.*` rewrites are generated.
+  The same warning policy applies to supported Insomnia JSON imports.
 - Collection variables → environment file
 - Raw XML bodies → `body_type: xml` (from the raw language or XML Content-Type)
 

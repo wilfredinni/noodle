@@ -96,6 +96,7 @@ declare module "postman-collection" {
   }
 
   interface Collection {
+    toJSON(): Record<string, unknown>
     name: string
     info: { name: string; schema?: string; description?: string }
     items: PropertyList<Item | ItemGroup>
