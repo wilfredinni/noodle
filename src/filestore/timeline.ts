@@ -15,7 +15,6 @@ import * as yaml from "../yaml"
 import type {
   ScriptExecutionError,
   ScriptExecutionResult,
-  ScriptLog,
 } from "../preRequestScript"
 import type {
   JsonValue,
@@ -106,6 +105,16 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
               source: {
                 ...error.source,
                 path: boundedDiagnosticText(error.source.path),
+                ...(error.source.scopeId !== undefined
+                  ? { scopeId: boundedDiagnosticText(error.source.scopeId) }
+                  : {}),
+                ...(error.source.sourcePath !== undefined
+                  ? {
+                      sourcePath: boundedDiagnosticText(
+                        error.source.sourcePath,
+                      ),
+                    }
+                  : {}),
               },
             }
           : {}),
@@ -113,30 +122,6 @@ function boundedScriptError(error: ScriptExecutionError | undefined) {
         message: boundedDiagnosticText(error.message),
       }
     : undefined
-}
-
-function boundedScriptLogs(source: ScriptLog[]): ScriptLog[] {
-  const logs: ScriptLog[] = []
-  let logBytes = 0
-  for (const log of source) {
-    logBytes += byteSize(JSON.stringify(log))
-    if (logBytes > INLINE_BODY_LIMIT) {
-      logs.push({ level: "warn", message: "[TRUNCATED]" })
-      break
-    }
-    logs.push({
-      ...log,
-      ...(log.source
-        ? {
-            source: {
-              ...log.source,
-              path: boundedDiagnosticText(log.source.path),
-            },
-          }
-        : {}),
-    })
-  }
-  return logs
 }
 
 function boundedScriptResult(
@@ -149,10 +134,16 @@ function boundedScriptResult(
           source: {
             ...result.source,
             path: boundedDiagnosticText(result.source.path),
+            ...(result.source.scopeId !== undefined
+              ? { scopeId: boundedDiagnosticText(result.source.scopeId) }
+              : {}),
+            ...(result.source.sourcePath !== undefined
+              ? { sourcePath: boundedDiagnosticText(result.source.sourcePath) }
+              : {}),
           },
         }
       : {}),
-    logs: boundedScriptLogs(result.logs),
+    logs: [],
     error: boundedScriptError(result.error),
     ...(result.requests
       ? {
@@ -316,13 +307,33 @@ async function persistBodies(
                     source: {
                       ...result.source,
                       path: boundedDiagnosticText(result.source.path),
+                      ...(result.source.scopeId !== undefined
+                        ? {
+                            scopeId: boundedDiagnosticText(
+                              result.source.scopeId,
+                            ),
+                          }
+                        : {}),
+                      ...(result.source.sourcePath !== undefined
+                        ? {
+                            sourcePath: boundedDiagnosticText(
+                              result.source.sourcePath,
+                            ),
+                          }
+                        : {}),
                     },
                   }
                 : {}),
               name: boundedDiagnosticText(result.name),
               message: boundedDiagnosticText(result.message),
             })),
-            logs: boundedScriptLogs(source.tests.logs),
+            logs: [],
+            ...(source.tests.invocations
+              ? {
+                  invocations:
+                    source.tests.invocations.map(boundedScriptResult),
+                }
+              : {}),
             ...(source.tests.errors
               ? {
                   errors: source.tests.errors.map((error) =>

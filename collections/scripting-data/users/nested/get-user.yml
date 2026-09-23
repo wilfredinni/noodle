@@ -8,10 +8,10 @@ scripts:
   post: |-
     noodle.run.set("exampleSteps", [...noodle.run.get("exampleSteps"), "request-post"])
 tests: |-
-  test("outer and inner folders run before the request in both phases", () => {
+  test("pre hooks enter scopes and post hooks leave them", () => {
     expect(noodle.run.get("exampleSteps")).toEqual([
       "suite-pre", "users-pre", "nested-pre", "request-pre",
-      "suite-post", "users-post", "nested-post", "request-post"
+      "request-post", "nested-post", "users-post", "suite-post"
     ])
   })
   test("nested requests read the same iteration row", () => {

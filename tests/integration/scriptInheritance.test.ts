@@ -31,7 +31,7 @@ const block = (name: string): ScriptFields => ({
     pre: `const local = "${name}"; noodle.run.set("order", (noodle.run.get("order") || "") + local + "-pre,");`,
     post: `const local = "${name}"; noodle.run.set("order", noodle.run.get("order") + local + "-post,"); console.log(local);`,
   },
-  tests: `const local = "${name}"; test(local, () => expect(noodle.run.get("order")).toBe("root-pre,outer-pre,inner-pre,request-pre,root-post,outer-post,inner-post,request-post,"))`,
+  tests: `const local = "${name}"; test(local, () => expect(noodle.run.get("order")).toBe("root-pre,outer-pre,inner-pre,request-pre,request-post,inner-post,outer-post,root-post,"))`,
 })
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-inheritance-"))
@@ -93,12 +93,17 @@ it("bounds diagnostics across inherited blocks without hiding failed tests or le
     {
       level: "log",
       message: "[TRUNCATED]",
-      source: { scope: "folder", path: "outer/folder.yml" },
+      source: {
+        scope: "collection",
+        path: "settings.yml",
+        scopeId: dir.split("/").at(-1),
+        sourceKind: "inline",
+      },
     },
   ])
 })
 
-it("round-trips inherited literal blocks and runs collection, outer, inner and request in every phase", async () => {
+it("round-trips inherited literal blocks with ascending pre/tests and descending post scopes", async () => {
   const root = block("root")
   await saveSettings(dir, { cookies: { enabled: false }, ...root })
   expect((await loadSettings(dir)).scripts).toEqual(root.scripts)
@@ -128,10 +133,10 @@ it("round-trips inherited literal blocks and runs collection, outer, inner and r
     "outer/folder.yml",
     "outer/inner/folder.yml",
     "outer/inner/request.yml",
-    "settings.yml",
-    "outer/folder.yml",
-    "outer/inner/folder.yml",
     "outer/inner/request.yml",
+    "outer/inner/folder.yml",
+    "outer/folder.yml",
+    "settings.yml",
   ])
   expect(result.result.tests?.results.map((test) => test.name)).toEqual([
     "root",
@@ -166,6 +171,8 @@ it("stops pre on failure, discards only that block, and preserves ordered persis
     scripts: { pre: 'throw Error("never")' },
     tests: 'test("never",()=>{})',
   })
+  req.captures = { id: { value: "body.id", enabled: true } }
+  req.assertions = [{ expression: "status", operator: "equals", value: 200 }]
   const scope = new RunScope()
   const saved: unknown[] = []
   const result = await executeRequestLifecycle({
@@ -187,10 +194,13 @@ it("stops pre on failure, discards only that block, and preserves ordered persis
     },
   })
   expect(result.status).toBe("error")
+  if (result.status === "error") expect(result.failureCategory).toBe("script")
   expect(scope.get("value")).toBe("root")
   expect(saved).toHaveLength(1)
   expect(result.execution.scripts?.results).toHaveLength(2)
   expect(result.execution.tests?.evaluated).toBe(false)
+  expect(result.execution.captures?.evaluated).toBe(false)
+  expect(result.execution.assertions?.evaluated).toBe(false)
   expect(hits).toBe(0)
 })
 
@@ -198,7 +208,7 @@ it("continues posts and test blocks after errors, preserving rollback and every 
   await saveSettings(dir, {
     cookies: { enabled: false },
     scripts: {
-      post: 'noodle.run.set("value", "discard"); throw Error("root-post")',
+      post: 'console.log("collection"); noodle.run.set("value", "discard"); throw Error("root-post")',
     },
     tests: 'test("first",()=>{}); throw Error("root-tests")',
   })
@@ -210,14 +220,18 @@ it("continues posts and test blocks after errors, preserving rollback and every 
       path: "outer",
       children: [],
       scripts: {
-        post: 'if(noodle.run.get("value") !== undefined) throw Error("rollback"); noodle.run.set("value", "folder")',
+        post: 'console.log("folder"); if(noodle.run.get("value") !== undefined) throw Error("rollback"); noodle.run.set("value", "folder")',
       },
       tests: 'throw Error("folder-tests")',
     }),
   )
   const req = request("outer/request", {
+    scripts: {
+      post: 'console.log("request"); noodle.run.set("value", "discard"); throw Error("request-post")',
+    },
     tests: 'test("last",()=>expect(noodle.run.get("value")).toBe("folder"))',
   })
+  req.assertions = [{ expression: "status", operator: "equals", value: 200 }]
   await writeFile(join(dir, `${req.id}.yml`), lang.serializeRequest(req))
   const result = await collectionRun(dir, undefined, undefined, true)
   expect(hits).toBe(1)
@@ -225,7 +239,19 @@ it("continues posts and test blocks after errors, preserving rollback and every 
   expect(execution.scripts?.results.map((script) => script.success)).toEqual([
     false,
     true,
+    false,
   ])
+  expect(
+    execution.scripts?.results.flatMap((script) =>
+      script.error ? [script.error.message] : [],
+    ),
+  ).toEqual(["request-post", "root-post"])
+  expect(
+    execution.scripts?.results.flatMap((script) =>
+      script.logs.map((log) => log.message),
+    ),
+  ).toEqual(["request", "folder", "collection"])
+  expect(execution.assertions?.results[0]?.passed).toBe(true)
   expect(execution.tests?.results.map((test) => test.passed)).toEqual([
     true,
     true,

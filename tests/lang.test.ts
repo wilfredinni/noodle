@@ -182,7 +182,7 @@ describe("inline pre-request script language", () => {
       "name: Empty\nmethod: GET\nurl: https://example.com\nscripts:\n  pre: ''\n",
     )
     expect(empty.scripts).toEqual({ pre: "" })
-    expect(lang.serializeRequest(empty)).toContain("scripts:\n  pre: |2-\n")
+    expect(lang.serializeRequest(empty)).not.toContain("scripts:")
     expect(
       lang.parseRequest("x", lang.serializeRequest(makeRequest())),
     ).not.toHaveProperty("scripts")
@@ -219,6 +219,10 @@ describe("inline pre-request script language", () => {
       )
       req.scripts = { post: source, pre: source }
       const yaml = lang.serializeRequest(req)
+      if (!source) {
+        expect(lang.parseRequest("x", yaml).scripts).toBeUndefined()
+        continue
+      }
       expect(yaml.indexOf("  pre:")).toBeLessThan(yaml.indexOf("  post:"))
       expect(lang.parseRequest("x", yaml).scripts).toEqual(req.scripts)
       req.scripts = { post: source }
@@ -228,7 +232,6 @@ describe("inline pre-request script language", () => {
     }
     for (const phase of ["pre", "post"]) {
       for (const path of [
-        "./script.js",
         "/tmp/script.js",
         "script.ts",
         "@/script.js",
@@ -241,7 +244,7 @@ describe("inline pre-request script language", () => {
             "x",
             `name: X\nmethod: GET\nurl: https://example.com\nscripts:\n  ${phase}: '${path}'\n`,
           ),
-        ).toThrow(`scripts.${phase} must be inline source`)
+        ).toThrow("invalid external script path")
       }
     }
   })

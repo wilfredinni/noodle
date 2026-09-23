@@ -663,7 +663,13 @@ describe("script persistence", () => {
       true,
     )
     expect(JSON.stringify(timeline)).not.toContain("response-secret")
-    expect(timeline.scripts).toEqual(first.execution.scripts)
+    expect(timeline.scripts).toEqual({
+      ...first.execution.scripts!,
+      results: first.execution.scripts!.results.map((result) => ({
+        ...result,
+        logs: [],
+      })),
+    })
     expect(timeline.request).not.toHaveProperty("scripts")
     const foreignHeaders: Headers[] = []
     const foreign = Bun.serve({

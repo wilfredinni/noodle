@@ -63,7 +63,7 @@ function formatScripts(result: RequestRunResult): string[] {
       ),
       ...(script.error
         ? [
-            `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.phase === "pre" ? "pre-request" : "post-response"}.js:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
+            `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.source?.sourcePath ?? (script.phase === "pre" ? "pre-request.js" : "post-response.js")}:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
           ]
         : []),
       ...(script.persistence ?? []).map(
@@ -97,6 +97,10 @@ function formatTests(result: RequestRunResult): string[] {
   const passed = tests.results.filter((test) => test.passed).length
   return [
     `  Tests: ${passed} passed, ${tests.results.length - passed} failed`,
+    ...(tests.invocations ?? []).map(
+      (invocation) =>
+        `    Tests: ${scriptSourceLabel(invocation.source)}, ${invocation.durationMs}ms, ${invocation.success ? "passed" : "failed"}`,
+    ),
     ...tests.results
       .filter((test) => !test.passed || test.source)
       .map(
@@ -105,7 +109,7 @@ function formatTests(result: RequestRunResult): string[] {
       ),
     ...(tests.errors ?? (tests.error ? [tests.error] : [])).map(
       (error) =>
-        `    Test script error: ${error.name}: ${error.message}${error.source ? ` (${scriptSourceLabel(error.source)})` : ""}${error.line ? ` (tests.js:${error.line}${error.column ? `:${error.column}` : ""})` : ""}`,
+        `    Test script error: ${error.name}: ${error.message}${error.source ? ` (${scriptSourceLabel(error.source)})` : ""}${error.line ? ` (${error.source?.sourcePath ?? "tests.js"}:${error.line}${error.column ? `:${error.column}` : ""})` : ""}`,
     ),
   ]
 }

@@ -1,0 +1,18 @@
+# Open collections/ as the collection root; all ./ paths start there.
+# https://noodlerest.dev/docs/guides/pre-request-scripting/#external-javascript-files
+meta:
+  name: External JavaScript
+  seq: 5
+tags:
+  - external-scripts
+auth:
+  type: none
+scripts:
+  pre: ./external-scripts/folder-pre.js
+  post: ./external-scripts/folder-post.js
+tests: |-
+  test("folder and request hooks run in order", () => {
+    expect(noodle.run.get("external_steps")).toEqual([
+      "folder-pre", "request-pre", "request-post", "folder-post"
+    ])
+  })

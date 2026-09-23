@@ -85,6 +85,8 @@ describe("inline tests CLI and compiled binary", () => {
     expect(result.results[0].tests.results[0].source).toEqual({
       scope: "collection",
       path: "settings.yml",
+      scopeId: dir.split("/").at(-1),
+      sourceKind: "inline",
     })
     await writeFile(join(dir, "rows.json"), "[null]")
     expect(
@@ -236,7 +238,18 @@ describe("inline tests CLI and compiled binary", () => {
     expect(
       result.tests.results.map((test: { passed: boolean }) => test.passed),
     ).toEqual([true, false])
-    expect(result.tests.logs).toEqual([{ level: "log", message: "[REDACTED]" }])
+    expect(result.tests.logs).toEqual([
+      {
+        level: "log",
+        message: "[REDACTED]",
+        source: {
+          scope: "request",
+          scopeId: "a",
+          path: "a.yml",
+          sourceKind: "inline",
+        },
+      },
+    ])
     expect(await readFile(output, "utf8")).toBe('{"id":7}')
     const human = await cli(
       "request",
@@ -248,7 +261,9 @@ describe("inline tests CLI and compiled binary", () => {
     )
     expect(human.code).toBe(1)
     expect(human.stdout).toContain("Tests: 1 passed, 1 failed")
-    expect(human.stdout).toContain("fail: Expected value to satisfy toBe")
+    expect(human.stdout).toContain(
+      "fail (request: a): Expected value to satisfy toBe",
+    )
     expect(human.stdout).not.toContain("secret-token")
     const collection = await cli(
       "collection",

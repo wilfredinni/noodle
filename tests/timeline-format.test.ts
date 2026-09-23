@@ -665,13 +665,11 @@ describe("buildTimelineEntry", () => {
       "pre",
       "post",
     ])
-    expect(entry.scripts?.results[0]?.logs[0]?.message).toBe(
-      "[REDACTED] [REDACTED]",
-    )
+    expect(entry.scripts?.results[0]?.logs).toEqual([])
     expect(entry.scripts?.results[1]).toMatchObject({
       success: false,
       durationMs: 5,
-      logs: [{ level: "error", message: "cookie=[REDACTED] [REDACTED]" }],
+      logs: [],
       error: { name: "[REDACTED]", message: "[REDACTED]", line: 2, column: 3 },
       persistence: [{ error: { name: "[REDACTED]", message: "[REDACTED]" } }],
     })

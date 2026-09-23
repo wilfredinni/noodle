@@ -79,7 +79,7 @@ export function ResponseResults({
   const rowKey = [
     ...scriptResults.map(
       (result) =>
-        `script:${result.phase}:${scriptExecutionSucceeded(result)}:${result.durationMs}:${JSON.stringify(result.persistence ?? [])}:${JSON.stringify(result.requests ?? [])}`,
+        `script:${JSON.stringify(result.source)}:${result.phase}:${scriptExecutionSucceeded(result)}:${result.durationMs}:${JSON.stringify(result.persistence ?? [])}:${JSON.stringify(result.requests ?? [])}`,
     ),
     ...assertionResults.map((result) => `assertion:${result.expression}`),
     ...(showCaptures
@@ -260,7 +260,11 @@ export function ResponseResults({
                     hovered={hoveredRow === id}
                     details={[
                       { label: "Phase", value: result.phase },
-                      { label: "Scope", value: result.scope },
+                      {
+                        label: "Scope",
+                        value: `${result.scope}${result.source?.scopeId ? `: ${result.source.scopeId}` : ""}`,
+                      },
+                      { label: "Kind", value: result.sourceKind },
                       {
                         label: "Source",
                         value: result.source
@@ -303,7 +307,7 @@ export function ResponseResults({
                               ? [
                                   {
                                     label: "Location",
-                                    value: `${result.phase === "pre" ? "pre-request" : "post-response"}.js:${result.error.line}${result.error.column ? `:${result.error.column}` : ""}`,
+                                    value: `${result.source?.sourcePath ?? (result.phase === "pre" ? "pre-request.js" : "post-response.js")}:${result.error.line}${result.error.column ? `:${result.error.column}` : ""}`,
                                   },
                                 ]
                               : []),
@@ -538,6 +542,15 @@ export function ResponseResults({
                 expanded={expandedRow === "response-test-script"}
                 hovered={hoveredRow === "response-test-script"}
                 details={[
+                  ...(tests.invocations ?? []).flatMap((invocation) => [
+                    { label: "Phase", value: "tests" },
+                    {
+                      label: "Source",
+                      value: scriptSourceLabel(invocation.source),
+                    },
+                    { label: "Kind", value: invocation.sourceKind },
+                    { label: "Duration", value: `${invocation.durationMs}ms` },
+                  ]),
                   ...testErrors.flatMap((error) => [
                     ...(error.source
                       ? [
@@ -553,7 +566,7 @@ export function ResponseResults({
                       ? [
                           {
                             label: "Location",
-                            value: `tests.js:${error.line}${error.column ? `:${error.column}` : ""}`,
+                            value: `${error.source?.sourcePath ?? "tests.js"}:${error.line}${error.column ? `:${error.column}` : ""}`,
                           },
                         ]
                       : []),

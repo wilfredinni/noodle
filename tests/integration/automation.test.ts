@@ -462,7 +462,7 @@ assert:
       expect(details[0]?.entry.scripts?.results[0]).toMatchObject({
         phase: "pre",
         success: true,
-        logs: [{ level: "log", message: "token [REDACTED]" }],
+        logs: [],
       })
       expect(details[0]?.entry.request).not.toHaveProperty("scripts")
       expect(JSON.stringify(details[0]?.entry)).not.toContain("script-secret")
@@ -732,7 +732,13 @@ capture:
       expect(result.skipped).toEqual([{ id: "02-next", reason: "fail-fast" }])
       expect(result.summary.failureCategories).toEqual(["script"])
       expect(details[0]?.entry.request.url).toBe("https://example.com/fail")
-      expect(details[0]?.entry.scripts).toEqual(result.results[0]?.scripts)
+      expect(details[0]?.entry.scripts).toEqual({
+        ...result.results[0]!.scripts!,
+        results: result.results[0]!.scripts!.results.map((script) => ({
+          ...script,
+          logs: [],
+        })),
+      })
       expect(JSON.stringify(details[0]?.entry)).not.toContain("noodle.run.set")
       expect(details[0]?.entry.request).not.toHaveProperty("scripts")
     } finally {
