@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import {
   mkdir,
   mkdtemp,
@@ -602,6 +602,59 @@ describe("CollectionCookieJar", () => {
     expect(second.cookieHeaderFor("https://example.com/")).toBe("")
     await second.refresh()
     expect(second.cookieHeaderFor("https://example.com/")).toBe("fresh=1")
+  })
+
+  it("marks refresh lock failures unavailable and recovers on retry", async () => {
+    setCookieJarTimingForTests({ lockTimeoutMs: 0 })
+    const jar = await CollectionCookieJar.open(configDir, "refresh-lock")
+    jar.put({ name: "session", value: "saved", domain: "example.com" })
+    await jar.saveNow()
+    const holder = await acquireFileLock(jar.file, {
+      lockTimeoutMs: 0,
+      minBackoffMs: 0,
+      maxBackoffMs: 0,
+    })
+    const stored = await readFile(jar.file, "utf8")
+
+    try {
+      await expect(jar.refresh()).rejects.toMatchObject({
+        code: "lock-timeout",
+      })
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "lock-timeout" },
+      })
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("")
+      expect(await readFile(jar.file, "utf8")).toBe(stored)
+
+      setCookieJarTimingForTests()
+      const wait = spyOn(globalThis, "setTimeout").mockImplementation(
+        Object.assign(
+          () => {
+            throw new Error(
+              "Unavailable cookie storage must not wait for a lock",
+            )
+          },
+          { __promisify__: setTimeout.__promisify__ },
+        ),
+      )
+      try {
+        await expect(jar.refresh()).rejects.toMatchObject({
+          code: "lock-timeout",
+        })
+        expect(wait).not.toHaveBeenCalled()
+      } finally {
+        wait.mockRestore()
+      }
+
+      await holder.release()
+      await jar.refresh()
+      expect(jar.status.state).toBe("encrypted")
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("session=saved")
+    } finally {
+      await holder.release()
+      await jar.close()
+    }
   })
 
   it("flushes all active handles", async () => {

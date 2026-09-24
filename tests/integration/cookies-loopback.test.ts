@@ -4,7 +4,11 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import type { Request } from "../../src/schema"
 import { send } from "../../src/requests/send"
-import { CollectionCookieJar } from "../../src/cookies"
+import {
+  CollectionCookieJar,
+  setCookieJarTimingForTests,
+} from "../../src/cookies"
+import { acquireFileLock } from "../../src/fileLock"
 import { setSecretBackendForTests, type SecretBackend } from "../../src/secrets"
 
 function memoryBackend(): SecretBackend & { values: Map<string, string> } {
@@ -78,6 +82,58 @@ afterAll(async () => {
 })
 
 describe("send with cookie jar", () => {
+  it("recovers cookies on the next send after a temporary storage lock clears", async () => {
+    seenCookies = []
+    setCookieJarTimingForTests({ lockTimeoutMs: 0 })
+    const writer = await CollectionCookieJar.open(configDir, "unavailable")
+    writer.put({ name: "session", value: "saved", domain: "localhost" })
+    await writer.close()
+    const holder = await acquireFileLock(writer.file, {
+      lockTimeoutMs: 0,
+      minBackoffMs: 0,
+      maxBackoffMs: 0,
+    })
+    const reader = await CollectionCookieJar.open(configDir, "unavailable")
+    const request = { ...baseReq, url: `http://localhost:${port}/done` }
+
+    try {
+      expect(reader.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "lock-timeout" },
+      })
+      for (let i = 0; i < 2; i++) {
+        const response = await send(
+          { ...request, url: `http://localhost:${port}/login` },
+          { cookies: reader },
+        )
+        expect(response.status).toBe(200)
+        expect(response.cookies).toContainEqual(
+          expect.objectContaining({ name: "session", value: "abc123" }),
+        )
+      }
+      expect(seenCookies).toEqual(["", ""])
+      expect(reader.status.state).toBe("unavailable")
+      await expect(reader.saveNow()).resolves.toBeUndefined()
+      expect(reader.list()).toEqual([])
+
+      await holder.release()
+      await send(request, { cookies: reader })
+      expect(reader.status.state).toBe("encrypted")
+      expect(seenCookies[2]).toBe("session=saved")
+
+      await send(
+        { ...request, url: `http://localhost:${port}/login` },
+        { cookies: reader },
+      )
+      await send(request, { cookies: reader })
+      expect(seenCookies[4]).toBe("session=abc123")
+    } finally {
+      await holder.release()
+      await reader.close()
+      setCookieJarTimingForTests()
+    }
+  })
+
   it("captures Set-Cookie and sends jar cookies on the next request", async () => {
     const jar = await CollectionCookieJar.open(configDir, "col-1")
     const login: Request = {

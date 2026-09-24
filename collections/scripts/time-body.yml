@@ -1,0 +1,27 @@
+name: Time body placeholders
+method: POST
+url: $base_url/posts
+timeout: 0
+body_type: json
+body: |-
+  {
+    "title": "Timestamped post",
+    "body": "Created at $time.iso",
+    "userId": 1,
+    "createdAt": $time.iso,
+    "timestampMs": $time.now,
+    "timestampSeconds": $time.unix
+  }
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+tests: |-
+  test("time placeholders share the request timestamp", () => {
+    const sent = noodle.request.body.json();
+    expect(sent.timestampMs).toBeTypeOf("number");
+    expect(sent.timestampSeconds).toBe(Math.floor(sent.timestampMs / 1000));
+    expect(sent.createdAt).toBe(new Date(sent.timestampMs).toISOString());
+  });
+auth:
+  type: none

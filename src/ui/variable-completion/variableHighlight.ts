@@ -2,7 +2,10 @@ import type { Environment, ParamEntry } from "../../schema"
 import { SyntaxStyle } from "@opentui/core"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
 import type { Theme } from "../theme-data"
-import { getVariableHighlights } from "./variableCompletion"
+import {
+  getVariableHighlights,
+  type BodyCompletion,
+} from "./variableCompletion"
 import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
 import { isPathParamResolved } from "./envHighlight"
 import {
@@ -16,6 +19,7 @@ export function highlightVariables(
   theme: Theme,
   env: Environment | null,
   pathParams?: ParamEntry[],
+  body?: BodyCompletion,
 ): void {
   const style = SyntaxStyle.fromStyles({
     "env.resolved": { fg: theme.primary },
@@ -27,7 +31,7 @@ export function highlightVariables(
   input.syntaxStyle = style
   const displayOffsets = buildCharToDisplayOffsets(value)
 
-  for (const highlight of getVariableHighlights(value, env)) {
+  for (const highlight of getVariableHighlights(value, env, body)) {
     input.addHighlightByCharRange({
       start: charOffsetToDisplayOffset(displayOffsets, highlight.start),
       end: charOffsetToDisplayOffset(displayOffsets, highlight.end),

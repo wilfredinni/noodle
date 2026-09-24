@@ -12,6 +12,7 @@ import type {
   Response,
 } from "../schema"
 import { substitute, type SubstitutedRequest } from "./substitute"
+import { createBodyValueResolver } from "../bodyTemplate"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
@@ -151,13 +152,23 @@ export async function send(
     collection && requestPath
       ? mergeFolderOverrides(req, collection, requestPath)
       : req
+  const generatedSecrets: string[] = []
   return sendPrepared(
-    substitute(merged, environment ?? { name: "", vars: {} }, resolveVariables),
+    substitute(
+      merged,
+      environment ?? { name: "", vars: {} },
+      resolveVariables,
+      createBodyValueResolver((value) => {
+        generatedSecrets.push(value)
+        transport.onSensitiveValues?.([value])
+      }),
+    ),
     {
       ...transport,
       knownSensitiveValues: [
         ...(transport.knownSensitiveValues ?? []),
         ...environmentSecretValues(environment),
+        ...generatedSecrets,
       ],
     },
   )
@@ -181,7 +192,12 @@ export async function sendPrepared(
     knownSensitiveValues = [],
   } = options
 
-  if (cookies && substituted.sendCookies !== false) {
+  if (
+    cookies &&
+    substituted.sendCookies !== false &&
+    (cookies.status.state !== "unavailable" ||
+      cookies.status.error.code === "lock-timeout")
+  ) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
     await cookies.refresh().catch(() => {})
   }

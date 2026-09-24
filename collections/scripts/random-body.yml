@@ -1,0 +1,27 @@
+name: Random body placeholders
+method: POST
+url: $base_url/posts
+timeout: 0
+body_type: json
+body: |-
+  {
+    "title": "$random.words({\"count\":3})",
+    "body": "$random.loremSentence",
+    "userId": $random.number({"min":1,"max":10}),
+    "requestId": "$random.uuid()",
+    "role": $random.pick(["admin","user"]),
+    "active": $random.boolean
+  }
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+tests: |-
+  test("body placeholders keep JSON types", () => {
+    const sent = noodle.request.body.json();
+    expect(sent.userId).toBeTypeOf("number");
+    expect(sent.active).toBeTypeOf("boolean");
+    expect(["admin", "user"]).toContain(sent.role);
+  });
+auth:
+  type: none

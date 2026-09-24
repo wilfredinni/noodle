@@ -9,8 +9,9 @@ headers:
 body: |-
   {
     "postId": 1,
-    "name": "test comment",
-    "email": "test@example.com",
-    "body": "comment body"
+    "name": $random.name,
+    "email": $random.email,
+    "body": $random.loremText,
+    "timestamp": $time.now
   }
 body_type: json

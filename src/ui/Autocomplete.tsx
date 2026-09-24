@@ -18,6 +18,9 @@ interface AutocompleteItem {
   key: string
   label: string
   matchQuery?: string
+  description?: string
+  signature?: string
+  example?: string
 }
 
 interface AutocompleteEditor {
@@ -57,11 +60,20 @@ export function Autocomplete({
   const popupRef = useRef<BoxRenderable | null>(null)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const anchorReadyRef = useRef(getEditor() !== null)
-  const visibleCount = Math.max(
+  const index = Math.max(0, Math.min(selectedIndex, items.length - 1))
+  const selected = items[index]
+  const details = [
+    selected?.description,
+    selected?.signature,
+    selected?.example ? `Example: ${selected.example}` : undefined,
+  ]
+    .filter((line): line is string => !!line)
+    .join("\n")
+  const hasDetails = details.length > 0 && terminalHeight >= 8
+  const maxVisibleCount = Math.max(
     0,
     Math.min(10, terminalHeight - 2, Math.max(message ? 1 : 0, items.length)),
   )
-  const menuHeight = visibleCount + 2
   const labelWidth = useMemo(() => {
     let width = 0
     for (const item of items) {
@@ -74,11 +86,30 @@ export function Autocomplete({
     terminalWidth,
     Math.max(
       18,
-      labelWidth + 4 + (items.length > visibleCount ? 1 : 0),
+      hasDetails ? 64 : 0,
+      labelWidth + 4 + (items.length > maxVisibleCount ? 1 : 0),
       Bun.stringWidth(message ?? "") + 4,
     ),
   )
-  const index = Math.max(0, Math.min(selectedIndex, items.length - 1))
+  const detailRows = details
+    .split("\n")
+    .reduce(
+      (sum, line) =>
+        sum +
+        Math.max(
+          1,
+          Math.ceil(Bun.stringWidth(line) / Math.max(1, menuWidth - 4)),
+        ),
+      0,
+    )
+  const detailHeight = hasDetails
+    ? Math.min(6, detailRows, terminalHeight - 6) + 1
+    : 0
+  const visibleCount = Math.max(
+    0,
+    Math.min(maxVisibleCount, terminalHeight - 2 - detailHeight),
+  )
+  const menuHeight = visibleCount + detailHeight + 2
   const start = Math.max(
     0,
     Math.min(Math.floor(top) - 3, items.length - visibleCount),
@@ -294,6 +325,21 @@ export function Autocomplete({
           })}
         </box>
       </scrollbox>
+      {detailHeight > 0 ? (
+        <box
+          id={`${id}-details`}
+          height={detailHeight}
+          flexShrink={0}
+          border={["top"]}
+          borderColor={theme.border}
+          overflow="hidden"
+        >
+          <text fg={theme.textMuted} wrapMode="char">
+            <span fg={theme.secondary}>{selected?.description ?? ""}</span>
+            {details.slice(selected?.description?.length ?? 0)}
+          </text>
+        </box>
+      ) : null}
     </box>,
     renderer.root,
     null,

@@ -37,6 +37,11 @@ Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI 
 ### Variable syntax
 `$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a committed capture/script RunScope value from an earlier request in the same collection run.
 
+### Random and time body values
+Use `$random.uuid`, `$random.email()`, or `$random.number({"min":18,"max":80})` in JSON, text/XML bodies and enabled text-valued form fields. Calls take JSON literals, generate once per occurrence before pre-scripts, and reuse the existing [random catalog](schema.md#script-random-api), except `seed`. JSON strings escape generated text; standalone placeholders preserve JSON types. `$$random.uuid` is literal. URLs, headers, auth, form names and file paths do not support these generators. See [body templates](schema.md#random-body-templates) for quoting, limits, and lifecycle rules.
+
+Use `$time.now` for Unix milliseconds, `$time.unix` for Unix seconds, and `$time.iso` for an ISO timestamp in the same body fields. They share one instant per request execution. All existing `noodle.time` methods are available with JSON arguments, such as `$time.format("2026-01-01", "YYYY-MM-DD")`. The body editor and text form values autocomplete both namespaces with descriptions, signatures, and examples. See [time body templates](schema.md#time-body-templates).
+
 ### Response capture
 Use a top-level `capture` mapping to pass response values to later requests in one ordered `collection run`:
 
@@ -105,7 +110,8 @@ options. Each invocation has independent Faker 10.6.0 state; `noodle.random.seed
 only its sequence. Use `noodle.run.set` to share values, and an explicit `refDate` plus
 seed for reproducible relative dates. Passwords are automatically known secrets;
 other generated data stays visible. IDs and passwords are test data without
-cryptographic security or guaranteed uniqueness. JSON placeholders are deferred.
+cryptographic security or guaranteed uniqueness. Body templates use the same generators
+without sharing a script invocation's seeded sequence.
 See [the catalog and options](schema.md#script-random-api).
 
 Both phases expose frozen `noodle.time` helpers for Unix milliseconds/seconds,

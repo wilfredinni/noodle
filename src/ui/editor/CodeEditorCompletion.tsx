@@ -3,17 +3,23 @@ import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../../schema"
 import { Autocomplete } from "../Autocomplete"
 import { useVariableCompletion } from "../variable-completion/useVariableCompletion"
+import {
+  variableCompletionItem,
+  type BodyCompletion,
+} from "../variable-completion/variableCompletion"
 
 export function CodeEditorCompletion({
   editor,
   env,
   isEditing,
   value,
+  body,
 }: {
   editor: CodeEditorRenderable | null
   env: Environment | null
   isEditing: boolean
   value: string
+  body?: BodyCompletion
 }) {
   const [dismissed, setDismissed] = useState(false)
   const getEditor = useCallback(
@@ -26,6 +32,7 @@ export function CodeEditorCompletion({
     variableNames,
     value,
     isEditing,
+    body,
   })
 
   useEffect(() => {
@@ -55,16 +62,15 @@ export function CodeEditorCompletion({
   return (
     <Autocomplete
       id="var-completion-menu"
-      items={completion.suggestions.map((name) => ({
-        key: name,
-        label: `$${name}`,
-      }))}
+      items={completion.suggestions.map((name) =>
+        variableCompletionItem(name, body),
+      )}
       query={completion.token.prefix}
       value={value}
       getEditor={getEditor}
       onSelect={(index) => {
         if (!acceptSuggestion(completion.suggestions[index]!)) return false
-        setDismissed(true)
+        setDismissed(!completion.suggestions[index]!.endsWith("."))
         return true
       }}
       onDismiss={() => setDismissed(true)}

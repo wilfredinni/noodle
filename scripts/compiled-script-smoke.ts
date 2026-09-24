@@ -16,9 +16,17 @@ try {
     `name: Script
 method: GET
 url: http://127.0.0.1:1
+body_type: json
+body: |-
+  {"id":"$random.uuid","age":$random.number({"min":18,"max":18}),"ms":$time.now,"seconds":$time.unix,"iso":$time.iso}
 scripts:
   pre: |-
     await Promise.resolve();
+    const body = noodle.request.body.json();
+    if (!/^[a-f0-9-]{36}$/.test(body.id) || body.age !== 18)
+      throw new Error("compiled-body-template-failed");
+    if (typeof body.ms !== "number" || body.seconds !== Math.floor(body.ms / 1000) || body.iso !== new Date(body.ms).toISOString())
+      throw new Error("compiled-time-template-failed");
     noodle.random.seed(42);
     if (noodle.random.uuid() !== "5fb9220d-9b0f-4d32-a248-6492457c3890")
       throw new Error("compiled-faker-seed-failed");

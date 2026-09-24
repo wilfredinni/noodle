@@ -474,6 +474,50 @@ Invalid inputs use the existing script API errors and rollback behavior.
 Locale formatting, custom-format parsing, calendar boundaries, and JSON
 placeholders are not part of this API.
 
+### Random body templates
+
+Request bodies support the existing [random generators](#script-random-api) through `$random.method` or `$random.method(...)`. Parentheses are optional for default calls. Arguments must be JSON literals, including quoted object keys and double-quoted strings. `pick` requires a non-empty array; `uuid` takes no arguments; `seed` remains script-only. JavaScript expressions, nested calls, unknown methods, and invalid options fail before pre-scripts and HTTP for that request.
+
+```yaml
+body_type: json
+body: |-
+  {
+    "id": "$random.uuid",
+    "email": "$random.exampleEmail()",
+    "age": $random.number({"min":18,"max":80}),
+    "role": $random.pick(["admin","user"]),
+    "active": $random.boolean
+  }
+```
+
+In JSON bodies, quoted placeholders insert escaped text and standalone placeholders insert serialized JSON values. Existing numeric literals and surrounding source are preserved. Inside a JSON string, escape argument quotes normally, for example `"label": "user-$random.pick([\"admin\",\"user\"])"`. Text and XML bodies insert strings literally (no automatic XML escaping); other JSON values become compact JSON text. Form encoders escape generated text values as usual. Only enabled text-valued form fields support generation, not field names or file uploads/paths. URLs, headers, parameters, auth, and assertion expectations retain ordinary variable substitution.
+
+Each occurrence generates independently on each manual send, request run, collection selection, dataset iteration, or saved child request. Expansion is part of the single substitution pass before inherited pre-scripts; pre-scripts can read and replace the generated body. Redirects and authentication retries reuse the prepared body. Generator state is independent of script `noodle.random.seed` calls. Use a pre-script when a value must be shared across fields. Direct `noodle.sendRequest` inputs, script-written values, environment replacements, and argument strings stay literal and are never expanded again.
+
+`$random.` is reserved in supported bodies; plain `$random` remains an ordinary variable, and `$$random.uuid` sends literal `$random.uuid`. Templates stay in saved YAML. Editor validation, autocomplete, formatting, and inspection do not generate data. The body editor and text form values complete `$random.` without requiring an environment and show optional descriptions, signatures, and examples for the selected generator.
+
+Argument and result values retain the existing 256 KiB and depth-32 JSON limits and per-generator option bounds. Generated passwords enter existing secret redaction immediately, including when a later placeholder fails. Other generated test data stays visible. Neither IDs nor passwords are cryptographic credentials or guaranteed unique. Use no extra YAML fields or configuration flags.
+
+### Time body templates
+
+Request bodies also expose every [time helper](#script-time-api) as `$time.method` or `$time.method(...)`, with the same supported fields, JSON quoting, literal arguments, size limits, and single-pass rules as [random body templates](#random-body-templates). `now` returns Unix milliseconds, `unix` returns Unix seconds, and `iso` returns a UTC ISO string. Parentheses are optional when arguments are optional; methods such as `parse`, `fromUnix`, `format`, `add`, `subtract`, and `diff` still require their documented arguments. JavaScript expressions and nested calls are not supported.
+
+```yaml
+body_type: json
+body: |-
+  {
+    "createdAt": $time.iso,
+    "timestampMs": $time.now,
+    "timestampSeconds": $time.unix(),
+    "label": "Created at $time.iso",
+    "date": $time.format("2026-01-01", "YYYY-MM-DD")
+  }
+```
+
+Current-time calls share one instant captured during substitution before pre-scripts. Each request execution, saved child, and dataset iteration captures a new instant. Redirects and authentication retries reuse the prepared body. Script `noodle.time` methods retain their existing live-clock behavior. Explicit date arguments retain the existing ISO, timezone, pattern, and elapsed-duration validation. UTC is the default and a day remains 24 hours.
+
+`$time.` is reserved in supported body fields; plain `$time` remains an environment variable and `$$time.now` sends literal `$time.now`. Saved YAML retains unresolved templates. Inspection, formatting, validation, and completion never evaluate the current clock; editor validation uses a fixed instant and the same argument checks. Autocomplete works without an environment, shows descriptions/signatures/static examples, and inserts `()` with the cursor inside for methods requiring arguments. Existing arguments are preserved when completing a method name. Direct `noodle.sendRequest` inputs and values introduced by variables, generators, or scripts remain literal.
+
 ### Script random API
 
 `noodle.random` is a frozen synchronous API in both pre and post. Every generator

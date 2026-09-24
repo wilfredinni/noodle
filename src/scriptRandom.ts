@@ -52,13 +52,20 @@ const generator = (
     name,
     generate,
     parameters,
+    returns,
     signature: `${name}(${parameters === "seed" ? "value: number" : parameters === "pick" ? "values: JsonValue[]" : parameters === "none" ? "" : `options?: { ${OPTION_FIELDS[parameters].map((field) => `${field}?: ${field === "refDate" ? "string" : "number"}`).join("; ")} }`}): ${returns}`,
     description:
-      name === "seed"
-        ? "Reset this script's test-data sequence."
-        : name === "pick"
-          ? "Choose a copied JSON value from a non-empty array."
-          : `Generate ${name.replace(/([A-Z])/g, " $1").toLowerCase()} test data.`,
+      name === "uuid"
+        ? "Generate a UUID v4 for test data."
+        : name === "number"
+          ? "Generate an integer between min and max, inclusive (default 0 to 1000)."
+          : name === "password"
+            ? "Generate an alphanumeric test password (default 15 characters). Not cryptographically secure."
+            : name === "seed"
+              ? "Reset this script's test-data sequence."
+              : name === "pick"
+                ? "Choose a copied JSON value from a non-empty array."
+                : `Generate ${name.replace(/([A-Z])/g, " $1").toLowerCase()} test data.`,
   })
 
 // Explicit handlers keep guest input from selecting arbitrary Faker properties.
@@ -245,7 +252,7 @@ export function createRandomHandlers(
         const fail = (message: string): never => {
           throw error(`random.${definition.name}: ${message}`)
         }
-        const options = validateArguments(
+        const options = validateRandomArguments(
           definition.parameters,
           args,
           refDate,
@@ -269,7 +276,7 @@ export function createRandomHandlers(
   )
 }
 
-function validateArguments(
+export function validateRandomArguments(
   parameters: Parameters,
   args: unknown[],
   refDate: string,
