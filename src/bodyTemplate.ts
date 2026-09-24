@@ -103,7 +103,11 @@ export function scanBodyTemplate(
       source[reference.end] === "."
     ) {
       let nameEnd = reference.end + 1
-      while (nameEnd < source.length && /[\w.]/.test(source[nameEnd]!))
+      while (
+        nameEnd < source.length &&
+        (/\w/.test(source[nameEnd]!) ||
+          (source[nameEnd] === "." && /\w/.test(source[nameEnd + 1] ?? "")))
+      )
         nameEnd++
       const token: BodyCallToken = {
         kind: reference.name,

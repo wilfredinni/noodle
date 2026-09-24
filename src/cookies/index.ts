@@ -488,7 +488,11 @@ export class CollectionCookieJar {
     await this.enqueue(async () => {
       let lock: LockHandle | null = null
       try {
-        lock = await acquireLock(this.file)
+        // Retry unavailable storage without waiting on an active writer.
+        lock = await acquireLock(
+          this.file,
+          this.currentStatus.state === "unavailable" ? 0 : timing.lockTimeoutMs,
+        )
         const loaded = await loadJar(this.file)
         for (const mutation of this.journal) {
           await applyMutation(loaded.jar, mutation)
@@ -933,9 +937,12 @@ async function backupExistingJar(file: string): Promise<string | undefined> {
   }
 }
 
-async function acquireLock(file: string): Promise<LockHandle> {
+async function acquireLock(
+  file: string,
+  lockTimeoutMs = timing.lockTimeoutMs,
+): Promise<LockHandle> {
   try {
-    return await acquireFileLock(file, timing)
+    return await acquireFileLock(file, { ...timing, lockTimeoutMs })
   } catch (error) {
     if (!(error instanceof FileLockError)) throw error
     throw new CookieJarStorageError(

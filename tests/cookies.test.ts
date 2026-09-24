@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import {
   mkdir,
   mkdtemp,
@@ -626,6 +626,26 @@ describe("CollectionCookieJar", () => {
       })
       expect(jar.cookieHeaderFor("https://example.com/")).toBe("")
       expect(await readFile(jar.file, "utf8")).toBe(stored)
+
+      setCookieJarTimingForTests()
+      const wait = spyOn(globalThis, "setTimeout").mockImplementation(
+        Object.assign(
+          () => {
+            throw new Error(
+              "Unavailable cookie storage must not wait for a lock",
+            )
+          },
+          { __promisify__: setTimeout.__promisify__ },
+        ),
+      )
+      try {
+        await expect(jar.refresh()).rejects.toMatchObject({
+          code: "lock-timeout",
+        })
+        expect(wait).not.toHaveBeenCalled()
+      } finally {
+        wait.mockRestore()
+      }
 
       await holder.release()
       await jar.refresh()

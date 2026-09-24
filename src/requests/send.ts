@@ -195,7 +195,8 @@ export async function sendPrepared(
   if (
     cookies &&
     substituted.sendCookies !== false &&
-    cookies.status.state !== "unavailable"
+    (cookies.status.state !== "unavailable" ||
+      cookies.status.error.code === "lock-timeout")
   ) {
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
     await cookies.refresh().catch(() => {})

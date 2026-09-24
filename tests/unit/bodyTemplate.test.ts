@@ -102,6 +102,30 @@ describe("request body templates", () => {
     ).toThrow("expected an ISO date")
   })
 
+  it("leaves trailing periods outside body calls while rejecting dotted method names", () => {
+    setSystemTime(Date.parse("2026-01-01T00:00:00.000Z"))
+    expect(expand("Order created at $time.iso.")).toBe(
+      "Order created at 2026-01-01T00:00:00.000Z.",
+    )
+    expect(expand("<date>$time.iso...</date>")).toBe(
+      "<date>2026-01-01T00:00:00.000Z...</date>",
+    )
+    expect(
+      JSON.parse(expand('{"text":"Name: $random.firstName."}', true)).text,
+    ).toMatch(/^Name: .+\.$/)
+    expect(scanBodyTemplate("$random.firstName.")[0]).toMatchObject({
+      name: "firstName",
+      end: 17,
+    })
+    expect(validateJsonContent('{"time":"$time.iso."}', null, true)).toBeNull()
+    expect(() => expand("$time.now.constructor()")).toThrow(
+      "unknown body time method",
+    )
+    expect(() => expand("$random.uuid.constructor()")).toThrow(
+      "unknown body generator",
+    )
+  })
+
   it.each([
     "$time.",
     "$time.missing",

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test"
+import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -82,7 +82,7 @@ afterAll(async () => {
 })
 
 describe("send with cookie jar", () => {
-  it("skips unavailable storage until an explicit retry restores cookies", async () => {
+  it("recovers cookies on the next send after a temporary storage lock clears", async () => {
     seenCookies = []
     setCookieJarTimingForTests({ lockTimeoutMs: 0 })
     const writer = await CollectionCookieJar.open(configDir, "unavailable")
@@ -94,7 +94,6 @@ describe("send with cookie jar", () => {
       maxBackoffMs: 0,
     })
     const reader = await CollectionCookieJar.open(configDir, "unavailable")
-    const refresh = spyOn(reader, "refresh")
     const request = { ...baseReq, url: `http://localhost:${port}/done` }
 
     try {
@@ -113,17 +112,22 @@ describe("send with cookie jar", () => {
         )
       }
       expect(seenCookies).toEqual(["", ""])
-      expect(refresh).not.toHaveBeenCalled()
+      expect(reader.status.state).toBe("unavailable")
       await expect(reader.saveNow()).resolves.toBeUndefined()
       expect(reader.list()).toEqual([])
 
       await holder.release()
-      await reader.refresh()
-      expect(reader.status.state).toBe("encrypted")
       await send(request, { cookies: reader })
+      expect(reader.status.state).toBe("encrypted")
       expect(seenCookies[2]).toBe("session=saved")
+
+      await send(
+        { ...request, url: `http://localhost:${port}/login` },
+        { cookies: reader },
+      )
+      await send(request, { cookies: reader })
+      expect(seenCookies[4]).toBe("session=abc123")
     } finally {
-      refresh.mockRestore()
       await holder.release()
       await reader.close()
       setCookieJarTimingForTests()

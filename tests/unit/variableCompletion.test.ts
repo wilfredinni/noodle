@@ -14,6 +14,16 @@ function env(vars: Record<string, string>): Environment {
 }
 
 describe("variable completion", () => {
+  it("preserves sentence punctuation when completing and highlighting body calls", () => {
+    const source = "Created at $time.is."
+    const token = getVariableToken(source, source.length - 1, "text")!
+    expect(replaceVariableToken(source, token, "time.iso", "text").value).toBe(
+      "Created at $time.iso.",
+    )
+    expect(getVariableHighlights("$time.iso.", null, "text")).toEqual([
+      { start: 0, end: 9, exists: true },
+    ])
+  })
   it("offers body generators without an environment and preserves method arguments", () => {
     expect(bodyVariableNames(["host"], "")).toEqual([
       "host",
