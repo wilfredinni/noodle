@@ -1,6 +1,54 @@
 import type { Environment } from "../../schema"
 import type { Highlight } from "@opentui/core"
 import { variableReferences } from "../../variableReference"
+import { scanBodyTemplate, validateBodyRandom } from "../../bodyTemplate"
+import { RANDOM_GENERATORS } from "../../scriptRandom"
+
+export type BodyCompletion = "json" | "text"
+
+const bodyGenerators = RANDOM_GENERATORS.filter(
+  (item) => item.parameters !== "seed",
+)
+
+export function bodyVariableNames(
+  names: Iterable<string>,
+  prefix: string,
+): string[] {
+  return prefix.startsWith("random.")
+    ? bodyGenerators.map((item) => `random.${item.name}`)
+    : [...names, "random."]
+}
+
+export function variableCompletionItem(name: string, body?: BodyCompletion) {
+  const definition =
+    body && name.startsWith("random.")
+      ? bodyGenerators.find((item) => `random.${item.name}` === name)
+      : undefined
+  const examples = {
+    none: "",
+    range: '{"min":18,"max":80}',
+    float: '{"min":0,"max":1,"fractionDigits":2}',
+    price: '{"min":1,"max":100,"fractionDigits":2}',
+    length: '{"length":12}',
+    count: '{"count":3}',
+    years: '{"years":1}',
+    days: '{"days":7}',
+    image: '{"width":640,"height":480}',
+    pick: '["admin","user"]',
+    seed: "42",
+  }
+  return {
+    key: name,
+    label: `$${name}`,
+    ...(definition
+      ? {
+          description: definition.description,
+          signature: `$random.${definition.signature}`,
+          example: `$${name}${definition.parameters === "none" ? "" : `(${examples[definition.parameters]})`}`,
+        }
+      : {}),
+  }
+}
 
 export interface VariableToken {
   start: number
@@ -17,8 +65,21 @@ export interface VariableHighlight {
 export function getVariableToken(
   value: string,
   cursorOffset: number,
+  body?: BodyCompletion,
 ): VariableToken | null {
   const cursor = Math.max(0, Math.min(cursorOffset, value.length))
+  if (body) {
+    for (const token of scanBodyTemplate(value, body === "json")) {
+      if (token.kind !== "random" || cursor < token.start || cursor > token.end)
+        continue
+      if (cursor > token.nameEnd) return null
+      return {
+        start: token.start,
+        end: token.nameEnd,
+        prefix: value.slice(token.start + 1, cursor),
+      }
+    }
+  }
   let start = cursor
   while (start > 0 && /\w/.test(value[start - 1]!)) start--
   if (start === 0 || value[start - 1] !== "$") return null
@@ -50,7 +111,15 @@ export function replaceVariableToken(
   value: string,
   token: VariableToken,
   name: string,
+  body?: BodyCompletion,
 ): { value: string; cursorOffset: number } {
+  if (body && name === "random.pick" && value[token.end] !== "(") {
+    const replacement = "$random.pick([])"
+    return {
+      value: value.slice(0, token.start) + replacement + value.slice(token.end),
+      cursorOffset: token.start + replacement.length - 2,
+    }
+  }
   const replacement = `$${name}`
   return {
     value: value.slice(0, token.start) + replacement + value.slice(token.end),
@@ -61,13 +130,26 @@ export function replaceVariableToken(
 export function getVariableHighlights(
   value: string,
   env: Environment | null,
+  body?: BodyCompletion,
 ): VariableHighlight[] {
   const highlights: VariableHighlight[] = []
-  for (const reference of variableReferences(value)) {
+  for (const reference of body
+    ? scanBodyTemplate(value, body === "json")
+    : variableReferences(value)) {
+    if (reference.kind === "escape") continue
+    let exists = env !== null && Object.hasOwn(env.vars, reference.name)
+    if (reference.kind === "random") {
+      try {
+        validateBodyRandom(value, reference)
+        exists = true
+      } catch {
+        exists = false
+      }
+    }
     highlights.push({
       start: reference.start,
       end: reference.end,
-      exists: env !== null && Object.hasOwn(env.vars, reference.name),
+      exists,
     })
   }
   return highlights
@@ -75,18 +157,17 @@ export function getVariableHighlights(
 
 export function getEnvVarHighlights(
   value: string,
-  env: Environment,
+  env: Environment | null,
   resolvedStyleId: number,
   missingStyleId: number,
+  body?: BodyCompletion,
 ): Highlight[] {
   const highlights: Highlight[] = []
-  for (const reference of variableReferences(value)) {
+  for (const reference of getVariableHighlights(value, env, body)) {
     highlights.push({
       start: reference.start,
       end: reference.end,
-      styleId: Object.hasOwn(env.vars, reference.name)
-        ? resolvedStyleId
-        : missingStyleId,
+      styleId: reference.exists ? resolvedStyleId : missingStyleId,
       priority: 2,
     })
   }

@@ -604,6 +604,39 @@ describe("CollectionCookieJar", () => {
     expect(second.cookieHeaderFor("https://example.com/")).toBe("fresh=1")
   })
 
+  it("marks refresh lock failures unavailable and recovers on retry", async () => {
+    setCookieJarTimingForTests({ lockTimeoutMs: 0 })
+    const jar = await CollectionCookieJar.open(configDir, "refresh-lock")
+    jar.put({ name: "session", value: "saved", domain: "example.com" })
+    await jar.saveNow()
+    const holder = await acquireFileLock(jar.file, {
+      lockTimeoutMs: 0,
+      minBackoffMs: 0,
+      maxBackoffMs: 0,
+    })
+    const stored = await readFile(jar.file, "utf8")
+
+    try {
+      await expect(jar.refresh()).rejects.toMatchObject({
+        code: "lock-timeout",
+      })
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "lock-timeout" },
+      })
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("")
+      expect(await readFile(jar.file, "utf8")).toBe(stored)
+
+      await holder.release()
+      await jar.refresh()
+      expect(jar.status.state).toBe("encrypted")
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("session=saved")
+    } finally {
+      await holder.release()
+      await jar.close()
+    }
+  })
+
   it("flushes all active handles", async () => {
     const first = await CollectionCookieJar.open(configDir, "first")
     const second = await CollectionCookieJar.open(configDir, "second")

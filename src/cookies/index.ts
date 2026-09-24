@@ -419,6 +419,7 @@ export class CollectionCookieJar {
   }
 
   storeResponseCookies(url: string, headers: Headers): void {
+    if (this.currentStatus.state === "unavailable") return
     let stored = false
     for (const setCookie of headers.getSetCookie()) {
       const mutation: CookieMutation = {
@@ -485,8 +486,9 @@ export class CollectionCookieJar {
   async refresh(): Promise<void> {
     if (this.transient) return
     await this.enqueue(async () => {
-      const lock = await acquireLock(this.file)
+      let lock: LockHandle | null = null
       try {
+        lock = await acquireLock(this.file)
         const loaded = await loadJar(this.file)
         for (const mutation of this.journal) {
           await applyMutation(loaded.jar, mutation)
@@ -497,7 +499,7 @@ export class CollectionCookieJar {
       } catch (error) {
         this.fail(error, "read")
       } finally {
-        await lock.release()
+        await lock?.release()
       }
     })
   }

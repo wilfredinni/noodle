@@ -7,6 +7,7 @@ import type {
   Response,
 } from "./schema"
 import { executor } from "./requests"
+import { createBodyRandomResolver } from "./bodyTemplate"
 import type { TransportExecutionOptions } from "./requests/send"
 import { requestScriptBlocks, labelScriptResult } from "./scriptInheritance"
 import {
@@ -371,7 +372,15 @@ export async function executeRequestLifecycle(options: {
       collection && requestPath
         ? mergeFolderOverrides(request, collection, requestPath)
         : request
-    prepared = substitute(merged, effectiveEnvironment)
+    prepared = substitute(
+      merged,
+      effectiveEnvironment,
+      true,
+      createBodyRandomResolver((value) => {
+        secretValues.push(value)
+        runScope.rememberSecrets([value])
+      }),
+    )
     timeline = timelineRequest(merged, prepared)
     secretValues.push(...requestSensitiveValues(prepared))
 

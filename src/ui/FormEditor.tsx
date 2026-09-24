@@ -254,6 +254,7 @@ export function FormEditor({
                 >
                   <VarInput
                     value={isEditingThisRow ? editValue : entry.value}
+                    body={entry.type === "text" ? "text" : undefined}
                     placeholder="Value..."
                     env={activeEnv ?? null}
                     isEditing={isEditingThisRow}
@@ -365,6 +366,12 @@ export function FormEditor({
                 >
                   <VarInput
                     value={editingAdd ? editValue : ""}
+                    body={
+                      request.bodyType === "multipart" &&
+                      editValue.startsWith("@file(")
+                        ? undefined
+                        : "text"
+                    }
                     placeholder="Value..."
                     env={activeEnv ?? null}
                     isEditing={editingAdd}

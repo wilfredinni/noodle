@@ -148,21 +148,22 @@ export function BodySection({
   const extraHighlights = useCallback(
     (content: string): Highlight[] => {
       const ed = editorRef.current
-      if (!activeEnv?.vars || !ed) return []
+      if (!ed) return []
       return getEnvVarHighlights(
         content,
-        activeEnv,
+        activeEnv ?? null,
         ed.envResolvedStyleId,
         ed.envMissingStyleId,
+        request.bodyType === "json" ? "json" : "text",
       )
     },
-    [activeEnv],
+    [activeEnv, request.bodyType],
   )
 
   const validateContent = useCallback(
     (content: string): string | null =>
       bodyType === "json"
-        ? validateJsonContent(content, activeEnv ?? null)
+        ? validateJsonContent(content, activeEnv ?? null, true)
         : null,
     [activeEnv, bodyType],
   )
@@ -385,7 +386,7 @@ export function BodySection({
                 filetype={bodyType}
                 theme={theme}
                 initialValue={editingBody ? editValue : formattedBody}
-                extraHighlights={activeEnv ? extraHighlights : undefined}
+                extraHighlights={extraHighlights}
                 validateContent={validateContent}
                 onValidationChange={setValidationError}
                 onSourceChange={handleContentChange}
@@ -409,6 +410,7 @@ export function BodySection({
             />
           </box>
           <CodeEditorCompletion
+            body={request.bodyType === "json" ? "json" : "text"}
             editor={editorInstance}
             env={activeEnv ?? null}
             isEditing={editingBody}

@@ -1,3 +1,4 @@
+import { JSON_VALUE_LIMITS, validateJsonValue } from "./scriptJson"
 import { createHash, createHmac, randomBytes } from "node:crypto"
 import releaseVariant from "@jitl/quickjs-singlefile-mjs-release-sync"
 import schemaValidatorSource from "./scriptSchemaValidator.bundle.txt" with { type: "text" }
@@ -43,8 +44,8 @@ export const SCRIPT_LIMITS = Object.freeze({
   consoleEntries: 100,
   consoleBytes: 64 * 1024,
   randomBytes: 4096,
-  bridgeValueBytes: 256 * 1024,
-  bridgeJsonDepth: 32,
+  bridgeValueBytes: JSON_VALUE_LIMITS.bytes,
+  bridgeJsonDepth: JSON_VALUE_LIMITS.depth,
   consoleDepth: 4,
   responseBodyBytes: 5 * 1024 * 1024,
   persistenceKeys: 100,
@@ -1519,103 +1520,7 @@ function requireUrl(value: unknown): string {
 }
 
 export function validateJson(value: unknown): JsonValue {
-  const seen = new Set<object>()
-  const visit = (current: unknown, depth: number): JsonValue => {
-    if (depth > SCRIPT_LIMITS.bridgeJsonDepth) {
-      throw apiError(`JSON depth exceeds ${SCRIPT_LIMITS.bridgeJsonDepth}`)
-    }
-    if (
-      current === null ||
-      typeof current === "string" ||
-      typeof current === "boolean"
-    )
-      return current
-    if (typeof current === "number") {
-      if (!Number.isFinite(current))
-        throw apiError("JSON numbers must be finite")
-      return current
-    }
-    if (typeof current !== "object") {
-      throw apiError("value must be JSON-compatible")
-    }
-    if (seen.has(current)) throw apiError("JSON value must not contain cycles")
-    const prototype = Object.getPrototypeOf(current)
-    if (
-      (Array.isArray(current) && prototype !== Array.prototype) ||
-      (!Array.isArray(current) &&
-        prototype !== Object.prototype &&
-        prototype !== null)
-    ) {
-      throw apiError("JSON objects must have a plain or null prototype")
-    }
-    seen.add(current)
-    let result: JsonValue
-    if (Array.isArray(current)) {
-      const values = new Map<number, unknown>()
-      for (const key of Reflect.ownKeys(current)) {
-        if (typeof key === "symbol") {
-          throw apiError("JSON values must not contain symbol keys")
-        }
-        if (key === "length") continue
-        if (UNSAFE_KEYS.has(key)) throw apiError(`unsafe JSON key "${key}"`)
-        const index = Number(key)
-        if (
-          !Number.isSafeInteger(index) ||
-          index < 0 ||
-          index >= current.length ||
-          String(index) !== key
-        ) {
-          throw apiError("JSON arrays must not contain extra properties")
-        }
-        const descriptor = Object.getOwnPropertyDescriptor(current, key)
-        if (!descriptor?.enumerable || !("value" in descriptor)) {
-          throw apiError("JSON array members must be enumerable data values")
-        }
-        if (descriptor.value === undefined) {
-          throw apiError("JSON array members must not be undefined")
-        }
-        values.set(index, descriptor.value)
-      }
-      result = []
-      for (let index = 0; index < current.length; index++) {
-        if (!values.has(index)) {
-          throw apiError("JSON array members must not be undefined")
-        }
-        result.push(visit(values.get(index), depth + 1))
-      }
-    } else {
-      const object: Record<string, JsonValue> = Object.create(null)
-      for (const key of Reflect.ownKeys(current)) {
-        if (typeof key === "symbol") {
-          throw apiError("JSON values must not contain symbol keys")
-        }
-        if (UNSAFE_KEYS.has(key)) throw apiError(`unsafe JSON key "${key}"`)
-        const descriptor = Object.getOwnPropertyDescriptor(current, key)
-        if (!descriptor?.enumerable || !("value" in descriptor)) {
-          throw apiError("JSON object members must be enumerable data values")
-        }
-        const item = descriptor.value
-        if (item === undefined)
-          throw apiError("JSON object members must not be undefined")
-        Object.defineProperty(object, key, {
-          value: visit(item, depth + 1),
-          enumerable: true,
-          configurable: true,
-          writable: true,
-        })
-      }
-      result = object
-    }
-    seen.delete(current)
-    return result
-  }
-  const validated = visit(value, 0)
-  if (byteLength(JSON.stringify(validated)) > SCRIPT_LIMITS.bridgeValueBytes) {
-    throw apiError(
-      `bridged value exceeds ${SCRIPT_LIMITS.bridgeValueBytes} bytes`,
-    )
-  }
-  return validated
+  return validateJsonValue(value, apiError)
 }
 
 export function validatePreparedRequest(request: SubstitutedRequest): void {

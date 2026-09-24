@@ -1,6 +1,9 @@
 import type { Environment, ParamEntry } from "../../schema"
 import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
-import { variableReferences } from "../../variableReference"
+import {
+  getVariableHighlights,
+  type BodyCompletion,
+} from "./variableCompletion"
 
 export interface EnvSegment {
   text: string
@@ -11,10 +14,11 @@ export interface EnvSegment {
 export function splitEnvVars(
   text: string,
   env: Environment | null,
+  body?: BodyCompletion,
 ): EnvSegment[] {
   const segments: EnvSegment[] = []
   let lastEnd = 0
-  for (const reference of variableReferences(text)) {
+  for (const reference of getVariableHighlights(text, env, body)) {
     if (reference.start > lastEnd) {
       segments.push({
         text: text.slice(lastEnd, reference.start),
@@ -22,7 +26,7 @@ export function splitEnvVars(
         exists: false,
       })
     }
-    const exists = env !== null && Object.hasOwn(env.vars, reference.name)
+    const exists = reference.exists
     segments.push({
       text: text.slice(reference.start, reference.end),
       isVar: true,

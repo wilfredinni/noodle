@@ -13,7 +13,9 @@ import {
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { KeymapProvider, type KeymapProviderProps } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
+import type { BodyCompletion } from "../../src/ui/variable-completion/variableCompletion"
 import { VarInput } from "../../src/ui/VarInput"
+import { FormEditor } from "../../src/ui/FormEditor"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { CodeEditorCompletion } from "../../src/ui/editor/CodeEditorCompletion"
 import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
@@ -80,10 +82,12 @@ function Harness({
   candidates = names,
   variables = environment,
   initialText = initialValue(kind),
+  body,
 }: {
   kind: Kind
   candidates?: string[]
-  variables?: typeof environment
+  variables?: typeof environment | null
+  body?: BodyCompletion
   initialText?: string
 }) {
   const [value, setValue] = useState(initialText)
@@ -107,6 +111,7 @@ function Harness({
           }}
         />
         <CodeEditorCompletion
+          body={body}
           editor={editor}
           env={variables}
           isEditing
@@ -116,6 +121,7 @@ function Harness({
     )
   return (
     <VarInput
+      body={body}
       value={value}
       env={variables}
       isEditing
@@ -186,6 +192,174 @@ async function mount(
 }
 
 describe("shared autocomplete", () => {
+  it.each(["text", "file"] as const)(
+    "gates multipart %s value completion in the rendered form editor",
+    async (type) => {
+      function FormHarness() {
+        const [value, setValue] = useState("$random.nu")
+        return (
+          <FormEditor
+            request={{
+              bodyType: "multipart",
+              formData: [{ name: "field", value, type, enabled: true }],
+            }}
+            editState={{
+              mode: "editing",
+              cursor: {
+                field: "body",
+                row: 1,
+                addingRow: false,
+                subfield: "value",
+              },
+              editingRow: 1,
+            }}
+            editKey="field"
+            editValue={value}
+            setEditKey={() => {}}
+            setEditValue={setValue}
+            browseActive
+            theme={THEMES[0]!}
+            activeEnv={null}
+          />
+        )
+      }
+      const view = await mount(
+        "variables",
+        <FormHarness />,
+        type === "text" ? "$random.number" : "$random.nu",
+      )
+      try {
+        await view.render()
+        if (type === "text") {
+          expect(view.captureCharFrame()).toContain("Generate an integer")
+          await view.press("tab")
+          expect(view.editor().plainText).toBe("$random.number")
+        } else {
+          expect(
+            view.renderer.root.findDescendantById("var-completion-menu"),
+          ).toBeUndefined()
+          expect(view.editor().plainText).toBe("$random.nu")
+        }
+      } finally {
+        view.cleanup()
+      }
+    },
+  )
+  it.each(["variables", "code"] as Kind[])(
+    "shows optional random details in %s completion without an environment",
+    async (kind) => {
+      const view = await mount(
+        kind,
+        <Harness
+          kind={kind}
+          variables={null}
+          body="json"
+          initialText="$random.nu"
+        />,
+        "$random.number",
+      )
+      try {
+        await view.render()
+        const frame = view.captureCharFrame()
+        expect(frame).toContain("Generate an integer")
+        expect(frame).toContain("Example: $random.number")
+        expect(frame).toContain("min?: number")
+        await view.press("tab")
+        expect(view.editor().plainText).toBe("$random.number")
+        expect(
+          view.renderer.root.findDescendantById(`${menuId(kind)}-details`),
+        ).toBeUndefined()
+      } finally {
+        view.cleanup()
+      }
+    },
+  )
+
+  it("updates random details on keyboard and mouse selection and fits small terminals", async () => {
+    const view = await mount(
+      "code",
+      <Harness
+        kind="code"
+        variables={null}
+        body="json"
+        initialText="$random."
+      />,
+      "$random.abbreviation",
+    )
+    try {
+      await view.press("down")
+      expect(view.captureCharFrame()).toContain("Generate address test data")
+      const row = view.renderer.root.findDescendantById(
+        "var-completion-menu-item-0",
+      )!
+      await act(async () => {
+        await view.mockMouse.moveTo(row.x + 1, row.y)
+      })
+      await view.render()
+      expect(view.captureCharFrame()).toContain(
+        "Generate abbreviation test data",
+      )
+      await act(async () => {
+        view.resize(28, 10)
+      })
+      await view.render()
+      await view.render()
+      const popup = view.renderer.root.findDescendantById(
+        "var-completion-menu",
+      )!
+      expect(popup.x + popup.width).toBeLessThanOrEqual(28)
+      expect(popup.y + popup.height).toBeLessThanOrEqual(10)
+      await act(async () => {
+        view.resize(23, 7)
+      })
+      await view.render()
+      await view.render()
+      expect(
+        view.renderer.root.findDescendantById("var-completion-menu-details"),
+      ).toBeUndefined()
+      await act(async () => {
+        view.resize(23, 1)
+      })
+      await view.render()
+      expect(
+        view.renderer.root.findDescendantById("var-completion-menu"),
+      ).toBeUndefined()
+      await act(async () => {
+        view.resize(65, 18)
+      })
+      await view.render()
+      await view.press("escape")
+      expect(
+        view.renderer.root.findDescendantById("var-completion-menu"),
+      ).toBeUndefined()
+    } finally {
+      view.cleanup()
+    }
+  })
+
+  it("continues into random methods after accepting the namespace and inserts required arguments", async () => {
+    const view = await mount(
+      "variables",
+      <Harness kind="variables" variables={null} body="text" initialText="$" />,
+      "$random.",
+    )
+    try {
+      await view.press("tab")
+      await view.render()
+      expect(view.editor().plainText).toBe("$random.")
+      expect(view.captureCharFrame()).toContain("$random.abbreviation")
+      await act(async () => {
+        await view.mockInput.typeText("pi")
+      })
+      await view.render()
+      expect(view.captureCharFrame()).toContain("Choose a copied JSON value")
+      await view.press("return")
+      expect(view.editor().plainText).toBe("$random.pick([])")
+      expect(view.editor().cursorOffset).toBe(14)
+    } finally {
+      view.cleanup()
+    }
+  })
   it.each(["variables", "code"] as Kind[])(
     "leaves an exact %s token intact and lets Tab reach normal navigation",
     async (kind) => {

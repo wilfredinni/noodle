@@ -4,6 +4,8 @@ import {
   getVariableToken,
   replaceVariableToken,
   type VariableToken,
+  bodyVariableNames,
+  type BodyCompletion,
 } from "./variableCompletion"
 
 export interface CompletionEditor {
@@ -25,25 +27,32 @@ export function useVariableCompletion({
   variableNames,
   value,
   isEditing,
+  body,
 }: {
   getEditor: () => CompletionEditor | null
   variableNames: string[]
   value: string
   isEditing: boolean
+  body?: BodyCompletion
 }) {
   const getCompletion = useCallback((): CompletionState => {
     const editor = getEditor()
     const text = editor?.plainText ?? value
     const cursorOffset = editor?.cursorOffset ?? text.length
-    const token = getVariableToken(text, cursorOffset)
+    const token = getVariableToken(text, cursorOffset, body)
     const suggestions = token
-      ? getVariableSuggestions(variableNames, token.prefix)
+      ? getVariableSuggestions(
+          body ? bodyVariableNames(variableNames, token.prefix) : variableNames,
+          token.prefix,
+        )
       : []
     const tokenText = token ? text.slice(token.start + 1, token.end) : ""
     const isComplete =
-      cursorOffset === token?.end && suggestions.includes(tokenText)
+      tokenText !== "random." &&
+      cursorOffset === token?.end &&
+      suggestions.includes(tokenText)
     return { token, suggestions, isComplete }
-  }, [getEditor, variableNames, value])
+  }, [getEditor, variableNames, value, body])
 
   const completion = useMemo(() => getCompletion(), [getCompletion])
 
@@ -64,12 +73,12 @@ export function useVariableCompletion({
         return false
       }
 
-      const result = replaceVariableToken(editor.plainText, token, name)
+      const result = replaceVariableToken(editor.plainText, token, name, body)
       editor.replaceText(result.value)
       editor.cursorOffset = result.cursorOffset
       return true
     },
-    [getCompletion, getEditor, isEditing],
+    [getCompletion, getEditor, isEditing, body],
   )
 
   return { completion, getCompletion, acceptSuggestion }

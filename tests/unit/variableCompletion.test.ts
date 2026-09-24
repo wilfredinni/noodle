@@ -4,6 +4,8 @@ import {
   getVariableSuggestions,
   getVariableToken,
   replaceVariableToken,
+  bodyVariableNames,
+  variableCompletionItem,
 } from "../../src/ui/variable-completion/variableCompletion"
 import type { Environment } from "../../src/schema"
 
@@ -12,6 +14,44 @@ function env(vars: Record<string, string>): Environment {
 }
 
 describe("variable completion", () => {
+  it("offers body generators without an environment and preserves method arguments", () => {
+    expect(bodyVariableNames(["host"], "")).toEqual(["host", "random."])
+    const names = bodyVariableNames([], "random.")
+    expect(names).toContain("random.uuid")
+    expect(names).not.toContain("random.seed")
+    expect(getVariableSuggestions(names, "random.nu")).toEqual([
+      "random.number",
+    ])
+    expect(getVariableToken("$random.nu", 10)).toBeNull()
+    const value = '$random.nu({"min":18})'
+    const token = getVariableToken(value, 10, "text")!
+    expect(
+      replaceVariableToken(value, token, "random.number", "text").value,
+    ).toBe('$random.number({"min":18})')
+    expect(getVariableToken("$$random.nu", 11, "text")).toBeNull()
+    expect(getVariableToken('$random.pick(["$host"])', 19, "text")).toBeNull()
+    const pick = replaceVariableToken(
+      "$random.pi",
+      getVariableToken("$random.pi", 10, "text")!,
+      "random.pick",
+      "text",
+    )
+    expect(pick).toEqual({ value: "$random.pick([])", cursorOffset: 14 })
+    expect(
+      variableCompletionItem("random.number", "text").description,
+    ).toContain("integer")
+    expect(variableCompletionItem("host").description).toBeUndefined()
+  })
+
+  it("highlights valid and invalid random calls independently of environment variables", () => {
+    const value = "$random.uuid $random.uuid(1) $host"
+    expect(
+      getVariableHighlights(value, null, "text").map((item) => item.exists),
+    ).toEqual([true, false, false])
+    expect(
+      getVariableHighlights('"$random.pick([\\"$host\\"])"', null, "json"),
+    ).toHaveLength(1)
+  })
   it("matches any part of a variable name without changing its ordering", () => {
     expect(
       getVariableSuggestions(

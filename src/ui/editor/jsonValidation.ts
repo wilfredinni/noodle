@@ -1,6 +1,11 @@
 import { parse, ParseErrorCode, type ParseError } from "jsonc-parser"
 import type { Environment } from "../../schema"
 import { scanVariableReferences } from "../../variableReference"
+import {
+  scanBodyTemplate,
+  previewBodyRandom,
+  renderRandomValue,
+} from "../../bodyTemplate"
 
 interface Replacement {
   name?: string
@@ -41,6 +46,7 @@ function sourcePosition(content: string, offset: number): string {
 function substituteVariables(
   content: string,
   env: Environment,
+  bodyTemplates: boolean,
 ): { content: string; replacements: Replacement[] } | { error: string } {
   let substituted = ""
   let sourceCursor = 0
@@ -49,7 +55,9 @@ function substituteVariables(
   let escaped = false
   const replacements: Replacement[] = []
 
-  for (const token of scanVariableReferences(content)) {
+  for (const token of bodyTemplates
+    ? scanBodyTemplate(content, true)
+    : scanVariableReferences(content)) {
     const sourceStart = token.start
     substituted += content.slice(sourceCursor, sourceStart)
     const outputStart = substituted.length
@@ -58,7 +66,21 @@ function substituteVariables(
         error: `Invalid JSON: unresolved variable "${token.name}" at ${sourcePosition(content, sourceStart)}`,
       }
     }
-    const value = token.kind === "escape" ? "$" : env.vars[token.name]!
+    let value: string
+    try {
+      value =
+        token.kind === "random"
+          ? renderRandomValue(
+              previewBodyRandom(content, token),
+              true,
+              token.insideString,
+            )
+          : token.kind === "escape"
+            ? "$"
+            : env.vars[token.name]!
+    } catch (error) {
+      return { error: `Invalid JSON: ${(error as Error).message}` }
+    }
     substituted += value
     const sourceEnd = token.end
     let replacementInsideString = insideString
@@ -70,7 +92,12 @@ function substituteVariables(
       else if (char === '"') insideString = !insideString
     }
     replacements.push({
-      name: token.kind === "reference" ? token.name : undefined,
+      name:
+        token.kind === "random"
+          ? `random.${token.name}`
+          : token.kind === "reference"
+            ? token.name
+            : undefined,
       value,
       insideString: replacementInsideString,
       sourceStart,
@@ -140,12 +167,14 @@ function formatParseError(
 export function validateJsonContent(
   content: string,
   env: Environment | null,
+  bodyTemplates = false,
 ): string | null {
   if (content.trim() === "") return null
 
   const substitution = substituteVariables(
     content,
     env ?? { name: "", vars: {} },
+    bodyTemplates,
   )
   if ("error" in substitution) return substitution.error
 

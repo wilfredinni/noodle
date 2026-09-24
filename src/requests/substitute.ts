@@ -7,6 +7,10 @@ import type {
   ResponseAssertion,
 } from "../schema"
 import { replaceVariableReferences } from "../variableReference"
+import {
+  substituteBodyTemplate,
+  type BodyRandomResolver,
+} from "../bodyTemplate"
 
 export { isValidVariableName } from "../variableReference"
 
@@ -19,17 +23,28 @@ export function substitute(
   req: Request,
   env: Environment,
   resolveVariables = true,
+  resolveRandom?: BodyRandomResolver,
 ): SubstitutedRequest {
+  const resolveName = (name: string, field: string): string => {
+    if (!Object.hasOwn(env.vars, name)) {
+      throw new Error(
+        `requests.substitute: unresolved variable "${name}" in ${field}`,
+      )
+    }
+    return env.vars[name]!
+  }
   const resolve = (s: string, field: string): string =>
     resolveVariables
-      ? replaceVariableReferences(s, (name) => {
-          if (!Object.hasOwn(env.vars, name)) {
-            throw new Error(
-              `requests.substitute: unresolved variable "${name}" in ${field}`,
-            )
-          }
-          return env.vars[name]!
-        })
+      ? replaceVariableReferences(s, (name) => resolveName(name, field))
+      : s
+  const resolveBody = (s: string, field: string, json = false): string =>
+    resolveVariables
+      ? substituteBodyTemplate(
+          s,
+          json,
+          (name) => resolveName(name, field),
+          resolveRandom,
+        )
       : s
 
   const headers: Record<string, string> = {}
@@ -64,7 +79,10 @@ export function substitute(
           if (!entry.enabled) return { ...entry }
           return {
             name: resolve(entry.name, `formData[${i}].name`),
-            value: resolve(entry.value, `formData[${i}].value`),
+            value: (entry.type === "text" &&
+              (req.bodyType === "multipart" || req.bodyType === "urlencoded")
+              ? resolveBody
+              : resolve)(entry.value, `formData[${i}].value`),
             enabled: entry.enabled,
             type: entry.type,
           }
@@ -102,7 +120,15 @@ export function substitute(
     headers,
     params,
     pathParams,
-    body: req.body !== undefined ? resolve(req.body, "body") : undefined,
+    body:
+      req.body !== undefined
+        ? req.bodyType === "none" ||
+          req.bodyType === "binary" ||
+          req.bodyType === "multipart" ||
+          req.bodyType === "urlencoded"
+          ? resolve(req.body, "body")
+          : resolveBody(req.body, "body", req.bodyType === "json")
+        : undefined,
     bodyType: req.bodyType,
     formData,
     filePath,

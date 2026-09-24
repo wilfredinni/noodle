@@ -8,9 +8,8 @@ headers:
   Content-Type: application/json
 body: |-
   {
-    "postId": 1,
-    "name": "test comment",
-    "email": "test@example.com",
-    "body": "comment body"
+    "name": "$random.name",
+    "email": "$random.email",
+    "body": "$random.loremLines"
   }
 body_type: json

@@ -521,6 +521,7 @@ describe("send — NTLMv2", () => {
     })
     const captured: string[] = []
     const cookies = {
+      status: { state: "encrypted" },
       refresh: async () => {},
       cookieHeaderFor: () => "",
       storeResponseCookies: (_url: string, headers: Headers) => {
@@ -1019,6 +1020,7 @@ describe("send — network trace", () => {
         : new Response("ok", { status: 200 })
     }) as unknown as typeof globalThis.fetch
     const cookies = {
+      status: { state: "encrypted" },
       refresh: async () => {},
       cookieHeaderFor: (url: string) =>
         new URL(url).origin === "https://api.example.com"

@@ -23,6 +23,10 @@ import { VarText } from "./VarText"
 import type { Environment, ParamEntry } from "../schema"
 import { highlightVariables } from "./variable-completion/variableHighlight"
 import { useVariableCompletion } from "./variable-completion/useVariableCompletion"
+import {
+  variableCompletionItem,
+  type BodyCompletion,
+} from "./variable-completion/variableCompletion"
 import { usePathCompletion } from "./path-completion/usePathCompletion"
 import type { PathCompletionOptions } from "./path-completion/pathCompletion"
 
@@ -102,6 +106,7 @@ export interface VarInputProps {
   style?: VarInputStyle
   variableNames?: Iterable<string>
   variableAware?: boolean
+  body?: BodyCompletion
   pathParams?: ParamEntry[]
   pathCompletion?: PathCompletionOptions
   completionValues?: readonly ValueCompletion[]
@@ -126,6 +131,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       style,
       variableNames,
       variableAware = true,
+      body,
       pathParams,
       pathCompletion,
       completionValues,
@@ -163,6 +169,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       variableNames: suggestionNames,
       value,
       isEditing: variableAware && isEditing && inputFocused,
+      body,
     })
 
     const applyHighlights = useCallback(() => {
@@ -172,8 +179,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         return
       }
       if (editable)
-        highlightVariables(editable, editable.plainText, theme, env, pathParams)
-    }, [env, getEditable, pathParams, theme, variableAware])
+        highlightVariables(
+          editable,
+          editable.plainText,
+          theme,
+          env,
+          pathParams,
+          body,
+        )
+    }, [env, getEditable, pathParams, theme, variableAware, body])
 
     const handlePathChange = useCallback(
       (nextValue: string) => {
@@ -225,14 +239,14 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (editable) {
         const text = editable.plainText
         onChange?.(text)
-        highlightVariables(editable, text, theme, env, pathParams)
+        highlightVariables(editable, text, theme, env, pathParams, body)
       }
-    }, [env, getEditable, onChange, pathParams, theme])
+    }, [env, getEditable, onChange, pathParams, theme, body])
 
     const selectCompletion = useCallback(
       (name: string): boolean => {
         if (!acceptSuggestion(name)) return false
-        setCompletionDismissed(true)
+        setCompletionDismissed(name !== "random.")
         handleCompletionAccepted()
         return true
       },
@@ -324,7 +338,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       <Autocomplete
         key="variables"
         id="var-completion-menu"
-        items={suggestions.map((name) => ({ key: name, label: `$${name}` }))}
+        items={suggestions.map((name) => variableCompletionItem(name, body))}
         query={token.prefix}
         getEditor={getEditable}
         value={value}
@@ -433,7 +447,12 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           paddingRight: paddingX,
         }}
       >
-        <VarText text={displayText} env={env} baseColor={displayColor} />
+        <VarText
+          text={displayText}
+          env={env}
+          baseColor={displayColor}
+          body={body}
+        />
       </box>
     )
   },
