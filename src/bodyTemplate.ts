@@ -6,9 +6,10 @@ import {
   RANDOM_GENERATORS,
   validateRandomArguments,
 } from "./scriptRandom"
+import { createTimeHandlers, TIME_METHODS } from "./scriptTime"
 
-export interface RandomBodyToken {
-  kind: "random"
+export interface BodyCallToken {
+  kind: "random" | "time"
   name: string
   start: number
   nameEnd: number
@@ -20,7 +21,7 @@ export interface RandomBodyToken {
 
 export type BodyTemplateToken =
   | (VariableToken & { insideString: boolean })
-  | RandomBodyToken
+  | BodyCallToken
 
 // Return a logical character and its source width inside a JSON string.
 function argumentCharacter(source: string, index: number, jsonString: boolean) {
@@ -35,7 +36,7 @@ function argumentCharacter(source: string, index: number, jsonString: boolean) {
   }
 }
 
-function readArguments(source: string, token: RandomBodyToken): void {
+function readArguments(source: string, token: BodyCallToken): void {
   const closing = [")"]
   let quoted = false
   let escaped = false
@@ -98,14 +99,14 @@ export function scanBodyTemplate(
     }
     if (
       reference.kind === "reference" &&
-      reference.name === "random" &&
+      (reference.name === "random" || reference.name === "time") &&
       source[reference.end] === "."
     ) {
       let nameEnd = reference.end + 1
       while (nameEnd < source.length && /[\w.]/.test(source[nameEnd]!))
         nameEnd++
-      const token: RandomBodyToken = {
-        kind: "random",
+      const token: BodyCallToken = {
+        kind: reference.name,
         name: source.slice(reference.end + 1, nameEnd),
         start: reference.start,
         nameEnd,
@@ -126,29 +127,22 @@ export function scanBodyTemplate(
 
 export function bodyTemplateError(
   source: string,
-  token: RandomBodyToken,
+  token: BodyCallToken,
   message: string,
 ): Error {
   const before = source.slice(0, token.start)
   const line = before.split("\n").length
   const column = before.length - before.lastIndexOf("\n")
   return new Error(
-    `random.${token.name}: ${message} at line ${line}, column ${column}`,
+    `${token.kind}.${token.name}: ${message} at line ${line}, column ${column}`,
   )
 }
 
-export function validateBodyRandom(
-  source: string,
-  token: RandomBodyToken,
-  refDate = "2000-01-01T00:00:00.000Z",
-) {
+function bodyArguments(source: string, token: BodyCallToken) {
   const fail = (message: string): never => {
     throw bodyTemplateError(source, token, message)
   }
   if (token.error) fail(token.error)
-  const definition = RANDOM_GENERATORS.find((item) => item.name === token.name)
-  if (!definition || definition.parameters === "seed")
-    return fail("unknown body generator")
   const argumentSource = token.arguments ?? ""
   if (Buffer.byteLength(argumentSource) > JSON_VALUE_LIMITS.bytes)
     fail("arguments exceed the size limit")
@@ -158,28 +152,60 @@ export function validateBodyRandom(
   } catch {
     return fail("arguments must be JSON literals")
   }
-  const args = validateJsonValue(parsed, (message) =>
+  return validateJsonValue(parsed, (message) =>
     bodyTemplateError(source, token, message),
   ) as JsonValue[]
+}
+
+function validateBodyRandom(
+  source: string,
+  token: BodyCallToken,
+  refDate = "2000-01-01T00:00:00.000Z",
+) {
+  const fail = (message: string): never => {
+    throw bodyTemplateError(source, token, message)
+  }
+  const definition = RANDOM_GENERATORS.find((item) => item.name === token.name)
+  if (!definition || definition.parameters === "seed")
+    return fail("unknown body generator")
+  const args = bodyArguments(source, token)
   validateRandomArguments(definition.parameters, args, refDate, fail)
   return { definition, args }
 }
 
-export type BodyRandomResolver = (
+function resolveBodyTime(source: string, token: BodyCallToken, now: number) {
+  if (!TIME_METHODS.some((method) => method.name === token.name))
+    throw bodyTemplateError(source, token, "unknown body time method")
+  const error = (message: string) =>
+    bodyTemplateError(
+      source,
+      token,
+      message.replace(`time.${token.name}: `, ""),
+    )
+  const handlers = createTimeHandlers(error, () => now)
+  return validateJsonValue(
+    handlers[`time.${token.name}`]!(bodyArguments(source, token)),
+    error,
+  )
+}
+
+export type BodyValueResolver = (
   source: string,
-  token: RandomBodyToken,
+  token: BodyCallToken,
 ) => JsonValue
 
-export function createBodyRandomResolver(
+export function createBodyValueResolver(
   rememberPassword: (value: string) => void,
-): BodyRandomResolver {
-  const refDate = new Date().toISOString()
+): BodyValueResolver {
+  const now = Date.now()
+  const refDate = new Date(now).toISOString()
   const handlers = createRandomHandlers(
     (message) => new Error(message),
     rememberPassword,
     refDate,
   )
   return (source, token) => {
+    if (token.kind === "time") return resolveBodyTime(source, token, now)
     const { args } = validateBodyRandom(source, token, refDate)
     try {
       return validateJsonValue(
@@ -196,7 +222,8 @@ export function createBodyRandomResolver(
   }
 }
 
-export const previewBodyRandom: BodyRandomResolver = (source, token) => {
+export const previewBodyValue: BodyValueResolver = (source, token) => {
+  if (token.kind === "time") return resolveBodyTime(source, token, 0)
   const { definition, args } = validateBodyRandom(source, token)
   if (definition.parameters === "pick") return (args[0] as JsonValue[])[0]!
   return definition.returns === "number"
@@ -206,7 +233,7 @@ export const previewBodyRandom: BodyRandomResolver = (source, token) => {
       : "example"
 }
 
-export function renderRandomValue(
+export function renderBodyValue(
   value: JsonValue,
   json: boolean,
   insideString: boolean,
@@ -220,17 +247,17 @@ export function substituteBodyTemplate(
   source: string,
   json: boolean,
   resolveVariable: (name: string) => string,
-  resolveRandom?: BodyRandomResolver,
+  resolveValue?: BodyValueResolver,
 ): string {
   let result = ""
   let cursor = 0
   let generated = false
   for (const token of scanBodyTemplate(source, json)) {
     result += source.slice(cursor, token.start)
-    if (token.kind === "random") {
-      if (resolveRandom) {
-        result += renderRandomValue(
-          resolveRandom(source, token),
+    if (token.kind === "random" || token.kind === "time") {
+      if (resolveValue) {
+        result += renderBodyValue(
+          resolveValue(source, token),
           json,
           token.insideString,
         )

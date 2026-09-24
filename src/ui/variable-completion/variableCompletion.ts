@@ -1,8 +1,9 @@
 import type { Environment } from "../../schema"
 import type { Highlight } from "@opentui/core"
 import { variableReferences } from "../../variableReference"
-import { scanBodyTemplate, validateBodyRandom } from "../../bodyTemplate"
+import { scanBodyTemplate, previewBodyValue } from "../../bodyTemplate"
 import { RANDOM_GENERATORS } from "../../scriptRandom"
+import { TIME_METHODS } from "../../scriptTime"
 
 export type BodyCompletion = "json" | "text"
 
@@ -14,12 +15,23 @@ export function bodyVariableNames(
   names: Iterable<string>,
   prefix: string,
 ): string[] {
-  return prefix.startsWith("random.")
-    ? bodyGenerators.map((item) => `random.${item.name}`)
-    : [...names, "random."]
+  if (prefix.startsWith("random."))
+    return bodyGenerators.map((item) => `random.${item.name}`)
+  if (prefix.startsWith("time."))
+    return TIME_METHODS.map((item) => `time.${item.name}`)
+  return [...names, "random.", "time."]
 }
 
 export function variableCompletionItem(name: string, body?: BodyCompletion) {
+  const time = body && TIME_METHODS.find((item) => `time.${item.name}` === name)
+  if (time)
+    return {
+      key: name,
+      label: `$${name}`,
+      description: time.description,
+      signature: `$time.${time.signature}`,
+      example: `$time.${time.example}`,
+    }
   const definition =
     body && name.startsWith("random.")
       ? bodyGenerators.find((item) => `random.${item.name}` === name)
@@ -70,7 +82,11 @@ export function getVariableToken(
   const cursor = Math.max(0, Math.min(cursorOffset, value.length))
   if (body) {
     for (const token of scanBodyTemplate(value, body === "json")) {
-      if (token.kind !== "random" || cursor < token.start || cursor > token.end)
+      if (
+        (token.kind !== "random" && token.kind !== "time") ||
+        cursor < token.start ||
+        cursor > token.end
+      )
         continue
       if (cursor > token.nameEnd) return null
       return {
@@ -120,6 +136,17 @@ export function replaceVariableToken(
       cursorOffset: token.start + replacement.length - 2,
     }
   }
+  if (
+    body &&
+    value[token.end] !== "(" &&
+    TIME_METHODS.some((item) => `time.${item.name}` === name && item.min > 0)
+  ) {
+    const replacement = `$${name}()`
+    return {
+      value: value.slice(0, token.start) + replacement + value.slice(token.end),
+      cursorOffset: token.start + replacement.length - 1,
+    }
+  }
   const replacement = `$${name}`
   return {
     value: value.slice(0, token.start) + replacement + value.slice(token.end),
@@ -138,9 +165,9 @@ export function getVariableHighlights(
     : variableReferences(value)) {
     if (reference.kind === "escape") continue
     let exists = env !== null && Object.hasOwn(env.vars, reference.name)
-    if (reference.kind === "random") {
+    if (reference.kind === "random" || reference.kind === "time") {
       try {
-        validateBodyRandom(value, reference)
+        previewBodyValue(value, reference)
         exists = true
       } catch {
         exists = false

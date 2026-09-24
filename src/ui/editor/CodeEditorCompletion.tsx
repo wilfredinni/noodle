@@ -70,7 +70,7 @@ export function CodeEditorCompletion({
       getEditor={getEditor}
       onSelect={(index) => {
         if (!acceptSuggestion(completion.suggestions[index]!)) return false
-        setDismissed(completion.suggestions[index] !== "random.")
+        setDismissed(!completion.suggestions[index]!.endsWith("."))
         return true
       }}
       onDismiss={() => setDismissed(true)}

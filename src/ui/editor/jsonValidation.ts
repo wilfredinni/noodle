@@ -3,8 +3,8 @@ import type { Environment } from "../../schema"
 import { scanVariableReferences } from "../../variableReference"
 import {
   scanBodyTemplate,
-  previewBodyRandom,
-  renderRandomValue,
+  previewBodyValue,
+  renderBodyValue,
 } from "../../bodyTemplate"
 
 interface Replacement {
@@ -69,9 +69,9 @@ function substituteVariables(
     let value: string
     try {
       value =
-        token.kind === "random"
-          ? renderRandomValue(
-              previewBodyRandom(content, token),
+        token.kind === "random" || token.kind === "time"
+          ? renderBodyValue(
+              previewBodyValue(content, token),
               true,
               token.insideString,
             )
@@ -93,8 +93,8 @@ function substituteVariables(
     }
     replacements.push({
       name:
-        token.kind === "random"
-          ? `random.${token.name}`
+        token.kind === "random" || token.kind === "time"
+          ? `${token.kind}.${token.name}`
           : token.kind === "reference"
             ? token.name
             : undefined,

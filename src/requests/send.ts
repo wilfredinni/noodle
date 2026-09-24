@@ -12,7 +12,7 @@ import type {
   Response,
 } from "../schema"
 import { substitute, type SubstitutedRequest } from "./substitute"
-import { createBodyRandomResolver } from "../bodyTemplate"
+import { createBodyValueResolver } from "../bodyTemplate"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
@@ -158,7 +158,7 @@ export async function send(
       merged,
       environment ?? { name: "", vars: {} },
       resolveVariables,
-      createBodyRandomResolver((value) => {
+      createBodyValueResolver((value) => {
         generatedSecrets.push(value)
         transport.onSensitiveValues?.([value])
       }),

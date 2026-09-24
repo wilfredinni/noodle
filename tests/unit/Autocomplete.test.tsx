@@ -192,11 +192,16 @@ async function mount(
 }
 
 describe("shared autocomplete", () => {
-  it.each(["text", "file"] as const)(
-    "gates multipart %s value completion in the rendered form editor",
-    async (type) => {
+  it.each([
+    ["text", "$random.nu", "$random.number", "Generate an integer"],
+    ["file", "$random.nu", "$random.number", "Generate an integer"],
+    ["text", "$time.is", "$time.iso", "UTC ISO timestamp"],
+    ["file", "$time.is", "$time.iso", "UTC ISO timestamp"],
+  ] as const)(
+    "gates multipart %s value completion for %s in the rendered form editor",
+    async (type, initial, completed, description) => {
       function FormHarness() {
-        const [value, setValue] = useState("$random.nu")
+        const [value, setValue] = useState<string>(initial)
         return (
           <FormEditor
             request={{
@@ -226,20 +231,50 @@ describe("shared autocomplete", () => {
       const view = await mount(
         "variables",
         <FormHarness />,
-        type === "text" ? "$random.number" : "$random.nu",
+        type === "text" ? completed : initial,
       )
       try {
         await view.render()
         if (type === "text") {
-          expect(view.captureCharFrame()).toContain("Generate an integer")
+          expect(view.captureCharFrame()).toContain(description)
           await view.press("tab")
-          expect(view.editor().plainText).toBe("$random.number")
+          expect(view.editor().plainText).toBe(completed)
         } else {
           expect(
             view.renderer.root.findDescendantById("var-completion-menu"),
           ).toBeUndefined()
-          expect(view.editor().plainText).toBe("$random.nu")
+          expect(view.editor().plainText).toBe(initial)
         }
+      } finally {
+        view.cleanup()
+      }
+    },
+  )
+  it.each(["variables", "code"] as Kind[])(
+    "continues into time methods in %s completion without an environment",
+    async (kind) => {
+      const view = await mount(
+        kind,
+        <Harness kind={kind} variables={null} body="json" initialText="$ti" />,
+        "$time.",
+      )
+      try {
+        await view.press("tab")
+        await view.render()
+        expect(view.editor().plainText).toBe("$time.")
+        expect(view.captureCharFrame()).toContain("$time.now")
+        await act(async () => {
+          await view.mockInput.typeText("fo")
+        })
+        await view.render()
+        expect(view.captureCharFrame()).toContain("Format a timestamp")
+        expect(view.captureCharFrame()).toContain("Example: $time.format")
+        await view.press("return")
+        expect(view.editor().plainText).toBe("$time.format()")
+        expect(view.editor().cursorOffset).toBe(13)
+        expect(
+          view.renderer.root.findDescendantById("var-completion-menu"),
+        ).toBeUndefined()
       } finally {
         view.cleanup()
       }

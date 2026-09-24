@@ -17,6 +17,7 @@ export const TIME_METHODS = [
     max: 0,
     signature: "now(): number",
     description: "Current Unix milliseconds.",
+    example: "now",
   },
   {
     name: "unix",
@@ -24,6 +25,7 @@ export const TIME_METHODS = [
     max: 1,
     signature: "unix(value?: number | string): number",
     description: "Unix seconds, rounded down; defaults to now.",
+    example: "unix",
   },
   {
     name: "fromUnix",
@@ -31,6 +33,7 @@ export const TIME_METHODS = [
     max: 1,
     signature: "fromUnix(seconds: number): number",
     description: "Convert Unix seconds to milliseconds.",
+    example: "fromUnix(1767225600)",
   },
   {
     name: "parse",
@@ -38,6 +41,7 @@ export const TIME_METHODS = [
     max: 1,
     signature: "parse(text: string): number",
     description: "Parse an ISO date or timezone-bearing timestamp.",
+    example: 'parse("2026-01-01")',
   },
   {
     name: "iso",
@@ -45,6 +49,7 @@ export const TIME_METHODS = [
     max: 1,
     signature: "iso(value?: number | string): string",
     description: "UTC ISO timestamp; defaults to now.",
+    example: "iso",
   },
   {
     name: "format",
@@ -53,6 +58,7 @@ export const TIME_METHODS = [
     signature:
       "format(value: number | string, pattern: string, options?: { timeZone?: string }): string",
     description: "Format a timestamp in UTC or a named IANA timezone.",
+    example: 'format("2026-01-01", "YYYY-MM-DD")',
   },
   {
     name: "add",
@@ -61,6 +67,7 @@ export const TIME_METHODS = [
     signature:
       "add(value: number | string, amount: number, unit: string): number",
     description: "Add an elapsed duration, returning milliseconds.",
+    example: 'add("2026-01-01", 1, "days")',
   },
   {
     name: "subtract",
@@ -69,6 +76,7 @@ export const TIME_METHODS = [
     signature:
       "subtract(value: number | string, amount: number, unit: string): number",
     description: "Subtract an elapsed duration, returning milliseconds.",
+    example: 'subtract("2026-01-01", 1, "days")',
   },
   {
     name: "diff",
@@ -77,10 +85,14 @@ export const TIME_METHODS = [
     signature:
       "diff(a: number | string, b: number | string, unit?: string): number",
     description: "Signed elapsed difference a - b; defaults to milliseconds.",
+    example: 'diff("2026-01-02", "2026-01-01", "days")',
   },
 ] as const
 
-export function createTimeHandlers(error: (message: string) => Error) {
+export function createTimeHandlers(
+  error: (message: string) => Error,
+  now = () => Date.now(),
+) {
   const fail = (message: string): never => {
     throw error(message)
   }
@@ -197,13 +209,12 @@ export function createTimeHandlers(error: (message: string) => Error) {
     )
   }
   const methods: Record<string, (args: unknown[]) => number | string> = {
-    now: () => Date.now(),
-    unix: (args) =>
-      Math.floor((args.length ? instant(args[0]) : Date.now()) / 1000),
+    now: () => now(),
+    unix: (args) => Math.floor((args.length ? instant(args[0]) : now()) / 1000),
     fromUnix: ([seconds]) => clip(finite(seconds) * 1000),
     parse: ([text]) => parse(text),
     iso: (args) =>
-      new Date(args.length ? instant(args[0]) : Date.now()).toISOString(),
+      new Date(args.length ? instant(args[0]) : now()).toISOString(),
     format: ([value, pattern, options]) => format(value, pattern, options),
     add: ([value, amount, units]) =>
       clip(instant(value) + finite(amount) * unit(units)),

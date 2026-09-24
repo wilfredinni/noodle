@@ -7,10 +7,7 @@ import type {
   ResponseAssertion,
 } from "../schema"
 import { replaceVariableReferences } from "../variableReference"
-import {
-  substituteBodyTemplate,
-  type BodyRandomResolver,
-} from "../bodyTemplate"
+import { substituteBodyTemplate, type BodyValueResolver } from "../bodyTemplate"
 
 export { isValidVariableName } from "../variableReference"
 
@@ -23,7 +20,7 @@ export function substitute(
   req: Request,
   env: Environment,
   resolveVariables = true,
-  resolveRandom?: BodyRandomResolver,
+  resolveValue?: BodyValueResolver,
 ): SubstitutedRequest {
   const resolveName = (name: string, field: string): string => {
     if (!Object.hasOwn(env.vars, name)) {
@@ -43,7 +40,7 @@ export function substitute(
           s,
           json,
           (name) => resolveName(name, field),
-          resolveRandom,
+          resolveValue,
         )
       : s
 

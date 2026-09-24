@@ -15,7 +15,11 @@ function env(vars: Record<string, string>): Environment {
 
 describe("variable completion", () => {
   it("offers body generators without an environment and preserves method arguments", () => {
-    expect(bodyVariableNames(["host"], "")).toEqual(["host", "random."])
+    expect(bodyVariableNames(["host"], "")).toEqual([
+      "host",
+      "random.",
+      "time.",
+    ])
     const names = bodyVariableNames([], "random.")
     expect(names).toContain("random.uuid")
     expect(names).not.toContain("random.seed")
@@ -41,6 +45,56 @@ describe("variable completion", () => {
       variableCompletionItem("random.number", "text").description,
     ).toContain("integer")
     expect(variableCompletionItem("host").description).toBeUndefined()
+  })
+
+  it("completes time methods, preserves arguments, and inserts required calls with the cursor inside", () => {
+    const names = bodyVariableNames([], "time.")
+    expect(names).toHaveLength(9)
+    expect(getVariableSuggestions(names, "time.f")).toEqual([
+      "time.format",
+      "time.fromUnix",
+    ])
+    expect(getVariableToken("$time.is", 8)).toBeNull()
+    expect(getVariableToken("$$time.is", 9, "text")).toBeNull()
+    expect(
+      getVariableToken('$time.format(0, "[$host]")', 21, "text"),
+    ).toBeNull()
+    const source = '$time.fo(0, "YYYY") suffix'
+    expect(
+      replaceVariableToken(
+        source,
+        getVariableToken(source, 8, "text")!,
+        "time.format",
+        "text",
+      ).value,
+    ).toBe('$time.format(0, "YYYY") suffix')
+    const complete = (prefix: string, name: string) =>
+      replaceVariableToken(
+        prefix,
+        getVariableToken(prefix, prefix.length, "text")!,
+        name,
+        "text",
+      )
+    expect(complete("$time.is", "time.iso")).toEqual({
+      value: "$time.iso",
+      cursorOffset: 9,
+    })
+    expect(complete("$time.fr", "time.fromUnix")).toEqual({
+      value: "$time.fromUnix()",
+      cursorOffset: 15,
+    })
+    const details = variableCompletionItem("time.format", "json")
+    expect(details.description).toContain("timezone")
+    expect(details.signature).toContain("pattern: string")
+    expect(details.example).toBe('$time.format("2026-01-01", "YYYY-MM-DD")')
+    expect(variableCompletionItem("time.format").description).toBeUndefined()
+    expect(
+      getVariableHighlights(
+        "$time.now $time.parse $time.iso(0) $time.now(1) $time",
+        null,
+        "text",
+      ).map((item) => item.exists),
+    ).toEqual([true, false, true, false, false])
   })
 
   it("highlights valid and invalid random calls independently of environment variables", () => {

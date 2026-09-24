@@ -48,7 +48,7 @@ export function useVariableCompletion({
       : []
     const tokenText = token ? text.slice(token.start + 1, token.end) : ""
     const isComplete =
-      tokenText !== "random." &&
+      !tokenText.endsWith(".") &&
       cursorOffset === token?.end &&
       suggestions.includes(tokenText)
     return { token, suggestions, isComplete }

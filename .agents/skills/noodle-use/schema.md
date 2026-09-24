@@ -498,6 +498,26 @@ Each occurrence generates independently on each manual send, request run, collec
 
 Argument and result values retain the existing 256 KiB and depth-32 JSON limits and per-generator option bounds. Generated passwords enter existing secret redaction immediately, including when a later placeholder fails. Other generated test data stays visible. Neither IDs nor passwords are cryptographic credentials or guaranteed unique. Use no extra YAML fields or configuration flags.
 
+### Time body templates
+
+Request bodies also expose every [time helper](#script-time-api) as `$time.method` or `$time.method(...)`, with the same supported fields, JSON quoting, literal arguments, size limits, and single-pass rules as [random body templates](#random-body-templates). `now` returns Unix milliseconds, `unix` returns Unix seconds, and `iso` returns a UTC ISO string. Parentheses are optional when arguments are optional; methods such as `parse`, `fromUnix`, `format`, `add`, `subtract`, and `diff` still require their documented arguments. JavaScript expressions and nested calls are not supported.
+
+```yaml
+body_type: json
+body: |-
+  {
+    "createdAt": $time.iso,
+    "timestampMs": $time.now,
+    "timestampSeconds": $time.unix(),
+    "label": "Created at $time.iso",
+    "date": $time.format("2026-01-01", "YYYY-MM-DD")
+  }
+```
+
+Current-time calls share one instant captured during substitution before pre-scripts. Each request execution, saved child, and dataset iteration captures a new instant. Redirects and authentication retries reuse the prepared body. Script `noodle.time` methods retain their existing live-clock behavior. Explicit date arguments retain the existing ISO, timezone, pattern, and elapsed-duration validation. UTC is the default and a day remains 24 hours.
+
+`$time.` is reserved in supported body fields; plain `$time` remains an environment variable and `$$time.now` sends literal `$time.now`. Saved YAML retains unresolved templates. Inspection, formatting, validation, and completion never evaluate the current clock; editor validation uses a fixed instant and the same argument checks. Autocomplete works without an environment, shows descriptions/signatures/static examples, and inserts `()` with the cursor inside for methods requiring arguments. Existing arguments are preserved when completing a method name. Direct `noodle.sendRequest` inputs and values introduced by variables, generators, or scripts remain literal.
+
 ### Script random API
 
 `noodle.random` is a frozen synchronous API in both pre and post. Every generator

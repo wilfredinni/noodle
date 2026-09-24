@@ -1,7 +1,7 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, setSystemTime, spyOn } from "bun:test"
 import {
-  createBodyRandomResolver,
-  previewBodyRandom,
+  createBodyValueResolver,
+  previewBodyValue,
   scanBodyTemplate,
   substituteBodyTemplate,
 } from "../../src/bodyTemplate"
@@ -33,10 +33,190 @@ const expand = (
       if (!Object.hasOwn(vars, name)) throw new Error(`missing ${name}`)
       return vars[name]!
     },
-    createBodyRandomResolver(() => {}),
+    createBodyValueResolver(() => {}),
   )
 
 describe("request body templates", () => {
+  afterEach(() => setSystemTime())
+
+  it("shares one current timestamp across a body and refreshes it for the next execution", () => {
+    const now = Date.parse("2026-01-01T00:00:00.123Z")
+    setSystemTime(now)
+    const resolve = createBodyValueResolver(() => {})
+    setSystemTime(now + 1000)
+    const source =
+      '{"ms":$time.now,"also":$time.now(),"seconds":$time.unix,"iso":$time.iso(),"text":"$time.now"}'
+    const body = substituteBodyTemplate(source, true, () => "", resolve)
+    expect(JSON.parse(body)).toEqual({
+      ms: now,
+      also: now,
+      seconds: Math.floor(now / 1000),
+      iso: "2026-01-01T00:00:00.123Z",
+      text: String(now),
+    })
+    expect(expand("$time.now")).toBe(String(now + 1000))
+  })
+
+  it("supports every time method with literal JSON arguments and normal JSON escaping", () => {
+    const source = `{
+      "parsed": $time.parse("2024-02-29"),
+      "fromUnix": $time.fromUnix(1.5),
+      "unix": $time.unix(-1),
+      "iso": $time.iso(0),
+      "formatted": $time.format("2026-01-01", "YYYY-MM-DD HH:mm Z", {"timeZone":"Asia/Kathmandu"}),
+      "add": $time.add(0, 1.5, "seconds"),
+      "subtract": $time.subtract(0, 1, "days"),
+      "diff": $time.diff(1500, 0, "seconds"),
+      "large": 9007199254740993123456
+    }`
+    const result = expand(source, true)
+    expect(JSON.parse(result)).toMatchObject({
+      parsed: Date.parse("2024-02-29"),
+      fromUnix: 1500,
+      unix: -1,
+      iso: "1970-01-01T00:00:00.000Z",
+      formatted: "2026-01-01 05:45 +05:45",
+      add: 1500,
+      subtract: -86400000,
+      diff: 1.5,
+    })
+    expect(result).toContain("9007199254740993123456")
+    const quoted = JSON.stringify({
+      label: 'date-$time.format(0, "YYYY-MM-DD")',
+    })
+    expect(JSON.parse(expand(quoted, true))).toEqual({
+      label: "date-1970-01-01",
+    })
+  })
+
+  it("keeps time namespaces, escapes, generated text and argument strings single-pass", () => {
+    expect(
+      expand('$$time.now $time $value $random.pick(["$time.now"])', false, {
+        time: "env",
+        value: "$time.now",
+      }),
+    ).toBe("$time.now env $time.now $time.now")
+    expect(expand('$time.format(0, "[$time.now]")')).toBe("$time.now")
+    expect(() =>
+      expand('$time.parse("$date")', false, { date: "2026-01-01" }),
+    ).toThrow("expected an ISO date")
+  })
+
+  it.each([
+    "$time.",
+    "$time.missing",
+    "$time.now(1)",
+    "$time.fromUnix",
+    "$time.parse()",
+    "$time.iso(null)",
+    "$time.fromUnix(1e999)",
+    "$time.fromUnix(8640000000001)",
+    '$time.parse("2026-02-30")',
+    '$time.parse("2026-01-01T12:00:00")',
+    '$time.add(0, 1, "months")',
+    '$time.format(0, "YYYY", {"timeZone":"not/a/zone"})',
+    '$time.format(0, "YYYY", {"unknown":true})',
+    '$time.format(0, "YY")',
+    '$time.format(0, "YYYY", {"__proto__":{}})',
+    "$time.unix(Date.now())",
+    "$time.iso($time.now)",
+    "$time.fromUnix(1 + 2)",
+    "$time.parse('2026-01-01')",
+    "$time.iso(0,)",
+    "$time.now.constructor()",
+    "$time.iso(0",
+  ])("rejects invalid time calls safely: %s", (source) => {
+    expect(() => expand(source)).toThrow(/time\..* at line 1, column 1/)
+    expect(
+      validateJsonContent(`{"value":${source}}`, null, true),
+    ).not.toBeNull()
+  })
+
+  it("validates time without reading the clock and preserves templates outside execution", () => {
+    const body =
+      '{"now":$time.now,"iso":$time.iso,"format":$time.format(0,"YYYY")}'
+    const clock = spyOn(Date, "now")
+    try {
+      expect(validateJsonContent(body, null, true)).toBeNull()
+      expect(
+        JSON.parse(
+          substituteBodyTemplate(body, true, () => "", previewBodyValue),
+        ),
+      ).toEqual({
+        now: 0,
+        iso: "1970-01-01T00:00:00.000Z",
+        format: "1970",
+      })
+      expect(substitute(request({ bodyType: "json", body }), env).body).toBe(
+        body,
+      )
+      expect(clock).not.toHaveBeenCalled()
+    } finally {
+      clock.mockRestore()
+    }
+    expect(() => expand('line\n$time.parse("secret-argument")')).toThrow(
+      "time.parse: expected an ISO date or timestamp with a timezone at line 2, column 1",
+    )
+    expect(() => expand(`$time.parse("${"x".repeat(256 * 1024)}")`)).toThrow(
+      "size limit",
+    )
+    expect(() =>
+      expand(`$time.iso(${"[".repeat(33)}0${"]".repeat(33)})`),
+    ).toThrow("JSON depth exceeds 32")
+  })
+
+  it("resolves time in XML and text form values while excluding disabled fields and file paths", async () => {
+    expect(expand("<date>$time.iso(0)</date>")).toBe(
+      "<date>1970-01-01T00:00:00.000Z</date>",
+    )
+    const result = substitute(
+      request({
+        url: "https://example.com/$time.iso",
+        bodyType: "urlencoded",
+        headers: { time: { enabled: true, value: "$time.iso" } },
+        formData: [
+          {
+            name: "$time.iso",
+            value: "$time.iso(0)",
+            type: "text",
+            enabled: true,
+          },
+          { name: "off", value: "$time.invalid", type: "text", enabled: false },
+        ],
+      }),
+      { name: "", vars: { time: "literal" } },
+      true,
+      createBodyValueResolver(() => {}),
+    )
+    expect(result.url).toEndWith("/literal.iso")
+    expect(result.headers.time).toBe("literal.iso")
+    expect(result.formData?.[1]?.value).toBe("$time.invalid")
+    expect(await bodyForSend(result, new Headers())).toBe(
+      "literal.iso=1970-01-01T00%3A00%3A00.000Z",
+    )
+    const files = substitute(
+      request({
+        bodyType: "multipart",
+        formData: [
+          { name: "file", value: "$time.now", type: "file", enabled: true },
+          {
+            name: "text",
+            value: "$time.fromUnix(1)",
+            type: "text",
+            enabled: true,
+          },
+        ],
+      }),
+      { name: "", vars: { time: "literal" } },
+      true,
+      createBodyValueResolver(() => {}),
+    )
+    expect(files.formData?.map((entry) => entry.value)).toEqual([
+      "literal.now",
+      "1000",
+    ])
+  })
+
   it("generates each occurrence, accepts both default spellings and preserves types and number source", () => {
     const body = expand(
       `{
@@ -137,7 +317,7 @@ describe("request body templates", () => {
       body,
       true,
       () => "",
-      previewBodyRandom,
+      previewBodyValue,
     )
     expect(JSON.parse(preview)).toEqual({ id: "example", age: 0, choice: true })
     expect(validateJsonContent(body, null, true)).toBeNull()
@@ -153,7 +333,7 @@ describe("request body templates", () => {
         request({ body }),
         env,
         false,
-        createBodyRandomResolver(() => {
+        createBodyValueResolver(() => {
           throw new Error("generated")
         }),
       ).body,
@@ -161,7 +341,7 @@ describe("request body templates", () => {
   })
 
   it("handles literal text, XML and encoded forms while excluding names and file paths", async () => {
-    const resolve = createBodyRandomResolver(() => {})
+    const resolve = createBodyValueResolver(() => {})
     expect(expand('<value>$random.pick(["<&>"])</value>')).toBe(
       "<value><&></value>",
     )
@@ -232,7 +412,7 @@ describe("request body templates", () => {
         "$random.password $random.uuid(1)",
         false,
         () => "",
-        createBodyRandomResolver((value) => secrets.push(value)),
+        createBodyValueResolver((value) => secrets.push(value)),
       ),
     ).toThrow("does not accept arguments")
     expect(secrets).toHaveLength(1)

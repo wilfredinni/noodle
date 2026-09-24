@@ -246,7 +246,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     const selectCompletion = useCallback(
       (name: string): boolean => {
         if (!acceptSuggestion(name)) return false
-        setCompletionDismissed(name !== "random.")
+        setCompletionDismissed(!name.endsWith("."))
         handleCompletionAccepted()
         return true
       },
