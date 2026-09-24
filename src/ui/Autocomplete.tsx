@@ -335,7 +335,8 @@ export function Autocomplete({
           overflow="hidden"
         >
           <text fg={theme.textMuted} wrapMode="char">
-            {details}
+            <span fg={theme.secondary}>{selected?.description ?? ""}</span>
+            {details.slice(selected?.description?.length ?? 0)}
           </text>
         </box>
       ) : null}

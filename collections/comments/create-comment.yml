@@ -8,8 +8,8 @@ headers:
   Content-Type: application/json
 body: |-
   {
-    "name": "$random.name",
-    "email": "$random.email",
-    "body": "$random.loremLines"
+    "name": $random.name,
+    "email": $random.email,
+    "body": $random.loremText
   }
 body_type: json
