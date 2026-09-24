@@ -4,6 +4,43 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-24
+
+Noodle 0.9.4 adds reusable JavaScript files and random and time placeholders for request bodies, with searchable completion menus to help author them. Post-response scripts now run from the request outward to the collection, while clearer import warnings, source diagnostics, and notification details make problems easier to inspect.
+
+![Noodle showing random body placeholder completion with method descriptions and examples](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/random_body_templates.png)
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-4-external-scripts-and-body-templates/)
+
+### ✨ Features
+
+- Reference collection-relative `./path/to/file.js` files from `scripts.pre`, `scripts.post`, and `tests` in requests, folders, and collection settings. Resolve all applicable sources before a manual send and all selected sources before a collection run; reject missing or unreadable files, invalid UTF-8, files over 256 KiB, and paths escaping the collection. Reuse source reads within a run and reload them on the next send, with the existing sandbox and async APIs.
+- Generate body values with `$random.method` or `$random.method(...)` in JSON, text/XML, and enabled text form fields. Reuse the existing test-data generators with JSON-literal arguments, preserve JSON types for standalone placeholders, escape quoted JSON text, and register generated passwords for redaction. Expand once before pre scripts; redirects reuse the prepared body and saved YAML retains the templates.
+- Add `$time` body placeholders for timestamps, ISO dates, timezone formatting, and elapsed-duration arithmetic using the existing time helpers. Current-time placeholders share one instant per request execution; saved children and dataset iterations capture a new instant. Body completion shows generator descriptions, signatures, and examples without generating data.
+- Provide searchable, scrollable completion menus for variables, response expressions, and paths, with highlighted matches and mouse selection. Body fields also suggest `$random.` and `$time.` methods without requiring an environment.
+- Warn when Postman or Insomnia imports contain scripts that were not converted, identifying the source item and phase in CLI, JSON, and TUI summaries without copying foreign script source.
+- Add **Show Last Notification** to the command palette for persistent, keyboard-scrollable message details, including after a toast disappears.
+- Show inline/external source kinds, scope IDs, collection-relative script paths, and test invocation details in Results, CLI output, and manual history.
+
+### 🐞 Fixes
+
+- Change inherited post-response order to request → nearest folder → outermost folder → collection, after captures. Pre scripts and tests keep collection → outermost folder → nearest folder → request order. Review post blocks that depend on writes from another scope when upgrading from 0.9.3.
+- Preserve safe script and test logs when limiting timeline diagnostics, retaining redaction and truncation markers.
+- Keep notifications readable in small terminals without stealing editor focus, and show unconverted-script warnings and completed test status more clearly.
+- Bound completion rendering for large suggestion lists, preserve exact variable tokens and existing call arguments, and keep selected descriptions readable.
+- Recover cookie storage on a later request after a temporary lock clears. Unavailable jars omit stored cookies and ignore response cookies while storage remains unavailable, preserving the stored jar.
+
+### 🔧 Refactors
+
+- Share completion rendering and match highlighting across inputs and code editors, and reuse validated random, time, and JSON helpers for body templates.
+- Remove redundant repeated native response-file tests from the primary CI job while retaining source, standalone, and native rebuild coverage.
+
+### 📚 Documentation
+
+- Update `noodle-use` with external script sources, phase order, import warnings, source diagnostics, and random/time body templates; correct stale test-source and history-log guidance.
+- Update `noodle-dev` with the shared source resolver, body-template lifecycle, current completion APIs, notification focus rules, and regression coverage.
+- Synchronize the README, agent instructions, in-app tips, scripting and request guides, API references, and automation examples, with a release article and links to runnable collection examples.
+
 ## [0.9.3] - 2026-09-22
 
 Noodle 0.9.3 adds scripted response tests, async request chaining, and shared scripts and tests at collection and folder level. CSV and JSON datasets let the CLI and TUI Runner repeat selected requests with fresh variables and cookies for each row, while expanded Results diagnostics keep failures traceable to their source.
@@ -909,7 +946,8 @@ Path parameters, live network traces, mouse-first controls, and faster focus jum
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/wilfredinni/noodle/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/wilfredinni/noodle/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/wilfredinni/noodle/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/wilfredinni/noodle/compare/v0.9.0...v0.9.1

@@ -32,7 +32,7 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, inline pre/post scripts, scripted tests, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml`, `.env`, and `.js` edits for folders, request bodies, auth, headers, params, inline or external pre/post scripts and tests, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a committed capture/script RunScope value from an earlier request in the same collection run.
@@ -84,7 +84,7 @@ Every manual send, `request run`, `collection run`, and TUI Runner request uses 
 1. Merge folder overrides.
 2. Overlay the current RunScope for substitution.
 3. Substitute the request once.
-4. Run inherited and request inline pre blocks against a staged prepared copy.
+4. Run inherited and request pre blocks against a staged prepared copy.
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures.
@@ -148,11 +148,11 @@ runtime changes but fails automation with redacted persistence diagnostics.
 Treat collections containing scripts as trusted code. A script can read selected-environment secrets with `noodle.env.get`
 and place them in the URL, headers, or body sent by the following HTTP request.
 
-Manual timeline history retains bounded, redacted pre/post outcome summaries, persistence outcomes, and scripted test results/errors. Script logs, test logs, source code, capture results, and RunScope values remain excluded; oversized diagnostic text is replaced with `[TRUNCATED]`. Automation runs do not create timeline entries.
+Manual timeline history retains bounded, redacted pre/post outcome summaries, persistence outcomes, script/test logs, and scripted test results/errors. Source code, capture results, and RunScope values remain excluded; oversized diagnostic text and logs use `[TRUNCATED]` markers. Automation runs do not create timeline entries.
 
 ### Scripted response tests
 
-Use a request-level inline `tests` string for conditional checks, loops, and
+Use an inline `tests` string or a collection-relative `./path/to/file.js` reference for conditional checks, loops, and
 related JSON assertions. Use declarative `assert` for simple response contracts;
 use `scripts.post` for mutations. `test(name, callback)` and `expect(actual)` are
 global only in tests; readers remain `noodle.response`, `noodle.request`,
@@ -185,7 +185,7 @@ completed results. Network APIs and modules are unavailable in tests; external s
 a no-op, source is never substituted, and non-string `tests` values are invalid.
 
 Read `data.result.tests` or `data.results[].tests`: `{ evaluated, results, logs,
-error?, errors? }`, with `{ name, passed, message, durationMs }` per test. Pre/transport
+error?, errors?, invocations? }`, with `{ name, passed, message, durationMs }` per test. Pre/transport
 failures leave tests unevaluated. Failure category `test` covers failed callbacks
 and top-level errors; collection summaries include `testPasses`, `testFailures`,
 and `testScriptErrors` when tests exist. Fail-fast waits for all diagnostics.
@@ -319,8 +319,8 @@ logs, and normalized error. `source.path` remains the declaring YAML path;
 `source.sourcePath`, such as `./scripts/sign.js`. Test groups retain ordered
 `invocations` even for files declaring zero tests, and `errors` with legacy
 first `error` compatibility. JSON and live Results retain bounded redacted logs.
-New history entries retain outcome summaries but no script/test logs, source
-code, or RunScope values. Existing history remains readable.
+New history entries retain bounded, redacted outcome summaries and script/test
+logs, excluding source code and RunScope values. Existing history remains readable.
 
 Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
 budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test

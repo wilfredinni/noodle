@@ -325,26 +325,23 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 ## Add variable completion to a new input
 
-**Locate:**
-- `src/ui/variable-completion/variableCompletion.ts` — `getVariableToken`, `getVariableSuggestions`, `replaceVariableToken`
-- `src/ui/variable-completion/useVariableCompletion.ts` — hook returning `{ completion, getCompletion, makeHandleKey }`
-- `src/ui/variable-completion/variableCompletionInterceptor.tsx` — registers high-priority (200) key interceptor on keymap
-- `src/ui/VarInput.tsx` — fully integrated variable-aware input component (reuse this if possible)
+**Follow:** Prefer `VarInput`, which integrates variable, response-expression, and path
+completion through `Autocomplete.tsx`. Pass `variableNames` for the available
+environment names and enable `body` only for supported body values.
+For a `CodeEditorRenderable`, use `CodeEditorCompletion`.
 
-**Follow:** `VarInput` already handles completion for Input and Textarea. If your new component needs completions but can't use VarInput directly, register a new handler.
+**Implement:** If a standalone editor needs completion, reuse
+`useVariableCompletion({ getEditor, variableNames, value, isEditing, body? })`.
+Its `completion` contains the token, suggestions, and exact-match state;
+`getCompletion()` reads the live cursor and `acceptSuggestion(name)` replaces
+the token. Render `Autocomplete` with the editor, items, query, current value,
+and selection/dismiss callbacks. The shared menu owns navigation, scrolling,
+mouse selection, cursor anchoring, and high-priority key interception.
 
-**Implement (new standalone input):**
-1. Import `useVariableCompletion()` and call it with `variableNames` (env var keys or custom list)
-2. On each keystroke, call `getCompletion(value, cursorOffset)` to update completion state
-3. For keyboard handling, call `makeHandleKey()` which returns a handler for up/down/tab/return/escape
-4. Use `VariableCompletionInterceptor` component near the input to register the handler
-5. Render a popup for this input's completion state and anchor it to its cursor. Reserve `<CodeEditorCompletion>` for `CodeEditorRenderable` instances.
-
-**Implement (with VarInput):**
-1. Use `<VarInput>` component directly — it handles completion, highlighting, and popup rendering internally
-2. Pass `variableNames` prop to control available completions (defaults to active env vars)
-
-**Test:** Add to `tests/unit/UrlBar.test.tsx` or `tests/unit/variableCompletion.test.ts`. Test completion popup appears on `$`, navigates with up/down, closes on escape.
+**Test:** Validate changes with `tests/unit/Autocomplete.test.tsx`,
+`variableCompletion.test.ts`, and the affected input/editor suite. Preserve
+exact tokens, existing arguments, focus, Escape/Tab behavior, and small-terminal
+bounds. See `bodyTemplate.test.ts` for generation-free body previews.
 
 **Verify:** `bun test && bun run lint && bun run typecheck`
 

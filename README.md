@@ -62,7 +62,9 @@ to create a collection, send your first request, and inspect the response.
   Pass response values to later requests or save them to an environment or secret.
 - 📜 **[Scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
   Prepare requests and process responses with sandboxed JavaScript.
-  Share scripts and tests across collections and folders.
+  Share inline scripts or external JavaScript files across collections and folders.
+- 🎲 **[Body templates](https://noodlerest.dev/docs/guides/using-the-request-pane/#random-and-time-body-values):**
+  Generate test data and timestamps with `$random` and `$time` placeholders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
   iteration data, and JSON results. Try the [data-run example](collections/scripting-data).

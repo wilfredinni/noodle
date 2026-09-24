@@ -101,8 +101,8 @@ logs, and normalized error. `source.path` remains the declaring YAML path;
 `source.sourcePath`, such as `./scripts/sign.js`. Test groups retain ordered
 `invocations` even for files declaring zero tests, and `errors` with legacy
 first `error` compatibility. JSON and live Results retain bounded redacted logs.
-New history entries retain outcome summaries but no script/test logs, source
-code, or RunScope values. Existing history remains readable.
+New history entries retain bounded, redacted outcome summaries and script/test
+logs, excluding source code and RunScope values. Existing history remains readable.
 
 Inherited blocks share a 64 KiB console-text budget and a 256 KiB test-record
 budget per request. Logs become `[TRUNCATED]` at the limit; exhausted test
@@ -133,7 +133,7 @@ or thenables before finalizing results. Results retain declaration order, includ
 duplicate names. Names must be non-empty strings. A failed matcher or callback
 fails that test and later tests continue. A top-level error stops the script but
 preserves completed results. Empty source is a successful no-op. `tests` must be
-an inline string; file paths and modules are unsupported.
+an inline string or a collection-relative `./path/to/file.js` reference; modules are unsupported.
 Source is never variable-substituted. Network APIs and state mutations are unavailable.
 
 Every matcher supports `.not`, for example `expect(value).not.toBeNull()`.
@@ -176,7 +176,7 @@ source/matcher values and retained test records, depth 32 JSON values, and the
 lazy 5 MiB response text limit. Unresolved Promises and resource limits stop the
 group while keeping completed results.
 
-Results add `tests: { evaluated, results, logs, error?, errors? }`. Each ordered result
+Results add `tests: { evaluated, results, logs, error?, errors?, invocations? }`. Each ordered result
 contains `name`, `passed`, `message`, and `durationMs`; `error` describes a
 separate top-level script failure. Known secrets are redacted from names,
 messages, errors, and logs. Failed tests or a script error add failure category
@@ -187,8 +187,8 @@ for all diagnostics. Requests without tests keep their previous output.
 Human output shows counts and concise failures. JSON includes structured results
 and redacted logs. The existing TUI Results view shows expandable scripted tests
 and logs in manual sends and Runner details. Manual history retains bounded,
-redacted outcome summaries with the existing 10,000-byte text limit; it excludes
-script/test logs, source code and runtime values. There is no test
+redacted outcome summaries and logs with the existing 10,000-byte diagnostic
+text and per-log-array limits; it excludes source code and runtime values. There is no test
 editor, autocomplete, dedicated Console panel, or importer conversion.
 
 ### External JavaScript sources

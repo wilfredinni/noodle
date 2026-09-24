@@ -149,7 +149,7 @@ display and completion.
 
 Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots, assertion metadata, response headers, and response bodies recursively redact known environment, proxy, TLS, credential, jar-sent cookie, response-cookie, and captured-secret values before persistence. Sensitive response headers such as `Set-Cookie` are field-masked, and redaction happens before body compression. Marking or updating a secret leaves existing entries and sidecars unchanged. Timeline files and sidecars remain sensitive because public variables and unknown server data stay visible.
 
-Manual entries may also contain an entry-level `scripts` group with executed pre/post results, redacted logs/errors, persistence outcomes, inherited origins, and child-call summaries. An optional `tests` group retains ordered results, logs, and block errors with source paths. Individual diagnostic text and combined serialized logs are capped at 10,000 bytes with `[TRUNCATED]` markers; script source, capture results, and RunScope values are excluded. Binary responses retain redacted metadata only, with no body or sidecar. Automation does not create timeline entries.
+Manual entries may also contain an entry-level `scripts` group with executed pre/post results, redacted logs/errors, persistence outcomes, inherited origins, and child-call summaries. An optional `tests` group retains ordered results, logs, and block errors with source paths. Individual diagnostic text and each serialized log array are capped at 10,000 bytes with `[TRUNCATED]` markers; script source, capture results, and RunScope values are excluded. Binary responses retain redacted metadata only, with no body or sidecar. Automation does not create timeline entries.
 
 ### File write conventions
 
@@ -234,16 +234,16 @@ Cursor-aware `$variable` completion system across all text inputs:
 ### Core (src/ui/variable-completion/variableCompletion.ts)
 
 - `getVariableToken(value, cursorOffset)` — parses `$`-prefixed word at cursor position
-- `getVariableSuggestions(vars, prefix)` — filters env var names by typed prefix
-- `replaceVariableToken(value, cursorOffset, name)` — replaces `$pre` → `$name`, returns new cursor position
+- `getVariableSuggestions(vars, prefix)` filters names by case-insensitive substring; exact tokens stay intact
+- `replaceVariableToken(value, token, name, body?)` replaces the token and returns the new cursor position, preserving existing body-call arguments
 
 ### Hook (src/ui/variable-completion/useVariableCompletion.ts)
 
-- `useVariableCompletion(variableNames)` — returns `{ completion, getCompletion, makeHandleKey }`
-- `completion` state: `{ suggestions, selectedIndex, visible }` or `null`
-- `getCompletion(value, cursorOffset)` — triggers completion, anchored at cursor position
-- `makeHandleKey()` — returns key handler for up/down/tab/return/escape in completion context
-- Max 10 suggestions visible (`MAX_COMPLETION_VISIBLE`)
+- `useVariableCompletion({ getEditor, variableNames, value, isEditing, body? })` returns `{ completion, getCompletion, acceptSuggestion }`
+- `completion` contains `{ token, suggestions, isComplete }`; `getCompletion()` reads the live cursor
+- `acceptSuggestion(name)` verifies editing, focus, and the current token before replacement
+- `Autocomplete.tsx` owns selection, dismissal, scrolling, and terminal-fit rendering with at most 10 visible suggestions
+- Body completion adds random/time methods and static descriptions, signatures, and examples without generating values
 
 ### Integration (src/ui/variable-completion/variableCompletionInterceptor.tsx)
 
@@ -254,7 +254,7 @@ Cursor-aware `$variable` completion system across all text inputs:
 ### UI (src/ui/VarInput.tsx)
 
 - 3 modes: `<input>` (single-line), `<textarea>` (multi-line), read-only `<VarText>`
-- Completion popup rendered as portal (z-index 10000) anchored to cursor position
+- Shared `Autocomplete` popup rendered as a portal anchored to the cursor; also used by `CodeEditorCompletion`
 - Navigate suggestions with up/down, accept with tab/return, dismiss with escape
 
 ### Highlighting (src/ui/variable-completion/variableHighlight.ts, src/ui/variable-completion/envHighlight.ts)
@@ -381,18 +381,18 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      Modes: inactive → browsing (navigate) → editing (commit/cancel)
      commitEdit() dispatches to draftMutators
    → SAVE: lang/serialize.ts → filestore/save.ts (direct write)
-  → SEND: requestLifecycle.ts shared sequence:
+  → SEND: requestLifecycle.ts shared sequence (scriptSourceResolver.ts resolves all applicable sources first):
      1. Merge folder overrides
      2. Overlay RunScope values for substitution
-     3. Substitute the request once
+     3. Substitute the request once, including body templates through bodyTemplate.ts
      4. Run collection, ancestor-folder, and request scripts.pre blocks through the phase-aware runner in preRequestScript.ts
      5. Commit successful pre request and RunScope mutations
      6. Pass only the prepared transport request to executor.send()
      7. Evaluate and commit captures in executionResults.ts
-     8. Run collection, ancestor-folder, and request scripts.post blocks with captures, response, and final-leg request readers;
+     8. Run request, nearest-to-outermost folder, and collection scripts.post blocks with captures, response, and final-leg request readers;
         atomically commit successful post RunScope and URL-scoped cookie writes
      9. Evaluate assertions against the same response resolver, even after post failure
-    10. Run read-only tests in the same ancestor order, retaining every block error
+    10. Run read-only tests in collection-to-request order, retaining every block error
   → requests/send.ts transport-only executor pipeline:
      1. Build URL with path and query params
      2. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop

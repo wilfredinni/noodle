@@ -145,8 +145,11 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
 ## Inline scripting regressions
 
 - Preserve pre-only/no-script behavior and strict pre/post parser round trips,
-  literal whitespace, empty-string no-ops, unknown-key rejection, and external
-  path rejection without file reads.
+  literal whitespace, empty-string no-ops, unknown-key rejection, and valid
+  external references. Reject malformed paths before file reads; use
+  `tests/integration/externalScripts.test.ts` for confined realpaths, symlink
+  escapes, regular files, UTF-8/size limits, safe errors, preflight, read caching,
+  fresh sends, phase order, and source diagnostics.
 - Prove merge → environment/RunScope → substitute once → pre → HTTP → captures
   → post → assertions → tests, same-request capture visibility, isolated
   manual/request scopes, ordered collection propagation, and capture persistence independent
@@ -199,3 +202,14 @@ whole-file validation, typed rows, precedence, cookie isolation, skipped rows,
 delay, and iteration-specific detail lookup. Repeat changed asynchronous tests ten
 times. Run inlineTestsCli with `NOODLE_TEST_BINARY` after building to exercise
 Ajv compilation limits and datasets in the standalone runtime.
+
+## Body templates and completion
+
+Use `tests/unit/bodyTemplate.test.ts` and
+`tests/integration/bodyTemplates.test.ts` for literal arguments, JSON types and
+escaping, size/depth limits, single-pass variables, generated-secret redaction,
+pre-script visibility, redirect reuse, child calls, and fresh dataset iterations.
+Preview, validation, and completion must not generate random data or read the
+current clock. Render completion changes with `Autocomplete.test.tsx` and the
+affected input/editor suites; notification changes use `Toast.test.tsx` and
+`NotificationOverlay.test.tsx` for focus, keyboard scrolling, resize, and reopen.
