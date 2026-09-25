@@ -24,7 +24,7 @@
     "@jitl/quickjs-singlefile-mjs-release-sync": "0.32.0",
     "@opentui/core": "^0.5.11",
     "@opentui/keymap": "^0.5.11",
-    "@opentui/react": "^0.5.11",
+    "@opentui/react": "^0.5.12",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "aws4": "^1.13.2",
