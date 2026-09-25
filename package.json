@@ -49,7 +49,7 @@
     "bun-types": "^1.4.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
-    "oxfmt": "^0.68.0",
+    "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
     "typescript": "^7.0.2"
   },
