@@ -371,7 +371,6 @@ export function RequestPane({
                 overflow: "hidden",
               }}
             >
-              <ScriptInheritance request={request} />
               {activeTab === "body" && (
                 <BodyTypeSelector
                   request={request}
@@ -389,6 +388,10 @@ export function RequestPane({
               )}
               {scriptPhase(activeTab) ? (
                 <>
+                  <ScriptInheritance
+                    request={request}
+                    phase={scriptPhase(activeTab)!}
+                  />
                   <ScriptEditor
                     key={`${request.id}:${activeTab}`}
                     value={scriptText(request, scriptPhase(activeTab)!)}

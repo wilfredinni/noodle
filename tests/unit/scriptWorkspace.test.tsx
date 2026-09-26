@@ -233,70 +233,89 @@ describe("script workspaces", () => {
     )
   })
 
-  it("shows inherited scope order with collection-relative paths", async () => {
-    const child = {
-      ...request,
-      id: "users/a",
-      scripts: { pre: "own()", post: "after()" },
-      tests: "check()",
-    }
-    const collection: Collection = {
-      id: "demo",
-      name: "Demo",
-      scripts: { pre: "./pre.js", post: "./post.js" },
-      items: [
-        {
-          type: "folder",
-          data: {
-            ...folder,
-            scripts: { pre: "before()", post: "after()" },
-            children: [{ type: "request", data: child }],
+  it.each([
+    ["headers", undefined],
+    ["params", undefined],
+    ["pathParams", undefined],
+    ["body", undefined],
+    ["auth", undefined],
+    ["assertions", undefined],
+    ["captures", undefined],
+    ["settings", undefined],
+    ["preScript", "pre"],
+    ["postScript", "post"],
+    ["tests", "tests"],
+  ] as const)(
+    "shows only the relevant inheritance on the %s tab",
+    async (tab, phase) => {
+      const child = {
+        ...request,
+        id: "users/a",
+        scripts: { pre: "own()", post: "after()" },
+        tests: "check()",
+      }
+      const collection: Collection = {
+        id: "demo",
+        name: "Demo",
+        scripts: { pre: "./pre.js", post: "./post.js" },
+        tests: "./tests.js",
+        items: [
+          {
+            type: "folder",
+            data: {
+              ...folder,
+              scripts: { pre: "before()", post: "after()" },
+              children: [{ type: "request", data: child }],
+            },
           },
-        },
-      ],
-    }
-    const { keymap } = setupKeymap()
-    const h = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ScriptAuthoringContext.Provider
-            value={{
-              collection,
-              collectionDir: "/tmp",
-              confirm: () => {},
-              open: () => {},
-              setActive: () => {},
-            }}
-          >
-            <RequestPane
-              request={child}
-              activeTab="headers"
-              editState={{
-                mode: "inactive",
-                cursor: { field: "headers", row: -1, addingRow: true },
-                editingRow: -1,
+        ],
+      }
+      const { keymap } = setupKeymap()
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <ScriptAuthoringContext.Provider
+              value={{
+                collection,
+                collectionDir: "/tmp",
+                confirm: () => {},
+                open: () => {},
+                setActive: () => {},
               }}
-              editKey=""
-              editValue=""
-              setEditKey={() => {}}
-              setEditValue={() => {}}
-            />
-          </ScriptAuthoringContext.Provider>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 120, height: 14 },
-    )
-    await act(async () => {
-      await h.renderOnce()
-    })
-    const frame = h.captureCharFrame()
-    expect(frame).toContain(
-      "pre: collection: demo ./pre.js → folder: users → request (adds)",
-    )
-    expect(frame).toContain(
-      "post: request (adds) → folder: users → collection: demo ./post.js",
-    )
-  })
+            >
+              <RequestPane
+                request={child}
+                activeTab={tab}
+                editState={{
+                  mode: "inactive",
+                  cursor: { field: "headers", row: -1, addingRow: true },
+                  editingRow: -1,
+                }}
+                editKey=""
+                editValue=""
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+              />
+            </ScriptAuthoringContext.Provider>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 120, height: 14 },
+      )
+      await act(async () => {
+        await h.renderOnce()
+      })
+      const frame = h.captureCharFrame()
+      const summaries = {
+        pre: "pre: collection: demo ./pre.js → folder: users → request (adds)",
+        post: "post: request (adds) → folder: users → collection: demo ./post.js",
+        tests: "tests: collection: demo ./tests.js → request (adds)",
+      }
+      for (const [summaryPhase, summary] of Object.entries(summaries)) {
+        if (summaryPhase === phase) expect(frame).toContain(summary)
+        else expect(frame).not.toContain(`${summaryPhase}: `)
+      }
+    },
+  )
 
   it("edits all collection phases using the settings queue without overwriting unrelated settings", async () => {
     const dir = await fixture()

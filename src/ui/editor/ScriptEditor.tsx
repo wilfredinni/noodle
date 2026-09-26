@@ -405,30 +405,26 @@ export function ScriptEditor({
 
 export function ScriptInheritance({
   request,
+  phase,
 }: {
   request: Parameters<typeof requestScriptBlocks>[0]
+  phase: ScriptPhase
 }) {
   const context = useContext(ScriptAuthoringContext)
   const theme = useTheme()
   const blocks = requestScriptBlocks(request, context?.collection ?? undefined)
-  if (!blocks.some((block) => block.source.scope !== "request")) return null
+  const ordered = (phase === "post" ? [...blocks].reverse() : blocks).filter(
+    (block) => scriptText(block, phase),
+  )
+  if (!ordered.some((block) => block.source.scope !== "request")) return null
   return (
     <box flexDirection="column" flexShrink={0}>
-      {(["pre", "post", "tests"] as const).map((phase) => {
-        const ordered = (
-          phase === "post" ? [...blocks].reverse() : blocks
-        ).filter((block) => scriptText(block, phase))
-        if (!ordered.some((block) => block.source.scope !== "request"))
-          return null
-        return (
-          <text key={phase} fg={theme.textMuted} truncate>{`${phase}: ${ordered
-            .map((block) => {
-              const value = scriptText(block, phase)
-              return `${block.source.scope === "request" ? "request (adds)" : scriptSourceLabel(block.source)}${isExternalScriptSource(value) ? ` ${value}` : ""}`
-            })
-            .join(" → ")}`}</text>
-        )
-      })}
+      <text fg={theme.textMuted} truncate>{`${phase}: ${ordered
+        .map((block) => {
+          const value = scriptText(block, phase)
+          return `${block.source.scope === "request" ? "request (adds)" : scriptSourceLabel(block.source)}${isExternalScriptSource(value) ? ` ${value}` : ""}`
+        })
+        .join(" → ")}`}</text>
     </box>
   )
 }
