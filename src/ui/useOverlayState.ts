@@ -50,6 +50,7 @@ export type CookieDeletePending =
   | { kind: "reset" }
 
 export type ActiveOverlay =
+  | "script-source-confirm"
   | "save-response"
   | "command-palette"
   | "code-generator"
@@ -97,6 +98,9 @@ export function useOverlayState({
   collectionSwitchPending,
   reloadPending,
 }: UseOverlayStateProps) {
+  const [scriptSourceConfirm, setScriptSourceConfirm] = useState<{
+    confirm: () => void
+  } | null>(null)
   const [helpVisible, setHelpVisible] = useState(false)
   const [responseFilePending, setResponseFilePending] =
     useState<ResponseFilePending | null>(null)
@@ -170,6 +174,7 @@ export function useOverlayState({
   }, [cookieDeletePending])
 
   const activeOverlay = useMemo((): ActiveOverlay => {
+    if (scriptSourceConfirm) return "script-source-confirm"
     if (commandPaletteVisible) return "command-palette"
     if (responseFilePending) return "save-response"
     if (codeGeneratorVisible) return "code-generator"
@@ -205,6 +210,7 @@ export function useOverlayState({
       return "timeline-detail"
     return "none"
   }, [
+    scriptSourceConfirm,
     commandPaletteVisible,
     responseFilePending,
     codeGeneratorVisible,
@@ -242,6 +248,8 @@ export function useOverlayState({
 
   return {
     activeOverlay,
+    scriptSourceConfirm,
+    setScriptSourceConfirm,
     responseFilePending,
     setResponseFilePending,
     responseFileRef,

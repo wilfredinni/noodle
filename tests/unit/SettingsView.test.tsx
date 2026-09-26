@@ -10,6 +10,7 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { THEMES, ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { Toast } from "../../src/ui/Toast"
 import type { Focus } from "../../src/ui/focus"
 import type { AppProxySettings, CollectionSettings } from "../../src/schema"
@@ -56,7 +57,7 @@ function Harness({
   onCollectionSettingsChange?: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries"
+      "name" | "description" | "timelineMaxEntries" | "scripts" | "tests"
     >,
   ) => boolean
   onThemeChange?: (index: number) => void
@@ -87,6 +88,7 @@ function Harness({
       appProxy={appProxy}
       appProxyCredentials={{ username: "alice", password: "secret" }}
       collectionProxy={{ mode: "inherit" }}
+      collectionScripts={collectionSettings}
       collectionName={collectionSettings.name}
       collectionDescription={collectionSettings.description}
       timelineMaxEntries={collectionSettings.timelineMaxEntries}
@@ -915,5 +917,43 @@ describe("SettingsView", () => {
     await act(async () => host.press("d", { ctrl: true }))
     expect(changes).toBe(1)
     cleanup()
+  })
+  it("edits collection scripts in Settings with keyboard phase navigation", async () => {
+    const { keymap, host } = setupKeymap()
+    const patches: CollectionSettings[] = []
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="scripts"
+            initialFocus="settings-content"
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 28 },
+    )
+    await act(async () => {
+      await h.renderOnce()
+    })
+    expect(h.captureCharFrame()).toContain("Collection Pre Script")
+    await act(async () => host.press("down"))
+    expect(keymap.getData("app.text-input")).toBe(true)
+    const editor = h.renderer.root.findDescendantById(
+      "script-source",
+    ) as CodeEditorRenderable
+    await act(async () => editor.insertText('console.info("settings")'))
+    await act(async () => host.press("escape"))
+    expect(patches.at(-1)?.scripts?.pre).toBe('console.info("settings")')
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await act(async () => {
+      await h.renderOnce()
+    })
+    expect(h.captureCharFrame()).toContain("collection: settings.yml · tests")
   })
 })

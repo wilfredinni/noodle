@@ -1,3 +1,6 @@
+import { SCRIPT_TABS, scriptPhase, scriptText } from "../scriptAuthoring"
+import { ScriptEditor, ScriptInheritance } from "./editor/ScriptEditor"
+import type { ScriptPhase } from "../preRequestScript"
 import { type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
@@ -66,6 +69,8 @@ interface Props {
     value: string | boolean | number,
   ) => void
   onBodyTypeChange?: (t: BodyType) => void
+  onScriptChange?: (phase: ScriptPhase, source: string) => void
+  onScriptExit?: () => void
   onBodyChange?: (body: string) => void
   onTlsVerifyChange?: (verify?: boolean) => void
   onSelectOpenChange?: (open: boolean) => void
@@ -98,6 +103,7 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "auth", label: "Auth" },
   { id: "assertions", label: "Assert" },
   { id: "captures", label: "Capture" },
+  ...SCRIPT_TABS,
   { id: "settings", label: "Settings" },
 ]
 
@@ -126,6 +132,8 @@ export function RequestPane({
   onApiKeyPlacementChange,
   onAuthFieldChange,
   onBodyTypeChange,
+  onScriptChange,
+  onScriptExit,
   onBodyChange,
   onTlsVerifyChange,
   onSelectOpenChange,
@@ -227,12 +235,17 @@ export function RequestPane({
         !revealedOptionalTabs?.includes(tab.id as FieldKind) &&
         ((tab.id === "assertions" && !request?.assertions?.length) ||
           (tab.id === "captures" &&
-            !Object.keys(request?.captures ?? {}).length)),
+            !Object.keys(request?.captures ?? {}).length) ||
+          (!!scriptPhase(tab.id) &&
+            (!request || !scriptText(request, scriptPhase(tab.id)!)))),
     )
     const hiddenIds = new Set(hiddenOptionalTabs.map((tab) => tab.id))
     return {
       optionalTabMenuItems: BASE_TAB_DEFS.filter(
-        (tab) => tab.id === "assertions" || tab.id === "captures",
+        (tab) =>
+          tab.id === "assertions" ||
+          tab.id === "captures" ||
+          !!scriptPhase(tab.id),
       ).map((tab) => ({ ...tab, disabled: !hiddenIds.has(tab.id) })),
       tabs: BASE_TAB_DEFS.filter((tab) => !hiddenIds.has(tab.id)).map(
         (tab) => ({
@@ -340,7 +353,7 @@ export function RequestPane({
                     fitContent
                     showIndicator={false}
                     dropdownAlign="right"
-                    maxDropdownHeight={2}
+                    maxDropdownHeight={5}
                     onActivate={activateTabMenu}
                     onChange={addOptionalTab}
                     onOpenChange={handleTabMenuOpenChange}
@@ -358,6 +371,7 @@ export function RequestPane({
                 overflow: "hidden",
               }}
             >
+              <ScriptInheritance request={request} />
               {activeTab === "body" && (
                 <BodyTypeSelector
                   request={request}
@@ -373,7 +387,32 @@ export function RequestPane({
                   }}
                 />
               )}
-              {isTextBody ? (
+              {scriptPhase(activeTab) ? (
+                <>
+                  <ScriptEditor
+                    key={`${request.id}:${activeTab}`}
+                    value={scriptText(request, scriptPhase(activeTab)!)}
+                    phase={scriptPhase(activeTab)!}
+                    source={{
+                      scope: "request",
+                      scopeId: request.id,
+                      path: `${request.id}.yml`,
+                    }}
+                    focused={focused}
+                    editing={inEdit && editState.cursor.field === activeTab}
+                    interactive={interactive}
+                    onChange={(value) =>
+                      onScriptChange?.(scriptPhase(activeTab)!, value)
+                    }
+                    onActivate={() => {
+                      onPaneFocus?.()
+                      onFieldActivate?.(activeTab, 0)
+                    }}
+                    onExit={() => onScriptExit?.()}
+                    onSelectOpenChange={onSelectOpenChange}
+                  />
+                </>
+              ) : isTextBody ? (
                 <BodySection
                   request={request}
                   editState={editState}

@@ -1,4 +1,6 @@
+import { SCRIPT_TABS, scriptPhase, type ScriptField } from "../scriptAuthoring"
 export type FieldKind =
+  | ScriptField
   | "headers"
   | "params"
   | "pathParams"
@@ -9,7 +11,12 @@ export type FieldKind =
   | "settings"
   | "meta"
   | "activity"
-export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
+export type FolderFieldKind =
+  | ScriptField
+  | "activity"
+  | "meta"
+  | "headers"
+  | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export type FieldSubfield = "key" | "operator" | "value" | "persist"
@@ -33,6 +40,9 @@ export interface SectionRowCount {
   pathParams: number
   body: number
   auth: number
+  preScript?: number
+  postScript?: number
+  tests?: number
   assertions?: number
   captures?: number
   settings: number
@@ -68,6 +78,7 @@ export const FIELD_ORDER: FieldKind[] = [
   "auth",
   "assertions",
   "captures",
+  ...SCRIPT_TABS.map((tab) => tab.id),
   "settings",
 ]
 
@@ -75,6 +86,7 @@ export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
   "meta",
   "headers",
   "auth",
+  ...SCRIPT_TABS.map((tab) => tab.id),
   "activity",
 ]
 
@@ -147,10 +159,11 @@ export function cycleField(
   const fields = FIELD_ORDER.filter(
     (field) =>
       field === current ||
-      (field !== "assertions" && field !== "captures") ||
+      (field !== "assertions" && field !== "captures" && !scriptPhase(field)) ||
       revealedOptionalTabs.includes(field) ||
       (field === "assertions" && !!counts.assertions) ||
-      (field === "captures" && !!counts.captures),
+      (field === "captures" && !!counts.captures) ||
+      (!!scriptPhase(field) && !!counts[field as ScriptField]),
   )
   const idx = fields.indexOf(current)
   return fields[(idx + delta + fields.length) % fields.length]!
@@ -164,6 +177,7 @@ export function cursorForField(
   field: FieldKind,
   counts: SectionRowCount,
 ): FieldCursor {
+  if (scriptPhase(field)) return { field, row: 0, addingRow: false }
   switch (field) {
     case "body":
       return { field, row: 0, addingRow: false }
@@ -204,6 +218,7 @@ export function folderCursorForField(
   field: FolderFieldKind,
   counts: FolderRowCount,
 ): FieldCursor {
+  if (scriptPhase(field)) return { field, row: 0, addingRow: false }
   switch (field) {
     case "meta":
     case "auth":
@@ -217,6 +232,7 @@ export function folderCursorForField(
       return { field, row: 0, addingRow: false }
     }
   }
+  return { field, row: 0, addingRow: false }
 }
 
 export function toggleSubfield(prev: EditState): EditState {

@@ -63,6 +63,7 @@ to create a collection, send your first request, and inspect the response.
 - 📜 **[Scripting](https://noodlerest.dev/docs/guides/pre-request-scripting/):**
   Prepare requests and process responses with sandboxed JavaScript.
   Share inline scripts or external JavaScript files across collections and folders.
+  Author Pre Script, Post Script, and Tests in the TUI with completion and syntax checks; browse logs in Console.
 - 🎲 **[Body templates](https://noodlerest.dev/docs/guides/using-the-request-pane/#random-and-time-body-values):**
   Generate test data and timestamps with `$random` and `$time` placeholders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**

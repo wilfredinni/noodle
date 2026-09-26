@@ -785,7 +785,13 @@ export function App({
     (
       patch: Pick<
         CollectionSettings,
-        "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
+        | "name"
+        | "description"
+        | "timelineMaxEntries"
+        | "tls"
+        | "cookies"
+        | "scripts"
+        | "tests"
       >,
     ) => {
       if (mode !== "collection") return false
@@ -1078,6 +1084,7 @@ export function App({
         onProxyAuthDisable={handleProxyAuthDisable}
         onTlsPassphraseChange={handleTlsPassphraseChange}
         onTlsProfileRemove={handleTlsProfileRemove}
+        collectionScripts={settings}
         onCollectionSettingsChange={handleCollectionSettingsChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}

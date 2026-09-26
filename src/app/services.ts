@@ -748,6 +748,7 @@ async function runRequest(
   onDetail?: RunDetail,
   output?: PreparedResponseOutput,
   scriptSources?: ScriptSourceResolver,
+  consoleTiming = false,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -756,6 +757,7 @@ async function runRequest(
     collection,
     requestPath: request.id,
     scriptSources,
+    consoleTiming,
     ...(persistCaptures
       ? {
           persistScriptChanges: (intents) =>
@@ -993,6 +995,7 @@ export async function collectionRun(
   onDetail?: RunDetail,
   delayMs = 0,
   dataPath?: string,
+  syntaxPreflight = false,
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
@@ -1030,7 +1033,7 @@ export async function collectionRun(
       scripts: settings.scripts,
       tests: settings.tests,
     }
-    scriptSources = createScriptSourceResolver(dir)
+    scriptSources = createScriptSourceResolver(dir, syntaxPreflight)
     for (const request of requests)
       await scriptSources.resolveBlocks(
         requestScriptBlocks(request, collection),
@@ -1086,6 +1089,7 @@ export async function collectionRun(
               : undefined,
             undefined,
             scriptSources,
+            syntaxPreflight,
           )
           results.push({ ...result, ...identity })
           onProgress?.(results.length, selected)

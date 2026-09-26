@@ -376,6 +376,8 @@ export function MainView({
             setEditKey={folderEb.setEditKey}
             setEditValue={folderEb.setEditValue}
             activeTab={folderEb.activeTab}
+            onScriptChange={folderDraft.setScript}
+            onScriptExit={folderEb.commitEdit}
             onAuthTypeChange={folderDraft.setAuthType}
             onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
             onAuthFieldChange={folderDraft.setAuthField}

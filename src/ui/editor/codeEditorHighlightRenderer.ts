@@ -1,3 +1,4 @@
+import { buildJavascriptHighlightRanges } from "./javascriptSyntax"
 import type {
   Highlight,
   SimpleHighlight,
@@ -84,6 +85,7 @@ export class CodeEditorHighlightRenderer {
     }
     if (filetype === "json") this.applyJson(content)
     else if (filetype === "yaml") this.applyYaml(content)
+    else if (filetype === "javascript") this.applyJavascript(content)
     else this.host.clear()
     this.applyExtra(content)
   }
@@ -110,6 +112,7 @@ export class CodeEditorHighlightRenderer {
       this.host.clear()
       if (filetype === "json") this.applyJson(content)
       if (filetype === "yaml") this.applyYaml(content)
+      if (filetype === "javascript") this.applyJavascript(content)
     }
     this.applyExtra(content)
   }
@@ -128,6 +131,12 @@ export class CodeEditorHighlightRenderer {
     this.host.applyRanges(
       buildTreeSitterHighlightRanges(highlights, content, this._style),
     )
+  }
+
+  private applyJavascript(content: string): void {
+    this.host.clear()
+    this.host.setStyle(this._style)
+    this.host.applyRanges(buildJavascriptHighlightRanges(content, this._style))
   }
 
   private applyJson(content: string): void {

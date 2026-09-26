@@ -567,6 +567,18 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
+      {activeOverlay === "script-source-confirm" &&
+        overlays.scriptSourceConfirm && (
+          <ConfirmOverlay
+            visible
+            message="Discard this script source and switch source kind?"
+            onConfirm={() => {
+              overlays.scriptSourceConfirm?.confirm()
+              overlays.setScriptSourceConfirm(null)
+            }}
+            onCancel={() => overlays.setScriptSourceConfirm(null)}
+          />
+        )}
       {activeOverlay === "request-delete" && requestDeletePending !== null && (
         <ConfirmOverlay
           visible

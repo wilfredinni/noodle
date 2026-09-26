@@ -1,3 +1,4 @@
+import type { ActiveScriptSource } from "./editor/ScriptEditor"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./overlays/CommandPaletteOverlay"
@@ -58,6 +59,7 @@ import {
   openCollectionSwitcher,
   openSettings,
   openCollectionInEditor,
+  openScriptInEditor,
   openAppSettingsInEditor,
   type CommandActionsConfig,
   toggleSidebarVisible,
@@ -71,6 +73,7 @@ export interface CommandBuilderContext {
   keybinds: Keybinds
   collectionDir: string
   appConfigDir: string
+  activeScriptSource?: ActiveScriptSource | null
   externalEditor?: ExternalEditor
   confirmUndoAll: boolean
   renderer: CliRenderer
@@ -86,6 +89,8 @@ export interface CommandBuilderContext {
   focusRef: RefObject<Focus>
   responseStateRef: RefObject<SendState>
   responseQueryRef: RefObject<ResponseQueryController | null>
+  consoleCopyRef?: RefObject<(() => boolean) | null>
+  consoleActive?: boolean
   responseBodyForCopyRef: RefObject<string | null>
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
@@ -180,6 +185,7 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     responseStateRef: ctx.responseStateRef,
     responseQueryRef: ctx.responseQueryRef,
     responseBodyForCopyRef: ctx.responseBodyForCopyRef,
+    consoleCopyRef: ctx.consoleCopyRef,
     activeIndexRef: ctx.activeIndexRef,
     savingRef: ctx.savingRef,
     doSaveRef: ctx.doSaveRef,
@@ -633,6 +639,33 @@ export function buildCommandPaletteCommands(
   ]
 
   const externalEditorCommands: CommandItem[] = [
+    ...(ctx.consoleCopyRef && ctx.consoleActive
+      ? [
+          {
+            id: "console.copy",
+            label: "Copy Console",
+            section: "Response",
+            run: () => ctx.consoleCopyRef?.current?.() ?? false,
+          },
+        ]
+      : []),
+    ...(ctx.activeScriptSource
+      ? [
+          {
+            id: "script.open",
+            label: "Open Script in External Editor",
+            section: "Workspace",
+            run: () => {
+              void openScriptInEditor(
+                ctx.externalEditor,
+                ctx.collectionDir,
+                ctx.activeScriptSource!,
+              )
+              return true
+            },
+          },
+        ]
+      : []),
     {
       id: "collection.open-in-editor",
       label: "Open Collection in Editor",

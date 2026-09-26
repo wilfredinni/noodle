@@ -1,3 +1,6 @@
+import { SCRIPT_TABS, scriptPhase, scriptText } from "../scriptAuthoring"
+import { ScriptEditor } from "./editor/ScriptEditor"
+import type { ScriptPhase } from "../preRequestScript"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useMemo, useRef } from "react"
 import type { Folder, Environment, Auth } from "../schema"
@@ -23,6 +26,8 @@ interface FolderPaneProps {
   editValue: string
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
+  onScriptChange?: (phase: ScriptPhase, source: string) => void
+  onScriptExit?: () => void
   activeTab: FieldKind
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
@@ -59,6 +64,8 @@ export function FolderPane({
   setEditKey,
   setEditValue,
   activeTab,
+  onScriptChange,
+  onScriptExit,
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onAuthFieldChange,
@@ -106,10 +113,15 @@ export function FolderPane({
         { id: "meta", label: "General" },
         { id: "headers", label: "Headers" },
         { id: "auth", label: "Auth" },
+        ...SCRIPT_TABS,
         { id: "activity", label: "Activity" },
-      ].map((tab, i) => ({
+      ].map((tab) => ({
         ...tab,
-        jumpHint: jumpMode ? FOLDER_TAB_HINT_ORDER[i] : undefined,
+        jumpHint: jumpMode
+          ? FOLDER_TAB_HINT_ORDER[
+              ["meta", "headers", "auth", "activity"].indexOf(tab.id)
+            ]
+          : undefined,
       }))
     }
     const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
@@ -122,10 +134,15 @@ export function FolderPane({
       { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
+      ...SCRIPT_TABS,
       { id: "activity", label: "Activity" },
-    ].map((tab, i) => ({
+    ].map((tab) => ({
       ...tab,
-      jumpHint: jumpMode ? FOLDER_TAB_HINT_ORDER[i] : undefined,
+      jumpHint: jumpMode
+        ? FOLDER_TAB_HINT_ORDER[
+            ["meta", "headers", "auth", "activity"].indexOf(tab.id)
+          ]
+        : undefined,
     }))
   }, [folder, jumpMode])
 
@@ -170,118 +187,148 @@ export function FolderPane({
               onTabChange?.(tab as FolderFieldKind)
             }}
           >
-            <scrollbox
-              id="folder-tab-scrollbox"
-              ref={scrollRef}
-              scrollY
-              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-            >
-              {activeTab === "activity" && (
-                <FolderActivityTab
-                  stats={activityStats}
-                  loading={activityLoading}
-                  theme={theme}
-                />
-              )}
-              {activeTab === "meta" && (
-                <FolderMetaTab
-                  name={folder.name}
-                  editState={editState}
-                  editValue={editValue}
-                  setEditValue={setEditValue}
-                  browseActive={browseActive}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                  onActivate={
-                    onFieldActivate
-                      ? () => {
-                          onPaneFocus?.()
-                          onInteraction?.()
-                          onFieldActivate("meta", 0)
-                        }
-                      : undefined
-                  }
-                />
-              )}
-              {activeTab === "headers" && (
-                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
-                  <text fg={theme.textMuted}>
-                    Headers sent with every request inside this folder.
-                  </text>
-                  <KeyValueSection
-                    kind="headers"
-                    entries={Object.entries(
-                      folder.overrides?.headers ?? {},
-                    ).map(([key, value]) => ({ key, value }))}
-                    editState={editState}
-                    editKey={editKey}
-                    editValue={editValue}
-                    setEditKey={setEditKey}
-                    setEditValue={setEditValue}
+            {scriptPhase(activeTab) ? (
+              <ScriptEditor
+                key={`${folder.path}:${activeTab}`}
+                value={scriptText(folder, scriptPhase(activeTab)!)}
+                phase={scriptPhase(activeTab)!}
+                source={{
+                  scope: "folder",
+                  scopeId: folder.path,
+                  path: `${folder.path}/folder.yml`,
+                }}
+                focused={focused}
+                editing={inEdit}
+                interactive={interactive}
+                onChange={(value) =>
+                  onScriptChange?.(scriptPhase(activeTab)!, value)
+                }
+                onActivate={() => {
+                  onPaneFocus?.()
+                  onFieldActivate?.(activeTab as FolderFieldKind, 0)
+                }}
+                onExit={() => onScriptExit?.()}
+                onSelectOpenChange={onSelectOpenChange}
+              />
+            ) : (
+              <scrollbox
+                id="folder-tab-scrollbox"
+                ref={scrollRef}
+                scrollY
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                {activeTab === "activity" && (
+                  <FolderActivityTab
+                    stats={activityStats}
+                    loading={activityLoading}
                     theme={theme}
-                    activeEnv={activeEnv}
-                    onActivateRow={
-                      onFieldActivate
-                        ? (row, addingRow, subfield) => {
-                            onPaneFocus?.()
-                            onInteraction?.()
-                            if (subfield === "persist") return
-                            onFieldActivate("headers", row, addingRow, subfield)
-                          }
-                        : undefined
-                    }
-                    onToggleRow={
-                      onFieldToggle
-                        ? (row) => {
-                            onPaneFocus?.()
-                            onInteraction?.()
-                            onFieldToggle("headers", row)
-                          }
-                        : undefined
-                    }
                   />
-                </box>
-              )}
-              {activeTab === "auth" && (
-                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
-                  <text fg={theme.textMuted}>
-                    Auth applied to every request inside this folder.
-                  </text>
-                  <AuthEditor
-                    auth={folder.overrides?.auth ?? { type: "none" }}
+                )}
+                {activeTab === "meta" && (
+                  <FolderMetaTab
+                    name={folder.name}
                     editState={editState}
-                    inEdit={inEdit}
+                    editValue={editValue}
+                    setEditValue={setEditValue}
                     browseActive={browseActive}
-                    editValue={editValue}
-                    setEditValue={setEditValue}
                     theme={theme}
                     activeEnv={activeEnv}
-                    onAuthTypeChange={onAuthTypeChange ?? (() => {})}
-                    onApiKeyPlacementChange={
-                      onApiKeyPlacementChange ?? (() => {})
-                    }
-                    onAuthFieldChange={onAuthFieldChange}
-                    onSelectOpenChange={onSelectOpenChange}
-                    interactive={interactive}
-                    onFocusRow={(row) => {
-                      onInteraction?.()
-                      onPaneFocus?.()
-                      onAuthFocusRow?.(row)
-                    }}
-                    onActivateRow={
+                    onActivate={
                       onFieldActivate
-                        ? (row) => {
+                        ? () => {
                             onPaneFocus?.()
                             onInteraction?.()
-                            onFieldActivate("auth", row)
+                            onFieldActivate("meta", 0)
                           }
                         : undefined
                     }
-                    showInherit={false}
                   />
-                </box>
-              )}
-            </scrollbox>
+                )}
+                {activeTab === "headers" && (
+                  <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
+                    <text fg={theme.textMuted}>
+                      Headers sent with every request inside this folder.
+                    </text>
+                    <KeyValueSection
+                      kind="headers"
+                      entries={Object.entries(
+                        folder.overrides?.headers ?? {},
+                      ).map(([key, value]) => ({ key, value }))}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow, subfield) => {
+                              onPaneFocus?.()
+                              onInteraction?.()
+                              if (subfield === "persist") return
+                              onFieldActivate(
+                                "headers",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onPaneFocus?.()
+                              onInteraction?.()
+                              onFieldToggle("headers", row)
+                            }
+                          : undefined
+                      }
+                    />
+                  </box>
+                )}
+                {activeTab === "auth" && (
+                  <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
+                    <text fg={theme.textMuted}>
+                      Auth applied to every request inside this folder.
+                    </text>
+                    <AuthEditor
+                      auth={folder.overrides?.auth ?? { type: "none" }}
+                      editState={editState}
+                      inEdit={inEdit}
+                      browseActive={browseActive}
+                      editValue={editValue}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                      onAuthTypeChange={onAuthTypeChange ?? (() => {})}
+                      onApiKeyPlacementChange={
+                        onApiKeyPlacementChange ?? (() => {})
+                      }
+                      onAuthFieldChange={onAuthFieldChange}
+                      onSelectOpenChange={onSelectOpenChange}
+                      interactive={interactive}
+                      onFocusRow={(row) => {
+                        onInteraction?.()
+                        onPaneFocus?.()
+                        onAuthFocusRow?.(row)
+                      }}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row) => {
+                              onPaneFocus?.()
+                              onInteraction?.()
+                              onFieldActivate("auth", row)
+                            }
+                          : undefined
+                      }
+                      showInherit={false}
+                    />
+                  </box>
+                )}
+              </scrollbox>
+            )}
           </Tabs>
         </>
       ) : (

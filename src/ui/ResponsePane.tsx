@@ -1,3 +1,4 @@
+import { ScriptConsole, scriptConsoleEntries } from "./ScriptConsole"
 import {
   useCallback,
   useContext,
@@ -78,6 +79,7 @@ const TAB_DEFS: TabDef[] = [
   { id: "timeline", label: "Timeline" },
   { id: "cookies", label: "Cookies" },
   { id: "results", label: "Results" },
+  { id: "console", label: "Console" },
 ]
 
 function responseResultsStatus(
@@ -184,19 +186,29 @@ export function ResponsePane({
   const [activeTab, setActiveTab] = useState<ResponseTabKind>(
     initialTab ?? "body",
   )
+  const consoleExecution =
+    state.status === "done" || state.status === "error"
+      ? state.execution
+      : undefined
+  const hasConsole = scriptConsoleEntries(consoleExecution).length > 0
   const resultsStatus = responseResultsStatus(state)
   const tabs = useMemo(() => {
-    return TAB_DEFS.map((tab) => ({
-      ...tab,
-      indicator:
-        tab.id === "results" && resultsStatus
-          ? {
-              symbol: RESULTS_SYMBOLS[resultsStatus],
-            }
-          : undefined,
-      jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
-    }))
-  }, [jumpMode, resultsStatus])
+    return TAB_DEFS.filter((tab) => tab.id !== "console" || hasConsole).map(
+      (tab) => ({
+        ...tab,
+        indicator:
+          tab.id === "results" && resultsStatus
+            ? {
+                symbol: RESULTS_SYMBOLS[resultsStatus],
+              }
+            : undefined,
+        jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
+      }),
+    )
+  }, [jumpMode, resultsStatus, hasConsole])
+  useEffect(() => {
+    if (activeTab === "console" && !hasConsole) setActiveTab("body")
+  }, [activeTab, hasConsole])
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [localBodyView, setLocalBodyView] = useState<"source" | "visual">(
@@ -334,7 +346,11 @@ export function ResponsePane({
       })
     } else if (key.name === "v" && activeTab === "body") {
       setShowLargeBody(true)
-    } else if (activeTab === "timeline" || activeTab === "results") {
+    } else if (
+      activeTab === "timeline" ||
+      activeTab === "results" ||
+      activeTab === "console"
+    ) {
       return
     } else if (activeTab === "cookies") {
       if (cookieRows.length === 0) return
@@ -757,6 +773,12 @@ export function ResponsePane({
               layout={layout}
               expanded={expanded}
             />
+          ) : activeTab === "console" ? (
+            <ScriptConsole
+              key={responseKey}
+              execution={consoleExecution}
+              focused={focused}
+            />
           ) : activeTab === "results" ? (
             state.status === "idle" ? (
               <Tips />
@@ -774,6 +796,7 @@ export function ResponsePane({
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
                 <ResponseResults
+                  showLogs={false}
                   execution={
                     state.status === "done" || state.status === "error"
                       ? state.execution

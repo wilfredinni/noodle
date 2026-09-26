@@ -24,6 +24,7 @@ function formatValue(value: JsonValue | undefined): string {
 export function ResponseResults({
   execution,
   request,
+  showLogs = true,
   showCaptures = true,
   captureLifetimeNote,
   scrollRef,
@@ -33,6 +34,7 @@ export function ResponseResults({
 }: {
   execution?: ResponseExecutionResults
   request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  showLogs?: boolean
   showCaptures?: boolean
   captureLifetimeNote?: string
   scrollRef?: RefObject<ScrollBoxRenderable | null>
@@ -313,7 +315,7 @@ export function ResponseResults({
                               : []),
                           ]
                         : []),
-                      ...result.logs.map((entry) => ({
+                      ...(showLogs ? result.logs : []).map((entry) => ({
                         label: entry.level.toUpperCase(),
                         value: entry.message,
                       })),
@@ -571,7 +573,7 @@ export function ResponseResults({
                         ]
                       : []),
                   ]),
-                  ...tests.logs.map((log) => ({
+                  ...(showLogs ? tests.logs : []).map((log) => ({
                     label: log.level.toUpperCase(),
                     value: `${log.source ? scriptSourceLabel(log.source) + ": " : ""}${log.message}`,
                   })),

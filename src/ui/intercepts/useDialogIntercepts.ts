@@ -68,6 +68,28 @@ export function useDialogIntercepts(opts: {
     setInitPending,
   } = overlays
 
+  useEffect(() => {
+    if (activeOverlay !== "script-source-confirm") return
+    return keymap.intercept(
+      "key",
+      ({ event }) => {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.name === "y" || event.name === "return") {
+          overlays.scriptSourceConfirm?.confirm()
+          overlays.setScriptSourceConfirm(null)
+        } else if (event.name === "n" || event.name === "escape")
+          overlays.setScriptSourceConfirm(null)
+      },
+      { priority: 100 },
+    )
+  }, [
+    activeOverlay,
+    keymap,
+    overlays.scriptSourceConfirm,
+    overlays.setScriptSourceConfirm,
+  ])
+
   const confirmEnvDelete = useCallback(() => {
     if (!envDeletePending) return
     const envName = envDeletePending

@@ -148,7 +148,7 @@ describe("RequestPane blank click commit", () => {
             <Harness />
           </ThemeProvider>
         </KeymapProvider>,
-        { width: 80, height: 16 },
+        { width: 120, height: 16 },
       )
 
       await act(async () => {
@@ -241,7 +241,7 @@ describe("RequestPane blank click commit", () => {
       await act(async () => {
         await render.renderOnce()
       })
-      expect(changes).toEqual(["assertions", "captures"])
+      expect(changes).toEqual(["assertions", "captures", "preScript"])
       act(() => host.press("escape"))
       await act(async () => {
         await render.renderOnce()
@@ -260,7 +260,12 @@ describe("RequestPane blank click commit", () => {
       await act(async () => {
         await render.renderOnce()
       })
-      expect(changes).toEqual(["assertions", "captures", "headers"])
+      expect(changes).toEqual([
+        "assertions",
+        "captures",
+        "preScript",
+        "headers",
+      ])
       expect(
         render.renderer.root.findDescendantById("tab-assertions"),
       ).toBeDefined()

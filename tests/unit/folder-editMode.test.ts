@@ -71,13 +71,21 @@ describe("initialFolderEditState", () => {
 
 describe("FOLDER_FIELD_ORDER", () => {
   it("has correct order", () => {
-    expect(FOLDER_FIELD_ORDER).toEqual(["meta", "headers", "auth", "activity"])
+    expect(FOLDER_FIELD_ORDER).toEqual([
+      "meta",
+      "headers",
+      "auth",
+      "preScript",
+      "postScript",
+      "tests",
+      "activity",
+    ])
   })
 })
 
 describe("folderFieldIndex", () => {
   it("maps field to index based on FOLDER_FIELD_ORDER", () => {
-    expect(folderFieldIndex("activity")).toBe(3)
+    expect(folderFieldIndex("activity")).toBe(6)
     expect(folderFieldIndex("meta")).toBe(0)
     expect(folderFieldIndex("headers")).toBe(1)
     expect(folderFieldIndex("auth")).toBe(2)
@@ -164,34 +172,18 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFolderFieldCursor", () => {
-  it("+1 walks activity → meta → headers → auth → activity", () => {
-    const counts = emptyCounts
-    const atActivity = enterFolderEditBrowse(
-      folderInactive(),
-      counts,
-      "activity",
-    )
-    const atMeta = moveFolderFieldCursor(atActivity, 1, counts)
-    expect(atMeta.cursor.field).toBe("meta")
-    const atHeaders = moveFolderFieldCursor(atMeta, 1, counts)
-    expect(atHeaders.cursor.field).toBe("headers")
-    const atAuth = moveFolderFieldCursor(atHeaders, 1, counts)
-    expect(atAuth.cursor.field).toBe("auth")
-    const backToActivity = moveFolderFieldCursor(atAuth, 1, counts)
-    expect(backToActivity.cursor.field).toBe("activity")
-  })
-
-  it("-1 walks meta → activity → auth → headers → meta", () => {
-    const counts = emptyCounts
-    const atMeta = enterFolderEditBrowse(folderInactive(), counts, "meta")
-    const atActivity = moveFolderFieldCursor(atMeta, -1, counts)
-    expect(atActivity.cursor.field).toBe("activity")
-    const atAuth = moveFolderFieldCursor(atActivity, -1, counts)
-    expect(atAuth.cursor.field).toBe("auth")
-    const atHeaders = moveFolderFieldCursor(atAuth, -1, counts)
-    expect(atHeaders.cursor.field).toBe("headers")
-    const backToMeta = moveFolderFieldCursor(atHeaders, -1, counts)
-    expect(backToMeta.cursor.field).toBe("meta")
+  it("cycles every folder tab in both directions, including scripts", () => {
+    for (const direction of [1, -1] as const) {
+      let state = enterFolderEditBrowse(folderInactive(), emptyCounts, "meta")
+      const order =
+        direction === 1
+          ? FOLDER_FIELD_ORDER
+          : ["meta", ...FOLDER_FIELD_ORDER.slice(1).reverse()]
+      for (const field of [...order.slice(1), "meta"] as FolderFieldKind[]) {
+        state = moveFolderFieldCursor(state, direction, emptyCounts)
+        expect(state.cursor.field).toBe(field)
+      }
+    }
   })
 
   it("no-op when editing", () => {

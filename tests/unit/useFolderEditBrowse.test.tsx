@@ -29,6 +29,7 @@ const folder: Folder = {
 function createDraftMutators(calls: string[]): UseFolderDraftResult {
   const noop = () => {}
   return {
+    setScript: () => {},
     folderDraft: folder,
     isDirty: false,
     dirtyPaths: new Set(),

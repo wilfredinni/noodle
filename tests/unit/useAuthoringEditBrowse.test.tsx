@@ -495,7 +495,13 @@ function TabNavigationHarness({
 
 describe("useEditBrowse optional-tab menu navigation", () => {
   it("does not restore empty optional tabs across sessions", async () => {
-    for (const field of ["assertions", "captures"] as const) {
+    for (const field of [
+      "assertions",
+      "captures",
+      "preScript",
+      "postScript",
+      "tests",
+    ] as const) {
       let editor: UseEditBrowseResult | undefined
       let persistedTab: FieldKind | undefined
       const changes: FieldKind[] = []
@@ -539,7 +545,13 @@ describe("useEditBrowse optional-tab menu navigation", () => {
     await render.renderOnce()
     expect(changes).toEqual([])
 
-    for (const field of ["assertions", "captures"] as const) {
+    for (const field of [
+      "assertions",
+      "captures",
+      "preScript",
+      "postScript",
+      "tests",
+    ] as const) {
       changes.length = 0
       act(() => restoreTab(field))
       await render.renderOnce()

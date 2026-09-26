@@ -1,3 +1,4 @@
+import { scriptPhase } from "../../scriptAuthoring"
 import type { UseBindingsLayer } from "@opentui/keymap/react"
 import {
   cloneRequest,
@@ -267,7 +268,12 @@ export function createRequestLayers(
         name: "edit.request-send",
         enabled: () => {
           const field = request.ebRef.current.editState.cursor.field
-          return canEdit() && (field === "assertions" || field === "captures")
+          return (
+            canEdit() &&
+            (field === "assertions" ||
+              field === "captures" ||
+              !!scriptPhase(field))
+          )
         },
         run: () => {
           if (request.ebRef.current.commitEdit() === false) return

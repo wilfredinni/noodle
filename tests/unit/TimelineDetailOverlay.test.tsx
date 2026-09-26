@@ -279,11 +279,17 @@ describe("TimelineDetailOverlay", () => {
     )
 
     await renderOnce()
-    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Results/)
+    expect(captureCharFrame()).toMatch(/Request\s+Response\s+Console\s+Results/)
     await act(async () => host.press("right"))
     await act(async () => host.press("right"))
     await renderOnce()
+    expect(captureCharFrame()).toContain("INFO ready")
+    await act(async () => host.press("right"))
+    await renderOnce()
     expect(captureCharFrame()).toContain("Pre-request")
+    await act(async () => host.press("return"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("INFO ready")
     cleanup()
   })
 

@@ -34,6 +34,7 @@ function createActionsConfig(
     responseStateRef: global.responseStateRef,
     responseQueryRef: global.responseQueryRef,
     responseBodyForCopyRef: global.responseBodyForCopyRef,
+    consoleCopyRef: global.consoleCopyRef,
     activeIndexRef: global.activeIndexRef,
     savingRef: request.savingRef,
     doSaveRef: request.doSaveRef,

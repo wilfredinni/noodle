@@ -562,12 +562,18 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.scheduleHighlight()
       return true
     }
-    if (this.shouldAutoSkip(key)) {
+    if (
+      !(this._filetype === "javascript" && key.sequence === ">") &&
+      this.shouldAutoSkip(key)
+    ) {
       this.editBuffer.moveCursorRight()
       return true
     }
 
-    const closeChar = getAutoCloseCharacter(key)
+    const closeChar =
+      this._filetype === "javascript" && key.sequence === "<"
+        ? undefined
+        : getAutoCloseCharacter(key)
     if (closeChar !== undefined) return this.handleAutoClose(key, closeChar)
     if (this._foldManager.hasFoldedRanges() && isPotentialEditKey(key)) {
       if (this._foldManager.isFoldedDisplay) {

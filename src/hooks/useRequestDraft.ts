@@ -1,3 +1,4 @@
+import type { ScriptPhase } from "../preRequestScript"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type {
   Auth,
@@ -25,6 +26,7 @@ export interface UseRequestDraftResult {
   setUrl: (url: string) => void
   syncUrlParams: (rawUrl: string) => void
   setBody: (body: string) => void
+  setScript: (phase: ScriptPhase, source: string) => void
   setHeaderRow: (index: number, key: string, value: string) => void
   addHeaderRow: (key: string, value: string) => void
   removeHeaderRow: (index: number) => void
@@ -119,6 +121,12 @@ export function useRequestDraft(
     (rawUrl: string) => apply({ kind: "syncUrlParams", rawUrl }),
     [apply],
   )
+  const setScript = useCallback(
+    (phase: ScriptPhase, source: string) =>
+      apply({ kind: "setScript", phase, source }),
+    [apply],
+  )
+
   const setBody = useCallback(
     (body: string) => apply({ kind: "setBody", body }),
     [apply],
@@ -356,6 +364,7 @@ export function useRequestDraft(
       setUrl,
       syncUrlParams,
       setBody,
+      setScript,
       setTimeout: setTimeoutCb,
       setFollowRedirects,
       setMaxRedirects,
@@ -402,6 +411,7 @@ export function useRequestDraft(
       setUrl,
       syncUrlParams,
       setBody,
+      setScript,
       setTimeoutCb,
       setFollowRedirects,
       setMaxRedirects,

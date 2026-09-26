@@ -7,6 +7,7 @@ export type ResponseTabKind =
   | "body"
   | "headers"
   | "results"
+  | "console"
   | "network"
   | "timeline"
   | "cookies"
@@ -33,6 +34,9 @@ const REQUEST_TABS = new Set<FieldKind>([
   "auth",
   "assertions",
   "captures",
+  "preScript",
+  "postScript",
+  "tests",
   "settings",
 ])
 
@@ -146,6 +150,7 @@ export async function loadUIState(
           v.response === "body" ||
           v.response === "headers" ||
           v.response === "results" ||
+          v.response === "console" ||
           v.response === "network" ||
           v.response === "timeline" ||
           v.response === "cookies"

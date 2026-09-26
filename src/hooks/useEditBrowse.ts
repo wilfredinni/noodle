@@ -1,3 +1,4 @@
+import { scriptPhase, scriptText } from "../scriptAuthoring"
 import {
   useCallback,
   useEffect,
@@ -72,6 +73,9 @@ function rowCount(req: Request | null): SectionRowCount {
     params: req.params.length,
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
+    preScript: req.scripts?.pre ? 1 : 0,
+    postScript: req.scripts?.post ? 1 : 0,
+    tests: req.tests ? 1 : 0,
     auth: authRows,
     assertions: req.assertions?.length ?? 0,
     captures: Object.keys(req.captures ?? {}).length,
@@ -84,6 +88,8 @@ function isEmptyOptionalTab(
   field: FieldKind,
 ): boolean {
   if (!request) return false
+  const phase = scriptPhase(field)
+  if (phase) return !scriptText(request, phase)
   if (field === "assertions") return !request.assertions?.length
   if (field === "captures") return !Object.keys(request.captures ?? {}).length
   return false
@@ -130,6 +136,8 @@ function currentValueFor(
   addingRow: boolean,
 ): string {
   if (!draft) return ""
+  const phase = scriptPhase(field)
+  if (phase) return scriptText(draft, phase)
   if (field === "body") {
     if (row === 0) return ""
     if (addingRow) {
@@ -421,7 +429,7 @@ export function useEditBrowse(
     const field = editState.cursor.field
     if (
       editState.mode !== "inactive" &&
-      (field === "assertions" || field === "captures")
+      (field === "assertions" || field === "captures" || !!scriptPhase(field))
     ) {
       revealOptionalTab(field)
     }

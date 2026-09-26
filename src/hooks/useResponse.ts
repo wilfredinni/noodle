@@ -1,3 +1,4 @@
+import { createScriptSourceResolver } from "../scriptSourceResolver"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type {
@@ -171,6 +172,8 @@ async function runSend(
   const runScope = new RunScope()
   try {
     const lifecycle = await executeRequestLifecycle({
+      scriptSources: createScriptSourceResolver(collectionDir, true),
+      consoleTiming: true,
       request: req,
       runScope,
       environment: env,

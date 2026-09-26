@@ -15,7 +15,7 @@ describe("FolderPane blank click commit", () => {
     const { keymap, cleanup } = setupKeymap()
     let interactions = 0
     try {
-      const { renderOnce, mockMouse } = await testRender(
+      const { renderOnce, mockMouse, renderer } = await testRender(
         <KeymapProvider keymap={keymap}>
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <FolderPane
@@ -54,6 +54,9 @@ describe("FolderPane blank click commit", () => {
         { width: 80, height: 16 },
       )
       await renderOnce()
+      for (const tab of ["preScript", "postScript", "tests"]) {
+        expect(renderer.root.findDescendantById(`tab-${tab}`)).toBeDefined()
+      }
       await act(async () => {
         await mockMouse.click(60, 10, MouseButtons.LEFT)
       })

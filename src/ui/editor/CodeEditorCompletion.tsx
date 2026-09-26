@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import type { ScriptPhase } from "../../preRequestScript"
+import { scriptCompletions } from "./scriptCompletion"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../../schema"
 import { Autocomplete } from "../Autocomplete"
@@ -14,13 +16,18 @@ export function CodeEditorCompletion({
   isEditing,
   value,
   body,
+  scriptPhase,
 }: {
   editor: CodeEditorRenderable | null
   env: Environment | null
   isEditing: boolean
   value: string
+  scriptPhase?: ScriptPhase
   body?: BodyCompletion
 }) {
+  const [, refreshCursor] = useState(0)
+  const cursorRef = useRef(editor?.cursorOffset)
+  cursorRef.current = editor?.cursorOffset
   const [dismissed, setDismissed] = useState(false)
   const getEditor = useCallback(
     () => (editor && !editor.isDestroyed ? editor : null),
@@ -31,7 +38,7 @@ export function CodeEditorCompletion({
     getEditor,
     variableNames,
     value,
-    isEditing,
+    isEditing: isEditing && !scriptPhase,
     body,
   })
 
@@ -42,12 +49,46 @@ export function CodeEditorCompletion({
   useEffect(() => {
     if (!isEditing || !editor) return
     editor.refreshHighlights()
-    const onChange = () => setDismissed(false)
-    editor.on("content-changed", onChange)
-    return () => {
-      editor.off("content-changed", onChange)
+    const onChange = () => {
+      if (cursorRef.current === editor.cursorOffset) return
+      cursorRef.current = editor.cursorOffset
+      setDismissed(false)
+      refreshCursor((n) => n + 1)
     }
-  }, [editor, isEditing])
+    if (scriptPhase) editor.editBuffer.on("cursor-changed", onChange)
+    return () => {
+      editor.editBuffer.off("cursor-changed", onChange)
+    }
+  }, [editor, isEditing, scriptPhase])
+
+  if (scriptPhase) {
+    const result =
+      editor && scriptCompletions(value, editor.cursorOffset, scriptPhase)
+    if (!isEditing || !editor || dismissed || !result?.items.length) return null
+    return (
+      <Autocomplete
+        id="script-completion-menu"
+        compactDetails
+        items={result.items}
+        query={result.query}
+        value={value}
+        getEditor={getEditor}
+        onSelect={(index) => {
+          const item = result.items[index]
+          if (!item) return false
+          editor.replaceText(
+            value.slice(0, result.start) +
+              item.insert +
+              value.slice(result.end),
+          )
+          editor.cursorOffset = result.start + item.insert.length
+          setDismissed(true)
+          return true
+        }}
+        onDismiss={() => setDismissed(true)}
+      />
+    )
+  }
 
   if (
     !isEditing ||

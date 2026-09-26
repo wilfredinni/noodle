@@ -131,6 +131,7 @@ export async function executeRequestLifecycle(options: {
   ) => Promise<ResponseExecutionResults>
   onEnvironmentPersisted?: () => Promise<void>
   scriptSources?: ScriptSourceResolver
+  consoleTiming?: boolean
   scriptContext?: ScriptCallContext
 }): Promise<RequestLifecycleResult> {
   const {
@@ -141,6 +142,7 @@ export async function executeRequestLifecycle(options: {
     requestPath,
     transport = {},
   } = options
+  const startedAt = options.consoleTiming ? performance.now() : undefined
   const declarations = requestScriptBlocks(request, collection, requestPath)
   const scriptSources =
     options.scriptSources ?? createScriptSourceResolver(transport.collectionDir)
@@ -181,6 +183,7 @@ export async function executeRequestLifecycle(options: {
     const requests: ScriptRequestSummary[] = []
     return {
       diagnostics,
+      startedAt,
       signal: transport.signal,
       deadline: scriptContext.deadline,
       requests,
@@ -254,6 +257,7 @@ export async function executeRequestLifecycle(options: {
               runScope: scope,
               transport: childTransport,
               scriptSources,
+              consoleTiming: options.consoleTiming,
               scriptContext: {
                 budget: scriptContext.budget,
                 stack: [...scriptContext.stack, input],
@@ -530,6 +534,7 @@ export async function executeRequestLifecycle(options: {
           signal: transport.signal,
           deadline: scriptContext.deadline,
           diagnostics,
+          startedAt,
           sourceBytes: inherited
             ? Buffer.byteLength(JSON.stringify(block.tests.source))
             : undefined,

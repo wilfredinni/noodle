@@ -41,6 +41,7 @@ export interface AppKeymapGlobal {
   responseTabRef: RefObject<ResponseTabKind>
   responseFileActionsRef: RefObject<ResponseFileActions | null>
   responseQueryRef: RefObject<ResponseQueryController | null>
+  consoleCopyRef?: RefObject<(() => boolean) | null>
   responseBodyForCopyRef: RefObject<string | null>
   modeRef: RefObject<"collection" | "browse" | "empty" | "invalid">
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
