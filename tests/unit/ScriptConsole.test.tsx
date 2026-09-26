@@ -65,6 +65,36 @@ const execution: ResponseExecutionResults = {
 }
 
 describe("ScriptConsole", () => {
+  it("releases Tab and Shift+Tab at the ends of its visible controls", async () => {
+    const { keymap, host } = setupKeymap()
+    const paneMoves: boolean[] = []
+    keymap.intercept(
+      "key",
+      ({ event }) => {
+        if (event.name === "tab") paneMoves.push(!!event.shift)
+      },
+      { priority: 100 },
+    )
+    await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ScriptConsole execution={execution} focused />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 12 },
+    )
+    await act(async () => host.press("tab"))
+    expect(paneMoves).toEqual([])
+    await act(async () => host.press("tab", { shift: true }))
+    expect(paneMoves).toEqual([])
+    await act(async () => host.press("tab", { shift: true }))
+    expect(paneMoves).toEqual([true])
+    await act(async () => host.press("tab"))
+    expect(paneMoves).toEqual([true])
+    await act(async () => host.press("tab"))
+    expect(paneMoves).toEqual([true, false])
+  })
+
   it("keeps execution order and relative times with scope, phase, level and redacted text", () => {
     const entries = scriptConsoleEntries(execution)
     expect(entries.map((x) => x.phase)).toEqual(["pre", "post", "tests"])

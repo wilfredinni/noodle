@@ -2,7 +2,7 @@
 // Reference this file from an external JavaScript editor; runtime phase checks remain authoritative.
 declare namespace NoodleScript {
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "CONNECT" | "TRACE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 type Encoding = "hex" | "base64";
 interface CookieInput { name: string; value: string; path?: string; expires?: string; secure?: boolean; httpOnly?: boolean; sameSite?: "strict" | "lax" | "none" }
 interface DirectRequest { url: string; method?: Method; headers?: Record<string, string>; body?: string; timeout?: number }
@@ -389,11 +389,11 @@ unset(name: string, options?: { persist: "environment" | "secret" }): void;
 /** Bounded cryptographic helpers. @phases pre, post, tests */
 readonly crypto: {
 /** Hash a UTF-8 string. @phases pre, post, tests */
-sha256(value: string, encoding?: Encoding): string;
+sha256(value: string, encoding: Encoding): string;
 /** Authenticate a UTF-8 string. @phases pre, post, tests */
-hmacSha256(secret: string, value: string, encoding?: Encoding): string;
+hmacSha256(secret: string, value: string, encoding: Encoding): string;
 /** Generate bounded random bytes. @phases pre, post, tests */
-randomBytes(size: number, encoding?: Encoding): string;
+randomBytes(size: number, encoding: Encoding): string;
 };
 /** Completed HTTP response. @phases post, tests */
 readonly response: {
@@ -748,11 +748,11 @@ unset(name: string, options?: { persist: "environment" | "secret" }): void;
 /** Bounded cryptographic helpers. @phases pre, post, tests */
 readonly crypto: {
 /** Hash a UTF-8 string. @phases pre, post, tests */
-sha256(value: string, encoding?: Encoding): string;
+sha256(value: string, encoding: Encoding): string;
 /** Authenticate a UTF-8 string. @phases pre, post, tests */
-hmacSha256(secret: string, value: string, encoding?: Encoding): string;
+hmacSha256(secret: string, value: string, encoding: Encoding): string;
 /** Generate bounded random bytes. @phases pre, post, tests */
-randomBytes(size: number, encoding?: Encoding): string;
+randomBytes(size: number, encoding: Encoding): string;
 };
 }
 interface Post {
@@ -1055,11 +1055,11 @@ unset(name: string, options?: { persist: "environment" | "secret" }): void;
 /** Bounded cryptographic helpers. @phases pre, post, tests */
 readonly crypto: {
 /** Hash a UTF-8 string. @phases pre, post, tests */
-sha256(value: string, encoding?: Encoding): string;
+sha256(value: string, encoding: Encoding): string;
 /** Authenticate a UTF-8 string. @phases pre, post, tests */
-hmacSha256(secret: string, value: string, encoding?: Encoding): string;
+hmacSha256(secret: string, value: string, encoding: Encoding): string;
 /** Generate bounded random bytes. @phases pre, post, tests */
-randomBytes(size: number, encoding?: Encoding): string;
+randomBytes(size: number, encoding: Encoding): string;
 };
 /** Completed HTTP response. @phases post, tests */
 readonly response: {
@@ -1383,11 +1383,11 @@ get(name: string): JsonValue | undefined;
 /** Bounded cryptographic helpers. @phases pre, post, tests */
 readonly crypto: {
 /** Hash a UTF-8 string. @phases pre, post, tests */
-sha256(value: string, encoding?: Encoding): string;
+sha256(value: string, encoding: Encoding): string;
 /** Authenticate a UTF-8 string. @phases pre, post, tests */
-hmacSha256(secret: string, value: string, encoding?: Encoding): string;
+hmacSha256(secret: string, value: string, encoding: Encoding): string;
 /** Generate bounded random bytes. @phases pre, post, tests */
-randomBytes(size: number, encoding?: Encoding): string;
+randomBytes(size: number, encoding: Encoding): string;
 };
 /** Completed HTTP response. @phases post, tests */
 readonly response: {

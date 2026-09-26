@@ -83,6 +83,57 @@ async function fixture() {
 }
 
 describe("script workspaces", () => {
+  it.each([
+    ["pre", "preScript"],
+    ["post", "postScript"],
+    ["tests", "tests"],
+  ] as const)(
+    "tracks and reverts %s edits without losing changes made during a save",
+    async (phase, field) => {
+      const original: Request = {
+        ...request,
+        scripts: { pre: "before()", post: "after()" },
+        tests: "checks()",
+      }
+      let draft!: UseRequestDraftResult
+      let browse!: UseEditBrowseResult
+      let select!: (request: Request) => void
+      function Harness() {
+        const [selected, setSelected] = useState(original)
+        select = setSelected
+        draft = useRequestDraft(selected)
+        browse = useEditBrowse(draft.draft, draft)
+        return null
+      }
+      await testRender(<Harness />, { width: 20, height: 4 })
+      await act(async () => draft.setScript(phase, "changed()"))
+      expect(draft.isDirty).toBe(true)
+      expect(draft.dirtyRequestIds.has(request.id)).toBe(true)
+      await act(async () => browse.enterBrowseAt(field, 0))
+      await act(async () => browse.revertField())
+      expect(draft.draft).toEqual(original)
+      expect(draft.isDirty).toBe(false)
+      expect(draft.dirtyRequestIds.size).toBe(0)
+      await act(async () => draft.setScript(phase, "saving()"))
+      const saving = draft.draft!
+      await act(async () => draft.setScript(phase, "newer()"))
+      await act(async () => {
+        draft.markSaved(saving)
+        select(saving)
+      })
+      expect(
+        phase === "tests" ? draft.draft?.tests : draft.draft?.scripts?.[phase],
+      ).toBe("newer()")
+      expect(draft.isDirty).toBe(true)
+      await act(async () => {
+        const saved = draft.draft!
+        draft.markSaved(saved)
+        select(saved)
+      })
+      expect(draft.isDirty).toBe(false)
+    },
+  )
+
   it("reveals optional script tabs, preserves per-request drafts, and saves through the existing YAML path", async () => {
     const dir = await fixture()
     const { keymap } = setupKeymap()
@@ -147,6 +198,8 @@ describe("script workspaces", () => {
       draft.setScript("pre", 'console.info("request")')
       draft.setScript("tests", 'test("ok", () => expect(1).toBe(1))')
     })
+    expect(draft.isDirty).toBe(true)
+    expect(draft.dirtyRequestIds.has(request.id)).toBe(true)
     await act(async () =>
       select({ ...request, id: "b", scripts: { post: "./post.js" } }),
     )
@@ -157,6 +210,7 @@ describe("script workspaces", () => {
     await act(async () => {
       await filestore.saveRequest(dir, saved)
       draft.markSaved(saved)
+      select(saved)
     })
     expect(draft.isDirty).toBe(false)
     expect(await readFile(join(dir, "a.yml"), "utf8")).toContain("scripts:")

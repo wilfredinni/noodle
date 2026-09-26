@@ -310,10 +310,26 @@ describe("ScriptEditor", () => {
       "script-path",
     ) as InputRenderable
     await act(async () => h.host.press("down"))
-    h.beginDiagnostics()
-    await act(async () => pathInput.insertText("missing.js"))
-    await h.settle()
+    for (const character of "missing.js") {
+      h.beginDiagnostics()
+      await act(async () => pathInput.insertText(character))
+      await h.settle()
+      expect(
+        h.renderer.root.findDescendantById("script-path") === pathInput,
+      ).toBe(true)
+      expect(pathInput.focused).toBe(true)
+    }
     expect(h.value()).toBe("./missing.js")
+    h.beginDiagnostics()
+    await act(async () => pathInput.handleKeyPress(keyEvent("backspace")))
+    await h.settle()
+    expect(h.value()).toBe("./missing.j")
+    expect(
+      h.renderer.root.findDescendantById("script-path") === pathInput,
+    ).toBe(true)
+    h.beginDiagnostics()
+    await act(async () => pathInput.insertText("s"))
+    await h.settle()
     await h.browse()
     expect(h.active()?.value).toBe("./missing.js")
     expect(h.captureCharFrame()).toContain("missing, or unreadable")
@@ -341,6 +357,7 @@ describe("ScriptEditor", () => {
     )
     expect(h.editing()).toBe(true)
     await h.replace('console.info("restored")')
+    expect(h.value()).toBe('console.info("restored")')
     expect(h.renderer.root.findDescendantById("script-source")).toBeDefined()
     expect(h.active()).toBeNull()
   })

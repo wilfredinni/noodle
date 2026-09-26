@@ -70,9 +70,14 @@ export function ScriptEditor({
   const keymap = useKeymap()
   const context = useContext(ScriptAuthoringContext)
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
-  const [kind, setKind] = useState(
-    isExternalScriptSource(value) ? "external" : "inline",
+  const [selectedKind, setKind] = useState(
+    value.startsWith("./") ? "external" : "inline",
   )
+  const kind = value
+    ? value.startsWith("./")
+      ? "external"
+      : "inline"
+    : selectedKind
   const [error, setError] = useState<string | null>(null)
   const [selectOpen, setSelectOpen] = useState(false)
   const [control, setControl] = useState(0)
@@ -84,8 +89,8 @@ export function ScriptEditor({
   const externalFocused = kind === "external" && focused
 
   useEffect(() => {
-    if (value) setKind(isExternalScriptSource(value) ? "external" : "inline")
-  }, [sourceKey, value])
+    if (value) setKind(kind)
+  }, [kind, sourceKey, value])
 
   useEffect(() => {
     let current = true

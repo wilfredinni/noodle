@@ -1142,7 +1142,7 @@ export function useEditBrowse(
     const state = editStateRef.current
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
-    if (field === "auth") {
+    if (field === "auth" || scriptPhase(field)) {
       draftMutators.revertField(field, row)
       return
     }

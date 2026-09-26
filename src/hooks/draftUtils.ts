@@ -254,6 +254,8 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.maxRedirects !== b.maxRedirects) return false
   if (a.tls?.verify !== b.tls?.verify) return false
   if (!isDeepStrictEqual(a.tags, b.tags)) return false
+  if (!isDeepStrictEqual(a.scripts, b.scripts)) return false
+  if (a.tests !== b.tests) return false
   if (!isDeepStrictEqual(a.captures, b.captures)) return false
   if (!isDeepStrictEqual(a.assertions, b.assertions)) return false
   if (a.body !== b.body) return false

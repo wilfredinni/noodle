@@ -7,7 +7,7 @@ import {
 // Supporting value shapes; callable names, signatures, and phase capabilities
 // come exclusively from SCRIPT_API_CONTRACT (including random/time catalogs).
 const values = `type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "CONNECT" | "TRACE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 type Encoding = "hex" | "base64";
 interface CookieInput { name: string; value: string; path?: string; expires?: string; secure?: boolean; httpOnly?: boolean; sameSite?: "strict" | "lax" | "none" }
 interface DirectRequest { url: string; method?: Method; headers?: Record<string, string>; body?: string; timeout?: number }

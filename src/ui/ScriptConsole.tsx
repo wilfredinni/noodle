@@ -100,9 +100,14 @@ export function ScriptConsole({
             (!allowOverlay && keymap.getData("app.overlay") !== "none")
           )
             return
-          if (event.name === "tab")
-            setControl((value) => (value + (event.shift ? 2 : 1)) % 3)
-          else if (event.name === "return" && control === 1) copy()
+          if (event.name === "tab") {
+            const next = control + (event.shift ? -1 : 1)
+            if (next < 0 || next > 1) {
+              setControl(0)
+              return
+            }
+            setControl(next)
+          } else if (event.name === "return" && control === 1) copy()
           else if (event.name === "up" || event.name === "down")
             scroll.current?.scrollBy(event.name === "up" ? -1 : 1)
           else if (event.name === "pageup" || event.name === "pagedown")
@@ -134,6 +139,7 @@ export function ScriptConsole({
           focused={focused && control === 0}
           onActivate={() => setControl(0)}
           onOpenChange={setSelectOpen}
+          triggerPriority={allowOverlay ? 110 : undefined}
           badge={false}
           fitContent
         />
