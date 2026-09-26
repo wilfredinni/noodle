@@ -17,12 +17,15 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../../src/ui/editor/CodeEditor"
 
+import type { ScriptSource } from "../../src/preRequestScript"
+
 const testRender = createTestRender()
 
 async function mountEditor(
   initial: string,
   width = 90,
   initiallyEditing = true,
+  source: ScriptSource = { scope: "request", scopeId: "a", path: "a.yml" },
 ) {
   const { keymap, host } = setupKeymap()
   let complete = Promise.withResolvers<void>()
@@ -30,7 +33,7 @@ async function mountEditor(
   let editing = true
   let confirm: (() => void) | undefined
   let active: ActiveScriptSource | null = null
-  let opened: ActiveScriptSource | undefined
+  const opened: ActiveScriptSource[] = []
   let change!: (text: string) => void
   let edit!: (value: boolean) => void
   let focus!: (value: boolean) => void
@@ -40,11 +43,11 @@ async function mountEditor(
     confirm: (action: () => void) => {
       confirm = action
     },
-    open: (source: ActiveScriptSource) => {
-      opened = source
-    },
     setActive: (source: ActiveScriptSource | null) => {
       active = source
+    },
+    open: (source: ActiveScriptSource) => {
+      opened.push(source)
     },
   }
   function Harness() {
@@ -62,7 +65,7 @@ async function mountEditor(
         <ScriptEditor
           value={text}
           phase="pre"
-          source={{ scope: "request", scopeId: "a", path: "a.yml" }}
+          source={source}
           focused={focused}
           editing={isEditing}
           onChange={setText}
@@ -99,7 +102,7 @@ async function mountEditor(
     value: () => value,
     editing: () => editing,
     active: () => active,
-    opened: () => opened,
+    opened,
     confirm: async () => {
       complete = Promise.withResolvers<void>()
       await act(async () => confirm?.())
@@ -134,6 +137,116 @@ async function mountEditor(
 }
 
 describe("ScriptEditor", () => {
+  it.each([
+    { scope: "request", scopeId: "a", path: "a.yml" },
+    { scope: "folder", scopeId: "users", path: "users/folder.yml" },
+    { scope: "collection", path: "settings.yml" },
+  ] satisfies ScriptSource[])(
+    "registers the current $scope draft and clears it when focus leaves",
+    async (source) => {
+      const h = await mountEditor("./original.js", 90, true, source)
+      expect(h.active()).toEqual({ value: "./original.js", source })
+      await h.replace("./changed.js")
+      expect(h.active()).toEqual({ value: "./changed.js", source })
+      await h.focus(false)
+      expect(h.active()).toBeNull()
+      await h.focus(true)
+      expect(h.active()?.value).toBe("./changed.js")
+      await h.replace("console.log(1)")
+      expect(h.active()).toBeNull()
+    },
+  )
+
+  it.each([
+    { scope: "request", scopeId: "a", path: "a.yml" },
+    { scope: "folder", scopeId: "users", path: "users/folder.yml" },
+    { scope: "collection", path: "settings.yml" },
+  ] satisfies ScriptSource[])(
+    "opens the current $scope draft from the link beside the file description",
+    async (source) => {
+      const h = await mountEditor("./original.js", 90, false, source)
+      const link = h.renderer.root.findDescendantById(
+        "script-external-editor-link",
+      )!
+      const path = h.renderer.root.findDescendantById("script-path")!
+      expect(link.y).toBe(path.y + 1)
+      expect(h.captureCharFrame().split("\n")[link.y]).toContain(
+        "Relative to the collection root. Open in external editor.",
+      )
+      expect(path.x + path.width).toBe(90)
+      const click = async () => {
+        await act(async () => h.mockMouse.click(link.x + 1, link.y))
+        await h.renderOnce()
+      }
+      await click()
+      expect(h.opened).toEqual([{ value: "./original.js", source }])
+      expect(h.editing()).toBe(false)
+      expect(h.value()).toBe("./original.js")
+      await h.replace("./changed.js")
+      await h.focus(false)
+      expect(h.active()).toBeNull()
+      await click()
+      expect(h.opened.at(-1)).toEqual({ value: "./changed.js", source })
+      expect(h.editing()).toBe(false)
+      await h.replace("console.log(1)")
+      expect(
+        h.renderer.root.findDescendantById("script-external-editor-link"),
+      ).toBeUndefined()
+    },
+  )
+
+  it("wraps the external editor link at narrow widths and blocks clicks during overlays and jump mode", async () => {
+    const h = await mountEditor("./external.js", 90, false)
+    await act(async () => h.resize(30, 16))
+    await h.renderOnce()
+    const link = h.renderer.root.findDescendantById(
+      "script-external-editor-link",
+    )!
+    const path = h.renderer.root.findDescendantById("script-path")!
+    expect(path.width).toBeGreaterThanOrEqual(20)
+    expect(link.y).toBeGreaterThan(path.y)
+    expect(link.x + link.width).toBeLessThanOrEqual(30)
+    expect(h.captureCharFrame()).toContain("Open in")
+    expect(h.captureCharFrame()).toContain("external editor.")
+    expect(h.captureCharFrame().split("\n")[path.y]).toContain("File:")
+    const click = async () => {
+      await act(async () => h.mockMouse.click(link.x + 1, link.y))
+      await h.renderOnce()
+    }
+    h.keymap.setData("app.overlay", "confirm")
+    await click()
+    h.keymap.setData("app.overlay", "none")
+    h.keymap.setData("app.jump", "active")
+    await click()
+    h.keymap.setData("app.jump", "inactive")
+    await act(async () =>
+      h.mockMouse.click(link.x + 1, link.y, MouseButtons.RIGHT),
+    )
+    expect(h.opened).toHaveLength(0)
+    await click()
+    expect(h.opened[0]?.value).toBe("./external.js")
+    expect(h.editing()).toBe(false)
+  })
+
+  it.each(['console.log("inline")', "./external.js"])(
+    "uses a full-width source selector for %s",
+    async (value) => {
+      const h = await mountEditor(value, 40, false)
+      const source = h.renderer.root.findDescendantById(
+        "script-source-field",
+      ) as BoxRenderable
+      const selector = source.getChildren()[0] as BoxRenderable
+      expect(selector.width).toBe(40)
+      const frame = h.captureCharFrame()
+      expect(frame).not.toContain("Source:")
+      expect(frame).toContain("Write inline or use a .js file.")
+      expect(frame).not.toContain("See execution order.")
+      expect(frame.split("\n")[0]).toContain(
+        value.startsWith("./") ? "External file" : "Inline",
+      )
+    },
+  )
+
   it("keeps syntax colors before editing and after leaving the editor", async () => {
     const source = 'const message = "hello";\nconsole.log(message);'
     const h = await mountEditor(source, 60, false)
@@ -259,13 +372,94 @@ describe("ScriptEditor", () => {
     await act(async () => h.host.press("return"))
     await h.settle()
     expect(h.value()).toBe("noodle.run.set\n")
-    h.beginDiagnostics()
+    let nextPane = 0
+    h.keymap.registerLayer({
+      commands: [
+        {
+          name: "focus.next",
+          run: () => {
+            nextPane++
+          },
+        },
+      ],
+    })
     await act(async () => h.host.press("tab"))
-    await h.settle()
-    expect(h.value()).toBe("noodle.run.set\n  ")
+    expect(h.value()).toBe("noodle.run.set\n")
+    expect(nextPane).toBe(1)
+    expect(h.editing()).toBe(false)
+    await act(async () => h.host.press("down"))
     await act(async () => h.host.press("escape"))
     expect(h.editing()).toBe(false)
     expect(leaked).toBe(0)
+  })
+
+  it.each(['console.log("keep")', "./external.js"])(
+    "leaves source navigation to jump mode for %s",
+    async (value) => {
+      const h = await mountEditor(value, 60, false)
+      const external = value.startsWith("./")
+      if (external) await act(() => h.host.press("down"))
+      h.keymap.setData("app.jump", "active")
+      const swallowed: string[] = []
+      const dispose = h.keymap.intercept(
+        "key",
+        ({ event }) => {
+          swallowed.push(event.name)
+          event.preventDefault()
+          event.stopPropagation()
+        },
+        { priority: 100 },
+      )
+      for (const key of ["up", "down", "tab", "return"])
+        await act(() => h.host.press(key))
+      expect(swallowed).toEqual(["up", "down", "tab", "return"])
+      expect(h.editing()).toBe(false)
+      expect(h.value()).toBe(value)
+      h.keymap.setData("app.jump", "inactive")
+      dispose()
+      await act(() => h.host.press(external ? "return" : "up"))
+      expect(h.editing()).toBe(true)
+    },
+  )
+
+  it.each(["up", "down", "tab"])(
+    "enters inline code with %s and returns to the source selector with shift+tab",
+    async (key) => {
+      const source = 'console.log("keep")'
+      const h = await mountEditor(source, 60, false)
+      await act(async () => h.host.press(key))
+      expect(h.editing()).toBe(true)
+      expect(h.editor().focused).toBe(true)
+      await act(async () => h.host.press("tab", { shift: true }))
+      expect(h.editing()).toBe(false)
+      expect(h.editor().focused).toBe(false)
+      await act(async () => h.host.press("return"))
+      await h.renderOnce()
+      expect(h.captureCharFrame()).toContain("External file")
+      expect(h.value()).toBe(source)
+    },
+  )
+
+  it("keeps external arrows within the controls and returns to the source selector from the path", async () => {
+    const h = await mountEditor("./external.js", 60, false)
+    await act(async () => h.host.press("up"))
+    await act(async () => h.host.press("return"))
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toContain("Inline")
+    await act(async () => h.host.press("escape"))
+    for (const key of ["tab", "escape"]) {
+      await act(async () => h.host.press("down"))
+      await act(async () => h.host.press("down"))
+      await act(async () => h.host.press("return"))
+      expect(h.editing()).toBe(true)
+      await act(async () => h.host.press(key, { shift: key === "tab" }))
+      expect(h.editing()).toBe(false)
+      await act(async () => h.host.press("return"))
+      await h.renderOnce()
+      expect(h.captureCharFrame()).toContain("Inline")
+      await act(async () => h.host.press("escape"))
+    }
+    expect(h.value()).toBe("./external.js")
   })
 
   it("pairs quotes and brackets, preserves JavaScript comparison operators and reports syntax at narrow widths", async () => {
@@ -312,6 +506,8 @@ describe("ScriptEditor", () => {
         "script-path",
       ) as InputRenderable
       await act(async () => h.host.press("down"))
+      expect(pathInput.focused).toBe(false)
+      await act(async () => h.host.press("return"))
       for (const character of input) {
         h.beginDiagnostics()
         await act(async () => pathInput.insertText(character))
@@ -335,9 +531,7 @@ describe("ScriptEditor", () => {
       await h.browse()
       expect(h.active()?.value).toBe("./missing.js")
       expect(h.captureCharFrame()).toContain("missing, or unreadable")
-      await act(async () => h.host.press("tab"))
-      await act(async () => h.host.press("return"))
-      expect(h.opened()?.value).toBe("./missing.js")
+      expect(h.renderer.root.findDescendantById("script-open")).toBeUndefined()
       let leftPane = 0
       h.keymap.intercept(
         "key",
@@ -349,11 +543,13 @@ describe("ScriptEditor", () => {
       await act(async () => h.host.press("tab", { shift: true }))
       expect(leftPane).toBe(0)
       await act(async () => h.host.press("tab"))
+      expect(leftPane).toBe(0)
       await act(async () => h.host.press("tab"))
       expect(leftPane).toBe(1)
       const path = h.renderer.root.findDescendantById(
         "script-path",
       ) as BoxRenderable
+      await act(async () => h.renderOnce())
       await act(async () =>
         h.mockMouse.click(path.x + 1, path.y, MouseButtons.LEFT),
       )

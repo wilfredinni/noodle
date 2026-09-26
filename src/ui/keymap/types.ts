@@ -1,3 +1,4 @@
+import type { ScriptActions } from "../editor/ScriptEditor"
 import type { CliRenderer } from "@opentui/core"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import type { RefObject } from "react"
@@ -31,6 +32,7 @@ export interface AppKeymapRuntime {
 }
 
 export interface AppKeymapGlobal {
+  scriptActionsRef?: RefObject<ScriptActions>
   focusRef: RefObject<Focus>
   headerFieldRef: RefObject<"name" | "color">
   urlbarSubFocusRef: RefObject<UrlBarSubFocus>

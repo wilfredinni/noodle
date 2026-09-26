@@ -179,6 +179,28 @@ export const Definitions = {
     "Request",
     ["main"],
   ),
+  script_open_external: keybind(
+    "ctrl+alt+x",
+    "Open Script in External Editor",
+    false,
+    "Request",
+    [
+      "main",
+      "request-browse",
+      "request-edit",
+      "folder",
+      "folder-browse",
+      "folder-edit",
+      "settings",
+    ],
+  ),
+  script_execution_order: keybind(
+    "ctrl+alt+r",
+    "Show Script Execution Order",
+    false,
+    "Request",
+    ["main", "request-browse", "request-edit"],
+  ),
   request_edit_yaml: keybind(
     "ctrl+alt+e",
     "Edit request/folder YAML",
@@ -284,6 +306,8 @@ export const Definitions = {
 export type KeybindName = keyof typeof Definitions
 
 export const CommandMap = {
+  script_open_external: "script.open",
+  script_execution_order: "script.execution-order",
   request_send: "request.send",
   request_save: "request.save",
   layout_toggle: "layout.toggle",

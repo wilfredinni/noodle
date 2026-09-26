@@ -364,14 +364,18 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `a` | Request Auth tab / Folder Auth tab |
 | `v` | Request Assert tab |
 | `c` | Request Capture tab |
+| `d` | Request / Folder Pre Script tab (when visible) |
+| `f` | Request / Folder Post Script tab (when visible) |
+| `j` | Request / Folder Tests tab (when visible) |
 | `t` | Request Settings tab |
-| `o` | Request optional-tab menu (`+`) |
+| `o` | Request / Folder optional-tab menu (`+`, when visible) |
 | `r` | Response Body tab |
 | `e` | Response Headers tab |
 | `n` | Response Network tab |
 | `l` | Response Timeline tab |
 | `k` | Response Cookies tab |
 | `i` | Response Results tab |
+| `z` | Response Console tab (when logs make it visible) |
 | `y` | Folder Activity tab |
 
 > the sidebar jump still works even when it is collapsed
@@ -385,6 +389,10 @@ targets:
 | `m` | General tab |
 | `h` | Headers tab |
 | `a` | Auth tab |
+| `d` | Pre Script tab (when visible) |
+| `f` | Post Script tab (when visible) |
+| `j` | Tests tab (when visible) |
+| `o` | Optional-tab menu (`+`, when visible) |
 | `y` | Activity tab |
 
 In the environment editor, only these environment targets are available:

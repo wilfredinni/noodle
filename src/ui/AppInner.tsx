@@ -1,3 +1,4 @@
+import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 import { ConsoleCopyContext } from "./ScriptConsole"
 import {
   ScriptAuthoringContext,
@@ -83,10 +84,13 @@ import { useAppKeymap } from "./useAppKeymap"
 import {
   useJumpMode,
   getAvailableTargets,
+  getVisibleRequestTabs,
+  getVisibleFolderTabs,
   type JumpTarget,
 } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { scriptConsoleEntries } from "./ScriptConsole"
 import { ResponseFileContext } from "./responseFileContext"
 import {
   beginResponseFileSave,
@@ -285,6 +289,8 @@ export function AppInner({
 }) {
   const [activeScriptSource, setActiveScriptSource] =
     useState<ActiveScriptSource | null>(null)
+  const [activeScriptOrder, setActiveScriptOrder] =
+    useState<ScriptOrder | null>(null)
   const consoleCopyRef = useRef<(() => boolean) | null>(null)
   const keymap = useKeymap()
   const theme = useTheme()
@@ -445,7 +451,9 @@ export function AppInner({
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
-  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft)
+  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft, {
+    optionalTabMenuEnabled: isCollection,
+  })
   const folderEbRef = useRef(folderEb)
   folderEbRef.current = folderEb
 
@@ -531,24 +539,6 @@ export function AppInner({
     onTagEdit: (index, value) => openTagEditorRef.current(index, value),
     optionalTabMenuEnabled: isCollection,
   })
-
-  const requestTabAddVisible = eb.optionalTabMenuVisible
-  const availableJumpTargets = useMemo(
-    () =>
-      getAvailableTargets(
-        draft.draft !== null,
-        expanded,
-        focusedFolder !== null,
-        view === "env-editor",
-        view === "settings",
-        view === "cookie-jar",
-        requestTabAddVisible,
-      ),
-    [draft.draft, expanded, focusedFolder, requestTabAddVisible, view],
-  )
-  useEffect(() => {
-    jumpTargetsRef.current = availableJumpTargets
-  }, [availableJumpTargets])
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
   const {
@@ -697,6 +687,57 @@ export function AppInner({
     collectionDir,
     envState.reloadActiveEnv,
   )
+
+  const requestTabAddVisible = eb.optionalTabMenuVisible
+  const availableJumpTargets = useMemo(
+    () =>
+      getAvailableTargets(
+        draft.draft !== null,
+        expanded,
+        focusedFolder !== null,
+        view === "env-editor",
+        view === "settings",
+        view === "cookie-jar",
+        requestTabAddVisible,
+        folderEb.optionalTabMenuVisible,
+        {
+          request: getVisibleRequestTabs(
+            draft.draft,
+            eb.activeTab,
+            eb.revealedOptionalTabs,
+          ),
+          folder: getVisibleFolderTabs(
+            folderDraft.folderDraft,
+            folderEb.activeTab,
+            folderEb.revealedOptionalTabs,
+          ),
+          console:
+            scriptConsoleEntries(
+              responseState.status === "done" ||
+                responseState.status === "error"
+                ? responseState.execution
+                : undefined,
+            ).length > 0,
+        },
+      ),
+    [
+      draft.draft,
+      eb.activeTab,
+      eb.revealedOptionalTabs,
+      folderDraft.folderDraft,
+      folderEb.activeTab,
+      folderEb.revealedOptionalTabs,
+      responseState,
+      expanded,
+      focusedFolder,
+      requestTabAddVisible,
+      folderEb.optionalTabMenuVisible,
+      view,
+    ],
+  )
+  useEffect(() => {
+    jumpTargetsRef.current = availableJumpTargets
+  }, [availableJumpTargets])
 
   const responseStateRef = useRef(responseState)
   responseStateRef.current = responseState
@@ -1054,6 +1095,38 @@ export function AppInner({
       ? globalSettingsCategory
       : collectionSettingsCategory
 
+  const openScript = useCallback(
+    (source: ActiveScriptSource) => {
+      void openScriptInEditor(externalEditor, collectionDir, source)
+    },
+    [externalEditor, collectionDir],
+  )
+
+  const scriptActions = useMemo(
+    () => ({
+      open: activeScriptSource
+        ? () => {
+            openScript(activeScriptSource)
+            return true
+          }
+        : undefined,
+      order: activeScriptOrder
+        ? () => {
+            overlays.setScriptOrder(activeScriptOrder)
+            return true
+          }
+        : undefined,
+    }),
+    [
+      activeScriptSource,
+      activeScriptOrder,
+      openScript,
+      overlays.setScriptOrder,
+    ],
+  )
+  const scriptActionsRef = useRef(scriptActions)
+  scriptActionsRef.current = scriptActions
+
   const hints = useMemo(
     () =>
       getKeybindingHints({
@@ -1267,6 +1340,7 @@ export function AppInner({
       confirmUndoAll,
     },
     global: {
+      scriptActionsRef,
       focusRef,
       headerFieldRef,
       urlbarSubFocusRef,
@@ -1665,7 +1739,7 @@ export function AppInner({
         collectionDir,
         appConfigDir,
         externalEditor,
-        activeScriptSource,
+        scriptActions,
         confirmUndoAll,
         renderer,
         proxyPolicy,
@@ -1733,7 +1807,7 @@ export function AppInner({
       collectionDir,
       appConfigDir,
       externalEditor,
-      activeScriptSource,
+      scriptActions,
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
@@ -2084,11 +2158,12 @@ export function AppInner({
         value={{
           collectionDir,
           collection,
+          overlayActive,
           setActive: setActiveScriptSource,
+          setActiveOrder: setActiveScriptOrder,
+          showOrder: overlays.setScriptOrder,
+          open: openScript,
           confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
-          open: (active) => {
-            void openScriptInEditor(externalEditor, collectionDir, active)
-          },
         }}
       >
         <ConsoleCopyContext.Provider value={consoleCopyRef}>

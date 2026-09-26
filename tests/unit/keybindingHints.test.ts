@@ -53,6 +53,21 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("keeps script actions out of the footer in request, folder, and settings views", () => {
+    for (const [view, focus] of [
+      ["main", "request"],
+      ["main", "folder"],
+      ["settings", "settings-content"],
+    ] as const) {
+      for (const paneMode of ["base", "browse", "edit"] as const) {
+        const hints = getKeybindingHints(ctx({ view, focus, paneMode })).footer
+        expect(hints.some((hint) => hint.command?.startsWith("script."))).toBe(
+          false,
+        )
+      }
+    }
+  })
+
   it("shows configured binary file actions only when the bytes and saved file are available", () => {
     const context = ctx({
       focus: "response",

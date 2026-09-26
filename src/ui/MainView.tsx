@@ -376,6 +376,10 @@ export function MainView({
             setEditKey={folderEb.setEditKey}
             setEditValue={folderEb.setEditValue}
             activeTab={folderEb.activeTab}
+            revealedOptionalTabs={folderEb.revealedOptionalTabs}
+            tabMenuActive={folderEb.optionalTabMenuActive}
+            onTabMenuActiveChange={folderEb.setOptionalTabMenuActive}
+            onOptionalTabReveal={folderEb.revealOptionalTab}
             onScriptChange={folderDraft.setScript}
             onScriptExit={folderEb.commitEdit}
             onAuthTypeChange={folderDraft.setAuthType}

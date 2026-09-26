@@ -2,7 +2,7 @@ import { SCRIPT_TABS, scriptPhase, scriptText } from "../scriptAuthoring"
 import { ScriptEditor } from "./editor/ScriptEditor"
 import type { ScriptPhase } from "../preRequestScript"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Folder, Environment, Auth } from "../schema"
 import type { EditState, FieldKind, FolderFieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
@@ -15,7 +15,13 @@ import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
-import { FOLDER_TAB_HINT_ORDER } from "./useJumpMode"
+import {
+  FOLDER_TAB_HINTS,
+  getVisibleFolderTabs,
+  REQUEST_TAB_ADD_HINT,
+} from "./useJumpMode"
+import { Select } from "./Select"
+import { JumpBadge } from "./JumpBadge"
 
 interface FolderPaneProps {
   collectionDir: string
@@ -29,6 +35,10 @@ interface FolderPaneProps {
   onScriptChange?: (phase: ScriptPhase, source: string) => void
   onScriptExit?: () => void
   activeTab: FieldKind
+  revealedOptionalTabs?: readonly FieldKind[]
+  tabMenuActive?: boolean
+  onTabMenuActiveChange?: (active: boolean) => void
+  onOptionalTabReveal?: (tab: FieldKind) => void
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onAuthFieldChange?: (
@@ -64,6 +74,10 @@ export function FolderPane({
   setEditKey,
   setEditValue,
   activeTab,
+  revealedOptionalTabs,
+  tabMenuActive: controlledTabMenuActive,
+  onTabMenuActiveChange,
+  onOptionalTabReveal,
   onScriptChange,
   onScriptExit,
   onAuthTypeChange,
@@ -84,6 +98,13 @@ export function FolderPane({
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [localTabMenuActive, setLocalTabMenuActive] = useState(false)
+  const tabMenuActive = controlledTabMenuActive ?? localTabMenuActive
+  const setTabMenuActive = onTabMenuActiveChange ?? setLocalTabMenuActive
+
+  useEffect(() => {
+    if (!focused) setTabMenuActive(false)
+  }, [focused, setTabMenuActive])
 
   useEffect(() => {
     if (editState.mode === "inactive") return
@@ -107,44 +128,59 @@ export function FolderPane({
     activeTab === "activity",
   )
 
-  const tabs = useMemo(() => {
-    if (!folder) {
-      return [
-        { id: "meta", label: "General" },
-        { id: "headers", label: "Headers" },
-        { id: "auth", label: "Auth" },
-        ...SCRIPT_TABS,
-        { id: "activity", label: "Activity" },
-      ].map((tab) => ({
-        ...tab,
-        jumpHint: jumpMode
-          ? FOLDER_TAB_HINT_ORDER[
-              ["meta", "headers", "auth", "activity"].indexOf(tab.id)
-            ]
-          : undefined,
-      }))
-    }
-    const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
+  const { tabs, optionalTabMenuItems } = useMemo(() => {
+    const visibleTabs = getVisibleFolderTabs(
+      folder,
+      activeTab,
+      revealedOptionalTabs,
+    )
+    const hasHeaders = Object.values(folder?.overrides?.headers ?? {}).some(
       (e) => e.enabled,
     )
     const hasAuth =
-      folder.overrides?.auth?.type !== undefined &&
+      folder?.overrides?.auth?.type !== undefined &&
       folder.overrides.auth.type !== "none"
-    return [
+    const tabs = [
       { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
-      ...SCRIPT_TABS,
+      ...SCRIPT_TABS.filter((tab) => visibleTabs.includes(tab.id)).map(
+        (tab) => ({
+          ...tab,
+          label: scriptText(folder ?? {}, tab.phase).trim()
+            ? `${tab.label} \u2022`
+            : tab.label,
+        }),
+      ),
       { id: "activity", label: "Activity" },
     ].map((tab) => ({
       ...tab,
       jumpHint: jumpMode
-        ? FOLDER_TAB_HINT_ORDER[
-            ["meta", "headers", "auth", "activity"].indexOf(tab.id)
-          ]
+        ? FOLDER_TAB_HINTS[tab.id as FolderFieldKind]
         : undefined,
     }))
-  }, [folder, jumpMode])
+    return {
+      tabs,
+      optionalTabMenuItems: SCRIPT_TABS.map((tab) => ({
+        ...tab,
+        disabled: visibleTabs.includes(tab.id),
+      })),
+    }
+  }, [folder, activeTab, jumpMode, revealedOptionalTabs])
+
+  const changeTab = (tab: string) => {
+    onInteraction?.()
+    setTabMenuActive(false)
+    onPaneFocus?.()
+    onTabChange?.(tab as FolderFieldKind)
+  }
+  const handleTabMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setTabMenuActive(open)
+      onSelectOpenChange?.(open)
+    },
+    [setTabMenuActive, onSelectOpenChange],
+  )
 
   return (
     <Frame
@@ -181,11 +217,43 @@ export function FolderPane({
           <Tabs
             tabs={tabs}
             activeId={activeTab}
-            onChange={(tab) => {
-              onInteraction?.()
-              onPaneFocus?.()
-              onTabChange?.(tab as FolderFieldKind)
-            }}
+            onChange={changeTab}
+            rightChildren={
+              interactive ? (
+                <box
+                  id="folder-tab-add"
+                  onMouseDown={(event) => event.stopPropagation()}
+                  style={{ position: "relative", overflow: "visible" }}
+                >
+                  {jumpMode ? (
+                    <JumpBadge
+                      letter={REQUEST_TAB_ADD_HINT}
+                      style={{ top: -1, left: 0 }}
+                    />
+                  ) : null}
+                  <Select
+                    items={optionalTabMenuItems}
+                    placeholder="+"
+                    focused={tabMenuActive}
+                    visualFocused={tabMenuActive}
+                    triggerColor={theme.primary}
+                    fitContent
+                    showIndicator={false}
+                    dropdownAlign="right"
+                    maxDropdownHeight={5}
+                    onActivate={() => {
+                      onPaneFocus?.()
+                      setTabMenuActive(true)
+                    }}
+                    onChange={(tab) => {
+                      changeTab(tab)
+                      onOptionalTabReveal?.(tab as FieldKind)
+                    }}
+                    onOpenChange={handleTabMenuOpenChange}
+                  />
+                </box>
+              ) : undefined
+            }
           >
             {scriptPhase(activeTab) ? (
               <ScriptEditor
@@ -197,7 +265,8 @@ export function FolderPane({
                   scopeId: folder.path,
                   path: `${folder.path}/folder.yml`,
                 }}
-                focused={focused}
+                focused={focused && !tabMenuActive}
+                onFocus={onPaneFocus}
                 editing={inEdit}
                 interactive={interactive}
                 onChange={(value) =>

@@ -5,6 +5,30 @@ import { bindingDefaults } from "../../src/ui/keybind"
 const defaults = bindingDefaults()
 
 describe("getHelpSections", () => {
+  it("shows configured script shortcuts and hides unbound entries", () => {
+    const keys = getHelpSections({
+      ...defaults,
+      script_open_external: "f6",
+      script_execution_order: "f7",
+    }).flatMap((section) => section.keys)
+    expect(keys).toContainEqual({
+      key: "f6",
+      description: "Open Script in External Editor",
+    })
+    expect(keys).toContainEqual({
+      key: "f7",
+      description: "Show Script Execution Order",
+    })
+    const unbound = getHelpSections({
+      ...defaults,
+      script_open_external: "",
+      script_execution_order: "",
+    }).flatMap((section) => section.keys)
+    expect(unbound.some((key) => key.description.includes("Script"))).toBe(
+      false,
+    )
+  })
+
   it("returns exactly 7 sections", () => {
     const sections = getHelpSections(defaults)
     expect(sections).toHaveLength(7)

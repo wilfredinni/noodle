@@ -202,7 +202,9 @@ export function ResponsePane({
                 symbol: RESULTS_SYMBOLS[resultsStatus],
               }
             : undefined,
-        jumpHint: jumpMode ? RESPONSE_TAB_HINTS[tab.id] : undefined,
+        jumpHint: jumpMode
+          ? RESPONSE_TAB_HINTS[tab.id as ResponseTabKind]
+          : undefined,
       }),
     )
   }, [jumpMode, resultsStatus, hasConsole])

@@ -5,14 +5,13 @@ import {
   initialFolderEditState,
   enterFolderEditBrowse,
   exitEditBrowse,
-  moveFolderFieldCursor,
   moveFolderRowCursor,
   folderCursorForField,
   beginEditing,
   commitEditing,
   cancelEditing,
   toggleSubfield,
-  FOLDER_FIELD_ORDER,
+  cycleFolderField,
   type EditState,
   type FolderRowCount,
   type FolderFieldKind,
@@ -31,6 +30,11 @@ export interface UseFolderEditBrowseResult {
   setEditKey: (v: string) => void
   isActive: boolean
   activeTab: FieldKind
+  revealedOptionalTabs: readonly FieldKind[]
+  revealOptionalTab: (tab: FieldKind) => void
+  optionalTabMenuVisible: boolean
+  optionalTabMenuActive: boolean
+  setOptionalTabMenuActive: (active: boolean) => void
   enterBrowse: () => void
   enterBrowseAt: (field: FolderFieldKind, row?: number) => void
   exitBrowse: () => void
@@ -59,6 +63,7 @@ export interface UseFolderEditBrowseResult {
 export interface UseFolderEditBrowseOptions {
   initialTab?: FieldKind
   onTabChange?: (tab: FieldKind) => void
+  optionalTabMenuEnabled?: boolean
 }
 
 function folderRowCount(folder: Folder | null): FolderRowCount {
@@ -67,8 +72,10 @@ function folderRowCount(folder: Folder | null): FolderRowCount {
   return {
     meta: 1,
     headers: Object.keys(folder.overrides?.headers ?? {}).length,
-
     auth: authRows,
+    preScript: folder.scripts?.pre ? 1 : 0,
+    postScript: folder.scripts?.post ? 1 : 0,
+    tests: folder.tests ? 1 : 0,
   }
 }
 
@@ -127,14 +134,6 @@ function folderCurrentKeyValueFor(
   return { key: "", value: "" }
 }
 
-function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
-  const idx = FOLDER_FIELD_ORDER.indexOf(current as FolderFieldKind)
-  if (idx === -1) return current
-  const next =
-    (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
-  return FOLDER_FIELD_ORDER[next]!
-}
-
 export function useFolderEditBrowse(
   folder: Folder | null,
   draftMutators: UseFolderDraftResult,
@@ -148,9 +147,34 @@ export function useFolderEditBrowse(
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(
     options?.initialTab ?? "meta",
   )
+  const [revealedOptionalTabsByFolder, setRevealedOptionalTabsByFolder] =
+    useState(() => new Map<string, FieldKind[]>())
+  const [optionalTabMenuActive, setOptionalTabMenuActiveState] = useState(false)
 
   const draftRef = useRef(folder)
   draftRef.current = folder
+  const revealedOptionalTabs = folder
+    ? (revealedOptionalTabsByFolder.get(folder.path) ?? [])
+    : []
+  const revealedOptionalTabsRef = useRef(revealedOptionalTabs)
+  revealedOptionalTabsRef.current = revealedOptionalTabs
+
+  const setOptionalTabMenuActive = useCallback((active: boolean) => {
+    setOptionalTabMenuActiveState(active)
+    if (active) setEditState((prev) => exitEditBrowse(prev))
+  }, [])
+
+  const revealOptionalTab = useCallback((tab: FieldKind) => {
+    const path = draftRef.current?.path
+    if (path === undefined || !scriptPhase(tab)) return
+    setRevealedOptionalTabsByFolder((revealed) => {
+      const tabs = revealed.get(path) ?? []
+      if (tabs.includes(tab)) return revealed
+      const next = new Map(revealed)
+      next.set(path, [...tabs, tab])
+      return next
+    })
+  }, [])
 
   const editStateRef = useRef(editState)
   editStateRef.current = editState
@@ -166,7 +190,12 @@ export function useFolderEditBrowse(
 
   useEffect(() => {
     setInactiveTab(options?.initialTab ?? "meta")
-  }, [options?.initialTab])
+    setOptionalTabMenuActive(false)
+  }, [folder?.path, options?.initialTab])
+
+  useEffect(() => {
+    setEditState(initialFolderEditState())
+  }, [folder?.path])
 
   const isFirstTabChange = useRef(true)
   useEffect(() => {
@@ -177,10 +206,36 @@ export function useFolderEditBrowse(
     onTabChangeRef.current?.(inactiveTab)
   }, [inactiveTab])
 
+  const requestedTab = options?.initialTab ?? inactiveTab
+  const phase = scriptPhase(requestedTab)
   const activeTab: FieldKind =
     editState.mode !== "inactive"
       ? editState.cursor.field
-      : (options?.initialTab ?? inactiveTab)
+      : phase &&
+          !scriptText(folder ?? {}, phase) &&
+          !revealedOptionalTabs.includes(requestedTab)
+        ? "meta"
+        : requestedTab
+  const tabNavigationRef = useRef({
+    tab: activeTab,
+    menuActive: optionalTabMenuActive,
+  })
+  tabNavigationRef.current = {
+    tab: activeTab,
+    menuActive: optionalTabMenuActive,
+  }
+
+  useEffect(() => {
+    if (editState.mode === "inactive" || !scriptPhase(editState.cursor.field))
+      return
+    revealOptionalTab(editState.cursor.field)
+  }, [editState.cursor.field, editState.mode, revealOptionalTab])
+
+  const optionalTabMenuVisible =
+    (options?.optionalTabMenuEnabled ?? true) && folder !== null
+  useEffect(() => {
+    if (!optionalTabMenuVisible) setOptionalTabMenuActive(false)
+  }, [optionalTabMenuVisible])
 
   const enterBrowse = useCallback(() => {
     const c = folderRowCount(draftRef.current)
@@ -192,6 +247,7 @@ export function useFolderEditBrowse(
   }, [activeTab])
 
   const enterBrowseAt = useCallback((field: FolderFieldKind, row?: number) => {
+    setOptionalTabMenuActive(false)
     setInactiveTab(field)
     const c = folderRowCount(draftRef.current)
     setEditKey("")
@@ -220,6 +276,7 @@ export function useFolderEditBrowse(
       subfield?: "key" | "value",
     ) => {
       if (field === "auth" && row === 0) return
+      setOptionalTabMenuActive(false)
       setInactiveTab(field)
       const currentFolder = draftRef.current
       const kv = folderCurrentKeyValueFor(currentFolder, field, row, addingRow)
@@ -246,6 +303,7 @@ export function useFolderEditBrowse(
 
   const toggleAt = useCallback(
     (field: FolderFieldKind, row: number) => {
+      setOptionalTabMenuActive(false)
       setInactiveTab(field)
       setEditState((prev) => {
         const browsed =
@@ -327,25 +385,51 @@ export function useFolderEditBrowse(
     })
   }, [])
 
+  const cycleInactiveTab = useCallback(
+    (delta: 1 | -1) => {
+      const current = tabNavigationRef.current
+      const counts = folderRowCount(draftRef.current)
+      const menuActive =
+        optionalTabMenuVisible &&
+        !current.menuActive &&
+        ((current.tab === "activity" && delta === 1) ||
+          (current.tab === "meta" && delta === -1))
+      const tab = menuActive
+        ? current.tab
+        : current.menuActive
+          ? delta === 1
+            ? "meta"
+            : "activity"
+          : cycleFolderField(
+              current.tab,
+              delta,
+              counts,
+              revealedOptionalTabsRef.current,
+            )
+      // Advance buffered key events before React commits the next render.
+      tabNavigationRef.current = { tab, menuActive }
+      setInactiveTab(tab)
+      setOptionalTabMenuActiveState(menuActive)
+      setEditState((prev) => {
+        if (prev.mode !== "browsing") return prev
+        return menuActive
+          ? exitEditBrowse(prev)
+          : {
+              ...prev,
+              cursor: folderCursorForField(tab as FolderFieldKind, counts),
+            }
+      })
+    },
+    [optionalTabMenuVisible],
+  )
+
   const browseLeft = useCallback(() => {
-    const c = folderRowCount(draftRef.current)
-    setEditState((prev) => {
-      if (prev.mode !== "browsing") return prev
-      const next = moveFolderFieldCursor(prev, -1, c)
-      setInactiveTab(next.cursor.field)
-      return next
-    })
-  }, [])
+    if (editStateRef.current.mode === "browsing") cycleInactiveTab(-1)
+  }, [cycleInactiveTab])
 
   const browseRight = useCallback(() => {
-    const c = folderRowCount(draftRef.current)
-    setEditState((prev) => {
-      if (prev.mode !== "browsing") return prev
-      const next = moveFolderFieldCursor(prev, +1, c)
-      setInactiveTab(next.cursor.field)
-      return next
-    })
-  }, [])
+    if (editStateRef.current.mode === "browsing") cycleInactiveTab(1)
+  }, [cycleInactiveTab])
 
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
@@ -465,10 +549,6 @@ export function useFolderEditBrowse(
     } else if (field === "headers") draftMutators.toggleHeaderRow(row)
   }, [draftMutators])
 
-  const cycleInactiveTab = useCallback((delta: 1 | -1) => {
-    setInactiveTab((prev) => cycleField(prev, delta))
-  }, [])
-
   return useMemo(
     () => ({
       editState,
@@ -478,6 +558,11 @@ export function useFolderEditBrowse(
       setEditKey,
       isActive: editState.mode !== "inactive",
       activeTab,
+      revealedOptionalTabs,
+      revealOptionalTab,
+      optionalTabMenuVisible,
+      optionalTabMenuActive,
+      setOptionalTabMenuActive,
       enterBrowse,
       enterBrowseAt,
       activateAt,
@@ -502,6 +587,11 @@ export function useFolderEditBrowse(
       editValue,
       editKey,
       activeTab,
+      revealedOptionalTabs,
+      revealOptionalTab,
+      optionalTabMenuVisible,
+      optionalTabMenuActive,
+      setOptionalTabMenuActive,
       enterBrowse,
       enterBrowseAt,
       activateAt,

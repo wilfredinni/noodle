@@ -9,6 +9,10 @@ import { setupKeymap } from "./_helpers"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RequestPane } from "../../src/ui/RequestPane"
 import { ScriptAuthoringContext } from "../../src/ui/editor/ScriptEditor"
+import {
+  ScriptOrderOverlay,
+  type ScriptOrder,
+} from "../../src/ui/overlays/ScriptOrderOverlay"
 import { CollectionScripts } from "../../src/ui/settings/CollectionScripts"
 import {
   queueCollectionSettingsSave,
@@ -233,44 +237,72 @@ describe("script workspaces", () => {
     )
   })
 
-  it("shows inherited scope order with collection-relative paths", async () => {
-    const child = {
-      ...request,
-      id: "users/a",
-      scripts: { pre: "own()", post: "after()" },
-      tests: "check()",
-    }
-    const collection: Collection = {
-      id: "demo",
-      name: "Demo",
-      scripts: { pre: "./pre.js", post: "./post.js" },
-      items: [
-        {
-          type: "folder",
-          data: {
-            ...folder,
-            scripts: { pre: "before()", post: "after()" },
-            children: [{ type: "request", data: child }],
+  it.each([
+    ["headers", undefined],
+    ["params", undefined],
+    ["pathParams", undefined],
+    ["body", undefined],
+    ["auth", undefined],
+    ["assertions", undefined],
+    ["captures", undefined],
+    ["settings", undefined],
+    ["preScript", "pre"],
+    ["postScript", "post"],
+    ["tests", "tests"],
+  ] as const)(
+    "shows only the relevant inheritance on the %s tab",
+    async (tab, phase) => {
+      const child = {
+        ...request,
+        id: "users/a",
+        scripts: { pre: "own()", post: "after()" },
+        tests: "check()",
+      }
+      const collection: Collection = {
+        id: "demo",
+        name: "Demo",
+        scripts: { pre: "./pre.js", post: "./post.js" },
+        tests: "./tests.js",
+        items: [
+          {
+            type: "folder",
+            data: {
+              ...folder,
+              scripts: { pre: "before()", post: "after()" },
+              children: [{ type: "request", data: child }],
+            },
           },
-        },
-      ],
-    }
-    const { keymap } = setupKeymap()
-    const h = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
+        ],
+      }
+      const { keymap } = setupKeymap()
+      let activeOrder: ScriptOrder | null = null
+      let showOrder!: () => void
+      let setTabMenu!: (active: boolean) => void
+      const setActiveOrder = (order: ScriptOrder | null) => {
+        activeOrder = order
+      }
+      function OrderHarness() {
+        const [menuActive, setMenuActive] = useState(false)
+        setTabMenu = setMenuActive
+        const [order, setOrder] = useState<ScriptOrder | null>(null)
+        showOrder = () => setOrder(activeOrder)
+        return (
           <ScriptAuthoringContext.Provider
             value={{
               collection,
               collectionDir: "/tmp",
               confirm: () => {},
-              open: () => {},
               setActive: () => {},
+              setActiveOrder,
+              showOrder: setOrder,
             }}
           >
             <RequestPane
               request={child}
-              activeTab="headers"
+              focused
+              tabMenuActive={menuActive}
+              onTabMenuActiveChange={setMenuActive}
+              activeTab={tab}
               editState={{
                 mode: "inactive",
                 cursor: { field: "headers", row: -1, addingRow: true },
@@ -281,22 +313,64 @@ describe("script workspaces", () => {
               setEditKey={() => {}}
               setEditValue={() => {}}
             />
+            {order && (
+              <ScriptOrderOverlay
+                order={order}
+                onClose={() => setOrder(null)}
+              />
+            )}
           </ScriptAuthoringContext.Provider>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 120, height: 14 },
-    )
-    await act(async () => {
-      await h.renderOnce()
-    })
-    const frame = h.captureCharFrame()
-    expect(frame).toContain(
-      "pre: collection: demo ./pre.js → folder: users → request (adds)",
-    )
-    expect(frame).toContain(
-      "post: request (adds) → folder: users → collection: demo ./post.js",
-    )
-  })
+        )
+      }
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <OrderHarness />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 120, height: 30 },
+      )
+      await act(async () => {
+        await h.renderOnce()
+      })
+      let frame = h.captureCharFrame()
+      if (!phase) {
+        expect(frame).not.toContain("run in this order")
+        return
+      }
+      expect(frame).not.toContain("Execution order")
+      expect(frame).not.toContain("Collection: Demo")
+      expect(activeOrder).not.toBeNull()
+      await act(async () => setTabMenu(true))
+      expect(activeOrder).toBeNull()
+      await act(async () => setTabMenu(false))
+      expect(activeOrder).not.toBeNull()
+      await act(async () => showOrder())
+      await act(async () => {
+        await h.renderOnce()
+      })
+      frame = h.captureCharFrame()
+      const ordered =
+        phase === "post"
+          ? ["1  This request", "2  Folder: users", "3  Collection: Demo"]
+          : phase === "pre"
+            ? ["1  Collection: Demo", "2  Folder: users", "3  This request"]
+            : ["1  Collection: Demo", "2  This request"]
+      let previous = -1
+      for (const label of ordered) {
+        expect(frame).toContain(label)
+        expect(frame.indexOf(label)).toBeGreaterThan(previous)
+        previous = frame.indexOf(label)
+      }
+      expect(frame).toContain("run in this order")
+      expect(frame).not.toContain("Reference only")
+      expect(frame).not.toContain("This request runs")
+      expect(frame).toContain(`./${phase}.js`)
+      for (const other of ["pre", "post", "tests"]) {
+        if (other !== phase) expect(frame).not.toContain(`./${other}.js`)
+      }
+    },
+  )
 
   it("edits all collection phases using the settings queue without overwriting unrelated settings", async () => {
     const dir = await fixture()

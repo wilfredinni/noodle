@@ -1,4 +1,4 @@
-import type { ActiveScriptSource } from "./editor/ScriptEditor"
+import type { ScriptActions } from "./editor/ScriptEditor"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./overlays/CommandPaletteOverlay"
@@ -59,7 +59,6 @@ import {
   openCollectionSwitcher,
   openSettings,
   openCollectionInEditor,
-  openScriptInEditor,
   openAppSettingsInEditor,
   type CommandActionsConfig,
   toggleSidebarVisible,
@@ -73,7 +72,7 @@ export interface CommandBuilderContext {
   keybinds: Keybinds
   collectionDir: string
   appConfigDir: string
-  activeScriptSource?: ActiveScriptSource | null
+  scriptActions?: ScriptActions
   externalEditor?: ExternalEditor
   confirmUndoAll: boolean
   renderer: CliRenderer
@@ -649,20 +648,25 @@ export function buildCommandPaletteCommands(
           },
         ]
       : []),
-    ...(ctx.activeScriptSource
+    ...(ctx.scriptActions?.open
       ? [
           {
             id: "script.open",
             label: "Open Script in External Editor",
             section: "Workspace",
-            run: () => {
-              void openScriptInEditor(
-                ctx.externalEditor,
-                ctx.collectionDir,
-                ctx.activeScriptSource!,
-              )
-              return true
-            },
+            keybinding: displayKey(keybinds.script_open_external),
+            run: ctx.scriptActions.open,
+          },
+        ]
+      : []),
+    ...(ctx.scriptActions?.order
+      ? [
+          {
+            id: "script.execution-order",
+            label: "Show Script Execution Order",
+            section: "Workspace",
+            keybinding: displayKey(keybinds.script_execution_order),
+            run: ctx.scriptActions.order,
           },
         ]
       : []),

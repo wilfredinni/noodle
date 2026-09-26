@@ -37,17 +37,22 @@ export function Tabs({
   useEffect(() => {
     if (!hasJumpHint) return
     const scrollbar = tabScrollRef.current?.horizontalScrollBar
-    if (!scrollbar) return
+    const badges = badgeScrollRef.current
+    if (!scrollbar || !badges) return
     const syncBadgeScroll = () => {
-      badgeScrollRef.current?.scrollTo({
+      badges.scrollTo({
         x: tabScrollRef.current?.scrollLeft ?? 0,
         y: 0,
       })
     }
     scrollbar.on("change", syncBadgeScroll)
+    badges.content.on("resize", syncBadgeScroll)
+    badges.viewport.on("resize", syncBadgeScroll)
     syncBadgeScroll()
     return () => {
       scrollbar.off("change", syncBadgeScroll)
+      badges.content.off("resize", syncBadgeScroll)
+      badges.viewport.off("resize", syncBadgeScroll)
     }
   }, [hasJumpHint])
 

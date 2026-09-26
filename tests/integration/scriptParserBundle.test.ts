@@ -31,7 +31,7 @@ it("highlights JavaScript with the bundled parser and retains its assets in a st
     )
     const build = Bun.spawn(
       [process.execPath, "build", "--compile", entry, "--outfile", binary],
-      { stdout: "pipe", stderr: "pipe" },
+      { cwd: dir, stdout: "pipe", stderr: "pipe" },
     )
     expect(await build.exited).toBe(0)
     const run = Bun.spawn([binary], {

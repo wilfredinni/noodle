@@ -15,6 +15,8 @@ export function makeOverlayState(
   overrides: Partial<OverlayState> = {},
 ): OverlayState {
   const state: OverlayState = {
+    scriptOrder: null,
+    setScriptOrder: noop,
     scriptSourceConfirm: null,
     setScriptSourceConfirm: () => {},
     activeOverlay: "none",

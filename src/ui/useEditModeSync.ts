@@ -86,6 +86,7 @@ export function useEditModeSync({
     if (
       !repairEditor &&
       focus === "folder" &&
+      !folderEb.optionalTabMenuActive &&
       folderEb.editState.mode === "inactive"
     ) {
       folderEb.enterBrowse()
@@ -97,6 +98,7 @@ export function useEditModeSync({
     focus,
     repairEditor,
     folderEb.editState.mode,
+    folderEb.optionalTabMenuActive,
     folderEb.enterBrowse,
     envEditor.editState.mode,
     envEditor.enterBrowse,

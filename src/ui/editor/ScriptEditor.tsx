@@ -1,4 +1,3 @@
-import { ActionButton } from "../ActionButton"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { extend } from "@opentui/react"
@@ -14,8 +13,6 @@ import {
   isExternalScriptSource,
   validateScriptSource,
 } from "../../lang/scriptSource"
-import { requestScriptBlocks, scriptSourceLabel } from "../../scriptInheritance"
-import { scriptText } from "../../scriptAuthoring"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -23,16 +20,92 @@ import {
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
 import { ValidationNotice } from "./ValidationNotice"
 import { Select } from "../Select"
+import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
+import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
+export type ScriptActions = {
+  open?: () => boolean
+  order?: () => boolean
+}
 export const ScriptAuthoringContext = createContext<{
   collectionDir: string
   collection: Collection | null
+  overlayActive?: boolean
   confirm: (action: () => void) => void
-  open: (source: ActiveScriptSource) => void
   setActive: (source: ActiveScriptSource | null) => void
+  setActiveOrder?: (order: ScriptOrder | null) => void
+  showOrder?: (order: ScriptOrder) => void
+  open?: (source: ActiveScriptSource) => void
 } | null>(null)
+
+function ScriptLink({
+  id,
+  children,
+  onClick,
+}: {
+  id: string
+  children: string
+  onClick: () => void
+}) {
+  const theme = useTheme()
+  return (
+    <text
+      id={id}
+      fg={theme.primary}
+      flexShrink={0}
+      maxWidth="100%"
+      wrapMode="word"
+      onMouseDown={(event) => {
+        if (event.button !== MouseButton.LEFT) return
+        event.preventDefault()
+        event.stopPropagation()
+        onClick()
+      }}
+    >
+      {children}
+      <span fg={theme.textMuted}>.</span>
+    </text>
+  )
+}
+
+export function ScriptDescription({
+  children,
+  onShowOrder,
+  onOpenExternal,
+}: {
+  children: string
+  onShowOrder?: () => void
+  onOpenExternal?: () => void
+}) {
+  const theme = useTheme()
+  const description = `${children}${onShowOrder ? " See " : onOpenExternal ? " Open in " : ""}`
+  const onClick = onShowOrder ?? onOpenExternal
+  return (
+    <box flexDirection="row" flexWrap="wrap" flexShrink={0}>
+      {description.split(/(?<= )/).map((word, index) => (
+        <text
+          key={index}
+          fg={theme.textMuted}
+          flexShrink={0}
+          maxWidth="100%"
+          wrapMode="word"
+        >
+          {word}
+        </text>
+      ))}
+      {onClick && (
+        <ScriptLink
+          id={onShowOrder ? "script-order-link" : "script-external-editor-link"}
+          onClick={onClick}
+        >
+          {onShowOrder ? "execution order" : "external editor"}
+        </ScriptLink>
+      )}
+    </box>
+  )
+}
 
 extend({
   "code-editor": CodeEditorRenderable,
@@ -46,10 +119,13 @@ export function ScriptEditor({
   focused,
   editing,
   interactive = true,
+  onControlFocus,
+  onFocus,
   onChange,
   onActivate,
   onExit,
   onSelectOpenChange,
+  onShowOrder,
   onDiagnostics,
   diagnosticDelayMs = 200,
 }: {
@@ -59,16 +135,20 @@ export function ScriptEditor({
   focused: boolean
   editing: boolean
   interactive?: boolean
+  onControlFocus?: (id: string) => void
+  onFocus?: () => void
   onChange: (value: string) => void
   onActivate: () => void
   onExit: () => void
   diagnosticDelayMs?: number
   onDiagnostics?: () => void
   onSelectOpenChange?: (open: boolean) => void
+  onShowOrder?: () => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
   const context = useContext(ScriptAuthoringContext)
+  const overlayActive = context?.overlayActive ?? false
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
   const [selectedKind, setKind] = useState(
     value.startsWith("./") ? "external" : "inline",
@@ -143,10 +223,12 @@ export function ScriptEditor({
   useEffect(() => {
     if (!focused) return
     setActive?.(
-      kind === "external" ? { value, source: sourceRef.current } : null,
+      kind === "external" && !selectOpen
+        ? { value, source: sourceRef.current }
+        : null,
     )
     return () => setActive?.(null)
-  }, [focused, kind, value, sourceKey, setActive])
+  }, [focused, kind, value, sourceKey, setActive, selectOpen])
 
   useEffect(
     () =>
@@ -157,6 +239,7 @@ export function ScriptEditor({
             !focused ||
             !interactive ||
             selectOpen ||
+            keymap.getData("app.jump") === "active" ||
             event.ctrl ||
             event.meta ||
             event.option ||
@@ -165,61 +248,51 @@ export function ScriptEditor({
             keymap.getData("app.overlay") !== "none"
           )
             return
+          const consume = () => {
+            event.preventDefault()
+            event.stopPropagation()
+          }
           if (
             editing &&
             (event.name === "escape" || (event.name === "tab" && event.shift))
           ) {
-            event.preventDefault()
-            event.stopPropagation()
+            consume()
             onExit()
             setControl(0)
-          } else if (
-            !editing &&
-            kind === "external" &&
-            control === 1 &&
-            event.name === "tab"
-          ) {
+          } else if (editing && event.name === "tab") {
+            consume()
+            onExit()
             setControl(0)
-            if (event.shift) {
-              event.preventDefault()
-              event.stopPropagation()
+            keymap.dispatchCommand("focus.next")
+          } else if (editing && kind === "inline" && event.name === "return") {
+            consume()
+            editor?.handleKeyPress(event)
+          } else if (!editing && kind === "external") {
+            if (event.name === "return" && control > 0) {
+              consume()
+              onActivate()
+            } else if (
+              event.name === "up" ||
+              event.name === "down" ||
+              event.name === "tab"
+            ) {
+              const direction = event.name === "up" || event.shift ? -1 : 1
+              const next = control + direction
+              if (next >= 0 && next <= 1) {
+                consume()
+                setControl(next)
+              }
             }
-          } else if (
-            !editing &&
-            kind === "external" &&
-            control === 1 &&
-            event.name === "return"
-          ) {
-            event.preventDefault()
-            event.stopPropagation()
-            context?.open({ value, source })
-          } else if (editing && kind === "external" && event.name === "tab") {
-            event.preventDefault()
-            event.stopPropagation()
-            onExit()
-            setControl(1)
-          } else if (
-            editing &&
-            kind === "inline" &&
-            (event.name === "return" || event.name === "tab")
-          ) {
-            event.preventDefault()
-            event.stopPropagation()
-            if (event.name === "tab") editor?.insertText("  ")
-            else editor?.handleKeyPress(event)
           } else if (
             !editing &&
             !event.shift &&
-            (event.name === "down" || event.name === "tab")
+            (event.name === "up" ||
+              event.name === "down" ||
+              event.name === "tab")
           ) {
-            event.preventDefault()
-            event.stopPropagation()
-            if (kind === "external" && control === 0 && event.name === "tab")
-              setControl(1)
-            else {
-              setControl(0)
-              onActivate()
-            }
+            consume()
+            setControl(0)
+            onActivate()
           }
         },
         { priority: 150 },
@@ -227,9 +300,6 @@ export function ScriptEditor({
     [
       keymap,
       control,
-      context,
-      value,
-      sourceKey,
       focused,
       interactive,
       editing,
@@ -243,9 +313,16 @@ export function ScriptEditor({
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
-    if (focused && editing && !selectOpen) editor.focus()
+    if (focused && editing && !selectOpen && !overlayActive) editor.focus()
     else editor.blur()
-  }, [editor, focused, editing, selectOpen])
+  }, [editor, focused, editing, selectOpen, overlayActive])
+
+  useEffect(() => {
+    if (!focused) return
+    onControlFocus?.(
+      `script-${editing ? (kind === "inline" ? "source" : "path") : kind === "external" && control === 1 ? "path" : "source-field"}`,
+    )
+  }, [focused, editing, kind, control, onControlFocus])
 
   const changeKind = (next: string) => {
     if (next === kind) return
@@ -264,34 +341,37 @@ export function ScriptEditor({
       flexGrow={1}
       flexBasis={0}
       minHeight={0}
+      minWidth={0}
       overflow="hidden"
     >
-      <box
-        flexDirection="row"
-        flexShrink={0}
-        zIndex={selectOpen ? 1 : undefined}
-      >
-        <Select
-          items={[
-            { id: "inline", label: "Inline" },
-            { id: "external", label: "External file" },
-          ]}
-          value={kind}
-          badge={false}
-          fitContent
-          focused={focused && !editing && control === 0}
-          interactive={interactive}
-          onActivate={onExit}
-          onChange={changeKind}
-          onOpenChange={(open) => {
-            setSelectOpen(open)
-            onSelectOpenChange?.(open)
-          }}
-        />
-        <text
-          fg={theme.textMuted}
-          truncate
-        >{` ${scriptSourceLabel(source)} · ${phase}`}</text>
+      <box flexShrink={0} marginBottom={1} zIndex={selectOpen ? 1 : undefined}>
+        <box id="script-source-field">
+          <Select
+            items={[
+              { id: "inline", label: "Inline" },
+              {
+                id: "external",
+                label: "External file",
+              },
+            ]}
+            value={kind}
+            focused={focused && !editing && control === 0}
+            interactive={interactive}
+            onActivate={() => {
+              onFocus?.()
+              setControl(0)
+              onExit()
+            }}
+            onChange={changeKind}
+            onOpenChange={(open) => {
+              setSelectOpen(open)
+              onSelectOpenChange?.(open)
+            }}
+          />
+        </box>
+        <ScriptDescription onShowOrder={onShowOrder}>
+          Write inline or use a .js file.
+        </ScriptDescription>
       </box>
       {kind === "inline" ? (
         <box
@@ -363,72 +443,68 @@ export function ScriptEditor({
           <CodeEditorCompletion
             editor={editor}
             env={null}
-            isEditing={focused && editing}
+            isEditing={focused && editing && !overlayActive}
             value={value}
             scriptPhase={phase}
           />
         </box>
       ) : (
-        <>
-          <input
-            id="script-path"
-            value={value}
-            placeholder="./scripts/example.js"
-            focused={focused && editing}
-            onMouseDown={() => {
-              if (interactive) onActivate()
+        <box flexDirection="column" flexShrink={0} minHeight={4}>
+          <SettingsField
+            title="File"
+            active={focused && (editing || control === 1)}
+            onMouseDown={
+              interactive
+                ? () => {
+                    setControl(1)
+                    onActivate()
+                  }
+                : undefined
+            }
+          >
+            <input
+              id="script-path"
+              value={value}
+              placeholder="./scripts/example.js"
+              flexGrow={1}
+              minWidth={0}
+              focused={focused && editing && !overlayActive}
+              onMouseDown={() => {
+                if (interactive) {
+                  setControl(1)
+                  onActivate()
+                }
+              }}
+              onInput={(text) => {
+                if (interactive)
+                  onChange(
+                    !text || text === "." || text.startsWith("./")
+                      ? text
+                      : `./${text}`,
+                  )
+              }}
+              textColor={theme.text}
+              focusedTextColor={theme.text}
+            />
+          </SettingsField>
+          <ScriptDescription
+            onOpenExternal={() => {
+              if (
+                selectOpen ||
+                overlayActive ||
+                keymap.getData("app.overlay") !== "none" ||
+                keymap.getData("app.jump") === "active"
+              )
+                return
+              onFocus?.()
+              context?.open?.({ value, source })
             }}
-            onInput={(text) => {
-              if (interactive)
-                onChange(
-                  !text || text === "." || text.startsWith("./")
-                    ? text
-                    : `./${text}`,
-                )
-            }}
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-          />
-          <ActionButton
-            id="script-open"
-            label="Open in external editor"
-            focused={focused && !editing && control === 1}
-            disabled={!interactive}
-            onAction={() => context?.open({ value, source })}
-          />
-        </>
+          >
+            Relative to the collection root.
+          </ScriptDescription>
+        </box>
       )}
       {error && <ValidationNotice detail={error} />}
-    </box>
-  )
-}
-
-export function ScriptInheritance({
-  request,
-}: {
-  request: Parameters<typeof requestScriptBlocks>[0]
-}) {
-  const context = useContext(ScriptAuthoringContext)
-  const theme = useTheme()
-  const blocks = requestScriptBlocks(request, context?.collection ?? undefined)
-  if (!blocks.some((block) => block.source.scope !== "request")) return null
-  return (
-    <box flexDirection="column" flexShrink={0}>
-      {(["pre", "post", "tests"] as const).map((phase) => {
-        const ordered = (
-          phase === "post" ? [...blocks].reverse() : blocks
-        ).filter((block) => scriptText(block, phase))
-        if (!ordered.some((block) => block.source.scope !== "request"))
-          return null
-        return (
-          <text key={phase} fg={theme.textMuted} truncate>{`${phase}: ${ordered
-            .map((block) => {
-              const value = scriptText(block, phase)
-              return `${block.source.scope === "request" ? "request (adds)" : scriptSourceLabel(block.source)}${isExternalScriptSource(value) ? ` ${value}` : ""}`
-            })
-            .join(" → ")}`}</text>
-        )
-      })}
     </box>
   )
 }

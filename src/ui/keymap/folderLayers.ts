@@ -14,7 +14,10 @@ export function createFolderLayers(
     keymap.getData("app.view") === "main"
 
   const base: UseBindingsLayer = {
-    enabled: () => isFolder() && keymap.getData("app.mode") === "base",
+    enabled: () =>
+      isFolder() &&
+      (keymap.getData("app.mode") === "base" ||
+        folder.folderEbRef.current.optionalTabMenuActive),
     commands: [
       {
         name: "folder.edit-enter",
@@ -92,7 +95,10 @@ export function createFolderLayers(
   }
 
   const browse: UseBindingsLayer = {
-    enabled: () => isFolder() && keymap.getData("app.mode") === "browse",
+    enabled: () =>
+      isFolder() &&
+      keymap.getData("app.mode") === "browse" &&
+      !folder.folderEbRef.current.optionalTabMenuActive,
     commands: [
       {
         name: "folder-browse.up",
