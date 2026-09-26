@@ -1,3 +1,6 @@
+import { mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it, expect, jest } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
 import { buildCommandPaletteCommands } from "../../src/ui/commands"
@@ -15,6 +18,7 @@ import {
   installAgentSkill,
   openCollectionRunner,
   openRunnerRequestTab,
+  openScriptInEditor,
   openAppSettingsInEditor,
   openCollectionInEditor,
   saveFolder,
@@ -261,6 +265,65 @@ describe("buildCommandPaletteCommands", () => {
     expect(messages).toEqual([
       ["Failed to install Noodle skill: no space", "error"],
     ])
+  })
+
+  it("offers Console copy as soon as the Console tab is selected", () => {
+    const ctx = minimalContext()
+    ctx.consoleCopyRef = { current: null }
+    ctx.consoleActive = true
+    const copy = buildCommandPaletteCommands(ctx).find(
+      (command) => command.id === "console.copy",
+    )
+    expect(copy).toBeDefined()
+    expect(copy!.run()).toBe(false)
+    ctx.consoleCopyRef.current = () => true
+    expect(copy!.run()).toBe(true)
+    ctx.consoleActive = false
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (command) => command.id === "console.copy",
+      ),
+    ).toBe(false)
+  })
+
+  it("offers the external script command only for an active external source and validates its exact file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-open-script-"))
+    const ctx = minimalContext()
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (command) => command.id === "script.open",
+      ),
+    ).toBe(false)
+    const source = { scope: "request" as const, scopeId: "a", path: "a.yml" }
+    ctx.activeScriptSource = { value: "./alias.js", source }
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (command) => command.id === "script.open",
+      ),
+    ).toBe(true)
+    const editor: ExternalEditor = { id: "zed", label: "Zed", command: ["zed"] }
+    const opened: string[] = []
+    const launch = async (_editor: ExternalEditor, path: string) => {
+      opened.push(path)
+    }
+    try {
+      await writeFile(join(dir, "script.js"), "console.log(1)")
+      await symlink("script.js", join(dir, "alias.js"))
+      await openScriptInEditor(editor, dir, ctx.activeScriptSource, launch)
+      expect(opened).toEqual([await realpath(join(dir, "script.js"))])
+      await symlink("/etc/passwd", join(dir, "escaped.js"))
+      for (const value of [
+        "./missing.js",
+        "./escaped.js",
+        "../outside.js",
+        "console.log(1)",
+      ]) {
+        await openScriptInEditor(editor, dir, { value, source }, launch)
+      }
+      expect(opened).toHaveLength(1)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 
   it("opens collection and app settings folders in the selected editor", () => {

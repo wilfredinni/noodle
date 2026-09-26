@@ -1,3 +1,5 @@
+import { CollectionScripts } from "./CollectionScripts"
+import type { ScriptFields } from "../../schema"
 import {
   MouseButton,
   ScrollBoxRenderable,
@@ -55,7 +57,11 @@ export type GlobalSettingsCategory =
   | "network"
   | "collections"
   | "keyboard"
-export type CollectionSettingsCategory = "general" | "network" | "tls"
+export type CollectionSettingsCategory =
+  | "general"
+  | "network"
+  | "tls"
+  | "scripts"
 export type SettingsCategory =
   | GlobalSettingsCategory
   | CollectionSettingsCategory
@@ -76,6 +82,7 @@ export const COLLECTION_CATEGORIES: readonly {
   label: string
 }[] = [
   { id: "general", label: "General" },
+  { id: "scripts", label: "Scripts" },
   { id: "network", label: "Proxy" },
   { id: "tls", label: "Certificates" },
 ]
@@ -122,6 +129,7 @@ export function SettingsView({
   collectionProxyCredentials = {},
   collectionTls,
   tlsPassphrases = {},
+  collectionScripts,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -171,6 +179,7 @@ export function SettingsView({
   collectionProxyCredentials?: ProxyCredentials
   collectionTls?: CollectionTlsSettings
   tlsPassphrases?: Record<string, string>
+  collectionScripts?: ScriptFields
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -204,7 +213,13 @@ export function SettingsView({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
+      | "name"
+      | "description"
+      | "timelineMaxEntries"
+      | "tls"
+      | "cookies"
+      | "scripts"
+      | "tests"
     >,
   ) => boolean
   onEnvironmentChange: (name: string) => void
@@ -221,6 +236,7 @@ export function SettingsView({
   const collectionDescriptionRef = useRef<TextareaRenderable | null>(null)
   const timelineMaxEntriesRef = useRef<InputRenderable | null>(null)
   const [contentIndex, setContentIndex] = useState(0)
+  const [scriptEditing, setScriptEditing] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
   const [captureName, setCaptureName] = useState<KeybindName | null>(null)
   const [message, setMessage] = useState<{
@@ -359,12 +375,14 @@ export function SettingsView({
         (scope === "collection" &&
           category === "general" &&
           contentIndex < 3) ||
+        (category === "scripts" && scriptEditing) ||
         (category === "network" && proxyTextInput) ||
         (category === "tls" && tlsTextInput))
     keymap.setData("app.text-input", textInputActive)
     return () => keymap.setData("app.text-input", false)
   }, [
     category,
+    scriptEditing,
     collectionRegisterIndex,
     contentIndex,
     focus,
@@ -471,6 +489,12 @@ export function SettingsView({
       (ctx) => {
         if (keymap.getData("app.overlay") !== "none") return
         const event = ctx.event
+        if (
+          category === "scripts" &&
+          focus === "settings-content" &&
+          keymap.getData("app.text-input")
+        )
+          return
         if (event.name === "escape") {
           event.preventDefault()
           event.stopPropagation()
@@ -839,6 +863,16 @@ export function SettingsView({
           }}
         >
           <box style={{ flexDirection: "column", gap: 1, paddingRight: 1 }}>
+            {scope === "collection" && category === "scripts" && (
+              <CollectionScripts
+                key={activeCollectionDir}
+                fields={collectionScripts ?? {}}
+                focused={focus === "settings-content"}
+                onEditingChange={setScriptEditing}
+                onFocus={() => onPaneFocus("settings-content")}
+                onChange={onCollectionSettingsChange}
+              />
+            )}
             {scope === "global" && category === "appearance" && (
               <>
                 <SettingsSectionHeader

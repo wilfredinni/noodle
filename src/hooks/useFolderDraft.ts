@@ -1,3 +1,5 @@
+import { withScript } from "../scriptAuthoring"
+import type { ScriptPhase } from "../preRequestScript"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { Auth, Folder } from "../schema"
 import {
@@ -15,6 +17,7 @@ import { updateAuthField } from "../ui/authRows"
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
 export type FolderDraftOp =
+  | { kind: "setScript"; phase: ScriptPhase; source: string }
   | { kind: "setName"; name: string }
   | { kind: "setSeq"; seq: number }
   | { kind: "setHeaderRow"; index: number; key: string; value: string }
@@ -47,6 +50,8 @@ export function applyDraftOp(
   const draft: Folder = { ...folder }
 
   switch (op.kind) {
+    case "setScript":
+      return withScript(draft, op.phase, op.source)
     case "setName":
       draft.name = op.name
       break
@@ -162,6 +167,7 @@ export interface UseFolderDraftResult {
   dirtyPaths: Set<string>
   originalFolder: Folder | null
   setName: (name: string) => void
+  setScript: (phase: ScriptPhase, source: string) => void
   setSeq: (seq: number) => void
   setHeaderRow: (index: number, key: string, value: string) => void
   addHeaderRow: (key: string, value: string) => void
@@ -232,6 +238,12 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       })
     },
     [folder, key, originalMap],
+  )
+
+  const setScript = useCallback(
+    (phase: ScriptPhase, source: string) =>
+      dispatch({ kind: "setScript", phase, source }),
+    [dispatch],
   )
 
   const setName = useCallback(
@@ -310,6 +322,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       dirtyPaths,
       originalFolder: originalMap.get(key) ?? null,
       setName,
+      setScript,
       setSeq,
       setHeaderRow,
       addHeaderRow,
@@ -330,6 +343,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       originalMap,
       key,
       setName,
+      setScript,
       setSeq,
       setHeaderRow,
       addHeaderRow,

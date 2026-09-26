@@ -1,3 +1,9 @@
+import { ConsoleCopyContext } from "./ScriptConsole"
+import {
+  ScriptAuthoringContext,
+  type ActiveScriptSource,
+} from "./editor/ScriptEditor"
+import { openScriptInEditor } from "./commandActions"
 import {
   useCallback,
   useEffect,
@@ -168,6 +174,7 @@ export function AppInner({
   collectionProxyCredentials,
   collectionTls,
   tlsPassphrases,
+  collectionScripts,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -232,6 +239,7 @@ export function AppInner({
   collectionProxyCredentials: ProxyCredentials
   collectionTls?: CollectionTlsSettings
   tlsPassphrases: Record<string, string>
+  collectionScripts?: Pick<CollectionSettings, "scripts" | "tests">
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -253,7 +261,13 @@ export function AppInner({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
+      | "name"
+      | "description"
+      | "timelineMaxEntries"
+      | "tls"
+      | "cookies"
+      | "scripts"
+      | "tests"
     >,
   ) => boolean
   initialLastRequestId?: string
@@ -269,6 +283,9 @@ export function AppInner({
   mode?: "collection" | "browse" | "empty" | "invalid"
   sidebarVisible?: boolean
 }) {
+  const [activeScriptSource, setActiveScriptSource] =
+    useState<ActiveScriptSource | null>(null)
+  const consoleCopyRef = useRef<(() => boolean) | null>(null)
   const keymap = useKeymap()
   const theme = useTheme()
 
@@ -335,11 +352,27 @@ export function AppInner({
   const isBrowse = mode === "browse"
   const isReadOnly = mode !== "collection"
   const skipCollection = mode === "empty"
-  const { collection, loading, error, updateCollection } = useCollection(
+  const {
+    collection: loadedCollection,
+    loading,
+    error,
+    updateCollection,
+  } = useCollection(
     collectionDir,
     collectionReloadToken,
     skipCollection,
     isBrowse,
+  )
+  const collection = useMemo(
+    () =>
+      loadedCollection && collectionScripts
+        ? {
+            ...loadedCollection,
+            scripts: collectionScripts.scripts,
+            tests: collectionScripts.tests,
+          }
+        : loadedCollection,
+    [loadedCollection, collectionScripts?.scripts, collectionScripts?.tests],
   )
   const items = collection?.items ?? []
   const collectionErrorCount = error ? extractFileErrors(error).length : 0
@@ -1245,6 +1278,7 @@ export function AppInner({
       responseFileActionsRef,
       responseQueryRef,
       responseBodyForCopyRef,
+      consoleCopyRef,
       modeRef,
       setFocus,
       setUrlbarSubFocus,
@@ -1631,6 +1665,7 @@ export function AppInner({
         collectionDir,
         appConfigDir,
         externalEditor,
+        activeScriptSource,
         confirmUndoAll,
         renderer,
         proxyPolicy,
@@ -1646,6 +1681,8 @@ export function AppInner({
         responseStateRef,
         responseQueryRef,
         responseBodyForCopyRef,
+        consoleCopyRef,
+        consoleActive: focus === "response" && responseTab === "console",
         activeIndexRef,
         savingRef,
         doSaveRef,
@@ -1696,6 +1733,7 @@ export function AppInner({
       collectionDir,
       appConfigDir,
       externalEditor,
+      activeScriptSource,
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
@@ -1914,6 +1952,7 @@ export function AppInner({
             collectionProxyCredentials={collectionProxyCredentials}
             collectionTls={collectionTls}
             tlsPassphrases={tlsPassphrases}
+            collectionScripts={collectionScripts ?? collection ?? undefined}
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
@@ -2041,7 +2080,21 @@ export function AppInner({
   )
   return (
     <ResponseFileContext.Provider value={responseFileActions}>
-      {content}
+      <ScriptAuthoringContext.Provider
+        value={{
+          collectionDir,
+          collection,
+          setActive: setActiveScriptSource,
+          confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
+          open: (active) => {
+            void openScriptInEditor(externalEditor, collectionDir, active)
+          },
+        }}
+      >
+        <ConsoleCopyContext.Provider value={consoleCopyRef}>
+          {content}
+        </ConsoleCopyContext.Provider>
+      </ScriptAuthoringContext.Provider>
     </ResponseFileContext.Provider>
   )
 }

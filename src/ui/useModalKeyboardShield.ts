@@ -22,6 +22,7 @@ export const EDITABLE_OVERLAYS = new Set([
 ])
 
 export const HARD_BLOCKING_OVERLAYS = new Set([
+  "script-source-confirm",
   "help",
   "about",
   "notification",

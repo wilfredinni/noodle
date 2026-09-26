@@ -5,7 +5,11 @@ import {
   isExternalScriptSource,
   validateScriptSource,
 } from "./lang/scriptSource"
-import { SCRIPT_LIMITS, type ScriptSource } from "./preRequestScript"
+import {
+  SCRIPT_LIMITS,
+  validateScriptSyntax,
+  type ScriptSource,
+} from "./preRequestScript"
 import { requestScriptBlocks, scriptSourceLabel } from "./scriptInheritance"
 
 export class ScriptSourceError extends Error {
@@ -21,7 +25,10 @@ export type ResolvedScriptBlock = {
 export type ScriptSourceResolver = ReturnType<typeof createScriptSourceResolver>
 
 // One instance belongs to one top-level send/run, including its saved children.
-export function createScriptSourceResolver(collectionDir?: string) {
+export function createScriptSourceResolver(
+  collectionDir?: string,
+  syntaxPreflight = false,
+) {
   let root: Promise<string> | undefined
   const declarations = new Map<string, Promise<string>>()
   const files = new Map<string, Promise<string>>()
@@ -138,8 +145,39 @@ export function createScriptSourceResolver(collectionDir?: string) {
       )
     }
   }
+  const syntax = new Map<string, ReturnType<typeof validateScriptSyntax>>()
+  const validate = async (resolved: ResolvedScriptSource) => {
+    let parsed = syntax.get(resolved.text)
+    if (!parsed) {
+      parsed = validateScriptSyntax(resolved.text)
+      syntax.set(resolved.text, parsed)
+    }
+    const error = await parsed
+    if (error)
+      throw new ScriptSourceError(
+        `${scriptSourceLabel(resolved.source)}: ${error.name} at ${error.line ?? 1}:${error.column ?? 1}: ${error.message}`,
+      )
+  }
   return {
     resolve: resolveSource,
+    async resolveFile(
+      declaration: string,
+      origin: ScriptSource,
+    ): Promise<string> {
+      if (!isExternalScriptSource(declaration))
+        throw new ScriptSourceError("Select an external script first")
+      await resolveSource(declaration, origin)
+      // The validated realpath stays host-side, never in diagnostic origins.
+      const base = await root!
+      const target = await realpath(resolve(base, declaration)).catch(
+        () => undefined,
+      )
+      if (!target || !inside(base, target) || !files.has(target))
+        throw new ScriptSourceError(
+          "Script source changed while being resolved",
+        )
+      return target
+    },
     async resolveBlocks(
       blocks: ReturnType<typeof requestScriptBlocks>,
     ): Promise<ResolvedScriptBlock[]> {
@@ -149,8 +187,10 @@ export function createScriptSourceResolver(collectionDir?: string) {
         for (const phase of ["pre", "post", "tests"] as const) {
           const source =
             phase === "tests" ? block.tests : block.scripts?.[phase]
-          if (source !== undefined)
+          if (source !== undefined) {
             result[phase] = await resolveSource(source, block.source)
+            if (syntaxPreflight) await validate(result[phase]!)
+          }
         }
         resolved.push(result)
       }

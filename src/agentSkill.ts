@@ -12,6 +12,8 @@ import {
 import { dirname, join } from "node:path"
 import skill from "../.agents/skills/noodle-use/SKILL.md" with { type: "text" }
 import schema from "../.agents/skills/noodle-use/schema.md" with { type: "text" }
+// @ts-expect-error Bun embeds this declaration as text, not a TypeScript module.
+import scriptTypes from "../.agents/skills/noodle-use/noodle-script.d.ts" with { type: "text" }
 import automation from "../.agents/skills/noodle-use/workflows/automation.md" with { type: "text" }
 import convert from "../.agents/skills/noodle-use/workflows/convert.md" with { type: "text" }
 import create from "../.agents/skills/noodle-use/workflows/create.md" with { type: "text" }
@@ -25,6 +27,7 @@ import examples from "../.agents/skills/noodle-use/reference/examples.md" with {
 export const NOODLE_SKILL_FILES = {
   "SKILL.md": skill,
   "schema.md": schema,
+  "noodle-script.d.ts": scriptTypes,
   "workflows/automation.md": automation,
   "workflows/convert.md": convert,
   "workflows/create.md": create,

@@ -2,6 +2,11 @@ import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import * as fsPromises from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { act } from "react"
+import { KeymapProvider } from "@opentui/keymap/react"
+import type { CollectionSettings, ScriptFields } from "../../src/schema"
+import { CollectionScripts } from "../../src/ui/settings/CollectionScripts"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import { setupKeymap } from "./_helpers"
 import * as collectionPath from "../../src/collectionPath"
 import * as envCatalog from "../../src/env/listWithColors"
 import * as filestore from "../../src/filestore"
@@ -19,6 +24,9 @@ type AppInnerProps = {
   envColors: Record<string, string | undefined>
   onCollectionChange: (dir: string) => void
   onEnvListChanged: (names?: string[]) => Promise<void>
+  collectionScripts?: ScriptFields
+  collectionSettingsByPath: Record<string, CollectionSettings>
+  onCollectionSettingsChange: (patch: ScriptFields) => boolean
 }
 
 function deferred<T>() {
@@ -36,6 +44,8 @@ let initialRefresh = deferred<EnvItem[]>()
 let staleRefresh = deferred<EnvItem[]>()
 let latestProps: AppInnerProps | undefined
 let nextCollectionRenders: Pick<AppInnerProps, "envNames" | "envColors">[] = []
+let showScripts = false
+const loadSettings = spyOn(filestore, "loadSettings").mockResolvedValue({})
 
 const config = {
   theme: "noodle",
@@ -50,7 +60,7 @@ const spies = [
     isDirectory: () => true,
   } as Awaited<ReturnType<typeof fsPromises.stat>>),
   spyOn(collectionPath, "classifyPath").mockReturnValue("collection"),
-  spyOn(filestore, "loadSettings").mockResolvedValue({}),
+  loadSettings,
   spyOn(uiState, "loadLastRequest").mockResolvedValue(undefined),
   spyOn(secrets, "loadCollectionProxyCredentials").mockResolvedValue({}),
   spyOn(secrets, "loadTlsPassphrases").mockResolvedValue({}),
@@ -78,7 +88,16 @@ const spies = [
         envColors: observed.envColors,
       })
     }
-    return null
+    return showScripts ? (
+      <CollectionScripts
+        key={props.activeCollectionDir}
+        fields={props.collectionScripts ?? {}}
+        focused
+        onFocus={() => {}}
+        onEditingChange={() => {}}
+        onChange={props.onCollectionSettingsChange}
+      />
+    ) : null
   }),
 ]
 
@@ -96,6 +115,79 @@ describe("App environment refreshes", () => {
     staleRefresh = deferred<EnvItem[]>()
     latestProps = undefined
     nextCollectionRenders = []
+    showScripts = false
+    loadSettings.mockResolvedValue({})
+  })
+
+  it("saves an unmounted script draft against its original collection settings", async () => {
+    const original: CollectionSettings = {
+      name: "Original",
+      environment: "current",
+      proxy: { mode: "off" },
+      cookies: { enabled: false },
+    }
+    const next: CollectionSettings = {
+      name: "Next",
+      environment: "next",
+      proxy: { mode: "inherit" },
+      cookies: { enabled: true },
+    }
+    showScripts = true
+    loadSettings.mockResolvedValue(next)
+    const saved = deferred<void>()
+    const save = spyOn(filestore, "saveSettings").mockImplementation(
+      async () => {
+        saved.resolve()
+      },
+    )
+    const { keymap, host } = setupKeymap()
+    try {
+      const h = await act(async () =>
+        testRender(
+          <KeymapProvider keymap={keymap}>
+            <App
+              collectionDir={currentDir}
+              envList={["current"]}
+              initialSettings={original}
+              systemProxy={{ bypass: [] }}
+              keybinds={bindingDefaults()}
+              mode="collection"
+            />
+          </KeymapProvider>,
+          { width: 90, height: 23 },
+        ),
+      )
+      await act(async () => {
+        initialRefresh.resolve([{ name: "current" }])
+        await initialRefresh.promise
+      })
+      await act(async () => host.press("down"))
+      const editor = h.renderer.root.findDescendantById(
+        "script-source",
+      ) as CodeEditorRenderable
+      await act(async () => editor.insertText('console.info("edited")'))
+      expect(save).not.toHaveBeenCalled()
+      await act(async () => latestProps!.onCollectionChange(nextDir))
+      await act(async () => saved.promise)
+      expect(save.mock.calls[0]).toEqual([
+        currentDir,
+        {
+          ...original,
+          scripts: { pre: 'console.info("edited")' },
+          tests: undefined,
+        },
+      ])
+      expect(latestProps?.collectionSettingsByPath[currentDir]?.name).toBe(
+        "Original",
+      )
+      expect(
+        latestProps?.collectionSettingsByPath[currentDir]?.scripts?.pre,
+      ).toBe('console.info("edited")')
+      expect(latestProps?.collectionSettingsByPath[nextDir]).toEqual(next)
+      expect(latestProps?.collectionScripts).toEqual(next)
+    } finally {
+      save.mockRestore()
+    }
   })
 
   it("does not let a refresh from the previous collection overwrite the next collection", async () => {

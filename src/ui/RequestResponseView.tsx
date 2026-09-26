@@ -143,6 +143,8 @@ export function RequestResponseView({
       onApiKeyPlacementChange={draft.setApiKeyPlacement}
       onAuthFieldChange={draft.setAuthField}
       onBodyTypeChange={draft.setBodyType}
+      onScriptChange={draft.setScript}
+      onScriptExit={eb.commitEdit}
       onBodyChange={draft.setBody}
       onTlsVerifyChange={draft.setTlsVerify}
       onSelectOpenChange={setSelectOpen}

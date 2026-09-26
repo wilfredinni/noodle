@@ -589,6 +589,7 @@ export function useCollectionRunner({
           ),
         delayMs,
         dataPath ? resolve(collectionDir, expandUserPath(dataPath)) : undefined,
+        true,
       )
       setResultDetails(nextDetails)
       setResult(next)

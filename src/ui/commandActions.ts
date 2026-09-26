@@ -1,3 +1,5 @@
+import { createScriptSourceResolver } from "../scriptSourceResolver"
+import type { ActiveScriptSource } from "./editor/ScriptEditor"
 import { join } from "node:path"
 import { mkdirSync } from "node:fs"
 import type { RefObject } from "react"
@@ -79,6 +81,7 @@ export interface CommandActionsConfig {
   focusRef: RefObject<Focus>
   responseStateRef: RefObject<SendState>
   responseQueryRef: RefObject<ResponseQueryController | null>
+  consoleCopyRef?: RefObject<(() => boolean) | null>
   responseBodyForCopyRef: RefObject<string | null>
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
@@ -201,6 +204,7 @@ export function deleteFolder(c: CommandActionsConfig): {
 }
 
 export function copyResponseBody(c: CommandActionsConfig): boolean {
+  if (c.consoleCopyRef?.current) return c.consoleCopyRef.current()
   const s = c.responseStateRef.current
   if (s?.status !== "done" || s.response.bodyKind === "binary") return false
   const body = c.responseBodyForCopyRef.current ?? s.response.body
@@ -633,4 +637,28 @@ export function openSettings(
     return false
   }
   return true
+}
+
+export async function openScriptInEditor(
+  editor: ExternalEditor | undefined,
+  collectionDir: string,
+  active: ActiveScriptSource,
+  launch = launchExternalEditor,
+): Promise<void> {
+  if (!editor) {
+    showToast("Configure an external editor in Settings", "warning")
+    return
+  }
+  try {
+    const path = await createScriptSourceResolver(collectionDir).resolveFile(
+      active.value,
+      active.source,
+    )
+    await launch(editor, path)
+  } catch {
+    showToast(
+      "Unable to open script: check the collection-relative path and configured editor",
+      "error",
+    )
+  }
 }

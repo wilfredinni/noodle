@@ -1,3 +1,4 @@
+import { ScriptConsole, scriptConsoleEntries } from "../ScriptConsole"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
@@ -33,7 +34,7 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "response", label: "Response" },
 ]
 
-type DetailTab = "request" | "response" | "results" | "network"
+type DetailTab = "request" | "response" | "results" | "network" | "console"
 type BodyTab = Extract<DetailTab, "request" | "response">
 
 function bodyInfo(
@@ -152,6 +153,9 @@ export function TimelineDetailOverlay({
   )
   const tabs = [
     ...BASE_TAB_DEFS,
+    ...(execution && scriptConsoleEntries(execution).length
+      ? [{ id: "console", label: "Console" }]
+      : []),
     ...(hasResults ? [{ id: "results", label: "Results" }] : []),
     ...(hasNetwork ? [{ id: "network", label: "Network" }] : []),
   ]
@@ -171,7 +175,13 @@ export function TimelineDetailOverlay({
   }, [])
 
   const copyHeaders = useCallback(() => {
-    if (!entry || activeTab === "network" || activeTab === "results") return
+    if (
+      !entry ||
+      activeTab === "network" ||
+      activeTab === "results" ||
+      activeTab === "console"
+    )
+      return
     const headers =
       activeTab === "request"
         ? buildDetailRequestHeaders(entry.request.auth, entry.request.headers)
@@ -185,7 +195,12 @@ export function TimelineDetailOverlay({
 
   const copyBody = useCallback(() => {
     if (binaryResponse) return
-    if (activeTab === "network" || activeTab === "results") return
+    if (
+      activeTab === "network" ||
+      activeTab === "results" ||
+      activeTab === "console"
+    )
+      return
     const body = loadedBody ?? info?.body
     if (body !== undefined) onCopyBody(body)
     else if (info?.ref) {
@@ -197,7 +212,13 @@ export function TimelineDetailOverlay({
 
   const exportBody = useCallback(() => {
     if (binaryResponse) return
-    if (!entry || activeTab === "network" || activeTab === "results") return
+    if (
+      !entry ||
+      activeTab === "network" ||
+      activeTab === "results" ||
+      activeTab === "console"
+    )
+      return
     const runExport = (body?: string) =>
       onExportBody(entry, activeTab, body).catch(() =>
         setBodyError("Failed to export timeline entry"),
@@ -290,27 +311,51 @@ export function TimelineDetailOverlay({
         else if (key.name === "c" && activeTab === "results" && onEditCaptures)
           onEditCaptures()
         else if (key.name === "up") {
-          if (activeTab === "network" || activeTab === "results")
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          )
             bodyScrollRef.current?.scrollBy(-1)
           else bodyEditorRef.current?.scrollBy(-1)
         } else if (key.name === "down") {
-          if (activeTab === "network" || activeTab === "results")
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          )
             bodyScrollRef.current?.scrollBy(1)
           else bodyEditorRef.current?.scrollBy(1)
         } else if (key.name === "pageup") {
-          if (activeTab === "network" || activeTab === "results")
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          )
             bodyScrollRef.current?.scrollBy(-1, "viewport")
           else bodyEditorRef.current?.scrollByViewport(-1)
         } else if (key.name === "pagedown") {
-          if (activeTab === "network" || activeTab === "results")
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          )
             bodyScrollRef.current?.scrollBy(1, "viewport")
           else bodyEditorRef.current?.scrollByViewport(1)
         } else if (key.name === "home") {
-          if (activeTab === "network" || activeTab === "results")
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          )
             bodyScrollRef.current?.scrollTo(0)
           else bodyEditorRef.current?.scrollTo(0)
         } else if (key.name === "end") {
-          if (activeTab === "network" || activeTab === "results") {
+          if (
+            activeTab === "network" ||
+            activeTab === "results" ||
+            activeTab === "console"
+          ) {
             const bodyScroll = bodyScrollRef.current
             if (bodyScroll)
               bodyScroll.scrollTo(
@@ -390,7 +435,14 @@ export function TimelineDetailOverlay({
           onChange={(tab) => selectTab(tab as DetailTab)}
           rightChildren={<EscapeClose onClose={onClose} />}
         >
-          {activeTab === "network" ? (
+          {activeTab === "console" ? (
+            <ScriptConsole
+              key={`${entry.request.id}:${iteration ?? ""}`}
+              execution={execution}
+              focused
+              allowOverlay
+            />
+          ) : activeTab === "network" ? (
             <NetworkTab
               key="network"
               events={entry.network}
@@ -404,6 +456,7 @@ export function TimelineDetailOverlay({
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <ResponseResults
+                  showLogs={!execution}
                   execution={resultExecution}
                   request={request}
                   showCaptures={showCaptures}

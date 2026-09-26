@@ -199,21 +199,23 @@ export function App({
   const [tlsPassphrases, setTlsPassphrases] = useState(initialTlsPassphrases)
   const [registeredCollectionSettings, setRegisteredCollectionSettings] =
     useState<Record<string, CollectionSettings>>({})
-  const settingsRef = useRef(initialSettings)
-  const persistedSettingsRef = useRef(initialSettings)
   const activeCollectionDirRef = useRef(initialCollectionDir)
   const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
-  const pendingSettingsUpdatesRef = useRef<CollectionSettingsUpdate[]>([])
+  // Unmount saves keep the settings of the collection their callbacks belong to.
   const settingsPersistence = useMemo(
     () => ({
       activeCollectionDir: activeCollectionDirRef,
-      currentSettings: settingsRef,
-      persistedSettings: persistedSettingsRef,
+      currentSettings: { current: settings },
+      persistedSettings: { current: settings },
       saveChain: settingsSaveChainRef,
-      pendingUpdates: pendingSettingsUpdatesRef,
+      pendingUpdates: { current: [] as CollectionSettingsUpdate[] },
     }),
-    [],
+    [activeCollectionDir],
   )
+  const {
+    currentSettings: settingsRef,
+    persistedSettings: persistedSettingsRef,
+  } = settingsPersistence
   const settingsEnv = settings.environment
   const [lastRequestId, setLastRequestId] = useState<string | undefined>(
     initialLastRequestId,
@@ -785,7 +787,13 @@ export function App({
     (
       patch: Pick<
         CollectionSettings,
-        "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
+        | "name"
+        | "description"
+        | "timelineMaxEntries"
+        | "tls"
+        | "cookies"
+        | "scripts"
+        | "tests"
       >,
     ) => {
       if (mode !== "collection") return false
@@ -890,7 +898,7 @@ export function App({
         })
         .catch(() => {})
     },
-    [updateConfig],
+    [settingsPersistence, updateConfig],
   )
 
   const handleCollectionImported = useCallback(
@@ -926,6 +934,8 @@ export function App({
         }
 
         const nextMode = classifyPath(normalized)
+        const pending = settingsSaveChainRef.current
+        await pending
         let nextEnvNames: string[] = []
         const nextEnvColors: Record<string, string | undefined> = {}
 
@@ -981,8 +991,6 @@ export function App({
           }
         }
 
-        const pending = settingsSaveChainRef.current
-        await pending
         if (pending !== settingsSaveChainRef.current) {
           showToast(
             "Settings changed while switching collections; try again",
@@ -993,8 +1001,6 @@ export function App({
         ++envRefreshGenerationRef.current
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
-        settingsRef.current = nextSettings
-        persistedSettingsRef.current = nextSettings
         setSettings(nextSettings)
         setCollectionProxyCredentials(nextCollectionProxyCredentials)
         setTlsPassphrases(nextTlsPassphrases)
@@ -1078,6 +1084,7 @@ export function App({
         onProxyAuthDisable={handleProxyAuthDisable}
         onTlsPassphraseChange={handleTlsPassphraseChange}
         onTlsProfileRemove={handleTlsProfileRemove}
+        collectionScripts={settings}
         onCollectionSettingsChange={handleCollectionSettingsChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}

@@ -1,3 +1,4 @@
+import { scriptPhase, scriptText } from "../scriptAuthoring"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Folder } from "../schema"
 import {
@@ -78,6 +79,8 @@ function folderCurrentValueFor(
   addingRow: boolean,
 ): string {
   if (!folder) return ""
+  const phase = scriptPhase(field)
+  if (phase) return scriptText(folder, phase)
   if (field === "activity") return ""
   if (field === "meta") {
     if (row === 0) return folder.name ?? ""
@@ -423,6 +426,14 @@ export function useFolderEditBrowse(
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
+    const phase = scriptPhase(field)
+    if (phase) {
+      draftMutators.setScript(
+        phase,
+        scriptText(draftMutators.originalFolder ?? {}, phase),
+      )
+      return
+    }
     if (field === "auth") {
       draftMutators.setAuthType("none")
       return

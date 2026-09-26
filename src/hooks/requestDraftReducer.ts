@@ -1,3 +1,5 @@
+import { withScript, scriptPhase, scriptText } from "../scriptAuthoring"
+import type { ScriptPhase } from "../preRequestScript"
 import type {
   BodyType,
   FormEntry,
@@ -26,6 +28,7 @@ import type { Method } from "../schema"
 import { updateAuthField } from "../ui/authRows"
 
 export type DraftOp =
+  | { kind: "setScript"; phase: ScriptPhase; source: string }
   | { kind: "setMethod"; method: Method }
   | { kind: "setUrl"; url: string }
   | { kind: "setBody"; body: string }
@@ -103,6 +106,8 @@ export function applyDraft(
   }
   const draft: Request = { ...current }
   switch (op.kind) {
+    case "setScript":
+      return new Map(next).set(id, withScript(draft, op.phase, op.source))
     case "setMethod":
       draft.method = op.method
       break
@@ -303,6 +308,12 @@ export function applyDraft(
       break
     }
     case "revertField": {
+      const phase = scriptPhase(op.field)
+      if (phase)
+        return new Map(next).set(
+          id,
+          withScript(draft, phase, scriptText(original, phase)),
+        )
       if (op.field === "body") {
         draft.body = original.body
         draft.bodyType = original.bodyType

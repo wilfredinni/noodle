@@ -1378,16 +1378,19 @@ body:
 })
 
 describe("CodeEditorRenderable read-only mode", () => {
-  it("highlights XML in read-only mode", async () => {
+  it.each([
+    ["xml", "<note>\n  <to>Tove</to>\n</note>"],
+    ["yaml", "name: example\nenabled: true"],
+    ["javascript", 'const message = "hello";\nconsole.log(message);'],
+  ])("highlights %s in read-only mode", async (filetype, content) => {
     let editor: CodeEditorRenderable | null = null
-    const content = "<note>\n  <to>Tove</to>\n</note>"
     const { renderOnce } = await testRender(
       <box width={40} height={6}>
         <code-editor
           ref={(renderable) => {
             editor = renderable
           }}
-          filetype="xml"
+          filetype={filetype}
           theme={opencodeTheme}
           value={content}
           readOnly

@@ -647,13 +647,19 @@ executed results in pre/post order with `phase: pre|post`, `scope: collection|fo
 execution; persistence failures also fail the overall request. Preparation
 failures before script execution use `evaluated: false`; requests without a
 script omit the group. Human run output distinguishes Pre-script/Post-script
-and never prints logs. TUI Results uses Pre-request/Post-response rows with
-expandable logs and phase-specific error locations. Script failures participate
-in the fixed failure-category order and collection continuation/fail-fast only
-after available response diagnostics finish. No Console panel or script editor
-is added. Manual `.timeline` entries retain bounded, redacted pre/post results,
-errors, origins, and persistence outcomes; diagnostic text is limited to
-10,000 bytes with `[TRUNCATED]` markers. Script/test logs are not persisted. Script source,
+and never prints logs. TUI Results shows Pre-request/Post-response outcomes and
+phase-specific error locations; Console browses current redacted logs by level,
+with scope, phase, relative timing and copying. Request `+` tabs, folder tabs and
+Collection Settings > Scripts provide inline and external-file editors for all
+three phases. Completion and the public [noodle-script.d.ts](noodle-script.d.ts)
+are generated from the runtime API contract. TUI Send and Runner check syntax
+without executing scripts before HTTP; CLI behavior remains unchanged.
+Script failures participate in the fixed failure-category order and collection
+continuation/fail-fast only after available response diagnostics finish.
+Manual `.timeline` entries retain existing bounded, redacted pre/post results,
+test results, logs, errors, origins, and persistence outcomes; diagnostic text is
+limited to 10,000 bytes with `[TRUNCATED]` markers. Console adds no history store.
+Script source,
 capture results, and RunScope values are excluded. Successful manual request
 snapshots reflect prepared request mutations. Automation does not create history.
 

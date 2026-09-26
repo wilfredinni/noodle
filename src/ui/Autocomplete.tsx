@@ -33,6 +33,7 @@ interface AutocompleteEditor {
 
 export function Autocomplete({
   id,
+  compactDetails = false,
   items,
   query,
   value,
@@ -42,6 +43,7 @@ export function Autocomplete({
   onDismiss,
 }: {
   id: string
+  compactDetails?: boolean
   items: readonly AutocompleteItem[]
   query: string
   value: string
@@ -103,7 +105,7 @@ export function Autocomplete({
       0,
     )
   const detailHeight = hasDetails
-    ? Math.min(6, detailRows, terminalHeight - 6) + 1
+    ? Math.min(compactDetails ? 1 : 6, detailRows, terminalHeight - 6) + 1
     : 0
   const visibleCount = Math.max(
     0,
@@ -145,6 +147,15 @@ export function Autocomplete({
     return registerCompletion((key) => {
       const editor = getEditor()
       if (!editor?.focused || editor.isDestroyed || key.defaultPrevented)
+        return false
+      if (
+        key.ctrl ||
+        key.meta ||
+        key.option ||
+        key.super ||
+        key.hyper ||
+        (key.name === "tab" && key.shift)
+      )
         return false
       if (key.name === "escape") {
         onDismiss()

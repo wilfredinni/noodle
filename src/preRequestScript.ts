@@ -60,6 +60,7 @@ export type ScriptApiDescriptor = Readonly<{
   kind: "global" | "property" | "method"
   signature: string
   description: string
+  writableIn?: readonly ScriptPhase[]
   phases: readonly ScriptPhase[]
 }>
 
@@ -83,6 +84,7 @@ const api = (
   isRequestMutation(`${namespace}.${member}`)
     ? ["pre"]
     : ["pre", "post", "tests"],
+  writableIn?: readonly ScriptPhase[],
 ): ScriptApiDescriptor =>
   Object.freeze({
     global: namespace === "console" ? "console" : "noodle",
@@ -101,6 +103,7 @@ const api = (
         ? `noodle.${signature}`
         : signature,
     description,
+    ...(writableIn ? { writableIn: Object.freeze(writableIn) } : {}),
     phases: Object.freeze(
       namespace === "run" && (member === "set" || member === "unset")
         ? (["pre", "post"] as const)
@@ -142,7 +145,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "noodle",
       "runRequest",
       "method",
-      "runRequest(id): Promise<ScriptResponse>",
+      "runRequest(id: string): Promise<ScriptResponse>",
       "Run a saved request in the current collection.",
       ["pre", "post"],
     ),
@@ -150,7 +153,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "noodle",
       "sendRequest",
       "method",
-      "sendRequest(options): Promise<ScriptResponse>",
+      "sendRequest(options: DirectRequest): Promise<ScriptResponse>",
       "Send a literal HTTP request.",
       ["pre", "post"],
     ),
@@ -169,35 +172,39 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       api("time", name, "method", signature, description),
     ),
     api("request", "", "global", "request: Request", "Prepared request."),
-    api("request", "url", "property", "string", "Request URL."),
-    api("request", "method", "property", "Method", "HTTP method."),
+    api("request", "url", "property", "string", "Request URL.", undefined, [
+      "pre",
+    ]),
+    api("request", "method", "property", "Method", "HTTP method.", undefined, [
+      "pre",
+    ]),
     api("request", "headers", "property", "Headers", "Request headers."),
     api(
       "request",
       "headers.get",
       "method",
-      "get(name): string | null",
+      "get(name: string): string | null",
       "Read the first matching header.",
     ),
     api(
       "request",
       "headers.has",
       "method",
-      "has(name): boolean",
+      "has(name: string): boolean",
       "Test for a matching header.",
     ),
     api(
       "request",
       "headers.set",
       "method",
-      "set(name, value): void",
+      "set(name: string, value: string): void",
       "Set one header.",
     ),
     api(
       "request",
       "headers.delete",
       "method",
-      "delete(name): void",
+      "delete(name: string): void",
       "Delete matching headers.",
     ),
     api("request", "params", "property", "Params", "Enabled query parameters."),
@@ -205,35 +212,35 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "request",
       "params.get",
       "method",
-      "get(name): string | null",
+      "get(name: string): string | null",
       "Read the first enabled parameter.",
     ),
     api(
       "request",
       "params.getAll",
       "method",
-      "getAll(name): string[]",
+      "getAll(name: string): string[]",
       "Read enabled parameters.",
     ),
     api(
       "request",
       "params.set",
       "method",
-      "set(name, value): void",
+      "set(name: string, value: string): void",
       "Replace enabled parameters.",
     ),
     api(
       "request",
       "params.append",
       "method",
-      "append(name, value): void",
+      "append(name: string, value: string): void",
       "Append an enabled parameter.",
     ),
     api(
       "request",
       "params.delete",
       "method",
-      "delete(name): void",
+      "delete(name: string): void",
       "Delete enabled parameters.",
     ),
     api("request", "body", "property", "Body", "Request body."),
@@ -255,14 +262,14 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "request",
       "body.setText",
       "method",
-      "setText(value): void",
+      "setText(value: string): void",
       "Replace the body with text.",
     ),
     api(
       "request",
       "body.setJson",
       "method",
-      "setJson(value): void",
+      "setJson(value: JsonValue): void",
       "Replace the body with compact JSON.",
     ),
     api("request", "body.clear", "method", "clear(): void", "Clear the body."),
@@ -278,21 +285,21 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "request",
       "auth.setBearer",
       "method",
-      "setBearer(token): void",
+      "setBearer(token: string): void",
       "Set bearer authentication.",
     ),
     api(
       "request",
       "auth.setBasic",
       "method",
-      "setBasic(username, password): void",
+      "setBasic(username: string, password: string): void",
       "Set basic authentication.",
     ),
     api(
       "request",
       "auth.setApiKey",
       "method",
-      "setApiKey(key, value, placement): void",
+      'setApiKey(key: string, value: string, placement: "header" | "query"):  void',
       "Set API-key authentication.",
     ),
     api("env", "", "global", "env: Environment", "Selected environment."),
@@ -300,7 +307,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "env",
       "get",
       "method",
-      "get(name): string | undefined",
+      "get(name: string): string | undefined",
       "Read an environment value.",
     ),
     api("run", "", "global", "run: RunScope", "Current collection run scope."),
@@ -308,21 +315,21 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "run",
       "get",
       "method",
-      "get(name): JsonValue | undefined",
+      "get(name: string): JsonValue | undefined",
       "Read a run value.",
     ),
     api(
       "run",
       "set",
       "method",
-      'set(name, value, options?: { persist: "environment" | "secret" }): void',
+      'set(name: string, value: JsonValue, options?: { persist: "environment" | "secret" }): void',
       "Set a run value after success, optionally persisting its snapshot.",
     ),
     api(
       "run",
       "unset",
       "method",
-      'unset(name, options?: { persist: "environment" | "secret" }): void',
+      'unset(name: string, options?: { persist: "environment" | "secret" }): void',
       "Remove a run value after success, optionally deleting its stored value.",
     ),
     api(
@@ -336,21 +343,21 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "crypto",
       "sha256",
       "method",
-      "sha256(value, encoding): string",
+      "sha256(value: string, encoding: Encoding): string",
       "Hash a UTF-8 string.",
     ),
     api(
       "crypto",
       "hmacSha256",
       "method",
-      "hmacSha256(secret, value, encoding): string",
+      "hmacSha256(secret: string, value: string, encoding: Encoding): string",
       "Authenticate a UTF-8 string.",
     ),
     api(
       "crypto",
       "randomBytes",
       "method",
-      "randomBytes(size, encoding): string",
+      "randomBytes(size: number, encoding: Encoding): string",
       "Generate bounded random bytes.",
     ),
     api(
@@ -364,28 +371,28 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "console",
       "log",
       "method",
-      "log(...values): void",
+      "log(...values: unknown[]): void",
       "Capture a log message.",
     ),
     api(
       "console",
       "info",
       "method",
-      "info(...values): void",
+      "info(...values: unknown[]): void",
       "Capture an info message.",
     ),
     api(
       "console",
       "warn",
       "method",
-      "warn(...values): void",
+      "warn(...values: unknown[]): void",
       "Capture a warning message.",
     ),
     api(
       "console",
       "error",
       "method",
-      "error(...values): void",
+      "error(...values: unknown[]): void",
       "Capture an error message.",
     ),
     api(
@@ -414,7 +421,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "response",
       "headers.get",
       "method",
-      "get(name): string | null",
+      "get(name: string): string | null",
       "Read a case-insensitive header.",
       ["post", "tests"],
     ),
@@ -422,7 +429,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "response",
       "headers.has",
       "method",
-      "has(name): boolean",
+      "has(name: string): boolean",
       "Test a case-insensitive header.",
       ["post", "tests"],
     ),
@@ -454,7 +461,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "cookies",
       "get",
       "method",
-      "get(name): string | null",
+      "get(name: string): string | null",
       "Read the first applicable cookie.",
       ["post", "tests"],
     ),
@@ -462,7 +469,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "cookies",
       "set",
       "method",
-      "set(input): void",
+      "set(input: CookieInput): void",
       "Stage a host-only cookie.",
       ["post"],
     ),
@@ -470,7 +477,7 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
       "cookies",
       "delete",
       "method",
-      "delete(name): void",
+      "delete(name: string): void",
       "Stage deletion of all applicable same-name cookies.",
       ["post"],
     ),
@@ -481,11 +488,11 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
         kind: "global" as const,
         signature:
           global === "test"
-            ? "test(name, callback): void | Promise<void>"
-            : "expect(actual): Matchers",
+            ? "test(name: string, callback: () => unknown): void | Promise<void>"
+            : "expect(actual: unknown): Matchers",
         description:
           global === "test"
-            ? "Run a synchronous named test."
+            ? "Run a named test and await its returned Promise."
             : "Assert against a sandbox value.",
         phases: Object.freeze(["tests"] as const),
       }),
@@ -499,8 +506,8 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
           member === "not"
             ? "Matchers"
             : member === "toHaveProperty"
-              ? "toHaveProperty(key, expected?): void"
-              : `${member}(expected?): void`,
+              ? "toHaveProperty(key: string, expected?: unknown): void"
+              : `${member}(expected?: unknown): void`,
         description:
           member === "not"
             ? "Negate the matcher."
@@ -527,6 +534,8 @@ export type TestResult = {
 }
 
 export type ScriptLog = {
+  /** Milliseconds from this request execution start; absent in older results. */
+  timeMs?: number
   source?: ScriptSource
   level: "log" | "info" | "warn" | "error"
   message: string
@@ -608,6 +617,41 @@ function quickJS() {
 
 export function scriptWasmMemoryForTests(): WebAssembly.Memory {
   return wasmMemory
+}
+
+/** Compile the same wrapper as execution, without installing APIs or running jobs. */
+export async function validateScriptSyntax(
+  source: string,
+): Promise<ScriptExecutionError | null> {
+  if (!source) return null
+  if (Buffer.byteLength(source) > SCRIPT_LIMITS.sourceBytes)
+    return { name: "ScriptSourceError", message: "source exceeds 256 KiB" }
+  const module = await quickJS()
+  const runtime = module.newRuntime()
+  runtime.setMemoryLimit(SCRIPT_LIMITS.runtimeMemoryBytes)
+  runtime.setMaxStackSize(SCRIPT_LIMITS.stackBytes)
+  const deadline = performance.now() + SCRIPT_LIMITS.deadlineMs
+  runtime.setInterruptHandler(() => performance.now() >= deadline)
+  const context = runtime.newContext()
+  try {
+    const result = context.evalCode(
+      `${SCRIPT_WRAPPER_PREFIX}${source}\n})()`,
+      "pre-request.js",
+      { type: "global", compileOnly: true },
+    )
+    if (result.error) {
+      try {
+        return normalizeQuickJSError(context, result.error)
+      } finally {
+        result.error.dispose()
+      }
+    }
+    result.value.dispose()
+    return null
+  } finally {
+    context.dispose()
+    runtime.dispose()
+  }
 }
 
 type BridgeHandler = (args: unknown[]) => unknown
@@ -1091,7 +1135,14 @@ export async function runRequestScript(
           ) {
             if (!consoleClosed) {
               if (openConsoleEntry) openConsoleEntry.message = "[TRUNCATED]"
-              else logs.push({ level, message: "[TRUNCATED]" })
+              else
+                logs.push({
+                  level,
+                  message: "[TRUNCATED]",
+                  ...(options.startedAt !== undefined
+                    ? { timeMs: performance.now() - options.startedAt }
+                    : {}),
+                })
               openConsoleEntry = undefined
               consoleClosed = true
             }
@@ -1112,7 +1163,13 @@ export async function runRequestScript(
           consoleClosed = byteLength(retained) < byteLength(message)
           if (openConsoleEntry) openConsoleEntry.message += retained
           else if (retained.length > 0 || message.length === 0) {
-            openConsoleEntry = { level, message: retained }
+            openConsoleEntry = {
+              level,
+              message: retained,
+              ...(options.startedAt !== undefined
+                ? { timeMs: performance.now() - options.startedAt }
+                : {}),
+            }
             logs.push(openConsoleEntry)
           }
           consoleBytes += byteLength(retained)

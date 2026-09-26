@@ -26,6 +26,32 @@ function createHost() {
 }
 
 describe("CodeEditorHighlightRenderer", () => {
+  it("uses JavaScript fallback styles when the parser fails", async () => {
+    const { host, ranges, getStyle } = createHost()
+    const renderer = new CodeEditorHighlightRenderer(
+      opencodeTheme,
+      undefined,
+      host,
+    )
+    const client = {
+      highlightOnce: async () => {
+        throw new Error("parser unavailable")
+      },
+    } as unknown as TreeSitterClient
+    await renderer.highlight(
+      'const x = "hello"; // comment',
+      "javascript",
+      client,
+      () => true,
+    )
+    expect(ranges.map((range) => range.styleId)).toEqual(
+      ["keyword", "string", "comment"].map((kind) =>
+        getStyle()!.getStyleId(kind)!,
+      ),
+    )
+    expect(ranges[0]).toMatchObject({ start: 0, end: 5 })
+  })
+
   it("applies the syntax style for XML Tree-sitter highlights", async () => {
     const { host, ranges, getStyle } = createHost()
     const renderer = new CodeEditorHighlightRenderer(

@@ -23,6 +23,7 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 | Import or export OpenAPI, Swagger, Postman, or Insomnia collections via CLI | [workflows/import.md](workflows/import.md) |
 | Convert a cURL command or unsupported format at file level | [workflows/convert.md](workflows/convert.md) |
 | Understand file formats, schemas, field rules | [schema.md](schema.md) |
+| Author JavaScript with external-editor types | [noodle-script.d.ts](noodle-script.d.ts) |
 | Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
 | Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
 | See annotated example files | [reference/examples.md](reference/examples.md) |
@@ -374,3 +375,11 @@ in results or history.
 Exit codes remain `0` for success, `1` for execution/response validation failure,
 and `2` for configuration or invalid data. Without `--data`, behavior and result
 shapes remain unchanged.
+
+## Human TUI script authoring
+
+Humans add request Pre Script, Post Script, and Tests tabs from the existing `+` menu. Populated tabs stay visible. Folder tabs and Collection Settings > Scripts edit the same three phases through their existing save paths. Inline editors provide JavaScript highlighting, syntax diagnostics and phase-aware `noodle.*` completion. External mode accepts collection-relative `./path/to/file.js` references; switching source kind confirms discarding non-empty source. Open Script in External Editor validates the selected file and uses the configured editor. It never creates or rewrites a script file.
+
+TUI Send and Runner compile all applicable sources before HTTP without executing them. CLI execution remains authoritative and unchanged. Console shows the current result's bounded, redacted logs with relative timing, scope, phase and level, plus filtering and copying; Runner request details share it. Results shows outcomes. Existing bounded, redacted timeline logs remain available, with no separate Console history store.
+
+The generated [noodle-script.d.ts](noodle-script.d.ts) comes from the runtime API contract and ships with this skill. Reference it using a JavaScript triple-slash `reference path` comment in an external editor. It declares the public `noodle`, `console`, `test` and `expect` APIs, plus `NoodleScript.Pre`, `Post` and `Tests` interfaces for phase-specific tooling. Runtime phase checks remain authoritative. Agents should continue using the non-interactive CLI and direct file edits described above.
