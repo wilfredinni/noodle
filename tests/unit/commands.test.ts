@@ -286,6 +286,56 @@ describe("buildCommandPaletteCommands", () => {
     ).toBe(false)
   })
 
+  it("offers script actions with current shortcuts and keeps unbound commands usable", () => {
+    const ctx = minimalContext()
+    let opens = 0
+    let orders = 0
+    ctx.scriptActions = {
+      open: () => {
+        opens++
+        return true
+      },
+      order: () => {
+        orders++
+        return true
+      },
+    }
+    ctx.keybinds = {
+      ...ctx.keybinds,
+      script_open_external: "f6",
+      script_execution_order: "f7",
+    }
+    let commands = buildCommandPaletteCommands(ctx).filter((command) =>
+      command.id.startsWith("script."),
+    )
+    expect(commands.map((command) => [command.id, command.keybinding])).toEqual(
+      [
+        ["script.open", "f6"],
+        ["script.execution-order", "f7"],
+      ],
+    )
+    for (const command of commands) expect(command.run()).toBe(true)
+    expect([opens, orders]).toEqual([1, 1])
+    ctx.keybinds = {
+      ...ctx.keybinds,
+      script_open_external: "",
+      script_execution_order: "",
+    }
+    commands = buildCommandPaletteCommands(ctx).filter((command) =>
+      command.id.startsWith("script."),
+    )
+    expect(commands).toHaveLength(2)
+    expect(commands.every((command) => !command.keybinding)).toBe(true)
+    for (const command of commands) expect(command.run()).toBe(true)
+    expect([opens, orders]).toEqual([2, 2])
+    ctx.scriptActions = {}
+    expect(
+      buildCommandPaletteCommands(ctx).some((command) =>
+        command.id.startsWith("script."),
+      ),
+    ).toBe(false)
+  })
+
   it("offers the external script command only for an active external source and validates its exact file", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-open-script-"))
     const ctx = minimalContext()
@@ -295,7 +345,8 @@ describe("buildCommandPaletteCommands", () => {
       ),
     ).toBe(false)
     const source = { scope: "request" as const, scopeId: "a", path: "a.yml" }
-    ctx.activeScriptSource = { value: "./alias.js", source }
+    const activeScriptSource = { value: "./alias.js", source }
+    ctx.scriptActions = { open: () => true }
     expect(
       buildCommandPaletteCommands(ctx).some(
         (command) => command.id === "script.open",
@@ -309,7 +360,7 @@ describe("buildCommandPaletteCommands", () => {
     try {
       await writeFile(join(dir, "script.js"), "console.log(1)")
       await symlink("script.js", join(dir, "alias.js"))
-      await openScriptInEditor(editor, dir, ctx.activeScriptSource, launch)
+      await openScriptInEditor(editor, dir, activeScriptSource, launch)
       expect(opened).toEqual([await realpath(join(dir, "script.js"))])
       await symlink("/etc/passwd", join(dir, "escaped.js"))
       for (const value of [

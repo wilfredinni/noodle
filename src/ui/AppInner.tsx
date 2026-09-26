@@ -1,3 +1,4 @@
+import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 import { ConsoleCopyContext } from "./ScriptConsole"
 import {
   ScriptAuthoringContext,
@@ -285,6 +286,8 @@ export function AppInner({
 }) {
   const [activeScriptSource, setActiveScriptSource] =
     useState<ActiveScriptSource | null>(null)
+  const [activeScriptOrder, setActiveScriptOrder] =
+    useState<ScriptOrder | null>(null)
   const consoleCopyRef = useRef<(() => boolean) | null>(null)
   const keymap = useKeymap()
   const theme = useTheme()
@@ -1064,6 +1067,38 @@ export function AppInner({
       ? globalSettingsCategory
       : collectionSettingsCategory
 
+  const openScript = useCallback(
+    (source: ActiveScriptSource) => {
+      void openScriptInEditor(externalEditor, collectionDir, source)
+    },
+    [externalEditor, collectionDir],
+  )
+
+  const scriptActions = useMemo(
+    () => ({
+      open: activeScriptSource
+        ? () => {
+            openScript(activeScriptSource)
+            return true
+          }
+        : undefined,
+      order: activeScriptOrder
+        ? () => {
+            overlays.setScriptOrder(activeScriptOrder)
+            return true
+          }
+        : undefined,
+    }),
+    [
+      activeScriptSource,
+      activeScriptOrder,
+      openScript,
+      overlays.setScriptOrder,
+    ],
+  )
+  const scriptActionsRef = useRef(scriptActions)
+  scriptActionsRef.current = scriptActions
+
   const hints = useMemo(
     () =>
       getKeybindingHints({
@@ -1277,6 +1312,7 @@ export function AppInner({
       confirmUndoAll,
     },
     global: {
+      scriptActionsRef,
       focusRef,
       headerFieldRef,
       urlbarSubFocusRef,
@@ -1675,7 +1711,7 @@ export function AppInner({
         collectionDir,
         appConfigDir,
         externalEditor,
-        activeScriptSource,
+        scriptActions,
         confirmUndoAll,
         renderer,
         proxyPolicy,
@@ -1743,7 +1779,7 @@ export function AppInner({
       collectionDir,
       appConfigDir,
       externalEditor,
-      activeScriptSource,
+      scriptActions,
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
@@ -2094,12 +2130,12 @@ export function AppInner({
         value={{
           collectionDir,
           collection,
+          overlayActive,
           setActive: setActiveScriptSource,
+          setActiveOrder: setActiveScriptOrder,
           showOrder: overlays.setScriptOrder,
+          open: openScript,
           confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
-          open: (active) => {
-            void openScriptInEditor(externalEditor, collectionDir, active)
-          },
         }}
       >
         <ConsoleCopyContext.Provider value={consoleCopyRef}>

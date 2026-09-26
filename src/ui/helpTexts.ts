@@ -54,6 +54,22 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.browse_toggle_form_type),
           description: "Toggle form entry type",
         },
+        ...(keybinds.script_open_external
+          ? [
+              {
+                key: displayKey(keybinds.script_open_external),
+                description: "Open Script in External Editor",
+              },
+            ]
+          : []),
+        ...(keybinds.script_execution_order
+          ? [
+              {
+                key: displayKey(keybinds.script_execution_order),
+                description: "Show Script Execution Order",
+              },
+            ]
+          : []),
       ],
     },
     {

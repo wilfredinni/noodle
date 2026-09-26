@@ -392,7 +392,7 @@ export function RequestPane({
                   request={request}
                   onFocus={onPaneFocus}
                   phase={scriptPhase(activeTab)!}
-                  focused={focused}
+                  focused={focused && !tabMenuActive}
                   editing={inEdit && editState.cursor.field === activeTab}
                   interactive={interactive}
                   onChange={(value) =>

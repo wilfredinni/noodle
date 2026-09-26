@@ -73,6 +73,42 @@ describe("bindingDefaults", () => {
     }
   })
 
+  it("configures script shortcuts without conflicts and restores their defaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.script_open_external).toBe("ctrl+alt+x")
+    expect(defaults.script_execution_order).toBe("ctrl+alt+r")
+    expect(CommandMap.script_open_external).toBe("script.open")
+    expect(CommandMap.script_execution_order).toBe("script.execution-order")
+    for (const name of [
+      "script_open_external",
+      "script_execution_order",
+    ] as const) {
+      expect(Definitions[name].fixed).toBe(false)
+      expect(findKeybindConflict(name, defaults[name], defaults)).toBeNull()
+    }
+    const custom = parseOverrides({
+      script_open_external: "f6",
+      script_execution_order: "f7",
+    })
+    expect(keybindOverrides(custom)).toMatchObject({
+      script_open_external: "f6",
+      script_execution_order: "f7",
+    })
+    const unbound = parseOverrides({
+      script_open_external: "",
+      script_execution_order: "",
+    })
+    expect(unbound.script_open_external).toBe("")
+    expect(unbound.script_execution_order).toBe("")
+    expect(
+      keybindOverrides({
+        ...custom,
+        script_open_external: defaults.script_open_external,
+        script_execution_order: defaults.script_execution_order,
+      }),
+    ).toEqual({})
+  })
+
   it("includes layout_toggle with default key ctrl+l", () => {
     const defaults = bindingDefaults()
     expect(defaults.layout_toggle).toBe("ctrl+l")

@@ -275,21 +275,33 @@ describe("script workspaces", () => {
         ],
       }
       const { keymap } = setupKeymap()
+      let activeOrder: ScriptOrder | null = null
+      let showOrder!: () => void
+      let setTabMenu!: (active: boolean) => void
+      const setActiveOrder = (order: ScriptOrder | null) => {
+        activeOrder = order
+      }
       function OrderHarness() {
+        const [menuActive, setMenuActive] = useState(false)
+        setTabMenu = setMenuActive
         const [order, setOrder] = useState<ScriptOrder | null>(null)
+        showOrder = () => setOrder(activeOrder)
         return (
           <ScriptAuthoringContext.Provider
             value={{
               collection,
               collectionDir: "/tmp",
               confirm: () => {},
-              open: () => {},
               setActive: () => {},
+              setActiveOrder,
               showOrder: setOrder,
             }}
           >
             <RequestPane
               request={child}
+              focused
+              tabMenuActive={menuActive}
+              onTabMenuActiveChange={setMenuActive}
               activeTab={tab}
               editState={{
                 mode: "inactive",
@@ -326,14 +338,14 @@ describe("script workspaces", () => {
         expect(frame).not.toContain("run in this order")
         return
       }
-      expect(frame).toContain("Execution order")
+      expect(frame).not.toContain("Execution order")
       expect(frame).not.toContain("Collection: Demo")
-      const header = h.renderer.root.findDescendantById(
-        "script-execution-order",
-      )!
-      await act(async () => {
-        await h.mockMouse.click(header.x + 1, header.y)
-      })
+      expect(activeOrder).not.toBeNull()
+      await act(async () => setTabMenu(true))
+      expect(activeOrder).toBeNull()
+      await act(async () => setTabMenu(false))
+      expect(activeOrder).not.toBeNull()
+      await act(async () => showOrder())
       await act(async () => {
         await h.renderOnce()
       })

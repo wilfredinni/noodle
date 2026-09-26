@@ -329,6 +329,115 @@ function firstCommandName(layer: UseBindingsLayer): string | undefined {
 }
 
 describe("app keymap layers", () => {
+  it("routes script shortcuts and footer commands in their active scopes, including editing", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    let opened = 0
+    let orders = 0
+    context.global.scriptActionsRef = {
+      current: {
+        open: () => {
+          opened++
+          return true
+        },
+        order: () => {
+          orders++
+          return true
+        },
+      },
+    }
+    const disposers = register(context)
+    for (const [view, focus] of [
+      ["main", "request"],
+      ["main", "folder"],
+      ["settings", "settings-content"],
+    ] as const) {
+      context.global.viewRef.current = view
+      keymap.setData("app.focus", focus)
+      keymap.setData("app.mode", "edit")
+      host.press("x", { ctrl: true, meta: true })
+      host.press("r", { ctrl: true, meta: true })
+    }
+    expect([opened, orders]).toEqual([3, 3])
+    keymap.dispatchCommand("script.open")
+    keymap.dispatchCommand("script.execution-order")
+    expect([opened, orders]).toEqual([4, 4])
+    for (const [field, blocked, restore] of [
+      ["app.overlay", "confirm", "none"],
+      ["app.overlay", "command-palette", "none"],
+      ["app.jump", "active", "none"],
+      ["app.focus", "settings-sidebar", "settings-content"],
+    ] as const) {
+      keymap.setData(field, blocked)
+      host.press("x", { ctrl: true, meta: true })
+      host.press("r", { ctrl: true, meta: true })
+      keymap.dispatchCommand("script.open")
+      keymap.dispatchCommand("script.execution-order")
+      keymap.setData(field, restore)
+    }
+    context.global.scriptActionsRef.current = {}
+    host.press("x", { ctrl: true, meta: true })
+    host.press("r", { ctrl: true, meta: true })
+    expect([opened, orders]).toEqual([4, 4])
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("rebinds or unbinds script shortcuts without stealing printable input or disabling commands", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    let opened = 0
+    let orders = 0
+    context.global.scriptActionsRef = {
+      current: {
+        open: () => {
+          opened++
+          return true
+        },
+        order: () => {
+          orders++
+          return true
+        },
+      },
+    }
+    keymap.setData("app.focus", "request")
+    context.keybinds = {
+      ...context.keybinds,
+      script_open_external: "x",
+      script_execution_order: "r",
+    }
+    let disposers = register(context)
+    host.press("x", { ctrl: true, meta: true })
+    host.press("r", { ctrl: true, meta: true })
+    expect([opened, orders]).toEqual([0, 0])
+    host.press("x")
+    host.press("r")
+    expect([opened, orders]).toEqual([1, 1])
+    keymap.setData("app.text-input", true)
+    host.press("x")
+    host.press("r")
+    expect([opened, orders]).toEqual([1, 1])
+    keymap.dispatchCommand("script.open")
+    keymap.dispatchCommand("script.execution-order")
+    expect([opened, orders]).toEqual([2, 2])
+    disposers.forEach((dispose) => dispose())
+    context.keybinds = {
+      ...context.keybinds,
+      script_open_external: "",
+      script_execution_order: "",
+    }
+    disposers = register(context)
+    keymap.setData("app.text-input", false)
+    host.press("x")
+    host.press("r")
+    expect([opened, orders]).toEqual([2, 2])
+    keymap.dispatchCommand("script.open")
+    keymap.dispatchCommand("script.execution-order")
+    expect([opened, orders]).toEqual([3, 3])
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("saves and opens only the focused live binary Body response outside overlays and inputs", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

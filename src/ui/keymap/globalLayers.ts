@@ -74,6 +74,17 @@ export function createGlobalLayers(
     )
   }
 
+  const scriptActionEnabled = () => {
+    const focus = keymap.getData("app.focus")
+    return (
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.jump") !== "active" &&
+      ((global.viewRef.current === "main" &&
+        (focus === "request" || focus === "folder")) ||
+        (global.viewRef.current === "settings" && focus === "settings-content"))
+    )
+  }
+
   const alwaysOn: UseBindingsLayer = {
     commands: [
       {
@@ -311,6 +322,18 @@ export function createGlobalLayers(
         },
       },
       {
+        name: "script.open",
+        enabled: () =>
+          scriptActionEnabled() && !!global.scriptActionsRef?.current.open,
+        run: () => global.scriptActionsRef?.current.open?.(),
+      },
+      {
+        name: "script.execution-order",
+        enabled: () =>
+          scriptActionEnabled() && !!global.scriptActionsRef?.current.order,
+        run: () => global.scriptActionsRef?.current.order?.(),
+      },
+      {
         name: "response.save-file",
         enabled: binaryFileActionEnabled,
         run: () => global.responseFileActionsRef.current?.save(),
@@ -439,6 +462,30 @@ export function createGlobalLayers(
       },
     ],
     bindings: [
+      ...(keybinds.script_open_external
+        ? [
+            {
+              key: keybinds.script_open_external,
+              cmd: () => {
+                if (!shortcutEnabled(keybinds.script_open_external))
+                  return false
+                return keymap.dispatchCommand("script.open")
+              },
+            },
+          ]
+        : []),
+      ...(keybinds.script_execution_order
+        ? [
+            {
+              key: keybinds.script_execution_order,
+              cmd: () => {
+                if (!shortcutEnabled(keybinds.script_execution_order))
+                  return false
+                return keymap.dispatchCommand("script.execution-order")
+              },
+            },
+          ]
+        : []),
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
       { key: keybinds.layout_toggle, cmd: "layout.toggle" },
