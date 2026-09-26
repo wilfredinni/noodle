@@ -294,71 +294,74 @@ describe("ScriptEditor", () => {
     expect(h.captureCharFrame()).not.toContain("SyntaxError")
   })
 
-  it("requires confirmation to discard source, tracks external actions, and keeps the path editable", async () => {
-    const h = await mountEditor('console.log("keep")')
-    await h.browse()
-    await act(async () => h.host.press("return"))
-    await act(async () => h.host.press("down"))
-    await act(async () => h.host.press("return"))
-    expect(h.pendingConfirmation()).toBeDefined()
-    expect(h.value()).toBe('console.log("keep")')
-    expect(h.active()).toBeNull()
-    await h.confirm()
-    expect(h.value()).toBe("")
-    expect(h.captureCharFrame()).toContain("./path/to/file.js")
-    const pathInput = h.renderer.root.findDescendantById(
-      "script-path",
-    ) as InputRenderable
-    await act(async () => h.host.press("down"))
-    for (const character of "missing.js") {
+  it.each(["missing.js", "./missing.js"])(
+    "keeps %s editable and confirms discarded source",
+    async (input) => {
+      const h = await mountEditor('console.log("keep")')
+      await h.browse()
+      await act(async () => h.host.press("return"))
+      await act(async () => h.host.press("down"))
+      await act(async () => h.host.press("return"))
+      expect(h.pendingConfirmation()).toBeDefined()
+      expect(h.value()).toBe('console.log("keep")')
+      expect(h.active()).toBeNull()
+      await h.confirm()
+      expect(h.value()).toBe("")
+      expect(h.captureCharFrame()).toContain("./path/to/file.js")
+      const pathInput = h.renderer.root.findDescendantById(
+        "script-path",
+      ) as InputRenderable
+      await act(async () => h.host.press("down"))
+      for (const character of input) {
+        h.beginDiagnostics()
+        await act(async () => pathInput.insertText(character))
+        await h.settle()
+        expect(
+          h.renderer.root.findDescendantById("script-path") === pathInput,
+        ).toBe(true)
+        expect(pathInput.focused).toBe(true)
+      }
+      expect(h.value()).toBe("./missing.js")
       h.beginDiagnostics()
-      await act(async () => pathInput.insertText(character))
+      await act(async () => pathInput.handleKeyPress(keyEvent("backspace")))
       await h.settle()
+      expect(h.value()).toBe("./missing.j")
       expect(
         h.renderer.root.findDescendantById("script-path") === pathInput,
       ).toBe(true)
-      expect(pathInput.focused).toBe(true)
-    }
-    expect(h.value()).toBe("./missing.js")
-    h.beginDiagnostics()
-    await act(async () => pathInput.handleKeyPress(keyEvent("backspace")))
-    await h.settle()
-    expect(h.value()).toBe("./missing.j")
-    expect(
-      h.renderer.root.findDescendantById("script-path") === pathInput,
-    ).toBe(true)
-    h.beginDiagnostics()
-    await act(async () => pathInput.insertText("s"))
-    await h.settle()
-    await h.browse()
-    expect(h.active()?.value).toBe("./missing.js")
-    expect(h.captureCharFrame()).toContain("missing, or unreadable")
-    await act(async () => h.host.press("tab"))
-    await act(async () => h.host.press("return"))
-    expect(h.opened()?.value).toBe("./missing.js")
-    let leftPane = 0
-    h.keymap.intercept(
-      "key",
-      ({ event }) => {
-        if (event.name === "tab") leftPane++
-      },
-      { priority: 100 },
-    )
-    await act(async () => h.host.press("tab", { shift: true }))
-    expect(leftPane).toBe(0)
-    await act(async () => h.host.press("tab"))
-    await act(async () => h.host.press("tab"))
-    expect(leftPane).toBe(1)
-    const path = h.renderer.root.findDescendantById(
-      "script-path",
-    ) as BoxRenderable
-    await act(async () =>
-      h.mockMouse.click(path.x + 1, path.y, MouseButtons.LEFT),
-    )
-    expect(h.editing()).toBe(true)
-    await h.replace('console.info("restored")')
-    expect(h.value()).toBe('console.info("restored")')
-    expect(h.renderer.root.findDescendantById("script-source")).toBeDefined()
-    expect(h.active()).toBeNull()
-  })
+      h.beginDiagnostics()
+      await act(async () => pathInput.insertText("s"))
+      await h.settle()
+      await h.browse()
+      expect(h.active()?.value).toBe("./missing.js")
+      expect(h.captureCharFrame()).toContain("missing, or unreadable")
+      await act(async () => h.host.press("tab"))
+      await act(async () => h.host.press("return"))
+      expect(h.opened()?.value).toBe("./missing.js")
+      let leftPane = 0
+      h.keymap.intercept(
+        "key",
+        ({ event }) => {
+          if (event.name === "tab") leftPane++
+        },
+        { priority: 100 },
+      )
+      await act(async () => h.host.press("tab", { shift: true }))
+      expect(leftPane).toBe(0)
+      await act(async () => h.host.press("tab"))
+      await act(async () => h.host.press("tab"))
+      expect(leftPane).toBe(1)
+      const path = h.renderer.root.findDescendantById(
+        "script-path",
+      ) as BoxRenderable
+      await act(async () =>
+        h.mockMouse.click(path.x + 1, path.y, MouseButtons.LEFT),
+      )
+      expect(h.editing()).toBe(true)
+      await h.replace('console.info("restored")')
+      expect(h.value()).toBe('console.info("restored")')
+      expect(h.renderer.root.findDescendantById("script-source")).toBeDefined()
+      expect(h.active()).toBeNull()
+    },
+  )
 })

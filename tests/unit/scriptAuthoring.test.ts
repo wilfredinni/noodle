@@ -82,6 +82,13 @@ describe("script authoring contract", () => {
   })
 
   it("derives phase-aware global, member and matcher completions from the runtime contract", () => {
+    for (const phase of ["pre", "post", "tests"] as const) {
+      const requestMembers = completions("noodle.request.", phase).map(
+        (x) => x.label,
+      )
+      expect(requestMembers).toContain("url")
+      expect(requestMembers).toContain("method")
+    }
     expect(completions("resp")).toEqual([])
     expect(completions("resp", "post").map((x) => x.label)).toContain(
       "noodle.response",

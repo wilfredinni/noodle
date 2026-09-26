@@ -1,5 +1,8 @@
 // Generated from SCRIPT_API_CONTRACT. Run bun scripts/generate-script-api.ts.
-// Reference this file from an external JavaScript editor; runtime phase checks remain authoritative.
+// The noodle global includes all phases; external editors cannot infer a file's execution phase.
+// Runtime phase checks remain authoritative. For phase-specific member checking, use a typed alias:
+// /** @type {NoodleScript.Post} */ const post = noodle;
+// Use NoodleScript.Pre or NoodleScript.Tests for other phases; test/expect globals are tests-only.
 declare namespace NoodleScript {
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";

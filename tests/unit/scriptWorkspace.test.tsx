@@ -347,7 +347,10 @@ describe("script workspaces", () => {
       const editor = h.renderer.root.findDescendantById(
         "script-source",
       ) as CodeEditorRenderable
-      await act(async () => editor.insertText(`console.info("${phase}")`))
+      await act(async () => {
+        editor.insertText('console.info("')
+        editor.insertText(`${phase}")`)
+      })
       await act(async () => host.press("escape"))
       await act(async () => {
         await persistence.saveChain.current

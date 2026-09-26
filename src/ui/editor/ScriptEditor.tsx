@@ -73,11 +73,12 @@ export function ScriptEditor({
   const [selectedKind, setKind] = useState(
     value.startsWith("./") ? "external" : "inline",
   )
-  const kind = value
-    ? value.startsWith("./")
-      ? "external"
-      : "inline"
-    : selectedKind
+  const kind =
+    value && value !== "."
+      ? value.startsWith("./")
+        ? "external"
+        : "inline"
+      : selectedKind
   const [error, setError] = useState<string | null>(null)
   const [selectOpen, setSelectOpen] = useState(false)
   const [control, setControl] = useState(0)
@@ -379,7 +380,11 @@ export function ScriptEditor({
             }}
             onInput={(text) => {
               if (interactive)
-                onChange(text && !text.startsWith("./") ? `./${text}` : text)
+                onChange(
+                  !text || text === "." || text.startsWith("./")
+                    ? text
+                    : `./${text}`,
+                )
             }}
             textColor={theme.text}
             focusedTextColor={theme.text}

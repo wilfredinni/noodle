@@ -47,9 +47,7 @@ export function queueCollectionSettingsSave(
       const next = update(current)
       if (next === current) return
       const persisted = (await saveSettings(collectionDir, next)) ?? next
-      if (persistence.activeCollectionDir.current === collectionDir) {
-        persistence.persistedSettings.current = persisted
-      }
+      persistence.persistedSettings.current = persisted
     } catch (error) {
       onError()
       throw error
