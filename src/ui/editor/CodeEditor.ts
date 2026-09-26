@@ -791,7 +791,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this._readonlyNeedsFolds = false
       this.computeFoldRanges()
     }
-    if (this._filetype === "xml") {
+    if (
+      this._filetype === "xml" ||
+      this._filetype === "yaml" ||
+      this._filetype === "javascript"
+    ) {
       await this.highlightReadonlyTreeSitter()
       return
     }

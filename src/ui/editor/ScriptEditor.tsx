@@ -2,6 +2,7 @@ import { ActionButton } from "../ActionButton"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { extend } from "@opentui/react"
+import { MouseButton } from "@opentui/core"
 import type { Collection } from "../../schema"
 import {
   validateScriptSyntax,
@@ -15,7 +16,10 @@ import {
 } from "../../lang/scriptSource"
 import { requestScriptBlocks, scriptSourceLabel } from "../../scriptInheritance"
 import { scriptText } from "../../scriptAuthoring"
-import { CodeEditorRenderable } from "./CodeEditor"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "./CodeEditor"
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
 import { ValidationNotice } from "./ValidationNotice"
 import { Select } from "../Select"
@@ -30,7 +34,10 @@ export const ScriptAuthoringContext = createContext<{
   setActive: (source: ActiveScriptSource | null) => void
 } | null>(null)
 
-extend({ "code-editor": CodeEditorRenderable })
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 export function ScriptEditor({
   value,
@@ -67,7 +74,6 @@ export function ScriptEditor({
     isExternalScriptSource(value) ? "external" : "inline",
   )
   const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
   const [control, setControl] = useState(0)
   const diagnosticsRef = useRef(onDiagnostics)
@@ -75,6 +81,7 @@ export function ScriptEditor({
   const sourceKey = JSON.stringify(source)
   const sourceRef = useRef(source)
   sourceRef.current = source
+  const externalFocused = kind === "external" && focused
 
   useEffect(() => {
     if (value) setKind(isExternalScriptSource(value) ? "external" : "inline")
@@ -82,7 +89,7 @@ export function ScriptEditor({
 
   useEffect(() => {
     let current = true
-    setPending(true)
+    setError(null)
     const timer = setTimeout(() => {
       void (async () => {
         if (kind === "external" && !isExternalScriptSource(value))
@@ -109,7 +116,6 @@ export function ScriptEditor({
         })
         .finally(() => {
           if (current) {
-            setPending(false)
             diagnosticsRef.current?.()
           }
         })
@@ -123,7 +129,7 @@ export function ScriptEditor({
     kind,
     sourceKey,
     context?.collectionDir,
-    focused,
+    externalFocused,
     diagnosticDelayMs,
   ])
 
@@ -251,9 +257,14 @@ export function ScriptEditor({
       flexDirection="column"
       flexGrow={1}
       flexBasis={0}
-      minHeight={4}
+      minHeight={0}
+      overflow="hidden"
     >
-      <box flexDirection="row" flexShrink={0}>
+      <box
+        flexDirection="row"
+        flexShrink={0}
+        zIndex={selectOpen ? 1 : undefined}
+      >
         <Select
           items={[
             { id: "inline", label: "Inline" },
@@ -281,30 +292,68 @@ export function ScriptEditor({
           flexDirection="column"
           flexGrow={1}
           flexBasis={0}
-          minHeight={1}
+          minHeight={0}
           onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
             event.stopPropagation()
             if (interactive) onActivate()
           }}
         >
-          <code-editor
-            id="script-source"
-            ref={setEditor}
-            filetype="javascript"
-            theme={theme}
-            value={value}
-            readOnly={!interactive || !editing}
-            flexGrow={1}
-            flexBasis={0}
-            minHeight={1}
-            foldable={false}
-            onSourceChange={() => {
-              if (editing && editor) onChange(editor.plainText)
-            }}
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-            cursorColor={theme.primary}
-          />
+          <box flexDirection="row" flexGrow={1} flexBasis={0} minHeight={0}>
+            <line-number
+              id="script-line-numbers"
+              minWidth={4}
+              paddingRight={1}
+              fg={theme.textMuted}
+              bg={theme.backgroundPanel}
+              flexGrow={1}
+              flexBasis={0}
+              minHeight={0}
+              onMouseScroll={(event) => {
+                if (!editor || !event.scroll) return
+                if (event.scroll.direction === "up")
+                  editor.scrollBy(-event.scroll.delta)
+                else if (event.scroll.direction === "down")
+                  editor.scrollBy(event.scroll.delta)
+                else return
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <code-editor
+                id="script-source"
+                ref={setEditor}
+                filetype="javascript"
+                theme={theme}
+                value={value}
+                readOnly={!interactive || !editing}
+                flexGrow={1}
+                flexBasis={0}
+                minHeight={0}
+                foldable={false}
+                onSourceChange={() => {
+                  if (editing && editor) onChange(editor.plainText)
+                }}
+                backgroundColor={theme.backgroundPanel}
+                focusedBackgroundColor={theme.backgroundPanel}
+                textColor={theme.text}
+                focusedTextColor={theme.text}
+                cursorColor={theme.primary}
+                scrollMargin={0}
+              />
+            </line-number>
+            <code-editor-scrollbar
+              id="script-scrollbar"
+              target={editor}
+              trackOptions={{
+                backgroundColor: theme.background,
+                foregroundColor: theme.borderActive,
+              }}
+              width={1}
+              flexShrink={0}
+              zIndex={1}
+            />
+          </box>
           <CodeEditorCompletion
             editor={editor}
             env={null}
@@ -339,13 +388,7 @@ export function ScriptEditor({
           />
         </>
       )}
-      {pending ? (
-        <text fg={theme.textMuted}>Checking syntax…</text>
-      ) : error ? (
-        <ValidationNotice detail={error} />
-      ) : (
-        <text fg={theme.textMuted}>Syntax valid</text>
-      )}
+      {error && <ValidationNotice detail={error} />}
     </box>
   )
 }
