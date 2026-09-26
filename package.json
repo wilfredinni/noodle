@@ -22,9 +22,9 @@
   "dependencies": {
     "@faker-js/faker": "10.6.0",
     "@jitl/quickjs-singlefile-mjs-release-sync": "0.32.0",
-    "@opentui/core": "^0.5.11",
-    "@opentui/keymap": "^0.5.11",
-    "@opentui/react": "^0.5.11",
+    "@opentui/core": "^0.5.12",
+    "@opentui/keymap": "^0.5.12",
+    "@opentui/react": "^0.5.12",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "aws4": "^1.13.2",
@@ -48,8 +48,8 @@
     "@types/sax": "1.2.7",
     "bun-types": "^1.4.2",
     "husky": "^9.1.7",
-    "lint-staged": "^17.5.1",
-    "oxfmt": "^0.68.0",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
     "typescript": "^7.0.2"
   },
