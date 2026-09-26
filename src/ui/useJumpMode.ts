@@ -227,6 +227,8 @@ export function getAvailableTargets(
         const hint = REQUEST_TAB_HINTS[field]
         if (hint) targets.set(hint, { kind: "request-tab", field })
       }
+      targets.set("v", { kind: "request-tab", field: "assertions" })
+      targets.set("c", { kind: "request-tab", field: "captures" })
       if (requestTabAddVisible) {
         targets.set(REQUEST_TAB_ADD_HINT, { kind: "request-tab-add" })
       }

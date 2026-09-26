@@ -5,7 +5,6 @@ import {
   initialFolderEditState,
   enterFolderEditBrowse,
   exitEditBrowse,
-  moveFolderFieldCursor,
   moveFolderRowCursor,
   folderCursorForField,
   beginEditing,
@@ -217,6 +216,14 @@ export function useFolderEditBrowse(
           !revealedOptionalTabs.includes(requestedTab)
         ? "meta"
         : requestedTab
+  const tabNavigationRef = useRef({
+    tab: activeTab,
+    menuActive: optionalTabMenuActive,
+  })
+  tabNavigationRef.current = {
+    tab: activeTab,
+    menuActive: optionalTabMenuActive,
+  }
 
   useEffect(() => {
     if (editState.mode === "inactive" || !scriptPhase(editState.cursor.field))
@@ -378,43 +385,51 @@ export function useFolderEditBrowse(
     })
   }, [])
 
+  const cycleInactiveTab = useCallback(
+    (delta: 1 | -1) => {
+      const current = tabNavigationRef.current
+      const counts = folderRowCount(draftRef.current)
+      const menuActive =
+        optionalTabMenuVisible &&
+        !current.menuActive &&
+        ((current.tab === "activity" && delta === 1) ||
+          (current.tab === "meta" && delta === -1))
+      const tab = menuActive
+        ? current.tab
+        : current.menuActive
+          ? delta === 1
+            ? "meta"
+            : "activity"
+          : cycleFolderField(
+              current.tab,
+              delta,
+              counts,
+              revealedOptionalTabsRef.current,
+            )
+      // Advance buffered key events before React commits the next render.
+      tabNavigationRef.current = { tab, menuActive }
+      setInactiveTab(tab)
+      setOptionalTabMenuActiveState(menuActive)
+      setEditState((prev) => {
+        if (prev.mode !== "browsing") return prev
+        return menuActive
+          ? exitEditBrowse(prev)
+          : {
+              ...prev,
+              cursor: folderCursorForField(tab as FolderFieldKind, counts),
+            }
+      })
+    },
+    [optionalTabMenuVisible],
+  )
+
   const browseLeft = useCallback(() => {
-    const c = folderRowCount(draftRef.current)
-    setEditState((prev) => {
-      if (prev.mode !== "browsing") return prev
-      if (optionalTabMenuVisible && prev.cursor.field === "meta") {
-        setOptionalTabMenuActiveState(true)
-        return exitEditBrowse(prev)
-      }
-      const next = moveFolderFieldCursor(
-        prev,
-        -1,
-        c,
-        revealedOptionalTabsRef.current,
-      )
-      setInactiveTab(next.cursor.field)
-      return next
-    })
-  }, [optionalTabMenuVisible])
+    if (editStateRef.current.mode === "browsing") cycleInactiveTab(-1)
+  }, [cycleInactiveTab])
 
   const browseRight = useCallback(() => {
-    const c = folderRowCount(draftRef.current)
-    setEditState((prev) => {
-      if (prev.mode !== "browsing") return prev
-      if (optionalTabMenuVisible && prev.cursor.field === "activity") {
-        setOptionalTabMenuActiveState(true)
-        return exitEditBrowse(prev)
-      }
-      const next = moveFolderFieldCursor(
-        prev,
-        +1,
-        c,
-        revealedOptionalTabsRef.current,
-      )
-      setInactiveTab(next.cursor.field)
-      return next
-    })
-  }, [optionalTabMenuVisible])
+    if (editStateRef.current.mode === "browsing") cycleInactiveTab(1)
+  }, [cycleInactiveTab])
 
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
@@ -533,33 +548,6 @@ export function useFolderEditBrowse(
       }
     } else if (field === "headers") draftMutators.toggleHeaderRow(row)
   }, [draftMutators])
-
-  const cycleInactiveTab = useCallback(
-    (delta: 1 | -1) => {
-      if (optionalTabMenuActive) {
-        setOptionalTabMenuActive(false)
-        setInactiveTab(delta === 1 ? "meta" : "activity")
-        return
-      }
-      if (
-        optionalTabMenuVisible &&
-        ((activeTab === "activity" && delta === 1) ||
-          (activeTab === "meta" && delta === -1))
-      ) {
-        setOptionalTabMenuActive(true)
-        return
-      }
-      setInactiveTab(
-        cycleFolderField(
-          activeTab,
-          delta,
-          folderRowCount(draftRef.current),
-          revealedOptionalTabsRef.current,
-        ),
-      )
-    },
-    [activeTab, optionalTabMenuActive, optionalTabMenuVisible],
-  )
 
   return useMemo(
     () => ({

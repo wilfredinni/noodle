@@ -113,6 +113,12 @@ async function mount(initialFolder = empty, interactive = true) {
     ...render,
     settle,
     press,
+    pressBatch: async (keys: string[]) => {
+      await act(() => {
+        for (const key of keys) host.press(key)
+      })
+      await settle()
+    },
     click,
     keymap,
     editor: () => editor,
@@ -202,6 +208,21 @@ it("cycles past hidden tabs and reaches + with the keyboard in a narrow folder p
   expect(h.editor().activeTab).toBe("auth")
   await h.press("right")
   expect(h.editor().activeTab).toBe("postScript")
+})
+
+it("preserves buffered arrow steps through the folder tab menu in both directions", async () => {
+  const h = await mount()
+  await h.press("left")
+  expect(h.editor().optionalTabMenuActive).toBe(true)
+  await h.pressBatch(["right", "right"])
+  expect(h.editor().activeTab).toBe("headers")
+  expect(h.editor().optionalTabMenuActive).toBe(false)
+  await h.pressBatch(["left", "left", "left", "left"])
+  expect(h.editor().activeTab).toBe("auth")
+  expect(h.editor().optionalTabMenuActive).toBe(false)
+  await h.pressBatch(["right", "right", "right", "right"])
+  expect(h.editor().activeTab).toBe("headers")
+  expect(h.editor().optionalTabMenuActive).toBe(false)
 })
 
 it("keeps inline and external script tabs visible and omits + in read-only mode", async () => {

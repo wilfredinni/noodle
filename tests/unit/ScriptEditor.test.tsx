@@ -393,6 +393,35 @@ describe("ScriptEditor", () => {
     expect(leaked).toBe(0)
   })
 
+  it.each(['console.log("keep")', "./external.js"])(
+    "leaves source navigation to jump mode for %s",
+    async (value) => {
+      const h = await mountEditor(value, 60, false)
+      const external = value.startsWith("./")
+      if (external) await act(() => h.host.press("down"))
+      h.keymap.setData("app.jump", "active")
+      const swallowed: string[] = []
+      const dispose = h.keymap.intercept(
+        "key",
+        ({ event }) => {
+          swallowed.push(event.name)
+          event.preventDefault()
+          event.stopPropagation()
+        },
+        { priority: 100 },
+      )
+      for (const key of ["up", "down", "tab", "return"])
+        await act(() => h.host.press(key))
+      expect(swallowed).toEqual(["up", "down", "tab", "return"])
+      expect(h.editing()).toBe(false)
+      expect(h.value()).toBe(value)
+      h.keymap.setData("app.jump", "inactive")
+      dispose()
+      await act(() => h.host.press(external ? "return" : "up"))
+      expect(h.editing()).toBe(true)
+    },
+  )
+
   it.each(["up", "down", "tab"])(
     "enters inline code with %s and returns to the source selector with shift+tab",
     async (key) => {

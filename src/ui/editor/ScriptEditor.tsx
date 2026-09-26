@@ -239,6 +239,7 @@ export function ScriptEditor({
             !focused ||
             !interactive ||
             selectOpen ||
+            keymap.getData("app.jump") === "active" ||
             event.ctrl ||
             event.meta ||
             event.option ||

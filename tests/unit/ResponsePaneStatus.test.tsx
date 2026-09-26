@@ -999,10 +999,14 @@ describe("getAvailableTargets", () => {
     expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
     expect(targets.has("k")).toBe(true)
-    for (const key of ["v", "c", "d", "f", "j", "z"])
-      expect(targets.has(key)).toBe(false)
+    expect(targets.get("v")).toEqual({
+      kind: "request-tab",
+      field: "assertions",
+    })
+    expect(targets.get("c")).toEqual({ kind: "request-tab", field: "captures" })
+    for (const key of ["d", "f", "j", "z"]) expect(targets.has(key)).toBe(false)
     expect(targets.has("i")).toBe(true)
-    expect(targets.size).toBe(15)
+    expect(targets.size).toBe(17)
   })
 
   it("includes every enabled optional tab with distinct jump keys", () => {
@@ -1095,6 +1099,8 @@ describe("getAvailableTargets", () => {
     expect(targets.has("l")).toBe(true)
     expect(targets.has("h")).toBe(false)
     expect(targets.has("b")).toBe(false)
+    expect(targets.has("v")).toBe(false)
+    expect(targets.has("c")).toBe(false)
   })
 
   it("excludes urlbar/request/response when hasRequest is false", () => {

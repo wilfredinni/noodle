@@ -115,6 +115,7 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
             event.option ||
             event.super ||
             event.hyper ||
+            keymap.getData("app.jump") === "active" ||
             keymap.getData("app.overlay") !== "none"
           )
             return

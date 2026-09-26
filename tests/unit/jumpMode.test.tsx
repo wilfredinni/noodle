@@ -269,23 +269,20 @@ for (const view of ["request", "folder"] as const) {
   })
 }
 
-it("keeps active and session-revealed optional request tabs available", async () => {
+it("reveals empty Assert/Capture tabs through direct jumps and keeps them available", async () => {
   const h = await mount("request")
-  for (const key of ["v", "c"]) await h.press(key)
-  expect(h.jumping()).toBe(true)
   for (const [field, key] of [
     ["assertions", "v"],
     ["captures", "c"],
   ] as const) {
-    await act(() =>
-      (h.editor() as ReturnType<typeof useEditBrowse>).enterBrowseAt(field),
-    )
+    expect(h.renderer.root.findDescendantById(`tab-${field}`)).toBeUndefined()
     await h.jump()
-    expect(h.hint(field)).toContain(key)
     await h.press(key)
     expect(h.editor().activeTab).toBe(field)
+    expect(h.focus()).toBe("request")
     expect(h.jumping()).toBe(false)
     await h.jump()
+    expect(h.hint(field)).toContain(key)
     await h.press("h")
     await h.jump()
     await h.press(key)

@@ -659,6 +659,33 @@ describe("request script references", () => {
     expect(h.renderer.root.findDescendantById("script-open")).toBeUndefined()
   })
 
+  it("leaves adding and cancelling an empty script to jump mode while it is active", async () => {
+    const h = await mount({ own: "" })
+    h.keymap.setData("app.jump", "active")
+    for (const key of ["return", "space"]) {
+      await h.press(key)
+      expect(h.editing()).toBe(false)
+      expect(h.editor()).toBeUndefined()
+    }
+
+    h.keymap.setData("app.jump", "none")
+    h.beginDiagnostics()
+    await h.press("return")
+    await h.settle()
+    await h.press("shift+tab")
+    expect(h.editing()).toBe(false)
+    const editor = h.editor()
+    expect(editor).toBeDefined()
+
+    h.keymap.setData("app.jump", "active")
+    await h.press("escape")
+    expect(h.editor()).toBe(editor)
+    h.keymap.setData("app.jump", "none")
+    await h.press("escape")
+    expect(h.editor()).toBeUndefined()
+    expect(h.request().scripts).toBeUndefined()
+  })
+
   it("isolates the add action from other panes, overlays, and read-only mode", async () => {
     const h = await mount({ own: "" })
     await h.focus(false)
