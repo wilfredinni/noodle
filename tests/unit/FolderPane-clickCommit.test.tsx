@@ -55,8 +55,9 @@ describe("FolderPane blank click commit", () => {
       )
       await renderOnce()
       for (const tab of ["preScript", "postScript", "tests"]) {
-        expect(renderer.root.findDescendantById(`tab-${tab}`)).toBeDefined()
+        expect(renderer.root.findDescendantById(`tab-${tab}`)).toBeUndefined()
       }
+      expect(renderer.root.findDescendantById("folder-tab-add")).toBeDefined()
       await act(async () => {
         await mockMouse.click(60, 10, MouseButtons.LEFT)
       })

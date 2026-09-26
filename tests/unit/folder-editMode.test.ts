@@ -173,6 +173,7 @@ describe("exitEditBrowse", () => {
 
 describe("moveFolderFieldCursor", () => {
   it("cycles every folder tab in both directions, including scripts", () => {
+    const counts = { ...emptyCounts, preScript: 1, postScript: 1, tests: 1 }
     for (const direction of [1, -1] as const) {
       let state = enterFolderEditBrowse(folderInactive(), emptyCounts, "meta")
       const order =
@@ -180,10 +181,25 @@ describe("moveFolderFieldCursor", () => {
           ? FOLDER_FIELD_ORDER
           : ["meta", ...FOLDER_FIELD_ORDER.slice(1).reverse()]
       for (const field of [...order.slice(1), "meta"] as FolderFieldKind[]) {
-        state = moveFolderFieldCursor(state, direction, emptyCounts)
+        state = moveFolderFieldCursor(state, direction, counts)
         expect(state.cursor.field).toBe(field)
       }
     }
+  })
+
+  it("skips empty scripts unless explicitly revealed", () => {
+    expect(
+      moveFolderFieldCursor(folderBrowsing("auth"), 1, emptyCounts).cursor
+        .field,
+    ).toBe("activity")
+    expect(
+      moveFolderFieldCursor(folderBrowsing("activity"), -1, emptyCounts).cursor
+        .field,
+    ).toBe("auth")
+    expect(
+      moveFolderFieldCursor(folderBrowsing("auth"), 1, emptyCounts, ["tests"])
+        .cursor.field,
+    ).toBe("tests")
   })
 
   it("no-op when editing", () => {

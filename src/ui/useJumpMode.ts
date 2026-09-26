@@ -20,6 +20,7 @@ export type JumpTarget =
   | { kind: "request-tab"; field: FieldKind }
   | { kind: "request-tab-add" }
   | { kind: "folder-tab"; field: FolderFieldKind }
+  | { kind: "folder-tab-add" }
   | { kind: "response-tab"; tab: ResponseTabKind }
   | { kind: "env-sidebar" }
   | { kind: "env-name" }
@@ -112,6 +113,10 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             folderEbRef.current.enterBrowseAt(target.field)
             setFocus("folder")
             break
+          case "folder-tab-add":
+            folderEbRef.current.setOptionalTabMenuActive(true)
+            setFocus("folder")
+            break
           case "response-tab": {
             const id = selectedIdRef.current
             if (id) setTab(id, "response", target.tab)
@@ -177,6 +182,7 @@ export function getAvailableTargets(
   settingsView = false,
   cookieJarView = false,
   requestTabAddVisible = false,
+  folderTabAddVisible = false,
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
   if (settingsView) {
@@ -202,6 +208,9 @@ export function getAvailableTargets(
     targets.set("h", { kind: "folder-tab", field: "headers" })
     targets.set("a", { kind: "folder-tab", field: "auth" })
     targets.set("y", { kind: "folder-tab", field: "activity" })
+    if (folderTabAddVisible) {
+      targets.set(REQUEST_TAB_ADD_HINT, { kind: "folder-tab-add" })
+    }
     return targets
   }
   targets.set("s", { kind: "sidebar" })

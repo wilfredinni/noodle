@@ -445,7 +445,9 @@ export function AppInner({
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
-  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft)
+  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft, {
+    optionalTabMenuEnabled: isCollection,
+  })
   const folderEbRef = useRef(folderEb)
   folderEbRef.current = folderEb
 
@@ -543,8 +545,16 @@ export function AppInner({
         view === "settings",
         view === "cookie-jar",
         requestTabAddVisible,
+        folderEb.optionalTabMenuVisible,
       ),
-    [draft.draft, expanded, focusedFolder, requestTabAddVisible, view],
+    [
+      draft.draft,
+      expanded,
+      focusedFolder,
+      requestTabAddVisible,
+      folderEb.optionalTabMenuVisible,
+      view,
+    ],
   )
   useEffect(() => {
     jumpTargetsRef.current = availableJumpTargets

@@ -52,6 +52,9 @@ export interface FolderRowCount {
   meta: number
   headers: number
   auth: number
+  preScript?: number
+  postScript?: number
+  tests?: number
 }
 
 const SETTINGS_FIXED_ROW_COUNT = 5
@@ -173,6 +176,23 @@ export function folderFieldIndex(field: FolderFieldKind): number {
   return FOLDER_FIELD_ORDER.indexOf(field)
 }
 
+export function cycleFolderField(
+  current: FieldKind,
+  delta: 1 | -1,
+  counts: FolderRowCount,
+  revealedOptionalTabs: readonly FieldKind[] = [],
+): FolderFieldKind {
+  const fields = FOLDER_FIELD_ORDER.filter(
+    (field) =>
+      field === current ||
+      !scriptPhase(field) ||
+      revealedOptionalTabs.includes(field) ||
+      !!counts[field as ScriptField],
+  )
+  const idx = fields.indexOf(current as FolderFieldKind)
+  return fields[(idx + delta + fields.length) % fields.length]!
+}
+
 export function cursorForField(
   field: FieldKind,
   counts: SectionRowCount,
@@ -292,12 +312,15 @@ export function moveFolderFieldCursor(
   prev: EditState,
   delta: 1 | -1,
   counts: FolderRowCount,
+  revealedOptionalTabs: readonly FieldKind[] = [],
 ): EditState {
   if (prev.mode !== "browsing") return prev
-  const idx = folderFieldIndex(prev.cursor.field as FolderFieldKind)
-  const nextIdx =
-    (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
-  const nextField = FOLDER_FIELD_ORDER[nextIdx]!
+  const nextField = cycleFolderField(
+    prev.cursor.field,
+    delta,
+    counts,
+    revealedOptionalTabs,
+  )
   return {
     ...prev,
     cursor: folderCursorForField(nextField, counts),

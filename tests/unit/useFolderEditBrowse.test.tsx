@@ -194,7 +194,9 @@ interface EnvironmentSnapshot {
 
 function RequestTabAddJumpHarness({
   onSnapshot,
+  pane = "request",
 }: {
+  pane?: "request" | "folder"
   onSnapshot: (value: {
     focus: Focus
     jumpMode: boolean
@@ -205,13 +207,17 @@ function RequestTabAddJumpHarness({
   const ebRef = useRef({
     setOptionalTabMenuActive: setTabMenuActive,
   } as unknown as UseEditBrowseResult)
-  const folderEbRef = useRef({} as UseFolderEditBrowseResult)
+  const folderEbRef = useRef({
+    setOptionalTabMenuActive: setTabMenuActive,
+  } as unknown as UseFolderEditBrowseResult)
   const selectedIdRef = useRef<string | null>(null)
   const envHeaderRef = useRef<EnvHeaderPaneHandle | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const targetsRef = useRef<Map<string, JumpTarget>>(
-    new Map([["o", { kind: "request-tab-add" }]]),
+    new Map([
+      ["o", { kind: pane === "folder" ? "folder-tab-add" : "request-tab-add" }],
+    ]),
   )
   const [jumpMode, setJumpMode] = useState(true)
   const [focus, setFocus] = useState<Focus>("sidebar")
@@ -308,29 +314,35 @@ describe("useJumpMode environment editor", () => {
   })
 })
 
-describe("useJumpMode request tab add", () => {
-  it("focuses the optional-tab add control", async () => {
-    const { keymap, host, cleanup } = setupKeymap()
-    let snapshot:
-      | { focus: Focus; jumpMode: boolean; tabMenuActive: boolean }
-      | undefined
-    const render = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <RequestTabAddJumpHarness onSnapshot={(value) => (snapshot = value)} />
-      </KeymapProvider>,
-      { width: 1, height: 1 },
-    )
+describe.each(["request", "folder"] as const)(
+  "useJumpMode %s tab add",
+  (pane) => {
+    it("focuses the optional-tab add control", async () => {
+      const { keymap, host, cleanup } = setupKeymap()
+      let snapshot:
+        | { focus: Focus; jumpMode: boolean; tabMenuActive: boolean }
+        | undefined
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <RequestTabAddJumpHarness
+            pane={pane}
+            onSnapshot={(value) => (snapshot = value)}
+          />
+        </KeymapProvider>,
+        { width: 1, height: 1 },
+      )
 
-    await render.renderOnce()
-    await act(async () => host.press("o"))
-    await render.renderOnce()
-    await render.renderOnce()
+      await render.renderOnce()
+      await act(async () => host.press("o"))
+      await render.renderOnce()
+      await render.renderOnce()
 
-    expect(snapshot).toEqual({
-      focus: "request",
-      jumpMode: false,
-      tabMenuActive: true,
+      expect(snapshot).toEqual({
+        focus: pane,
+        jumpMode: false,
+        tabMenuActive: true,
+      })
+      cleanup()
     })
-    cleanup()
-  })
-})
+  },
+)
