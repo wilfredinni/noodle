@@ -257,19 +257,15 @@ export function ScriptEditor({
           ) {
             consume()
             onExit()
-            setControl(kind === "external" ? 1 : 0)
-          } else if (editing && kind === "external" && event.name === "tab") {
+            setControl(0)
+          } else if (editing && event.name === "tab") {
             consume()
             onExit()
             setControl(0)
-          } else if (
-            editing &&
-            kind === "inline" &&
-            (event.name === "return" || event.name === "tab")
-          ) {
+            keymap.dispatchCommand("focus.next")
+          } else if (editing && kind === "inline" && event.name === "return") {
             consume()
-            if (event.name === "tab") editor?.insertText("  ")
-            else editor?.handleKeyPress(event)
+            editor?.handleKeyPress(event)
           } else if (!editing && kind === "external") {
             if (event.name === "return" && control > 0) {
               consume()
@@ -289,7 +285,9 @@ export function ScriptEditor({
           } else if (
             !editing &&
             !event.shift &&
-            (event.name === "down" || event.name === "tab")
+            (event.name === "up" ||
+              event.name === "down" ||
+              event.name === "tab")
           ) {
             consume()
             setControl(0)

@@ -17,6 +17,8 @@ import type { AppKeymapContext } from "../../src/ui/keymap/types"
 import { useAppKeymap } from "../../src/ui/useAppKeymap"
 import { createTestRender } from "../testRender"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import { ScriptEditor } from "../../src/ui/editor/ScriptEditor"
+import { ThemeProvider } from "../../src/ui/theme"
 
 const testRender = createTestRender()
 
@@ -1547,6 +1549,80 @@ describe("app keymap layers", () => {
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
+
+  it.each([
+    ["preScript", "pre", "request", "main", "response"],
+    ["postScript", "post", "folder", "main", "sidebar"],
+    ["tests", "tests", "settings-content", "settings", "settings-sidebar"],
+  ] as const)(
+    "routes %s (%s) Tab from %s to the next pane without changing source",
+    async (field, phase, focus, view, next) => {
+      const { keymap, host, cleanup } = setup()
+      const { context, calls } = createContext(keymap)
+      context.request.ebRef.current.editState.cursor.field = field
+      context.global.focusRef.current = focus
+      context.global.viewRef.current = view
+      context.folder.folderViewRef.current = focus === "folder"
+      keymap.setData("app.mode", "edit")
+      keymap.setData("app.focus", focus)
+      keymap.setData("app.view", view)
+      const disposers = register(context)
+      let editing = true
+      let value = ""
+      let replace!: (text: string) => void
+      let edit!: (editing: boolean) => void
+      function Harness() {
+        const [text, setText] = useState('console.log("keep");')
+        const [isEditing, setEditing] = useState(true)
+        replace = setText
+        edit = setEditing
+        value = text
+        editing = isEditing
+        context.request.ebRef.current.editState.mode = isEditing
+          ? "editing"
+          : "browsing"
+        return createElement(ScriptEditor, {
+          value: text,
+          phase,
+          source: { scope: "request", scopeId: "a", path: "a.yml" },
+          focused: true,
+          editing: isEditing,
+          onChange: setText,
+          onActivate: () => setEditing(true),
+          onExit: () => setEditing(false),
+        })
+      }
+      const h = await testRender(
+        createElement(
+          KeymapProvider,
+          { keymap: keymap as unknown as KeymapProviderProps["keymap"] },
+          createElement(ThemeProvider, {
+            activeIndex: 0,
+            previewIndex: null,
+            children: createElement(Harness),
+          }),
+        ),
+        { width: 60, height: 12 },
+      )
+      for (const source of ['console.log("keep");', "./external.js"]) {
+        await act(async () => {
+          replace(source)
+          edit(true)
+        })
+        calls.focus = ""
+        await act(async () => host.press("tab"))
+        expect(calls.focus).toBe(next)
+        expect(editing).toBe(false)
+        expect(value).toBe(source)
+        expect(
+          h.renderer.root.findDescendantById("script-source")?.focused ??
+            h.renderer.root.findDescendantById("script-path")?.focused,
+        ).toBe(false)
+      }
+      disposers.forEach((dispose) => dispose())
+      cleanup()
+    },
+  )
 
   it("returns the JSON body editor to the body type select on shift+tab", () => {
     const { keymap, host, cleanup } = setup()

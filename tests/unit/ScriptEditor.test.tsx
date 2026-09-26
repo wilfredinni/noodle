@@ -372,13 +372,65 @@ describe("ScriptEditor", () => {
     await act(async () => h.host.press("return"))
     await h.settle()
     expect(h.value()).toBe("noodle.run.set\n")
-    h.beginDiagnostics()
+    let nextPane = 0
+    h.keymap.registerLayer({
+      commands: [
+        {
+          name: "focus.next",
+          run: () => {
+            nextPane++
+          },
+        },
+      ],
+    })
     await act(async () => h.host.press("tab"))
-    await h.settle()
-    expect(h.value()).toBe("noodle.run.set\n  ")
+    expect(h.value()).toBe("noodle.run.set\n")
+    expect(nextPane).toBe(1)
+    expect(h.editing()).toBe(false)
+    await act(async () => h.host.press("down"))
     await act(async () => h.host.press("escape"))
     expect(h.editing()).toBe(false)
     expect(leaked).toBe(0)
+  })
+
+  it.each(["up", "down", "tab"])(
+    "enters inline code with %s and returns to the source selector with shift+tab",
+    async (key) => {
+      const source = 'console.log("keep")'
+      const h = await mountEditor(source, 60, false)
+      await act(async () => h.host.press(key))
+      expect(h.editing()).toBe(true)
+      expect(h.editor().focused).toBe(true)
+      await act(async () => h.host.press("tab", { shift: true }))
+      expect(h.editing()).toBe(false)
+      expect(h.editor().focused).toBe(false)
+      await act(async () => h.host.press("return"))
+      await h.renderOnce()
+      expect(h.captureCharFrame()).toContain("External file")
+      expect(h.value()).toBe(source)
+    },
+  )
+
+  it("keeps external arrows within the controls and returns to the source selector from the path", async () => {
+    const h = await mountEditor("./external.js", 60, false)
+    await act(async () => h.host.press("up"))
+    await act(async () => h.host.press("return"))
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toContain("Inline")
+    await act(async () => h.host.press("escape"))
+    for (const key of ["tab", "escape"]) {
+      await act(async () => h.host.press("down"))
+      await act(async () => h.host.press("down"))
+      await act(async () => h.host.press("return"))
+      expect(h.editing()).toBe(true)
+      await act(async () => h.host.press(key, { shift: key === "tab" }))
+      expect(h.editing()).toBe(false)
+      await act(async () => h.host.press("return"))
+      await h.renderOnce()
+      expect(h.captureCharFrame()).toContain("Inline")
+      await act(async () => h.host.press("escape"))
+    }
+    expect(h.value()).toBe("./external.js")
   })
 
   it("pairs quotes and brackets, preserves JavaScript comparison operators and reports syntax at narrow widths", async () => {
