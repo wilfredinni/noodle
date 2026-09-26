@@ -268,6 +268,9 @@ export function computeRequestTabLabels(
       auth: "Auth",
       assertions: "Assert",
       captures: "Capture",
+      preScript: "Pre Script",
+      postScript: "Post Script",
+      tests: "Tests",
       settings: "Settings",
     }
   const headerActive = Object.values(request.headers).some((e) => e.enabled)
@@ -290,6 +293,13 @@ export function computeRequestTabLabels(
     auth: hasAuth ? "Auth \u2022" : "Auth",
     assertions: hasAssertions ? "Assert \u2022" : "Assert",
     captures: hasCaptures ? "Capture \u2022" : "Capture",
+    preScript: request.scripts?.pre?.trim()
+      ? "Pre Script \u2022"
+      : "Pre Script",
+    postScript: request.scripts?.post?.trim()
+      ? "Post Script \u2022"
+      : "Post Script",
+    tests: request.tests?.trim() ? "Tests \u2022" : "Tests",
     settings: hasSettings ? "Settings \u2022" : "Settings",
   }
 }

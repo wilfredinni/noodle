@@ -1071,8 +1071,36 @@ describe("computeRequestTabLabels", () => {
       auth: "Auth",
       assertions: "Assert",
       captures: "Capture",
+      preScript: "Pre Script",
+      postScript: "Post Script",
+      tests: "Tests",
       settings: "Settings",
     })
+  })
+
+  it.each([
+    [undefined, ""],
+    ["", ""],
+    [" \n\t ", ""],
+    ["console.log('ready')", " \u2022"],
+    ["./scripts/check.js", " \u2022"],
+  ])("marks script tabs for source %j", (source, marker) => {
+    const labels = computeRequestTabLabels({
+      id: "scripted",
+      name: "Scripted",
+      method: "GET",
+      url: "",
+      headers: {},
+      params: [],
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      scripts: source === undefined ? undefined : { pre: source, post: source },
+      tests: source,
+    })
+    expect(labels.preScript).toBe(`Pre Script${marker}`)
+    expect(labels.postScript).toBe(`Post Script${marker}`)
+    expect(labels.tests).toBe(`Tests${marker}`)
   })
 
   it("appends bullet when headers have enabled entries", () => {
