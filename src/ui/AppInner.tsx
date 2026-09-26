@@ -2095,6 +2095,7 @@ export function AppInner({
           collectionDir,
           collection,
           setActive: setActiveScriptSource,
+          showOrder: overlays.setScriptOrder,
           confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
           open: (active) => {
             void openScriptInEditor(externalEditor, collectionDir, active)

@@ -9,6 +9,10 @@ import { setupKeymap } from "./_helpers"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RequestPane } from "../../src/ui/RequestPane"
 import { ScriptAuthoringContext } from "../../src/ui/editor/ScriptEditor"
+import {
+  ScriptOrderOverlay,
+  type ScriptOrder,
+} from "../../src/ui/overlays/ScriptOrderOverlay"
 import { CollectionScripts } from "../../src/ui/settings/CollectionScripts"
 import {
   queueCollectionSettingsSave,
@@ -271,32 +275,45 @@ describe("script workspaces", () => {
         ],
       }
       const { keymap } = setupKeymap()
+      function OrderHarness() {
+        const [order, setOrder] = useState<ScriptOrder | null>(null)
+        return (
+          <ScriptAuthoringContext.Provider
+            value={{
+              collection,
+              collectionDir: "/tmp",
+              confirm: () => {},
+              open: () => {},
+              setActive: () => {},
+              showOrder: setOrder,
+            }}
+          >
+            <RequestPane
+              request={child}
+              activeTab={tab}
+              editState={{
+                mode: "inactive",
+                cursor: { field: "headers", row: -1, addingRow: true },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+            />
+            {order && (
+              <ScriptOrderOverlay
+                order={order}
+                onClose={() => setOrder(null)}
+              />
+            )}
+          </ScriptAuthoringContext.Provider>
+        )
+      }
       const h = await testRender(
         <KeymapProvider keymap={keymap}>
           <ThemeProvider activeIndex={0} previewIndex={null}>
-            <ScriptAuthoringContext.Provider
-              value={{
-                collection,
-                collectionDir: "/tmp",
-                confirm: () => {},
-                open: () => {},
-                setActive: () => {},
-              }}
-            >
-              <RequestPane
-                request={child}
-                activeTab={tab}
-                editState={{
-                  mode: "inactive",
-                  cursor: { field: "headers", row: -1, addingRow: true },
-                  editingRow: -1,
-                }}
-                editKey=""
-                editValue=""
-                setEditKey={() => {}}
-                setEditValue={() => {}}
-              />
-            </ScriptAuthoringContext.Provider>
+            <OrderHarness />
           </ThemeProvider>
         </KeymapProvider>,
         { width: 120, height: 30 },
@@ -309,7 +326,7 @@ describe("script workspaces", () => {
         expect(frame).not.toContain("run in this order")
         return
       }
-      expect(frame).toMatch(/▸ (Scripts|Tests) run/)
+      expect(frame).toContain("Execution order")
       expect(frame).not.toContain("Collection: Demo")
       const header = h.renderer.root.findDescendantById(
         "script-execution-order",

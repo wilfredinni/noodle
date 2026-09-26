@@ -15,6 +15,7 @@ import type { TagEditorOverlayHandle } from "./overlays/TagEditorOverlay"
 import type { JarCookie } from "../cookies"
 import type { Response } from "../schema"
 import type { SaveResponseOverlayHandle } from "./overlays/SaveResponseOverlay"
+import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 
 export interface ResponseFilePending {
   response: Response
@@ -50,6 +51,7 @@ export type CookieDeletePending =
   | { kind: "reset" }
 
 export type ActiveOverlay =
+  | "script-order"
   | "script-source-confirm"
   | "save-response"
   | "command-palette"
@@ -98,6 +100,7 @@ export function useOverlayState({
   collectionSwitchPending,
   reloadPending,
 }: UseOverlayStateProps) {
+  const [scriptOrder, setScriptOrder] = useState<ScriptOrder | null>(null)
   const [scriptSourceConfirm, setScriptSourceConfirm] = useState<{
     confirm: () => void
   } | null>(null)
@@ -175,6 +178,7 @@ export function useOverlayState({
 
   const activeOverlay = useMemo((): ActiveOverlay => {
     if (scriptSourceConfirm) return "script-source-confirm"
+    if (scriptOrder) return "script-order"
     if (commandPaletteVisible) return "command-palette"
     if (responseFilePending) return "save-response"
     if (codeGeneratorVisible) return "code-generator"
@@ -210,6 +214,7 @@ export function useOverlayState({
       return "timeline-detail"
     return "none"
   }, [
+    scriptOrder,
     scriptSourceConfirm,
     commandPaletteVisible,
     responseFilePending,
@@ -248,6 +253,8 @@ export function useOverlayState({
 
   return {
     activeOverlay,
+    scriptOrder,
+    setScriptOrder,
     scriptSourceConfirm,
     setScriptSourceConfirm,
     responseFilePending,

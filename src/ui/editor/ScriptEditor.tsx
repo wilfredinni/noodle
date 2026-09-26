@@ -2,7 +2,7 @@ import { ActionButton } from "../ActionButton"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { extend } from "@opentui/react"
-import { MouseButton } from "@opentui/core"
+import { MouseButton, type BoxRenderable } from "@opentui/core"
 import type { Collection } from "../../schema"
 import {
   validateScriptSyntax,
@@ -23,6 +23,7 @@ import { ValidationNotice } from "./ValidationNotice"
 import { Select } from "../Select"
 import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
+import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
 export const ScriptAuthoringContext = createContext<{
@@ -31,6 +32,7 @@ export const ScriptAuthoringContext = createContext<{
   confirm: (action: () => void) => void
   open: (source: ActiveScriptSource) => void
   setActive: (source: ActiveScriptSource | null) => void
+  showOrder?: (order: ScriptOrder) => void
 } | null>(null)
 
 extend({
@@ -51,6 +53,7 @@ export function ScriptEditor({
   onActivate,
   onExit,
   onSelectOpenChange,
+  onShowOrder,
   onDiagnostics,
   diagnosticDelayMs = 200,
 }: {
@@ -68,6 +71,7 @@ export function ScriptEditor({
   diagnosticDelayMs?: number
   onDiagnostics?: () => void
   onSelectOpenChange?: (open: boolean) => void
+  onShowOrder?: () => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -84,7 +88,9 @@ export function ScriptEditor({
       : selectedKind
   const [error, setError] = useState<string | null>(null)
   const [selectOpen, setSelectOpen] = useState(false)
-  const [control, setControl] = useState(0)
+  const [control, setControl] = useState<number | "order">(0)
+  const container = useRef<BoxRenderable | null>(null)
+  const [width, setWidth] = useState(80)
   const diagnosticsRef = useRef(onDiagnostics)
   diagnosticsRef.current = onDiagnostics
   const sourceKey = JSON.stringify(source)
@@ -158,7 +164,7 @@ export function ScriptEditor({
         ({ event }) => {
           if (
             !focused ||
-            !interactive ||
+            (!interactive && !onShowOrder) ||
             selectOpen ||
             event.ctrl ||
             event.meta ||
@@ -172,6 +178,31 @@ export function ScriptEditor({
             event.preventDefault()
             event.stopPropagation()
           }
+          if (!editing && onShowOrder) {
+            if (control === "order") {
+              if (event.name === "return" || event.name === "space") {
+                consume()
+                onShowOrder()
+              } else if (
+                ["left", "up", "escape"].includes(event.name) ||
+                (event.name === "tab" && event.shift)
+              ) {
+                consume()
+                setControl(0)
+              } else if (event.name === "down" || event.name === "tab") {
+                consume()
+                setControl(kind === "external" ? 1 : 0)
+                if (interactive && kind === "inline") onActivate()
+              }
+              return
+            }
+            if (control === 0 && event.name === "tab" && !event.shift) {
+              consume()
+              setControl("order")
+              return
+            }
+          }
+          if (!interactive || (!editing && control === "order")) return
           if (
             editing &&
             (event.name === "escape" || (event.name === "tab" && event.shift))
@@ -191,7 +222,7 @@ export function ScriptEditor({
             consume()
             if (event.name === "tab") editor?.insertText("  ")
             else editor?.handleKeyPress(event)
-          } else if (!editing && kind === "external") {
+          } else if (!editing && kind === "external" && control !== "order") {
             if (event.name === "return" && control > 0) {
               consume()
               if (control === 2) context?.open({ value, source })
@@ -205,7 +236,14 @@ export function ScriptEditor({
               const next = control + direction
               if (next >= 0 && next <= 2) {
                 consume()
-                setControl(next)
+                setControl(
+                  onShowOrder &&
+                    event.name === "tab" &&
+                    event.shift &&
+                    next === 0
+                    ? "order"
+                    : next,
+                )
               }
             }
           } else if (
@@ -234,6 +272,7 @@ export function ScriptEditor({
       selectOpen,
       onActivate,
       onExit,
+      onShowOrder,
     ],
   )
 
@@ -246,7 +285,7 @@ export function ScriptEditor({
   useEffect(() => {
     if (!focused) return
     onControlFocus?.(
-      `script-${editing ? (kind === "inline" ? "source" : "path") : kind === "external" && control === 2 ? "open" : kind === "external" && control === 1 ? "path" : "source-field"}`,
+      `script-${editing ? (kind === "inline" ? "source" : "path") : control === "order" ? "execution-order" : kind === "external" && control === 2 ? "open" : kind === "external" && control === 1 ? "path" : "source-field"}`,
     )
   }, [focused, editing, kind, control, onControlFocus])
 
@@ -263,23 +302,29 @@ export function ScriptEditor({
   return (
     <box
       id="script-editor"
+      ref={container}
+      onSizeChange={() => setWidth(container.current?.width ?? 80)}
       flexDirection="column"
       flexGrow={1}
       flexBasis={0}
       minHeight={0}
+      minWidth={0}
       overflow="hidden"
     >
       <box flexShrink={0} marginBottom={1} zIndex={selectOpen ? 1 : undefined}>
         <SettingsField
           id="script-source-field"
           title="Source"
-          description="Write JavaScript inline or use a .js file from this collection."
+          description="Write inline or use a .js file."
           active={focused && !editing && control === 0}
         >
           <Select
             items={[
               { id: "inline", label: "Inline" },
-              { id: "external", label: "External file" },
+              {
+                id: "external",
+                label: onShowOrder && width < 34 ? "External" : "External file",
+              },
             ]}
             value={kind}
             fitContent
@@ -296,6 +341,23 @@ export function ScriptEditor({
               onSelectOpenChange?.(open)
             }}
           />
+          {onShowOrder && (
+            <>
+              <box flexGrow={1} minWidth={0} />
+              <ActionButton
+                id="script-execution-order"
+                label={width < 48 ? "Order" : "Execution order"}
+                paddingX={width < 34 ? 0 : 1}
+                focused={focused && !editing && control === "order"}
+                onAction={() => {
+                  onFocus?.()
+                  onExit()
+                  setControl("order")
+                  onShowOrder()
+                }}
+              />
+            </>
+          )}
         </SettingsField>
       </box>
       {kind === "inline" ? (

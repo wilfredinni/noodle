@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { act, useState } from "react"
+import { act, useEffect, useState } from "react"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -17,6 +17,9 @@ import type { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import type { Collection, Request } from "../../src/schema"
 import { withScript } from "../../src/scriptAuthoring"
 import type { ScriptPhase } from "../../src/preRequestScript"
+import { ScriptOrderOverlay } from "../../src/ui/overlays/ScriptOrderOverlay"
+import { useOverlayState } from "../../src/ui/useOverlayState"
+import { useModalKeyboardShield } from "../../src/ui/useModalKeyboardShield"
 
 const render = createTestRender()
 const dirs: string[] = []
@@ -79,6 +82,16 @@ async function mount({
   let active: ActiveScriptSource | null = null
   let editing = false
   function Harness() {
+    const overlays = useOverlayState({
+      previewIndex: null,
+      collectionSwitcherVisible: false,
+      collectionSwitchPending: null,
+      reloadPending: false,
+    })
+    useModalKeyboardShield(overlays.activeOverlay)
+    useEffect(() => {
+      keymap.setData("app.overlay", overlays.activeOverlay)
+    }, [overlays.activeOverlay])
     const [value, setValue] = useState(request)
     const [focused, setFocused] = useState(true)
     const [edit, setEdit] = useState(false)
@@ -95,6 +108,7 @@ async function mount({
         value={{
           collectionDir: dir,
           collection,
+          showOrder: overlays.setScriptOrder,
           confirm: (action) => action(),
           open: (source) => {
             opened = source
@@ -116,6 +130,12 @@ async function mount({
           diagnosticDelayMs={0}
           onDiagnostics={() => complete.resolve()}
         />
+        {overlays.scriptOrder && (
+          <ScriptOrderOverlay
+            order={overlays.scriptOrder}
+            onClose={() => overlays.setScriptOrder(null)}
+          />
+        )}
       </ScriptAuthoringContext.Provider>
     )
   }
@@ -130,6 +150,8 @@ async function mount({
   const frame = async () => {
     await act(async () => {
       await h.renderOnce()
+    })
+    await act(async () => {
       await h.renderOnce()
     })
     return h.captureCharFrame()
@@ -153,8 +175,6 @@ async function mount({
         "script-execution-order",
       )!
       await act(async () => h.mockMouse.click(header.x + 1, header.y))
-      await frame()
-      await act(async () => host.press("down"))
       await frame()
     },
     request: () => request,
@@ -186,13 +206,13 @@ async function mount({
 
 describe("request script references", () => {
   it.each(["pre", "post", "tests"] as const)(
-    "shows compact %s references in execution order with only the request editor",
+    "shows %s execution order in a reference-only modal",
     async (phase) => {
       const h = await mount({
         phase,
         inherited: ["./folder.js", 'console.log("collection")'],
       })
-      expect(await h.frame()).toMatch(/▸ (Scripts|Tests) run/)
+      expect(await h.frame()).toContain("Execution order")
       expect(await h.frame()).not.toContain("Folder: users")
       await h.openOrder()
       const frame = await h.frame()
@@ -207,7 +227,7 @@ describe("request script references", () => {
             ? "Scripts run in this order after the response and captures."
             : "Tests run in this order after declarative assertions.",
       )
-      expect(frame).not.toMatch(/This request runs|─/)
+      expect(frame).not.toContain("This request runs")
       expect(frame.match(/This request/g)).toHaveLength(1)
       expect(frame).not.toContain("Reference only")
       expect(frame).toMatch(/This request +Inline/)
@@ -219,24 +239,19 @@ describe("request script references", () => {
         frame.indexOf(labels[1]!),
       )
       expect(frame).not.toContain('console.log("collection")')
-      expect(frame).toMatch(/▾ (Scripts|Tests) run/)
+      expect(h.keymap.getData("app.overlay")).toBe("script-order")
       expect(frame).not.toContain("Editable")
       expect(h.editor("inherited-script")).toBeUndefined()
-      const scroll = h.renderer.root.findDescendantById(
-        "script-workspace",
-      ) as ScrollBoxRenderable
-      expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.viewport.height)
       const editor = h.editor()
-      const reference = h.renderer.root.findDescendantById(
-        `script-reference-${phase === "post" ? 1 : 0}`,
-      )!
+      const reference =
+        h.renderer.root.findDescendantById("script-reference-0")!
       await act(async () => h.mockMouse.click(reference.x + 4, reference.y))
-      await h.press("up")
       expect(h.editor()).toBe(editor)
       expect(h.opened()).toBeUndefined()
       expect(h.editing()).toBe(false)
-      await h.press("down")
-      expect(editor.focused).toBe(false)
+      await h.press("escape")
+      expect(h.keymap.getData("app.overlay")).toBe("none")
+      expect(await h.frame()).not.toContain("Folder: users")
       await h.press("down")
       expect(editor.focused).toBe(true)
       await h.press("escape")
@@ -244,41 +259,50 @@ describe("request script references", () => {
     },
   )
 
-  it("starts closed and toggles only the execution list while preserving the editor", async () => {
+  it("keeps the button on the Source row and isolates the modal without replacing the editor", async () => {
     const h = await mount()
     const editor = h.editor()
-    expect(await h.frame()).toContain("▸ Scripts run")
-    expect(await h.frame()).not.toContain("Folder: users")
-    await h.press("up")
+    const source = h.renderer.root.findDescendantById("script-source-field")!
+    const button = h.renderer.root.findDescendantById("script-execution-order")!
+    expect(button.y).toBe(source.y)
+    expect(await h.frame()).not.toContain("run in this order")
+    await h.press("tab")
     await h.press("return")
     expect(await h.frame()).toContain("Folder: users")
     expect(h.editor()).toBe(editor)
-    await h.press("left")
-    let frame = await h.frame()
-    expect(frame).toContain("▸ Scripts run")
-    expect(frame).not.toContain("Folder: users")
-    expect(frame).toContain("Source:")
-    expect(frame).toContain('console.log("request")')
+    expect(editor.focused).toBe(false)
+    const backgroundKeys: string[] = []
+    const dispose = h.keymap.intercept(
+      "key",
+      ({ event }) => {
+        backgroundKeys.push(event.name)
+      },
+      { priority: 0 },
+    )
+    for (const key of ["x", "return", "tab", "ctrl+s", "ctrl+enter"])
+      await h.press(key)
+    expect(backgroundKeys).toEqual([])
+    expect(h.request().scripts?.pre).toBe('console.log("request")')
+    dispose()
+    await h.press("escape")
+    expect(h.keymap.getData("app.overlay")).toBe("none")
+    expect(await h.frame()).not.toContain("Folder: users")
     expect(h.editor()).toBe(editor)
-    await h.press("right")
+    await h.press("return")
     expect(await h.frame()).toContain("Folder: users")
-    const header = h.renderer.root.findDescendantById("script-execution-order")!
-    await act(async () => h.mockMouse.click(header.x + 1, header.y))
-    frame = await h.frame()
-    expect(frame).toContain("▸ Scripts run")
-    expect(frame).not.toContain("Folder: users")
-    expect(h.editor()).toBe(editor)
-    await h.press("down")
+    await act(async () => h.mockMouse.click(0, 0))
+    await h.frame()
+    expect(h.keymap.getData("app.overlay")).toBe("none")
     await h.press("down")
     expect(editor.focused).toBe(true)
     await h.press("escape")
     h.keymap.setData("app.overlay", "confirm")
-    await h.press("up")
+    await h.press("tab")
     await h.press("return")
     expect(await h.frame()).not.toContain("Folder: users")
     h.keymap.setData("app.overlay", "none")
     await h.focus(false)
-    await h.press("up")
+    await h.press("tab")
     await h.press("return")
     expect(await h.frame()).not.toContain("Folder: users")
   })
@@ -307,6 +331,8 @@ describe("request script references", () => {
     expect(h.editor()).toBeUndefined()
     expect(h.editor("inherited-script")).toBeUndefined()
     expect(h.active()).toBeNull()
+    await h.press("escape")
+    await h.press("down")
     h.beginDiagnostics()
     await h.press("return")
     await h.settle()
@@ -315,14 +341,18 @@ describe("request script references", () => {
     const editor = h.editor()
     await h.replace('console.log("new request")')
     expect(h.editor()).toBe(editor)
+    await h.openOrder()
     expect(await h.frame()).toContain("2  This request")
+    await h.press("escape")
     expect(await h.frame()).toContain('console.log("new request")')
     await h.replace("")
     expect(h.editor()).toBe(editor)
     await h.press("escape")
     expect(h.editor()).toBeUndefined()
     expect(await h.frame()).toContain("+ Add request script")
+    await h.openOrder()
     expect(await h.frame()).toContain("./folder.js")
+    await h.press("escape")
     expect(h.opened()).toBeUndefined()
   })
 
@@ -357,13 +387,38 @@ describe("request script references", () => {
     expect(await h.frame()).toMatch(/This request +External file/)
     const reference = h.renderer.root.findDescendantById("script-reference-0")!
     await act(async () => h.mockMouse.click(reference.x + 4, reference.y))
-    await h.press("up")
-    expect(h.active()).toBeNull()
-    await h.press("down")
+    await h.press("escape")
+    await h.press("left")
     expect(h.active()?.value).toBe("./request.js")
     expect(h.opened()).toBeUndefined()
     await act(async () => h.resize(30, 9))
     await h.frame()
+    const button = h.renderer.root.findDescendantById("script-execution-order")!
+    expect(button.y).toBe(
+      h.renderer.root.findDescendantById("script-source-field")!.y,
+    )
+    expect(button.x + button.width).toBeLessThanOrEqual(30)
+    await h.openOrder()
+    const details = h.renderer.root.findDescendantById(
+      "script-order-details",
+    ) as ScrollBoxRenderable
+    expect(details.scrollHeight).toBeGreaterThan(details.viewport.height)
+    await h.press("end")
+    expect(await h.frame()).toContain("This request")
+    expect(await h.frame()).toContain("External file")
+    await h.press("home")
+    expect(details.scrollTop).toBe(0)
+    await h.press("escape")
+    await h.openOrder()
+    expect(
+      (
+        h.renderer.root.findDescendantById(
+          "script-order-details",
+        ) as ScrollBoxRenderable
+      ).scrollTop,
+    ).toBe(0)
+    await h.press("escape")
+    await h.press("left")
     await h.press("down")
     await h.press("return")
     const path = h.renderer.root.findDescendantById(

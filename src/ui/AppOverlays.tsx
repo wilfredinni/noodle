@@ -3,6 +3,7 @@ import { basename } from "node:path"
 import { HelpOverlay } from "./overlays/HelpOverlay"
 import { AboutOverlay } from "./overlays/AboutOverlay"
 import { NotificationOverlay } from "./overlays/NotificationOverlay"
+import { ScriptOrderOverlay } from "./overlays/ScriptOrderOverlay"
 import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
 import {
   CommandPaletteOverlay,
@@ -565,6 +566,12 @@ export function AppOverlays({
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
           onConfirm={onConfirmDialog}
           onCancel={onCancelDialog}
+        />
+      )}
+      {activeOverlay === "script-order" && overlays.scriptOrder && (
+        <ScriptOrderOverlay
+          order={overlays.scriptOrder}
+          onClose={() => overlays.setScriptOrder(null)}
         />
       )}
       {activeOverlay === "script-source-confirm" &&

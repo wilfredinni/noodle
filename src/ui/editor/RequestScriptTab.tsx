@@ -13,13 +13,12 @@ import { requestScriptBlocks } from "../../scriptInheritance"
 import { scriptText } from "../../scriptAuthoring"
 import { isExternalScriptSource } from "../../lang/scriptSource"
 import { ActionButton } from "../ActionButton"
-import { CookieRow } from "../CookieRow"
 import { useTheme } from "../theme"
 import { ScriptAuthoringContext, ScriptEditor } from "./ScriptEditor"
 
 type Props = Omit<
   ComponentProps<typeof ScriptEditor>,
-  "value" | "source" | "onControlFocus"
+  "value" | "source" | "onControlFocus" | "onShowOrder"
 > & {
   request: Request
 }
@@ -31,15 +30,11 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
   const renderer = useRenderer()
   const scroll = useRef<ScrollBoxRenderable | null>(null)
   const container = useRef<BoxRenderable | null>(null)
-  const references = useRef<BoxRenderable | null>(null)
   const [size, setSize] = useState({ width: 80, height: 12 })
-  const [referenceHeight, setReferenceHeight] = useState(0)
   const [controlTarget, setControlTarget] = useState("script-source-field")
   const [adding, setAdding] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
-  const [orderExpanded, setOrderExpanded] = useState(false)
   const [orderFocused, setOrderFocused] = useState(false)
-  const [orderHovered, setOrderHovered] = useState(false)
   const value = scriptText(request, props.phase)
   const source = {
     scope: "request" as const,
@@ -54,6 +49,24 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
   const inherited = blocks.some((block) => block.source.scope !== "request")
   const showAdd = inherited && !value && !adding
 
+  const showOrder = () =>
+    context?.showOrder?.({
+      phase: props.phase,
+      entries: blocks.map((block) => ({
+        current: block.source.scope === "request",
+        label:
+          block.source.scope === "request"
+            ? "This request"
+            : block.source.scope === "collection"
+              ? `Collection: ${context.collection?.name ?? block.source.scopeId}`
+              : `Folder: ${block.source.scopeId}`,
+        detail: isExternalScriptSource(scriptText(block, props.phase))
+          ? block.source.scope === "request"
+            ? "External file"
+            : scriptText(block, props.phase)
+          : "Inline",
+      })),
+    })
   const add = () => {
     if (props.interactive === false) return
     setOrderFocused(false)
@@ -83,44 +96,26 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
             keymap.getData("app.overlay") !== "none"
           )
             return
-          if (orderFocused) {
-            if (
-              ![
-                "up",
-                "down",
-                "return",
-                "space",
-                "left",
-                "right",
-                "escape",
-              ].includes(event.name)
-            )
-              return
-            event.preventDefault()
-            event.stopPropagation()
-            if (event.name === "down" || event.name === "escape")
-              setOrderFocused(false)
-            else if (event.name === "return" || event.name === "space")
-              setOrderExpanded((expanded) => !expanded)
-            else if (event.name === "left" || event.name === "right")
-              setOrderExpanded(event.name === "right")
-            return
-          }
           if (
-            !props.editing &&
-            event.name === "up" &&
-            (showAdd || controlTarget === "script-source-field")
+            showAdd &&
+            (event.name === "tab" ||
+              event.name === "up" ||
+              event.name === "down" ||
+              (orderFocused && event.name === "escape"))
           ) {
             event.preventDefault()
             event.stopPropagation()
-            setOrderFocused(true)
-            return
-          }
-          if (props.interactive === false) return
-          if (showAdd && (event.name === "return" || event.name === "space")) {
+            setOrderFocused(
+              event.name === "tab" ? !orderFocused : event.name === "up",
+            )
+          } else if (
+            showAdd &&
+            (event.name === "return" || event.name === "space")
+          ) {
             event.preventDefault()
             event.stopPropagation()
-            add()
+            if (orderFocused) showOrder()
+            else add()
           } else if (adding && !value && event.name === "escape") {
             event.preventDefault()
             event.stopPropagation()
@@ -139,7 +134,7 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
       value,
       selectOpen,
       orderFocused,
-      controlTarget,
+      showOrder,
     ],
   )
 
@@ -147,11 +142,11 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
     if (!props.focused || !inherited) return
     const reveal = () =>
       scroll.current?.scrollChildIntoView(
-        orderFocused
-          ? "script-execution-order"
-          : showAdd
-            ? "script-add"
-            : controlTarget,
+        showAdd
+          ? orderFocused
+            ? "script-execution-order"
+            : "script-add"
+          : controlTarget,
       )
     renderer.once("frame", reveal)
     renderer.requestRender()
@@ -164,9 +159,7 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
     showAdd,
     controlTarget,
     size,
-    referenceHeight,
     orderFocused,
-    orderExpanded,
     renderer,
   ])
 
@@ -175,16 +168,8 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
       {...props}
       value={value}
       source={source}
-      focused={props.focused && !orderFocused}
-      editing={props.editing && !orderFocused}
-      onFocus={() => {
-        setOrderFocused(false)
-        onFocus?.()
-      }}
-      onActivate={() => {
-        setOrderFocused(false)
-        props.onActivate()
-      }}
+      onFocus={onFocus}
+      onShowOrder={inherited ? showOrder : undefined}
       onChange={(text) => {
         setAdding(true)
         props.onChange(text)
@@ -222,94 +207,25 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
         flexBasis={0}
         minHeight={0}
       >
-        <box
-          ref={references}
-          flexDirection="column"
-          flexShrink={0}
-          marginBottom={1}
-          onSizeChange={() =>
-            setReferenceHeight(references.current?.height ?? 0)
-          }
-        >
-          <CookieRow
-            id="script-execution-order"
-            kindLabel=""
-            kindColor={theme.text}
-            kindWidth={0}
-            name=""
-            nameWidth={0}
-            value={
-              props.phase === "pre"
-                ? "Scripts run in this order before sending the request."
-                : props.phase === "post"
-                  ? "Scripts run in this order after the response and captures."
-                  : "Tests run in this order after declarative assertions."
-            }
-            valueColor={theme.text}
-            selected={props.focused && orderFocused}
-            expanded={orderExpanded}
-            hovered={orderHovered}
-            details={[]}
-            onSelect={() => {
-              props.onExit()
-              setOrderFocused(true)
-            }}
-            onToggleExpanded={() => setOrderExpanded((expanded) => !expanded)}
-            onHover={setOrderHovered}
-            onPaneFocus={onFocus}
-          />
-          {orderExpanded && (
-            <box flexDirection="column" flexShrink={0} paddingLeft={3}>
-              {blocks.map((block, index) => (
-                <box
-                  key={`${block.source.scope}:${block.source.scopeId}`}
-                  id={`script-reference-${index}`}
-                  flexDirection="row"
-                  flexShrink={0}
-                >
-                  {blocks.length > 1 && (
-                    <text fg={theme.textMuted} width={3} flexShrink={0}>
-                      {index + 1}
-                    </text>
-                  )}
-                  <box
-                    flexDirection={size.width < 60 ? "column" : "row"}
-                    flexGrow={1}
-                    minWidth={0}
-                    gap={size.width < 60 ? 0 : 2}
-                  >
-                    <text
-                      fg={
-                        block.source.scope === "request"
-                          ? theme.primary
-                          : theme.text
-                      }
-                      width={size.width < 60 ? "100%" : "42%"}
-                      flexShrink={0}
-                      wrapMode="char"
-                    >
-                      {block.source.scope === "request"
-                        ? "This request"
-                        : block.source.scope === "collection"
-                          ? `Collection: ${context?.collection?.name ?? block.source.scopeId}`
-                          : `Folder: ${block.source.scopeId}`}
-                    </text>
-                    <text fg={theme.textMuted} flexGrow={1} wrapMode="char">
-                      {isExternalScriptSource(scriptText(block, props.phase))
-                        ? block.source.scope === "request"
-                          ? "External file"
-                          : scriptText(block, props.phase)
-                        : "Inline"}
-                    </text>
-                  </box>
-                </box>
-              ))}
-            </box>
-          )}
-        </box>
         {showAdd ? (
           <box flexDirection="column" flexShrink={0} gap={1}>
-            <text fg={theme.textMuted}>No script on this request.</text>
+            <box flexDirection="row" alignItems="center" flexShrink={0}>
+              <text fg={theme.textMuted} flexGrow={1} minWidth={0}>
+                {size.width < 48
+                  ? "No request script."
+                  : "No script on this request."}
+              </text>
+              <ActionButton
+                id="script-execution-order"
+                label={size.width < 48 ? "Order" : "Execution order"}
+                focused={props.focused && orderFocused}
+                onAction={() => {
+                  onFocus?.()
+                  setOrderFocused(true)
+                  showOrder()
+                }}
+              />
+            </box>
             <ActionButton
               id="script-add"
               label="+ Add request script"
@@ -323,7 +239,7 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
           <box
             height={Math.max(
               isExternalScriptSource(value) ? 11 : 10,
-              size.height - referenceHeight - 1,
+              size.height,
             )}
             flexDirection="column"
             flexShrink={0}
