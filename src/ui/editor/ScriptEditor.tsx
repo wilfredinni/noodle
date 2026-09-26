@@ -266,11 +266,7 @@ export function ScriptEditor({
       minHeight={0}
       overflow="hidden"
     >
-      <box
-        flexDirection="row"
-        flexShrink={0}
-        zIndex={selectOpen ? 1 : undefined}
-      >
+      <box flexShrink={0} marginBottom={1} zIndex={selectOpen ? 1 : undefined}>
         <Select
           items={[
             { id: "inline", label: "Inline" },
@@ -278,7 +274,6 @@ export function ScriptEditor({
           ]}
           value={kind}
           badge={false}
-          fitContent
           focused={focused && !editing && control === 0}
           interactive={interactive}
           onActivate={onExit}
@@ -288,10 +283,6 @@ export function ScriptEditor({
             onSelectOpenChange?.(open)
           }}
         />
-        <text
-          fg={theme.textMuted}
-          truncate
-        >{` ${scriptSourceLabel(source)} · ${phase}`}</text>
       </box>
       {kind === "inline" ? (
         <box
