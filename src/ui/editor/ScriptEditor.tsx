@@ -14,8 +14,6 @@ import {
   isExternalScriptSource,
   validateScriptSource,
 } from "../../lang/scriptSource"
-import { requestScriptBlocks, scriptSourceLabel } from "../../scriptInheritance"
-import { scriptText } from "../../scriptAuthoring"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -23,6 +21,7 @@ import {
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
 import { ValidationNotice } from "./ValidationNotice"
 import { Select } from "../Select"
+import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
@@ -46,6 +45,8 @@ export function ScriptEditor({
   focused,
   editing,
   interactive = true,
+  onControlFocus,
+  onFocus,
   onChange,
   onActivate,
   onExit,
@@ -59,6 +60,8 @@ export function ScriptEditor({
   focused: boolean
   editing: boolean
   interactive?: boolean
+  onControlFocus?: (id: string) => void
+  onFocus?: () => void
   onChange: (value: string) => void
   onActivate: () => void
   onExit: () => void
@@ -165,61 +168,54 @@ export function ScriptEditor({
             keymap.getData("app.overlay") !== "none"
           )
             return
+          const consume = () => {
+            event.preventDefault()
+            event.stopPropagation()
+          }
           if (
             editing &&
             (event.name === "escape" || (event.name === "tab" && event.shift))
           ) {
-            event.preventDefault()
-            event.stopPropagation()
+            consume()
             onExit()
-            setControl(0)
-          } else if (
-            !editing &&
-            kind === "external" &&
-            control === 1 &&
-            event.name === "tab"
-          ) {
-            setControl(0)
-            if (event.shift) {
-              event.preventDefault()
-              event.stopPropagation()
-            }
-          } else if (
-            !editing &&
-            kind === "external" &&
-            control === 1 &&
-            event.name === "return"
-          ) {
-            event.preventDefault()
-            event.stopPropagation()
-            context?.open({ value, source })
+            setControl(kind === "external" ? 1 : 0)
           } else if (editing && kind === "external" && event.name === "tab") {
-            event.preventDefault()
-            event.stopPropagation()
+            consume()
             onExit()
-            setControl(1)
+            setControl(2)
           } else if (
             editing &&
             kind === "inline" &&
             (event.name === "return" || event.name === "tab")
           ) {
-            event.preventDefault()
-            event.stopPropagation()
+            consume()
             if (event.name === "tab") editor?.insertText("  ")
             else editor?.handleKeyPress(event)
+          } else if (!editing && kind === "external") {
+            if (event.name === "return" && control > 0) {
+              consume()
+              if (control === 2) context?.open({ value, source })
+              else onActivate()
+            } else if (
+              event.name === "up" ||
+              event.name === "down" ||
+              event.name === "tab"
+            ) {
+              const direction = event.name === "up" || event.shift ? -1 : 1
+              const next = control + direction
+              if (next >= 0 && next <= 2) {
+                consume()
+                setControl(next)
+              }
+            }
           } else if (
             !editing &&
             !event.shift &&
             (event.name === "down" || event.name === "tab")
           ) {
-            event.preventDefault()
-            event.stopPropagation()
-            if (kind === "external" && control === 0 && event.name === "tab")
-              setControl(1)
-            else {
-              setControl(0)
-              onActivate()
-            }
+            consume()
+            setControl(0)
+            onActivate()
           }
         },
         { priority: 150 },
@@ -247,6 +243,13 @@ export function ScriptEditor({
     else editor.blur()
   }, [editor, focused, editing, selectOpen])
 
+  useEffect(() => {
+    if (!focused) return
+    onControlFocus?.(
+      `script-${editing ? (kind === "inline" ? "source" : "path") : kind === "external" && control === 2 ? "open" : kind === "external" && control === 1 ? "path" : "source-field"}`,
+    )
+  }, [focused, editing, kind, control, onControlFocus])
+
   const changeKind = (next: string) => {
     if (next === kind) return
     const change = () => {
@@ -267,22 +270,33 @@ export function ScriptEditor({
       overflow="hidden"
     >
       <box flexShrink={0} marginBottom={1} zIndex={selectOpen ? 1 : undefined}>
-        <Select
-          items={[
-            { id: "inline", label: "Inline" },
-            { id: "external", label: "External file" },
-          ]}
-          value={kind}
-          badge={false}
-          focused={focused && !editing && control === 0}
-          interactive={interactive}
-          onActivate={onExit}
-          onChange={changeKind}
-          onOpenChange={(open) => {
-            setSelectOpen(open)
-            onSelectOpenChange?.(open)
-          }}
-        />
+        <SettingsField
+          id="script-source-field"
+          title="Source"
+          description="Write JavaScript inline or use a .js file from this collection."
+          active={focused && !editing && control === 0}
+        >
+          <Select
+            items={[
+              { id: "inline", label: "Inline" },
+              { id: "external", label: "External file" },
+            ]}
+            value={kind}
+            fitContent
+            focused={focused && !editing && control === 0}
+            interactive={interactive}
+            onActivate={() => {
+              onFocus?.()
+              setControl(0)
+              onExit()
+            }}
+            onChange={changeKind}
+            onOpenChange={(open) => {
+              setSelectOpen(open)
+              onSelectOpenChange?.(open)
+            }}
+          />
+        </SettingsField>
       </box>
       {kind === "inline" ? (
         <box
@@ -360,62 +374,58 @@ export function ScriptEditor({
           />
         </box>
       ) : (
-        <>
-          <input
-            id="script-path"
-            value={value}
-            placeholder="./scripts/example.js"
-            focused={focused && editing}
-            onMouseDown={() => {
-              if (interactive) onActivate()
-            }}
-            onInput={(text) => {
-              if (interactive)
-                onChange(
-                  !text || text === "." || text.startsWith("./")
-                    ? text
-                    : `./${text}`,
-                )
-            }}
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-          />
+        <box flexDirection="column" flexShrink={0} minHeight={4} gap={1}>
+          <SettingsField
+            title="File"
+            active={focused && (editing || control === 1)}
+            description="Relative to the collection root."
+            onMouseDown={
+              interactive
+                ? () => {
+                    setControl(1)
+                    onActivate()
+                  }
+                : undefined
+            }
+          >
+            <input
+              id="script-path"
+              value={value}
+              placeholder="./scripts/example.js"
+              flexGrow={1}
+              minWidth={0}
+              focused={focused && editing}
+              onMouseDown={() => {
+                if (interactive) {
+                  setControl(1)
+                  onActivate()
+                }
+              }}
+              onInput={(text) => {
+                if (interactive)
+                  onChange(
+                    !text || text === "." || text.startsWith("./")
+                      ? text
+                      : `./${text}`,
+                  )
+              }}
+              textColor={theme.text}
+              focusedTextColor={theme.text}
+            />
+          </SettingsField>
           <ActionButton
             id="script-open"
             label="Open in external editor"
-            focused={focused && !editing && control === 1}
+            focused={focused && !editing && control === 2}
             disabled={!interactive}
-            onAction={() => context?.open({ value, source })}
+            onAction={() => {
+              onFocus?.()
+              context?.open({ value, source })
+            }}
           />
-        </>
+        </box>
       )}
       {error && <ValidationNotice detail={error} />}
-    </box>
-  )
-}
-
-export function ScriptInheritance({
-  request,
-  phase,
-}: {
-  request: Parameters<typeof requestScriptBlocks>[0]
-  phase: ScriptPhase
-}) {
-  const context = useContext(ScriptAuthoringContext)
-  const theme = useTheme()
-  const blocks = requestScriptBlocks(request, context?.collection ?? undefined)
-  const ordered = (phase === "post" ? [...blocks].reverse() : blocks).filter(
-    (block) => scriptText(block, phase),
-  )
-  if (!ordered.some((block) => block.source.scope !== "request")) return null
-  return (
-    <box flexDirection="column" flexShrink={0}>
-      <text fg={theme.textMuted} truncate>{`${phase}: ${ordered
-        .map((block) => {
-          const value = scriptText(block, phase)
-          return `${block.source.scope === "request" ? "request (adds)" : scriptSourceLabel(block.source)}${isExternalScriptSource(value) ? ` ${value}` : ""}`
-        })
-        .join(" → ")}`}</text>
     </box>
   )
 }

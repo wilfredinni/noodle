@@ -954,6 +954,14 @@ describe("SettingsView", () => {
     await act(async () => {
       await h.renderOnce()
     })
-    expect(h.captureCharFrame()).toContain("collection: settings.yml · tests")
+    await act(async () => host.press("down"))
+    const testEditor = h.renderer.root.findDescendantById(
+      "script-source",
+    ) as CodeEditorRenderable
+    const tests = 'test("settings", () => expect(true).toBe(true))'
+    await act(async () => testEditor.insertText(tests))
+    await act(async () => host.press("escape"))
+    expect(patches.at(-1)?.tests).toBe(tests)
+    expect(patches.at(-1)?.scripts?.pre).toBe('console.info("settings")')
   })
 })

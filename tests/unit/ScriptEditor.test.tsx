@@ -312,6 +312,8 @@ describe("ScriptEditor", () => {
         "script-path",
       ) as InputRenderable
       await act(async () => h.host.press("down"))
+      expect(pathInput.focused).toBe(false)
+      await act(async () => h.host.press("return"))
       for (const character of input) {
         h.beginDiagnostics()
         await act(async () => pathInput.insertText(character))
@@ -354,6 +356,7 @@ describe("ScriptEditor", () => {
       const path = h.renderer.root.findDescendantById(
         "script-path",
       ) as BoxRenderable
+      await act(async () => h.renderOnce())
       await act(async () =>
         h.mockMouse.click(path.x + 1, path.y, MouseButtons.LEFT),
       )

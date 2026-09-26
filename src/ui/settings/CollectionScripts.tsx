@@ -98,6 +98,7 @@ export function CollectionScripts({
           phase={phase}
           source={{ scope: "collection", path: "settings.yml" }}
           focused={focused}
+          onFocus={onFocus}
           editing={editing}
           onSelectOpenChange={setSelectOpen}
           onChange={(value) => {

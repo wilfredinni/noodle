@@ -1,5 +1,5 @@
 import { SCRIPT_TABS, scriptPhase, scriptText } from "../scriptAuthoring"
-import { ScriptEditor, ScriptInheritance } from "./editor/ScriptEditor"
+import { RequestScriptTab } from "./editor/RequestScriptTab"
 import type { ScriptPhase } from "../preRequestScript"
 import { type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
@@ -387,34 +387,24 @@ export function RequestPane({
                 />
               )}
               {scriptPhase(activeTab) ? (
-                <>
-                  <ScriptInheritance
-                    request={request}
-                    phase={scriptPhase(activeTab)!}
-                  />
-                  <ScriptEditor
-                    key={`${request.id}:${activeTab}`}
-                    value={scriptText(request, scriptPhase(activeTab)!)}
-                    phase={scriptPhase(activeTab)!}
-                    source={{
-                      scope: "request",
-                      scopeId: request.id,
-                      path: `${request.id}.yml`,
-                    }}
-                    focused={focused}
-                    editing={inEdit && editState.cursor.field === activeTab}
-                    interactive={interactive}
-                    onChange={(value) =>
-                      onScriptChange?.(scriptPhase(activeTab)!, value)
-                    }
-                    onActivate={() => {
-                      onPaneFocus?.()
-                      onFieldActivate?.(activeTab, 0)
-                    }}
-                    onExit={() => onScriptExit?.()}
-                    onSelectOpenChange={onSelectOpenChange}
-                  />
-                </>
+                <RequestScriptTab
+                  key={`${request.id}:${activeTab}`}
+                  request={request}
+                  onFocus={onPaneFocus}
+                  phase={scriptPhase(activeTab)!}
+                  focused={focused}
+                  editing={inEdit && editState.cursor.field === activeTab}
+                  interactive={interactive}
+                  onChange={(value) =>
+                    onScriptChange?.(scriptPhase(activeTab)!, value)
+                  }
+                  onActivate={() => {
+                    onPaneFocus?.()
+                    onFieldActivate?.(activeTab, 0)
+                  }}
+                  onExit={() => onScriptExit?.()}
+                  onSelectOpenChange={onSelectOpenChange}
+                />
               ) : isTextBody ? (
                 <BodySection
                   request={request}

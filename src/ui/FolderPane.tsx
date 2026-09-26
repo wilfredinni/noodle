@@ -198,6 +198,7 @@ export function FolderPane({
                   path: `${folder.path}/folder.yml`,
                 }}
                 focused={focused}
+                onFocus={onPaneFocus}
                 editing={inEdit}
                 interactive={interactive}
                 onChange={(value) =>

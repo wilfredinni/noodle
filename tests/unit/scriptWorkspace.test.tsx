@@ -299,20 +299,46 @@ describe("script workspaces", () => {
             </ScriptAuthoringContext.Provider>
           </ThemeProvider>
         </KeymapProvider>,
-        { width: 120, height: 14 },
+        { width: 120, height: 30 },
       )
       await act(async () => {
         await h.renderOnce()
       })
-      const frame = h.captureCharFrame()
-      const summaries = {
-        pre: "pre: collection: demo ./pre.js → folder: users → request (adds)",
-        post: "post: request (adds) → folder: users → collection: demo ./post.js",
-        tests: "tests: collection: demo ./tests.js → request (adds)",
+      let frame = h.captureCharFrame()
+      if (!phase) {
+        expect(frame).not.toContain("run in this order")
+        return
       }
-      for (const [summaryPhase, summary] of Object.entries(summaries)) {
-        if (summaryPhase === phase) expect(frame).toContain(summary)
-        else expect(frame).not.toContain(`${summaryPhase}: `)
+      expect(frame).toMatch(/▸ (Scripts|Tests) run/)
+      expect(frame).not.toContain("Collection: Demo")
+      const header = h.renderer.root.findDescendantById(
+        "script-execution-order",
+      )!
+      await act(async () => {
+        await h.mockMouse.click(header.x + 1, header.y)
+      })
+      await act(async () => {
+        await h.renderOnce()
+      })
+      frame = h.captureCharFrame()
+      const ordered =
+        phase === "post"
+          ? ["1  This request", "2  Folder: users", "3  Collection: Demo"]
+          : phase === "pre"
+            ? ["1  Collection: Demo", "2  Folder: users", "3  This request"]
+            : ["1  Collection: Demo", "2  This request"]
+      let previous = -1
+      for (const label of ordered) {
+        expect(frame).toContain(label)
+        expect(frame.indexOf(label)).toBeGreaterThan(previous)
+        previous = frame.indexOf(label)
+      }
+      expect(frame).toContain("run in this order")
+      expect(frame).not.toContain("Reference only")
+      expect(frame).not.toContain("This request runs")
+      expect(frame).toContain(`./${phase}.js`)
+      for (const other of ["pre", "post", "tests"]) {
+        if (other !== phase) expect(frame).not.toContain(`./${other}.js`)
       }
     },
   )
