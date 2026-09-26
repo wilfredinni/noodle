@@ -8,9 +8,10 @@ import type {
 } from "../hooks/useFolderEditBrowse"
 import type { UseUIStateResult } from "./tabs/useUIState"
 import type { Focus, UrlBarSubFocus } from "./focus"
-import type { FieldKind } from "./editMode"
+import { FIELD_ORDER, FOLDER_FIELD_ORDER, type FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
-import type { Request } from "../schema"
+import type { Folder, Request } from "../schema"
+import { scriptPhase, scriptText } from "../scriptAuthoring"
 import type { EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 export type JumpTarget =
@@ -183,6 +184,11 @@ export function getAvailableTargets(
   cookieJarView = false,
   requestTabAddVisible = false,
   folderTabAddVisible = false,
+  visibleTabs: {
+    request?: readonly FieldKind[]
+    folder?: readonly FolderFieldKind[]
+    console?: boolean
+  } = {},
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
   if (settingsView) {
@@ -204,10 +210,9 @@ export function getAvailableTargets(
   }
   if (folderView) {
     targets.set("s", { kind: "sidebar" })
-    targets.set("m", { kind: "folder-tab", field: "meta" })
-    targets.set("h", { kind: "folder-tab", field: "headers" })
-    targets.set("a", { kind: "folder-tab", field: "auth" })
-    targets.set("y", { kind: "folder-tab", field: "activity" })
+    for (const field of visibleTabs.folder ?? getVisibleFolderTabs(null)) {
+      targets.set(FOLDER_TAB_HINTS[field], { kind: "folder-tab", field })
+    }
     if (folderTabAddVisible) {
       targets.set(REQUEST_TAB_ADD_HINT, { kind: "folder-tab-add" })
     }
@@ -218,31 +223,26 @@ export function getAvailableTargets(
     if (expanded !== "response") {
       targets.set("m", { kind: "method" })
       targets.set("u", { kind: "url" })
-      targets.set("h", { kind: "request-tab", field: "headers" })
-      targets.set("p", { kind: "request-tab", field: "params" })
-      targets.set("x", { kind: "request-tab", field: "pathParams" })
-      targets.set("b", { kind: "request-tab", field: "body" })
-      targets.set("a", { kind: "request-tab", field: "auth" })
-      targets.set("v", { kind: "request-tab", field: "assertions" })
-      targets.set("c", { kind: "request-tab", field: "captures" })
-      targets.set("t", { kind: "request-tab", field: "settings" })
+      for (const field of visibleTabs.request ?? getVisibleRequestTabs(null)) {
+        const hint = REQUEST_TAB_HINTS[field]
+        if (hint) targets.set(hint, { kind: "request-tab", field })
+      }
       if (requestTabAddVisible) {
         targets.set(REQUEST_TAB_ADD_HINT, { kind: "request-tab-add" })
       }
     }
     if (expanded !== "request") {
-      targets.set("r", { kind: "response-tab", tab: "body" })
-      targets.set("e", { kind: "response-tab", tab: "headers" })
-      targets.set("i", { kind: "response-tab", tab: "results" })
-      targets.set("n", { kind: "response-tab", tab: "network" })
-      targets.set("l", { kind: "response-tab", tab: "timeline" })
-      targets.set("k", { kind: "response-tab", tab: "cookies" })
+      for (const tab of Object.keys(RESPONSE_TAB_HINTS) as ResponseTabKind[]) {
+        if (tab !== "console" || visibleTabs.console) {
+          targets.set(RESPONSE_TAB_HINTS[tab], { kind: "response-tab", tab })
+        }
+      }
     }
   }
   return targets
 }
 
-export const REQUEST_TAB_HINTS: Record<string, string> = {
+export const REQUEST_TAB_HINTS: Partial<Record<FieldKind, string>> = {
   headers: "h",
   params: "p",
   pathParams: "x",
@@ -250,20 +250,63 @@ export const REQUEST_TAB_HINTS: Record<string, string> = {
   auth: "a",
   assertions: "v",
   captures: "c",
+  preScript: "d",
+  postScript: "f",
+  tests: "j",
   settings: "t",
 }
 
 export const REQUEST_TAB_ADD_HINT = "o"
 
-export const RESPONSE_TAB_HINTS: Record<string, string> = {
+export const RESPONSE_TAB_HINTS: Record<ResponseTabKind, string> = {
   body: "r",
   headers: "e",
   results: "i",
   network: "n",
   timeline: "l",
   cookies: "k",
+  console: "z",
 }
-export const FOLDER_TAB_HINT_ORDER: string[] = ["m", "h", "a", "y"]
+export const FOLDER_TAB_HINTS: Record<FolderFieldKind, string> = {
+  meta: "m",
+  headers: "h",
+  auth: "a",
+  preScript: "d",
+  postScript: "f",
+  tests: "j",
+  activity: "y",
+}
+
+export function getVisibleRequestTabs(
+  request: Request | null,
+  activeTab: FieldKind = "headers",
+  revealedOptionalTabs: readonly FieldKind[] = [],
+): FieldKind[] {
+  return FIELD_ORDER.filter((field) => {
+    if (field === activeTab || revealedOptionalTabs.includes(field)) return true
+    if (field === "assertions") return !!request?.assertions?.length
+    if (field === "captures")
+      return !!Object.keys(request?.captures ?? {}).length
+    const phase = scriptPhase(field)
+    return !phase || !!scriptText(request ?? {}, phase)
+  })
+}
+
+export function getVisibleFolderTabs(
+  folder: Folder | null,
+  activeTab: FieldKind = "meta",
+  revealedOptionalTabs: readonly FieldKind[] = [],
+): FolderFieldKind[] {
+  return FOLDER_FIELD_ORDER.filter((field) => {
+    const phase = scriptPhase(field)
+    return (
+      field === activeTab ||
+      revealedOptionalTabs.includes(field) ||
+      !phase ||
+      !!scriptText(folder ?? {}, phase)
+    )
+  })
+}
 
 export function computeRequestTabLabels(
   request: Request | null,

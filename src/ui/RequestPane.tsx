@@ -1,4 +1,4 @@
-import { SCRIPT_TABS, scriptPhase, scriptText } from "../scriptAuthoring"
+import { SCRIPT_TABS, scriptPhase } from "../scriptAuthoring"
 import { RequestScriptTab } from "./editor/RequestScriptTab"
 import type { ScriptPhase } from "../preRequestScript"
 import { type ScrollBoxRenderable } from "@opentui/core"
@@ -24,6 +24,7 @@ import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
 import {
   computeRequestTabLabels,
+  getVisibleRequestTabs,
   REQUEST_TAB_ADD_HINT,
   REQUEST_TAB_HINTS,
 } from "./useJumpMode"
@@ -229,31 +230,28 @@ export function RequestPane({
 
   const { tabs, optionalTabMenuItems } = useMemo(() => {
     const labels = computeRequestTabLabels(request)
-    const hiddenOptionalTabs = BASE_TAB_DEFS.filter(
-      (tab) =>
-        tab.id !== activeTab &&
-        !revealedOptionalTabs?.includes(tab.id as FieldKind) &&
-        ((tab.id === "assertions" && !request?.assertions?.length) ||
-          (tab.id === "captures" &&
-            !Object.keys(request?.captures ?? {}).length) ||
-          (!!scriptPhase(tab.id) &&
-            (!request || !scriptText(request, scriptPhase(tab.id)!)))),
+    const visibleTabs = getVisibleRequestTabs(
+      request,
+      activeTab,
+      revealedOptionalTabs,
     )
-    const hiddenIds = new Set(hiddenOptionalTabs.map((tab) => tab.id))
     return {
       optionalTabMenuItems: BASE_TAB_DEFS.filter(
         (tab) =>
           tab.id === "assertions" ||
           tab.id === "captures" ||
           !!scriptPhase(tab.id),
-      ).map((tab) => ({ ...tab, disabled: !hiddenIds.has(tab.id) })),
-      tabs: BASE_TAB_DEFS.filter((tab) => !hiddenIds.has(tab.id)).map(
-        (tab) => ({
-          ...tab,
-          label: labels[tab.id] ?? tab.label,
-          jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
-        }),
-      ),
+      ).map((tab) => ({
+        ...tab,
+        disabled: visibleTabs.includes(tab.id as FieldKind),
+      })),
+      tabs: BASE_TAB_DEFS.filter((tab) =>
+        visibleTabs.includes(tab.id as FieldKind),
+      ).map((tab) => ({
+        ...tab,
+        label: labels[tab.id] ?? tab.label,
+        jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id as FieldKind] : undefined,
+      })),
     }
   }, [request, activeTab, jumpMode, revealedOptionalTabs])
 

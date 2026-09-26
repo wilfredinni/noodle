@@ -84,10 +84,13 @@ import { useAppKeymap } from "./useAppKeymap"
 import {
   useJumpMode,
   getAvailableTargets,
+  getVisibleRequestTabs,
+  getVisibleFolderTabs,
   type JumpTarget,
 } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { scriptConsoleEntries } from "./ScriptConsole"
 import { ResponseFileContext } from "./responseFileContext"
 import {
   beginResponseFileSave,
@@ -537,32 +540,6 @@ export function AppInner({
     optionalTabMenuEnabled: isCollection,
   })
 
-  const requestTabAddVisible = eb.optionalTabMenuVisible
-  const availableJumpTargets = useMemo(
-    () =>
-      getAvailableTargets(
-        draft.draft !== null,
-        expanded,
-        focusedFolder !== null,
-        view === "env-editor",
-        view === "settings",
-        view === "cookie-jar",
-        requestTabAddVisible,
-        folderEb.optionalTabMenuVisible,
-      ),
-    [
-      draft.draft,
-      expanded,
-      focusedFolder,
-      requestTabAddVisible,
-      folderEb.optionalTabMenuVisible,
-      view,
-    ],
-  )
-  useEffect(() => {
-    jumpTargetsRef.current = availableJumpTargets
-  }, [availableJumpTargets])
-
   // ── Save logic (provides saveState needed by keymap.setData below) ──
   const {
     saveState,
@@ -710,6 +687,57 @@ export function AppInner({
     collectionDir,
     envState.reloadActiveEnv,
   )
+
+  const requestTabAddVisible = eb.optionalTabMenuVisible
+  const availableJumpTargets = useMemo(
+    () =>
+      getAvailableTargets(
+        draft.draft !== null,
+        expanded,
+        focusedFolder !== null,
+        view === "env-editor",
+        view === "settings",
+        view === "cookie-jar",
+        requestTabAddVisible,
+        folderEb.optionalTabMenuVisible,
+        {
+          request: getVisibleRequestTabs(
+            draft.draft,
+            eb.activeTab,
+            eb.revealedOptionalTabs,
+          ),
+          folder: getVisibleFolderTabs(
+            folderDraft.folderDraft,
+            folderEb.activeTab,
+            folderEb.revealedOptionalTabs,
+          ),
+          console:
+            scriptConsoleEntries(
+              responseState.status === "done" ||
+                responseState.status === "error"
+                ? responseState.execution
+                : undefined,
+            ).length > 0,
+        },
+      ),
+    [
+      draft.draft,
+      eb.activeTab,
+      eb.revealedOptionalTabs,
+      folderDraft.folderDraft,
+      folderEb.activeTab,
+      folderEb.revealedOptionalTabs,
+      responseState,
+      expanded,
+      focusedFolder,
+      requestTabAddVisible,
+      folderEb.optionalTabMenuVisible,
+      view,
+    ],
+  )
+  useEffect(() => {
+    jumpTargetsRef.current = availableJumpTargets
+  }, [availableJumpTargets])
 
   const responseStateRef = useRef(responseState)
   responseStateRef.current = responseState

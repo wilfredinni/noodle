@@ -983,7 +983,7 @@ describe("getAvailableTargets", () => {
     expect(targets.get("v")).toEqual({ kind: "env-vars" })
   })
 
-  it("returns sidebar + urlbar + all request/response tabs when not expanded", () => {
+  it("returns sidebar + urlbar + visible request/response tabs when not expanded", () => {
     const targets = getAvailableTargets(true, null, false)
     expect(targets.has("s")).toBe(true)
     expect(targets.has("m")).toBe(true)
@@ -999,17 +999,61 @@ describe("getAvailableTargets", () => {
     expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
     expect(targets.has("k")).toBe(true)
-    expect(targets.has("v")).toBe(true)
-    expect(targets.get("v")).toEqual({
-      kind: "request-tab",
-      field: "assertions",
-    })
-    expect(targets.get("c")).toEqual({
-      kind: "request-tab",
-      field: "captures",
-    })
+    for (const key of ["v", "c", "d", "f", "j", "z"])
+      expect(targets.has(key)).toBe(false)
     expect(targets.has("i")).toBe(true)
-    expect(targets.size).toBe(17)
+    expect(targets.size).toBe(15)
+  })
+
+  it("includes every enabled optional tab with distinct jump keys", () => {
+    const targets = getAvailableTargets(
+      true,
+      null,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      {
+        request: ["assertions", "captures", "preScript", "postScript", "tests"],
+        console: true,
+      },
+    )
+    for (const [key, field] of [
+      ["v", "assertions"],
+      ["c", "captures"],
+      ["d", "preScript"],
+      ["f", "postScript"],
+      ["j", "tests"],
+    ] as const)
+      expect(targets.get(key)).toEqual({ kind: "request-tab", field })
+    expect(targets.get("z")).toEqual({ kind: "response-tab", tab: "console" })
+    expect(targets.get("o")).toEqual({ kind: "request-tab-add" })
+  })
+
+  it("includes enabled folder scripts while keeping request and response targets absent", () => {
+    const targets = getAvailableTargets(
+      true,
+      null,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      {
+        folder: ["meta", "preScript", "postScript", "tests", "activity"],
+        console: true,
+      },
+    )
+    expect([...targets.keys()]).toEqual(["s", "m", "d", "f", "j", "y", "o"])
+    for (const [key, field] of [
+      ["d", "preScript"],
+      ["f", "postScript"],
+      ["j", "tests"],
+    ] as const)
+      expect(targets.get(key)).toEqual({ kind: "folder-tab", field })
   })
 
   it("includes the optional-tab add target only while its control is visible", () => {

@@ -624,10 +624,13 @@ describe("request script references", () => {
     const details = h.renderer.root.findDescendantById(
       "script-order-details",
     ) as ScrollBoxRenderable
-    expect(details.scrollHeight).toBeGreaterThan(details.viewport.height)
+    expect(details.scrollHeight).toBeLessThanOrEqual(details.viewport.height)
     await h.press("end")
-    expect(await h.frame()).toContain("This request")
-    expect(await h.frame()).toContain("External file")
+    const compactFrame = await h.frame()
+    expect(compactFrame).toMatch(/This request +Exte.*file/)
+    expect(
+      h.renderer.root.findDescendantById("script-reference-1")!.height,
+    ).toBe(1)
     await h.press("home")
     expect(details.scrollTop).toBe(0)
     await h.press("escape")

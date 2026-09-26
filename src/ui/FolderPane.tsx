@@ -15,7 +15,11 @@ import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
-import { FOLDER_TAB_HINT_ORDER, REQUEST_TAB_ADD_HINT } from "./useJumpMode"
+import {
+  FOLDER_TAB_HINTS,
+  getVisibleFolderTabs,
+  REQUEST_TAB_ADD_HINT,
+} from "./useJumpMode"
 import { Select } from "./Select"
 import { JumpBadge } from "./JumpBadge"
 
@@ -125,13 +129,10 @@ export function FolderPane({
   )
 
   const { tabs, optionalTabMenuItems } = useMemo(() => {
-    const hiddenIds = new Set(
-      SCRIPT_TABS.filter(
-        (tab) =>
-          tab.id !== activeTab &&
-          !revealedOptionalTabs?.includes(tab.id) &&
-          !scriptText(folder ?? {}, tab.phase),
-      ).map((tab) => tab.id),
+    const visibleTabs = getVisibleFolderTabs(
+      folder,
+      activeTab,
+      revealedOptionalTabs,
     )
     const hasHeaders = Object.values(folder?.overrides?.headers ?? {}).some(
       (e) => e.enabled,
@@ -143,26 +144,26 @@ export function FolderPane({
       { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
-      ...SCRIPT_TABS.filter((tab) => !hiddenIds.has(tab.id)).map((tab) => ({
-        ...tab,
-        label: scriptText(folder ?? {}, tab.phase).trim()
-          ? `${tab.label} \u2022`
-          : tab.label,
-      })),
+      ...SCRIPT_TABS.filter((tab) => visibleTabs.includes(tab.id)).map(
+        (tab) => ({
+          ...tab,
+          label: scriptText(folder ?? {}, tab.phase).trim()
+            ? `${tab.label} \u2022`
+            : tab.label,
+        }),
+      ),
       { id: "activity", label: "Activity" },
     ].map((tab) => ({
       ...tab,
       jumpHint: jumpMode
-        ? FOLDER_TAB_HINT_ORDER[
-            ["meta", "headers", "auth", "activity"].indexOf(tab.id)
-          ]
+        ? FOLDER_TAB_HINTS[tab.id as FolderFieldKind]
         : undefined,
     }))
     return {
       tabs,
       optionalTabMenuItems: SCRIPT_TABS.map((tab) => ({
         ...tab,
-        disabled: !hiddenIds.has(tab.id),
+        disabled: visibleTabs.includes(tab.id),
       })),
     }
   }, [folder, activeTab, jumpMode, revealedOptionalTabs])

@@ -2,8 +2,8 @@ import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { useTerminalDimensions } from "@opentui/react"
 import { useEffect, useRef } from "react"
+import { stringWidth } from "bun"
 import type { ScriptPhase } from "../../preRequestScript"
-import { FullBorder } from "../borders"
 import { useTheme } from "../theme"
 import { EscapeClose } from "./EscapeClose"
 import { Overlay } from "./Overlay"
@@ -24,7 +24,21 @@ export function ScriptOrderOverlay({
   const keymap = useKeymap()
   const { width, height } = useTerminalDimensions()
   const scroll = useRef<ScrollBoxRenderable | null>(null)
-  const narrow = width < 60
+  const inset = width < 60 ? 0 : 4
+  const description =
+    order.phase === "pre"
+      ? "Scripts run in this order before sending the request."
+      : order.phase === "post"
+        ? "Scripts run in this order after the response and captures."
+        : "Tests run in this order after declarative assertions."
+  const numberWidth = String(order.entries.length).length + 2
+  const contentWidth = Math.max(
+    stringWidth(description),
+    ...order.entries.map(
+      ({ label, detail }) =>
+        numberWidth + stringWidth(label) + 2 + stringWidth(detail),
+    ),
+  )
 
   useEffect(
     () =>
@@ -67,85 +81,76 @@ export function ScriptOrderOverlay({
   return (
     <Overlay
       visible
-      width={Math.min(80, width)}
-      height={Math.min(height, 24, order.entries.length * (narrow ? 3 : 1) + 8)}
+      width={Math.min(width, Math.max(60, contentWidth + 3 + inset * 2))}
+      height={Math.min(height, order.entries.length + 6)}
+      padding={width <= 10 ? 0 : 1}
+      gap={1}
       onClose={onClose}
     >
       <box
-        border={[...FullBorder.border]}
-        customBorderChars={FullBorder.customBorderChars}
-        borderColor={theme.primary}
-        flexDirection="column"
+        flexDirection="row"
+        justifyContent="space-between"
+        flexShrink={0}
+        paddingLeft={inset}
+        paddingRight={inset}
+      >
+        <text fg={theme.text} minWidth={0} wrapMode="none" truncate>
+          {width < 25 ? "Order" : "Execution order"}
+        </text>
+        <EscapeClose onClose={onClose} />
+      </box>
+      <scrollbox
+        id="script-order-details"
+        ref={scroll}
+        focused
+        scrollY
         flexGrow={1}
         minHeight={0}
-        padding={width < 20 ? 0 : 1}
-        gap={1}
+        contentOptions={{ paddingLeft: inset, paddingRight: inset }}
+        horizontalScrollbarOptions={{ visible: false }}
+        verticalScrollbarOptions={{
+          trackOptions: {
+            backgroundColor: theme.backgroundPanel,
+            foregroundColor: theme.borderActive,
+          },
+        }}
       >
-        <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
-          <text fg={theme.primary}>
-            {width < 25 ? "Order" : "Execution order"}
-          </text>
-          <EscapeClose onClose={onClose} />
-        </box>
-        <scrollbox
-          id="script-order-details"
-          ref={scroll}
-          focused
-          scrollY
-          flexGrow={1}
-          minHeight={0}
-          horizontalScrollbarOptions={{ visible: false }}
-          verticalScrollbarOptions={{
-            trackOptions: {
-              backgroundColor: theme.backgroundPanel,
-              foregroundColor: theme.primary,
-            },
-          }}
-        >
-          <text fg={theme.textMuted} marginBottom={1} wrapMode="word">
-            {order.phase === "pre"
-              ? "Scripts run in this order before sending the request."
-              : order.phase === "post"
-                ? "Scripts run in this order after the response and captures."
-                : "Tests run in this order after declarative assertions."}
-          </text>
-          {order.entries.map((entry, index) => (
-            <box
-              id={`script-reference-${index}`}
-              key={index}
-              flexDirection="row"
+        <text fg={theme.textMuted} marginBottom={1} wrapMode="none" truncate>
+          {description}
+        </text>
+        {order.entries.map((entry, index) => (
+          <box
+            id={`script-reference-${index}`}
+            key={index}
+            flexDirection="row"
+            flexShrink={0}
+            height={1}
+            overflow="hidden"
+          >
+            <text
+              fg={entry.current ? theme.primary : theme.textMuted}
+              width={numberWidth}
               flexShrink={0}
-              marginBottom={narrow ? 1 : 0}
             >
+              {index + 1}
+            </text>
+            <box flexDirection="row" flexGrow={1} minWidth={0} gap={2}>
               <text
-                fg={entry.current ? theme.primary : theme.textMuted}
-                width={String(order.entries.length).length + 2}
-                flexShrink={0}
-              >
-                {index + 1}
-              </text>
-              <box
-                flexDirection={narrow ? "column" : "row"}
+                fg={entry.current ? theme.primary : theme.text}
                 flexGrow={1}
                 minWidth={0}
-                gap={narrow ? 0 : 2}
+                wrapMode="none"
+                truncate
               >
-                <text
-                  fg={entry.current ? theme.primary : theme.text}
-                  width={narrow ? "100%" : "42%"}
-                  flexShrink={0}
-                  wrapMode="char"
-                >
-                  {entry.label}
-                </text>
-                <text fg={theme.textMuted} flexGrow={1} wrapMode="char">
-                  {entry.detail}
-                </text>
-              </box>
+                {entry.label}
+              </text>
+              <text fg={theme.textMuted} minWidth={6} wrapMode="none" truncate>
+                {entry.detail}
+              </text>
             </box>
-          ))}
-        </scrollbox>
-      </box>
+          </box>
+        ))}
+      </scrollbox>
     </Overlay>
   )
 }
