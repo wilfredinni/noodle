@@ -1,4 +1,5 @@
 import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
+import { createScriptDiagnostics } from "./editor/scriptDiagnostics"
 import { ConsoleCopyContext } from "./ScriptConsole"
 import {
   ScriptAuthoringContext,
@@ -289,6 +290,8 @@ export function AppInner({
 }) {
   const [activeScriptSource, setActiveScriptSource] =
     useState<ActiveScriptSource | null>(null)
+  const [scriptDiagnostics] = useState(createScriptDiagnostics)
+  useEffect(() => () => scriptDiagnostics.dispose(), [scriptDiagnostics])
   const [activeScriptOrder, setActiveScriptOrder] =
     useState<ScriptOrder | null>(null)
   const consoleCopyRef = useRef<(() => boolean) | null>(null)
@@ -2158,6 +2161,7 @@ export function AppInner({
         value={{
           collectionDir,
           collection,
+          diagnostics: scriptDiagnostics,
           overlayActive,
           setActive: setActiveScriptSource,
           setActiveOrder: setActiveScriptOrder,

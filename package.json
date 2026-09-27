@@ -10,14 +10,14 @@
   "scripts": {
     "dev": "bun --watch src/app/cli.ts",
     "test": "bun test",
-    "build:bin": "bun scripts/build-schema-validator.ts --check && bun build --compile src/app/cli.ts --outfile noodle && bun scripts/sign-macos-binary.ts ./noodle && bun scripts/compiled-script-smoke.ts",
+    "build:bin": "bun scripts/build-schema-validator.ts --check && bun scripts/build-script-type-libraries.ts --check && bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle && bun scripts/sign-macos-binary.ts ./noodle && bun scripts/compiled-script-smoke.ts",
     "release:context": "bun scripts/release-context.ts",
     "release:check": "bun scripts/release-check.ts",
     "prepare": "husky",
     "audit": "bun audit",
     "lint": "oxlint .",
     "format": "oxfmt ./src ./tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "@faker-js/faker": "10.6.0",
@@ -40,7 +40,8 @@
     "quickjs-emscripten-core": "0.32.0",
     "react": "^19.3.0",
     "sax": "1.6.1",
-    "tough-cookie": "^6.0.2"
+    "tough-cookie": "^6.0.2",
+    "typescript-js": "npm:typescript@6.0.3"
   },
   "devDependencies": {
     "@types/aws4": "^1.11.6",

@@ -51,10 +51,11 @@ jobs:
       - run: bun scripts/build-response-file-native.ts --check
       - run: bun install --frozen-lockfile
       - run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
+      - run: bun scripts/build-script-type-libraries.ts --check && bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
       - name: Test shipped addon inside standalone executable
         run: |
           set -euo pipefail
-          bun build --compile src/app/cli.ts --outfile noodle-response-smoke
+          bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle-response-smoke
           bun scripts/sign-macos-binary.ts ./noodle-response-smoke
           bun scripts/compiled-script-smoke.ts ./noodle-response-smoke
           expected="$(bun -e 'console.log((await Bun.file("package.json").json()).version)')"

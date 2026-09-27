@@ -507,7 +507,23 @@ export const SCRIPT_API_CONTRACT: readonly ScriptApiDescriptor[] =
             ? "Matchers"
             : member === "toHaveProperty"
               ? "toHaveProperty(key: string, expected?: unknown): void"
-              : `${member}(expected?: unknown): void`,
+              : member === "toHaveLength" ||
+                  [
+                    "toBeGreaterThan",
+                    "toBeGreaterThanOrEqual",
+                    "toBeLessThan",
+                    "toBeLessThanOrEqual",
+                  ].includes(member)
+                ? `${member}(expected: number): void`
+                : member === "toMatch"
+                  ? "toMatch(expected: string | RegExp): void"
+                  : member === "toBeTypeOf"
+                    ? 'toBeTypeOf(expected: "undefined" | "object" | "boolean" | "number" | "bigint" | "string" | "symbol" | "function"): void'
+                    : member === "toMatchObject"
+                      ? "toMatchObject(expected: Record<string, JsonValue>): void"
+                      : member === "toMatchSchema"
+                        ? "toMatchSchema(expected: boolean | Record<string, JsonValue>): void"
+                        : `${member}(expected?: unknown): void`,
         description:
           member === "not"
             ? "Negate the matcher."

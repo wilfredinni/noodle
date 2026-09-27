@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { tmpdir } from "node:os"
 import { act, useState } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { BoxRenderable, InputRenderable } from "@opentui/core"
@@ -17,7 +20,9 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../../src/ui/editor/CodeEditor"
 
-import type { ScriptSource } from "../../src/preRequestScript"
+import type { ScriptPhase, ScriptSource } from "../../src/preRequestScript"
+import type { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
+import type { ScriptDiagnostics } from "../../src/ui/editor/scriptSemanticChecker"
 
 const testRender = createTestRender()
 
@@ -26,6 +31,11 @@ async function mountEditor(
   width = 90,
   initiallyEditing = true,
   source: ScriptSource = { scope: "request", scopeId: "a", path: "a.yml" },
+  options: {
+    phase?: ScriptPhase
+    collectionDir?: string
+    diagnostics?: ReturnType<typeof createScriptDiagnostics>
+  } = {},
 ) {
   const { keymap, host } = setupKeymap()
   let complete = Promise.withResolvers<void>()
@@ -37,8 +47,10 @@ async function mountEditor(
   let change!: (text: string) => void
   let edit!: (value: boolean) => void
   let focus!: (value: boolean) => void
+  let changePhase!: (value: ScriptPhase) => void
   const context = {
-    collectionDir: "/tmp",
+    collectionDir: options.collectionDir ?? "/tmp",
+    diagnostics: options.diagnostics,
     collection: null,
     confirm: (action: () => void) => {
       confirm = action
@@ -54,6 +66,8 @@ async function mountEditor(
     const [text, setText] = useState(initial)
     const [isEditing, setEditing] = useState(initiallyEditing)
     const [focused, setFocused] = useState(true)
+    const [phase, setPhase] = useState<ScriptPhase>(options.phase ?? "pre")
+    changePhase = setPhase
     change = setText
     edit = setEditing
     focus = setFocused
@@ -64,7 +78,7 @@ async function mountEditor(
         <VariableCompletionInterceptor />
         <ScriptEditor
           value={text}
-          phase="pre"
+          phase={phase}
           source={source}
           focused={focused}
           editing={isEditing}
@@ -118,6 +132,15 @@ async function mountEditor(
       await act(async () => change(text))
       await settle()
     },
+    startReplace: async (text: string) => {
+      complete = Promise.withResolvers<void>()
+      await act(async () => change(text))
+    },
+    phase: async (next: ScriptPhase) => {
+      complete = Promise.withResolvers<void>()
+      await act(async () => changePhase(next))
+      await settle()
+    },
     browse: async () => {
       await act(async () => edit(false))
       await act(async () => {
@@ -137,6 +160,101 @@ async function mountEditor(
 }
 
 describe("ScriptEditor", () => {
+  it("shows compact advisory diagnostics and removes them after correction", async () => {
+    const h = await mountEditor("missing; another", 40)
+    expect(h.captureCharFrame()).toContain("JavaScript at 1:1 (+1 more)")
+    expect(h.editor().focused).toBe(true)
+    await h.replace('console.log("valid")')
+    expect(h.captureCharFrame()).not.toContain("JavaScript at")
+    await h.replace("const broken = ;")
+    expect(h.captureCharFrame()).toContain("SyntaxError")
+    expect(h.captureCharFrame()).not.toContain("JavaScript at")
+  })
+
+  it("rechecks the same text when the script phase changes", async () => {
+    const h = await mountEditor("noodle.response.status")
+    expect(h.captureCharFrame()).toContain("JavaScript at")
+    await h.phase("post")
+    expect(h.captureCharFrame()).not.toContain("JavaScript at")
+    await h.replace('noodle.request.url = "https://example.com"')
+    expect(h.captureCharFrame()).toContain("read-only")
+    await h.phase("pre")
+    expect(h.captureCharFrame()).not.toContain("JavaScript at")
+  })
+
+  it("discards old semantic replies after a newer edit and preserves syntax errors", async () => {
+    const requests: {
+      resolve: (result: ScriptDiagnostics) => void
+      signal?: AbortSignal
+    }[] = []
+    const diagnostics = {
+      check: (source: string, _phase: ScriptPhase, signal?: AbortSignal) =>
+        source.includes('"initial"')
+          ? Promise.resolve({ count: 0 })
+          : new Promise<ScriptDiagnostics>((resolve) =>
+              requests.push({ resolve, signal }),
+            ),
+      dispose() {},
+    }
+    const h = await mountEditor('console.log("initial")', 90, true, undefined, {
+      diagnostics,
+    })
+    await h.startReplace("oldValue")
+    await h.waitFor(() => requests.length === 1)
+    await h.startReplace("newValue")
+    await h.waitFor(() => requests.length === 2)
+    expect(requests[0]!.signal?.aborted).toBe(true)
+    await act(async () => requests[1]!.resolve({ count: 0 }))
+    await h.settle()
+    await act(async () =>
+      requests[0]!.resolve({
+        count: 1,
+        first: { code: 1, message: "stale diagnostic", line: 1, column: 1 },
+      }),
+    )
+    expect(h.captureCharFrame()).not.toContain("stale diagnostic")
+    await h.startReplace("anotherValue")
+    await h.waitFor(() => requests.length === 3)
+    await h.replace("const broken = ;")
+    await act(async () => requests[2]!.resolve({ count: 0 }))
+    expect(h.captureCharFrame()).toContain("SyntaxError")
+  })
+
+  it("shows worker unavailability while retaining syntax validation", async () => {
+    const diagnostics = {
+      check: () => Promise.reject(new Error("Semantic validation unavailable")),
+      dispose() {},
+    }
+    const h = await mountEditor("valid()", 90, true, undefined, { diagnostics })
+    expect(h.captureCharFrame()).toContain("Semantic validation unavailable")
+    await h.replace("const broken = ;")
+    expect(h.captureCharFrame()).toContain("SyntaxError")
+    expect(h.captureCharFrame()).not.toContain(
+      "Semantic validation unavailable",
+    )
+  })
+
+  it("refreshes external-file diagnostics when focus returns", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-editor-diagnostics-"))
+    try {
+      await writeFile(join(dir, "script.js"), "missingValue")
+      const h = await mountEditor("./script.js", 90, true, undefined, {
+        collectionDir: dir,
+      })
+      expect(h.captureCharFrame()).toContain("JavaScript at 1:1")
+      h.beginDiagnostics()
+      await h.focus(false)
+      await h.settle()
+      await writeFile(join(dir, "script.js"), 'console.log("fixed")')
+      h.beginDiagnostics()
+      await h.focus(true)
+      await h.settle()
+      expect(h.captureCharFrame()).not.toContain("JavaScript at")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it.each([
     { scope: "request", scopeId: "a", path: "a.yml" },
     { scope: "folder", scopeId: "users", path: "users/folder.yml" },

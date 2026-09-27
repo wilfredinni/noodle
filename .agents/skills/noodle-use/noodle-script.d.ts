@@ -49,25 +49,25 @@ toBeNull(expected?: unknown): void;
 /** Synchronous value assertion. @phases tests */
 toContain(expected?: unknown): void;
 /** Synchronous value assertion. @phases tests */
-toMatch(expected?: unknown): void;
+toMatch(expected: string | RegExp): void;
 /** Synchronous value assertion. @phases tests */
-toBeGreaterThan(expected?: unknown): void;
+toBeGreaterThan(expected: number): void;
 /** Synchronous value assertion. @phases tests */
-toBeGreaterThanOrEqual(expected?: unknown): void;
+toBeGreaterThanOrEqual(expected: number): void;
 /** Synchronous value assertion. @phases tests */
-toBeLessThan(expected?: unknown): void;
+toBeLessThan(expected: number): void;
 /** Synchronous value assertion. @phases tests */
-toBeLessThanOrEqual(expected?: unknown): void;
+toBeLessThanOrEqual(expected: number): void;
 /** Synchronous value assertion. @phases tests */
-toMatchSchema(expected?: unknown): void;
+toMatchSchema(expected: boolean | Record<string, JsonValue>): void;
 /** Synchronous value assertion. @phases tests */
 toHaveProperty(key: string, expected?: unknown): void;
 /** Synchronous value assertion. @phases tests */
-toHaveLength(expected?: unknown): void;
+toHaveLength(expected: number): void;
 /** Synchronous value assertion. @phases tests */
-toBeTypeOf(expected?: unknown): void;
+toBeTypeOf(expected: "undefined" | "object" | "boolean" | "number" | "bigint" | "string" | "symbol" | "function"): void;
 /** Synchronous value assertion. @phases tests */
-toMatchObject(expected?: unknown): void;
+toMatchObject(expected: Record<string, JsonValue>): void;
 }
 interface Api {
 /** Read-only original dataset row and iteration position. @phases pre, post, tests */

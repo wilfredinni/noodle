@@ -23,6 +23,7 @@ import { Select } from "../Select"
 import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
 import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
+import { createScriptDiagnostics } from "./scriptDiagnostics"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
 export type ScriptActions = {
@@ -33,6 +34,7 @@ export const ScriptAuthoringContext = createContext<{
   collectionDir: string
   collection: Collection | null
   overlayActive?: boolean
+  diagnostics?: ReturnType<typeof createScriptDiagnostics>
   confirm: (action: () => void) => void
   setActive: (source: ActiveScriptSource | null) => void
   setActiveOrder?: (order: ScriptOrder | null) => void
@@ -148,6 +150,9 @@ export function ScriptEditor({
   const theme = useTheme()
   const keymap = useKeymap()
   const context = useContext(ScriptAuthoringContext)
+  const [localDiagnostics] = useState(createScriptDiagnostics)
+  const diagnostics = context?.diagnostics ?? localDiagnostics
+  useEffect(() => () => localDiagnostics.dispose(), [localDiagnostics])
   const overlayActive = context?.overlayActive ?? false
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
   const [selectedKind, setKind] = useState(
@@ -159,7 +164,9 @@ export function ScriptEditor({
         ? "external"
         : "inline"
       : selectedKind
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ title?: string; detail: string } | null>(
+    null,
+  )
   const [selectOpen, setSelectOpen] = useState(false)
   const [control, setControl] = useState(0)
   const diagnosticsRef = useRef(onDiagnostics)
@@ -175,6 +182,7 @@ export function ScriptEditor({
 
   useEffect(() => {
     let current = true
+    const controller = new AbortController()
     setError(null)
     const timer = setTimeout(() => {
       void (async () => {
@@ -185,20 +193,38 @@ export function ScriptEditor({
           context?.collectionDir,
         ).resolve(value, sourceRef.current)
         const diagnostic = await validateScriptSyntax(resolved.text)
-        if (current)
+        if (!current) return
+        if (diagnostic) {
+          setError({
+            detail: `${diagnostic.name} at ${diagnostic.line ?? 1}:${diagnostic.column ?? 1}: ${diagnostic.message}`,
+          })
+          return
+        }
+        const result = await diagnostics.check(
+          resolved.text,
+          phase,
+          controller.signal,
+        )
+        if (current) {
+          const first = result.first
           setError(
-            diagnostic
-              ? `${diagnostic.name} at ${diagnostic.line ?? 1}:${diagnostic.column ?? 1}: ${diagnostic.message}`
+            first
+              ? {
+                  title: `JavaScript at ${first.line}:${first.column}${result.count > 1 ? ` (+${result.count - 1} more)` : ""}`,
+                  detail: first.message,
+                }
               : null,
           )
+        }
       })()
         .catch((reason: unknown) => {
           if (current)
-            setError(
-              reason instanceof Error
-                ? reason.message
-                : "Unable to validate script",
-            )
+            setError({
+              detail:
+                reason instanceof Error
+                  ? reason.message
+                  : "Unable to validate script",
+            })
         })
         .finally(() => {
           if (current) {
@@ -208,10 +234,13 @@ export function ScriptEditor({
     }, diagnosticDelayMs)
     return () => {
       current = false
+      controller.abort()
       clearTimeout(timer)
     }
   }, [
     value,
+    phase,
+    diagnostics,
     kind,
     sourceKey,
     context?.collectionDir,
@@ -504,7 +533,7 @@ export function ScriptEditor({
           </ScriptDescription>
         </box>
       )}
-      {error && <ValidationNotice detail={error} />}
+      {error && <ValidationNotice {...error} />}
     </box>
   )
 }

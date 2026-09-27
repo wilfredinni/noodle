@@ -50,6 +50,29 @@ function completions(value: string, phase: "pre" | "post" | "tests" = "pre") {
 }
 
 describe("script authoring contract", () => {
+  it("keeps semantic mistakes advisory for TUI preflight and ordinary execution", async () => {
+    const send = spyOn(executor, "send").mockResolvedValue({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "{}",
+      timeMs: 1,
+    })
+    try {
+      for (const syntaxPreflight of [true, false]) {
+        const result = await executeRequestLifecycle({
+          request: withScript(request, "pre", "if (false) unknownVariable()"),
+          runScope: new RunScope(),
+          scriptSources: createScriptSourceResolver(undefined, syntaxPreflight),
+        })
+        expect(result.status).toBe("done")
+      }
+      expect(send).toHaveBeenCalledTimes(2)
+    } finally {
+      send.mockRestore()
+    }
+  })
+
   it("serializes all phases through request YAML and removes empty declarations", () => {
     let draft = withScript(request, "pre", 'console.info("before")\n')
     draft = withScript(draft, "post", "./scripts/after.js")
