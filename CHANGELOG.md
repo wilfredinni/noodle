@@ -4,6 +4,44 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-09-27
+
+Noodle 0.9.5 brings script and test authoring into the terminal with dedicated editors, phase-aware completion, diagnostics, folding, and formatting. A Console tab makes logs easier to read, while execution-order inspection and external-file shortcuts connect request, folder, and collection scripts.
+
+![Noodle showing the Tests editor and eleven passing scripted tests in Results](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/test-results.png)
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-5-script-editors-and-console/)
+
+### ✨ Features
+
+- Edit Pre Script, Post Script, and Tests in request and folder tabs, revealing empty tabs from the existing `+` menu. Collection Settings adds the same three editors, with drafts saved when leaving the editor. Inline JavaScript shares syntax highlighting, line numbers, scrolling, undo/redo, and code folding with the existing code editor.
+- Complete phase-appropriate `noodle.*` APIs, JavaScript built-ins, local symbols, environment keys, and saved request IDs, with method descriptions and parameter help. Use `Ctrl+Space` to request assistance explicitly. Syntax and advisory semantic diagnostics identify source positions without executing the script; TUI Send and Runner check applicable sources for syntax errors before HTTP, while CLI execution semantics stay unchanged.
+- Format inline JavaScript and JSON request bodies with `Ctrl+Alt+F` or the Format Code command. Optional global Format on save applies to request, folder, and collection saves, preserving JSON number tokens and unevaluated body templates while leaving external files, XML, and invalid source unchanged.
+- Select collection-relative external JavaScript files with `.js` path completion and open a validated file in the configured editor with `Ctrl+Alt+X`. Switching a non-empty source between inline and external modes asks before discarding it.
+- Inspect the active request script phase's inherited execution order with `Ctrl+Alt+R`. Jump mode adds `d`, `f`, and `j` for visible Pre Script, Post Script, and Tests tabs, and `z` for the response Console when logs are available.
+- Read bounded, redacted script and test logs in Console with phase, level, and timing relative to request execution, and copy them through the command palette. Runner and timeline details share the log view; Results retains outcomes and source diagnostics, and history keeps its existing limits.
+- Ship generated `noodle-script.d.ts` declarations with the installed agent skill for external JavaScript editor assistance, including phase-specific interfaces derived from the runtime API contract.
+
+### 🐞 Fixes
+
+- Preserve collection script drafts across delayed or failed saves, editor unmounts, and collection switches, saving each draft to its original collection.
+- Apply format-on-save edits to the visible editor only after persistence succeeds, retaining newer edits and retryable drafts. Formatting service failures warn and allow unformatted source to save.
+- Keep script source selection, editor focus, buffered tab navigation, optional-tab menus, and jump targets consistent, and keep the active tab visible after content or viewport changes.
+- Preserve syntax colors while highlights refresh and keep JavaScript folds, cursor movement, selections, and completion dismissal stable during editing.
+- Keep the editor usable when JavaScript folding exceeds its size or parser limits, and isolate timed-out diagnostics so later editing can recover.
+
+### 🔧 Refactors
+
+- Reuse the shared code editor, API contract, source resolver, execution results, and save paths for script authoring. Bundle the diagnostics worker and QuickJS-compatible type libraries in standalone builds, with integration coverage in CI and release builds.
+- Update OpenTUI to 0.5.12 and refresh formatting and staged-file tooling.
+
+### 📚 Documentation
+
+- Update `noodle-use` with generated script types, TUI authoring, Console behavior, formatting preferences, and script shortcuts; remove stale claims that editors and Console are unavailable.
+- Update `noodle-dev` with script editor ownership, optional tabs, diagnostics and completion, formatting and save behavior, external-editor validation, and regression coverage.
+- Refresh `opentui` references for text alignment, PCM audio streaming, and native Windows arm64 runtime requirements alongside the dependency update.
+- Synchronize the README, agent instructions, in-app tips, scripting and editor guides, settings and shortcut references, and the release article.
+
 ## [0.9.4] - 2026-09-24
 
 Noodle 0.9.4 adds reusable JavaScript files and random and time placeholders for request bodies, with searchable completion menus to help author them. Post-response scripts now run from the request outward to the collection, while clearer import warnings, source diagnostics, and notification details make problems easier to inspect.

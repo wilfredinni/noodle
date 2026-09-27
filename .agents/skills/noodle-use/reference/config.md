@@ -11,6 +11,7 @@ selection, and global proxy policy:
 theme: noodle
 layout: stacked
 confirm_undo_all: true
+format_on_save: false
 external_editor: vscode
 collections:
   - /Users/me/Projects/noodle-api
@@ -28,8 +29,9 @@ All fields are optional; missing fields use defaults.
 |-------|------|---------|-------------|
 | `theme` | string | `"noodle"` | TUI theme name. Controls colors and styling. Noodle does NOT validate this value; an unrecognized name falls back to the Noodle theme. Known theme names: `opencode`, `catppuccin`, `dracula`, `nord`, `tokyonight`, `gruvbox`, `ayu`, `monokai`, `solarized`, `onedark`, `aura`, `everforest`, `kanagawa`, `rosepine`, `material`, `carbonfox`, `synthwave84`, `system`, `catppuccin-frappe`, `catppuccin-macchiato`, `claude-code`, `cobalt2`, `cursor`, `flexoki`, `github`, `matrix`, `mercury`, `nightowl`, `noodle`, `orng`, `osaka-jade`, `palenight`, `vercel`, `vesper`, `zenburn`. The `system` theme follows the current terminal palette and falls back to Noodle colors when palette detection is unavailable. |
 | `layout` | `"stacked"` \| `"side-by-side"` | `"stacked"` | Pane arrangement. `stacked` = vertical (sidebar top, request middle, response bottom). `side-by-side` = horizontal split. Invalid values fall back to `"stacked"`. |
-| `confirm_undo_all` | boolean | `true` | Whether `Ctrl+R` (revert all request fields) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
-| `external_editor` | string | first detected editor | Preferred editor for opening the active collection or Noodle settings. Valid values: `zed`, `vscode`, `sublime`, `cursor`, `windsurf`, `vscodium`. Invalid values are ignored. |
+| `confirm_undo_all` | boolean | `true` | Whether `Ctrl+Z` (undo all unsaved request and folder changes outside an editor) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
+| `format_on_save` | boolean | `false` | Format inline scripts/tests and JSON bodies through TUI request, folder, and collection saves. Preserve external files, XML, invalid source, and unevaluated body templates. |
+| `external_editor` | string | first detected editor | Preferred editor for opening the active collection, Noodle settings, or validated external scripts. Valid values: `zed`, `vscode`, `sublime`, `cursor`, `windsurf`, `vscodium`. Invalid values are ignored. |
 | `collections` | string[] | `[]` | List of absolute paths to noodle collections. These appear in the workspace selector. Paths are resolved and normalized on load/save (duplicates and empty strings removed). Noodle prepends the current collection to this list when switching directories. TUI startup selects the first registered path that is still a directory, then falls back to the current working directory. |
 | `proxy` | object | system proxy | Optional global policy: `system`, `off`, or `custom`. A custom policy needs a credential-free `http` or `https` URL, may include a string-array `bypass` list, and persists `auth: true` when OS-vault authentication is enabled. Configure credentials in Settings; URLs containing credentials or variables are invalid. |
 
@@ -50,6 +52,10 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 
 | ID | Default | Description | Fixed |
 |----|---------|-------------|-------|
+| `script_complete` | `Ctrl+Space` | Script completion / parameter help | no |
+| `script_open_external` | `Ctrl+Alt+X` | Open a validated external script | no |
+| `script_execution_order` | `Ctrl+Alt+R` | Inspect the active request script phase | no |
+| `editor_format` | `Ctrl+Alt+F` | Format inline JavaScript or JSON request body | no |
 | `request_send` | `Ctrl+Return` | Send request | yes |
 | `request_save` | `Ctrl+S` | Save request to disk | no |
 | `env_cycle` | `Ctrl+U` | Cycle active environment | no |

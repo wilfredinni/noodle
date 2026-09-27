@@ -213,3 +213,19 @@ Preview, validation, and completion must not generate random data or read the
 current clock. Render completion changes with `Autocomplete.test.tsx` and the
 affected input/editor suites; notification changes use `Toast.test.tsx` and
 `NotificationOverlay.test.tsx` for focus, keyboard scrolling, resize, and reopen.
+
+## Script authoring and formatting
+
+Use `ScriptEditor.test.tsx`, `RequestScriptTab.test.tsx`, and `scriptWorkspace.test.tsx`
+for rendered focus, optional tabs, source switching, save ownership, and TUI-only
+syntax preflight. `scriptAssistance.test.ts`, `scriptSemanticChecker.test.ts`, and
+`scriptDiagnostics.test.ts` cover phase-aware APIs, locals, parameter help, worker
+cancellation, and recovery without script execution. Await `refreshHighlights()`
+for Tree-sitter output and the actual operation inside `act()` for UI changes.
+
+`codeFormatting.test.ts` and `codeFormattingSave.test.tsx` cover numeric/template
+preservation, failed persistence, newer drafts, and formatting-service failures.
+Keep `ScriptConsole.test.tsx` and `ScriptOrderOverlay.test.tsx` aligned with current
+log and source views. `scriptParserBundle.test.ts` and
+`scriptDiagnosticsBundle.test.ts` verify standalone parser/worker assets. Run
+changed asynchronous suites with `--rerun-each=10` before the full release check.

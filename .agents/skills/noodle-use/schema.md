@@ -188,8 +188,7 @@ Human output shows counts and concise failures. JSON includes structured results
 and redacted logs. The existing TUI Results view shows expandable scripted tests
 and logs in manual sends and Runner details. Manual history retains bounded,
 redacted outcome summaries and logs with the existing 10,000-byte diagnostic
-text and per-log-array limits; it excludes source code and runtime values. There is no test
-editor, autocomplete, dedicated Console panel, or importer conversion.
+text and per-log-array limits; it excludes source code and runtime values. TUI Tests editors provide completion and diagnostics at request, folder, and collection scope; Console displays redacted logs. Foreign script importer conversion remains unavailable.
 
 ### External JavaScript sources
 
@@ -604,8 +603,7 @@ IDs and passwords are seeded alphanumeric test data, without cryptographic
 security or guaranteed uniqueness. Passwords are registered as known secrets
 immediately, even if a later operation fails; ordinary generated data stays
 visible by default. Faker remains on the host; the guest receives only frozen
-methods and bounded JSON results. JSON placeholders, locale selection and image
-category options are deferred.
+methods and bounded JSON results. Body placeholders reuse the same methods; locale selection and image category options remain unavailable.
 
 The sandbox uses a fresh QuickJS runtime and context for each script with these
 fixed limits:
@@ -648,8 +646,8 @@ execution; persistence failures also fail the overall request. Preparation
 failures before script execution use `evaluated: false`; requests without a
 script omit the group. Human run output distinguishes Pre-script/Post-script
 and never prints logs. TUI Results shows Pre-request/Post-response outcomes and
-phase-specific error locations; Console browses current redacted logs by level,
-with scope, phase, relative timing and copying. Request `+` tabs, folder tabs and
+phase-specific error locations; Console displays current redacted logs with
+phase, level, relative timing and copying. Request `+` tabs, folder tabs and
 Collection Settings > Scripts provide inline and external-file editors for all
 three phases. Completion and the public [noodle-script.d.ts](noodle-script.d.ts)
 are generated from the runtime API contract. TUI Send and Runner check syntax
