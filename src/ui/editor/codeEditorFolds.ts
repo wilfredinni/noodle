@@ -31,6 +31,8 @@ export function computeFoldRanges(
     computeYamlFoldRanges(content, folds, previousFolds)
   } else if (filetype === "xml") {
     computeXmlFoldRanges(content, folds, previousFolds)
+  } else if (filetype === "javascript" && content) {
+    computeJavascriptFoldRanges(content, folds, previousFolds)
   }
 
   return folds
@@ -152,6 +154,84 @@ function computeJsonFoldRanges(
     }
     lineOffset += line.length + 1
   }
+}
+
+function computeJavascriptFoldRanges(
+  content: string,
+  folds: Map<number, FoldInfo>,
+  previousFolds: ReadonlyMap<number, FoldInfo>,
+): void {
+  // Load the existing parser only for non-empty JavaScript editors.
+  const ts: typeof import("typescript-js") = require("typescript-js")
+  const source = ts.createSourceFile(
+    "script.js",
+    content,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.JS,
+  )
+  const lines = content.split("\n")
+  const addFold = (startOffset: number, endOffset: number, closing: string) => {
+    const startLine = source.getLineAndCharacterOfPosition(startOffset).line
+    const endLine = source.getLineAndCharacterOfPosition(endOffset).line
+    if (startLine >= endLine) return
+    folds.set(startLine, {
+      startLine,
+      endLine,
+      startOffset,
+      endOffset,
+      summary: `${lines[startLine]!.trim().slice(0, 40)}...${closing} (${endLine - startLine} lines)`,
+      folded: previousFolds.get(startLine)?.folded ?? false,
+    })
+  }
+  const comment = (
+    start: number,
+    end: number,
+    kind: import("typescript-js").CommentKind,
+  ) => {
+    if (
+      kind === ts.SyntaxKind.MultiLineCommentTrivia &&
+      content.slice(end - 2, end) === "*/"
+    )
+      addFold(start, end - 1, "*/")
+  }
+  const visit = (node: import("typescript-js").Node) => {
+    ts.forEachChild(node, visit)
+    const newline = content.indexOf("\n", node.pos)
+    if (newline >= 0 && newline < node.end) {
+      let opening: import("typescript-js").Node | undefined
+      for (const token of node.getChildren(source)) {
+        if (
+          token.kind === ts.SyntaxKind.OpenBraceToken ||
+          token.kind === ts.SyntaxKind.OpenBracketToken ||
+          token.kind === ts.SyntaxKind.OpenParenToken
+        ) {
+          opening = token
+        } else if (
+          opening &&
+          (token.kind === ts.SyntaxKind.CloseBraceToken ||
+            token.kind === ts.SyntaxKind.CloseBracketToken ||
+            token.kind === ts.SyntaxKind.CloseParenToken)
+        ) {
+          const start = opening.getStart(source)
+          const end = token.end - 1
+          const bracket = "{[(".indexOf(content[start]!)
+          if (
+            bracket >= 0 &&
+            token.getStart(source) <= end &&
+            content[end] === "}])"[bracket]
+          )
+            addFold(start, end, content[end]!)
+          opening = undefined
+        }
+      }
+    }
+    ts.forEachLeadingCommentRange(content, node.pos, comment)
+    ts.forEachTrailingCommentRange(content, node.pos, comment)
+    ts.forEachLeadingCommentRange(content, node.end, comment)
+    ts.forEachTrailingCommentRange(content, node.end, comment)
+  }
+  visit(source)
 }
 
 function computeYamlFoldRanges(

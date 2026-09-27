@@ -216,6 +216,85 @@ async function mountEditor(
 }
 
 describe("ScriptEditor", () => {
+  it("completes the source after a folded block without replacing hidden code", async () => {
+    const source = 'if (true) {\n  console.log("😀 keep");\n}\nJSON.pa'
+    const h = await mountEditor(source)
+    const editor = h.editor()
+    await act(async () => {
+      await editor.refreshHighlights()
+      editor.toggleFold(0)
+      editor.editBuffer.setCursor(1, 7)
+      h.host.press("space", { ctrl: true })
+    })
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("parse")
+    h.beginDiagnostics()
+    await act(async () => h.host.press("tab"))
+    await h.settle()
+    expect(h.value()).toBe(source.replace("JSON.pa", "JSON.parse"))
+    h.beginDiagnostics()
+    await act(async () => editor.handleKeyPress(keyEvent("z", { ctrl: true })))
+    await h.settle()
+    expect(h.value()).toBe(source)
+  })
+
+  it.each(["pre", "post", "tests"] as const)(
+    "folds %s scripts with the gutter and keyboard while preserving source",
+    async (phase) => {
+      const source = [
+        'test("response", () => {',
+        '  console.log("inside");',
+        "});",
+        'console.log("after");',
+      ].join("\n")
+      const h = await mountEditor(source, 60, false, undefined, {
+        phase,
+        diagnostics: {
+          ...createScriptDiagnostics(),
+          ...noAssistance,
+          check: async () => ({ count: 0 }),
+        },
+      })
+      const editor = h.editor()
+      const gutter = h.renderer.root.findDescendantById("script-line-numbers")!
+      await act(async () => {
+        await editor.refreshHighlights()
+        await h.renderOnce()
+      })
+      expect(h.captureCharFrame()).toMatch(/▼\s+1\s+test/)
+      await act(async () => {
+        await h.mockMouse.click(gutter.x, editor.y)
+        await editor.refreshHighlights()
+        await h.renderOnce()
+      })
+      expect(h.captureCharFrame()).toMatch(/▶\s+1\s+test/)
+      expect(h.captureCharFrame()).not.toContain('console.log("inside")')
+      expect(h.captureCharFrame()).toMatch(/4\s+console.log\("after"\)/)
+      expect(h.editing()).toBe(false)
+      expect(h.value()).toBe(source)
+      expect(editor.plainText).toBe(source)
+      await act(async () => {
+        editor.editorView.setSelection(0, editor.editBuffer.getText().length)
+      })
+      expect(editor.getSelectedText()).toBe(source)
+      editor.clearSelection()
+      await act(async () => {
+        h.resize(32, 10)
+        await h.renderOnce()
+      })
+      expect(h.captureCharFrame()).toMatch(/4\s+console.log\("after"\)/)
+      await act(async () => h.host.press("down"))
+      await act(async () => {
+        editor.editBuffer.setCursor(0, 0)
+        editor.handleKeyPress(keyEvent("g", { ctrl: true }))
+        await editor.refreshHighlights()
+        await h.renderOnce()
+      })
+      expect(h.captureCharFrame()).toContain('console.log("inside")')
+      expect(h.value()).toBe(source)
+    },
+  )
+
   it("keeps the scrolled source viewport when accepting a completion", async () => {
     const source = Array.from({ length: 80 }, (_, row) =>
       row === 40 ? "JSON.pa" : `// line ${row + 1}`,

@@ -200,6 +200,21 @@ export class CodeEditorRenderable extends TextareaRenderable {
   override get plainText(): string {
     return this._foldManager.sourceText
   }
+  get sourceCursorOffset(): number {
+    if (!this._foldManager.isFoldedDisplay) return this.cursorOffset
+    const displayLine = this.logicalCursor.row
+    const sourceLine = this._foldManager.displayLineToSourceLine(displayLine)
+    const lineStart = (text: string, line: number) =>
+      text
+        .split("\n")
+        .slice(0, line)
+        .reduce((offset, text) => offset + text.length + 1, 0)
+    const column = this.cursorOffset - lineStart(super.plainText, displayLine)
+    return (
+      lineStart(this.plainText, sourceLine) +
+      Math.min(column, this.plainText.split("\n")[sourceLine]!.length)
+    )
+  }
   override get lineInfo(): LineInfo {
     if (!this._readOnly) return super.lineInfo
     return (this._readonlyLineInfo ??= super.lineInfo)

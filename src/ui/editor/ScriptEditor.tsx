@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { extend } from "@opentui/react"
-import { MouseButton } from "@opentui/core"
+import { MouseButton, type LineNumberRenderable } from "@opentui/core"
 import type { Collection } from "../../schema"
 import {
   validateScriptSyntax,
@@ -25,6 +25,7 @@ import { useTheme } from "../theme"
 import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./scriptDiagnostics"
 import type { ScriptCompletionContext } from "./scriptCompletion"
+import { RESERVED_FOLD_SIGN, syncCodeEditorGutter } from "./codeEditorGutter"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
 const emptyCompletionContext: ScriptCompletionContext = {
@@ -162,6 +163,17 @@ export function ScriptEditor({
   useEffect(() => () => localDiagnostics.dispose(), [localDiagnostics])
   const overlayActive = context?.overlayActive ?? false
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const hoveredFoldLineRef = useRef<number | null>(null)
+  const syncFoldSigns = (hoveredFoldLine?: number) => {
+    if (editor && lineNumberRef.current)
+      syncCodeEditorGutter(
+        lineNumberRef.current,
+        editor,
+        hoveredFoldLine,
+        theme.primary,
+      )
+  }
   const [selectedKind, setKind] = useState(
     value.startsWith("./") ? "external" : "inline",
   )
@@ -428,6 +440,7 @@ export function ScriptEditor({
           <box flexDirection="row" flexGrow={1} flexBasis={0} minHeight={0}>
             <line-number
               id="script-line-numbers"
+              ref={lineNumberRef}
               minWidth={4}
               paddingRight={1}
               fg={theme.textMuted}
@@ -435,6 +448,48 @@ export function ScriptEditor({
               flexGrow={1}
               flexBasis={0}
               minHeight={0}
+              lineSigns={RESERVED_FOLD_SIGN}
+              onMouseMove={(event) => {
+                const displayLine =
+                  editor && event.x === lineNumberRef.current?.x
+                    ? editor.lineInfo.lineSources[
+                        event.y - editor.y + editor.scrollY
+                      ]
+                    : undefined
+                const hovered =
+                  displayLine !== undefined &&
+                  editor?.getFoldSigns().has(displayLine)
+                    ? displayLine
+                    : null
+                if (hovered === hoveredFoldLineRef.current) return
+                hoveredFoldLineRef.current = hovered
+                syncFoldSigns(hovered ?? undefined)
+              }}
+              onMouseOut={() => {
+                if (hoveredFoldLineRef.current === null) return
+                hoveredFoldLineRef.current = null
+                syncFoldSigns()
+              }}
+              onMouseDown={(event) => {
+                if (
+                  event.button !== MouseButton.LEFT ||
+                  !editor ||
+                  event.x >= editor.x
+                )
+                  return
+                const displayLine =
+                  editor.lineInfo.lineSources[
+                    event.y - editor.y + editor.scrollY
+                  ]
+                if (
+                  displayLine === undefined ||
+                  !editor.getFoldSigns().has(displayLine)
+                )
+                  return
+                editor.toggleFold(displayLine)
+                event.preventDefault()
+                event.stopPropagation()
+              }}
               onMouseScroll={(event) => {
                 if (!editor || !event.scroll) return
                 if (event.scroll.direction === "up")
@@ -456,7 +511,10 @@ export function ScriptEditor({
                 flexGrow={1}
                 flexBasis={0}
                 minHeight={0}
-                foldable={false}
+                onFoldsChange={() => {
+                  hoveredFoldLineRef.current = null
+                  syncFoldSigns()
+                }}
                 onSourceChange={() => {
                   if (editing && editor) onChange(editor.plainText)
                 }}

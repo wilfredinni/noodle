@@ -122,7 +122,7 @@ function ScriptCodeCompletion({
 }) {
   const keymap = useKeymap()
   const cursorText = useRef(value)
-  const [cursor, setCursor] = useState(editor?.cursorOffset ?? 0)
+  const [cursor, setCursor] = useState(editor?.sourceCursorOffset ?? 0)
   const cursorRef = useRef(cursor)
   const [request, setRequest] = useState(0)
   const [dismissed, setDismissed] = useState(true)
@@ -155,7 +155,7 @@ function ScriptCodeCompletion({
       keymap.getData("app.overlay") !== "none"
     )
       return false
-    cursorRef.current = editor.cursorOffset
+    cursorRef.current = editor.sourceCursorOffset
     setCursor(cursorRef.current)
     setDismissed(false)
     setSuggestionsDismissed(false)
@@ -182,9 +182,9 @@ function ScriptCodeCompletion({
     cursorText.current = editor.plainText
     const release = service.retain()
     const change = () => {
-      if (editor.isDestroyed || cursorRef.current === editor.cursorOffset)
+      if (editor.isDestroyed || cursorRef.current === editor.sourceCursorOffset)
         return
-      cursorRef.current = editor.cursorOffset
+      cursorRef.current = editor.sourceCursorOffset
       setCursor(cursorRef.current)
       // Native cursor events can precede CodeEditor's source-change notification.
       const text = editor.editBuffer.getText()
@@ -204,14 +204,14 @@ function ScriptCodeCompletion({
       setDismissed(false)
       setSuggestionsDismissed(false)
       setExplicit(false)
-      cursorRef.current = editor?.cursorOffset ?? 0
+      cursorRef.current = editor?.sourceCursorOffset ?? 0
       setCursor(cursorRef.current)
     }
   }, [value, editor])
   useEffect(() => {
     if (!isEditing || !editor || dismissed) return
     const controller = new AbortController()
-    const actualCursor = editor.cursorOffset
+    const actualCursor = editor.sourceCursorOffset
     setSelected(0)
     void service
       .assist(value, phase, actualCursor, context, explicit, controller.signal)
@@ -219,7 +219,7 @@ function ScriptCodeCompletion({
         if (
           !controller.signal.aborted &&
           editor.plainText === value &&
-          editor.cursorOffset === actualCursor
+          editor.sourceCursorOffset === actualCursor
         )
           setSnapshot({
             value,
@@ -273,7 +273,7 @@ function ScriptCodeCompletion({
       ? snapshot
       : null
   const current =
-    visible?.value === value && visible.cursor === editor?.cursorOffset
+    visible?.value === value && visible.cursor === editor?.sourceCursorOffset
       ? visible
       : null
   const item =
@@ -324,12 +324,13 @@ function ScriptCodeCompletion({
           !editor.focused ||
           editor.isDestroyed ||
           editor.plainText !== current.value ||
-          editor.cursorOffset !== current.cursor
+          editor.sourceCursorOffset !== current.cursor
         )
           return false
         const next =
           value.slice(0, item.start) + item.insert + value.slice(item.end)
         previousValue.current = next
+        editor.unfoldAll()
         editor.replaceText(next)
         editor.cursorOffset = item.start + item.insert.length
         setSuggestionsDismissed(true)
