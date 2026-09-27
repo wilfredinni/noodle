@@ -32,6 +32,7 @@ afterEach(() => {
   for (const service of services.splice(0)) service.dispose()
 })
 const noAssistance = {
+  format: async () => [],
   assist: async () => ({ items: [], query: "" }),
   details: async () => ({}),
   retain: () => () => {},

@@ -14,17 +14,19 @@ self.onmessage = ({ data }: MessageEvent<ScriptDiagnosticsRequest>) => {
   try {
     if (!checker) throw new Error("Checker not initialized")
     const result =
-      data.kind === "check"
-        ? checker.check(data.source, data.phase)
-        : data.kind === "assist"
-          ? checker.assist(
-              data.source,
-              data.phase,
-              data.cursor,
-              data.context,
-              data.explicit,
-            )
-          : checker.details(data.source, data.phase, data.cursor, data.key)
+      data.kind === "format"
+        ? checker.format(data.source, data.phase)
+        : data.kind === "check"
+          ? checker.check(data.source, data.phase)
+          : data.kind === "assist"
+            ? checker.assist(
+                data.source,
+                data.phase,
+                data.cursor,
+                data.context,
+                data.explicit,
+              )
+            : checker.details(data.source, data.phase, data.cursor, data.key)
     self.postMessage({ id: data.id, result })
   } catch {
     self.postMessage({ id: data.id, error: true })

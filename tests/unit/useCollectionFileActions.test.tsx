@@ -12,6 +12,8 @@ import type {
 import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import { useCollectionFileActions } from "../../src/ui/useCollectionFileActions"
 import { lang } from "../../src/lang"
+import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
+import { formatCodeFields } from "../../src/ui/editor/codeFormatting"
 
 const testRender = createTestRender()
 
@@ -45,6 +47,8 @@ function ActionsHarness({
   onNewReady,
   onCreateFailed,
   onDeleteReady,
+  prepareFolder,
+  draftFolder = savedFolder,
 }: {
   collectionDir: string
   onSaveReady: (save: () => void) => void
@@ -69,16 +73,19 @@ function ActionsHarness({
   ) => void
   onCreateFailed?: () => void
   onDeleteReady?: (setFile: (id: string) => void, confirm: () => void) => void
+  prepareFolder?: (folder: Folder) => Promise<Folder>
+  draftFolder?: Folder
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
   const folderDraftRef = useRef<UseFolderDraftResult>({
-    folderDraft: savedFolder,
+    folderDraft: draftFolder,
     markSaved: onMarkSaved,
   } as never)
   const savingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestDeleteFileRef = useRef<string | null>(null)
   const actions = useCollectionFileActions({
+    prepareFolder,
     collectionDir,
     collection,
     updateCollection,
@@ -166,6 +173,45 @@ describe("useCollectionFileActions", () => {
     expect(
       await readFile(join(collectionDir, "api", "folder.yml"), "utf8"),
     ).toContain("name: Saved API")
+  })
+
+  it("formats inline folder scripts and tests before saving", async () => {
+    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-format-folder-"))
+    dirs.push(collectionDir)
+    const service = createScriptDiagnostics()
+    let save: (() => void) | undefined
+    let markedSaved = 0
+    try {
+      await testRender(
+        <ActionsHarness
+          collectionDir={collectionDir}
+          draftFolder={{
+            ...savedFolder,
+            scripts: { pre: "const x={a:1}", post: "./scripts/post.js" },
+            tests: 'test("ok",()=>{})',
+          }}
+          prepareFolder={async (folder) =>
+            (await formatCodeFields(folder, service)).fields
+          }
+          onSaveReady={(handleSave) => (save = handleSave)}
+          onMarkSaved={() => markedSaved++}
+        />,
+        { width: 1, height: 1 },
+      )
+      await act(async () => {
+        await save?.()
+      })
+      expect(markedSaved).toBe(1)
+      const yaml = await readFile(
+        join(collectionDir, "api", "folder.yml"),
+        "utf8",
+      )
+      expect(yaml).toContain("const x = { a: 1 }")
+      expect(yaml).toContain('test("ok", () => { })')
+      expect(yaml).toContain("./scripts/post.js")
+    } finally {
+      service.dispose()
+    }
   })
 
   it("synchronizes renamed path params when saving an edited URL", async () => {

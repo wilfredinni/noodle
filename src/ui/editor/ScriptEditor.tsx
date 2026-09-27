@@ -26,6 +26,7 @@ import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./scriptDiagnostics"
 import type { ScriptCompletionContext } from "./scriptCompletion"
 import { RESERVED_FOLD_SIGN, syncCodeEditorGutter } from "./codeEditorGutter"
+import { useFormattingTarget } from "./CodeFormattingContext"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
 const emptyCompletionContext: ScriptCompletionContext = {
@@ -48,6 +49,7 @@ export const ScriptAuthoringContext = createContext<{
   setActiveOrder?: (order: ScriptOrder | null) => void
   showOrder?: (order: ScriptOrder) => void
   open?: (source: ActiveScriptSource) => void
+  formatOnSave?: boolean
 } | null>(null)
 
 function ScriptLink({
@@ -194,6 +196,12 @@ export function ScriptEditor({
   const sourceRef = useRef(source)
   sourceRef.current = source
   const externalFocused = kind === "external" && focused
+  useFormattingTarget(
+    editor,
+    focused && interactive && kind === "inline",
+    phase,
+    source.scope,
+  )
 
   useEffect(
     () => setError(null),
@@ -505,6 +513,7 @@ export function ScriptEditor({
                 id="script-source"
                 ref={setEditor}
                 filetype="javascript"
+                formatContent={(text) => diagnostics.format(text, phase)}
                 theme={theme}
                 value={value}
                 readOnly={!interactive || !editing}

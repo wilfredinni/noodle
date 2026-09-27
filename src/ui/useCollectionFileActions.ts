@@ -22,6 +22,7 @@ import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 
 interface UseCollectionFileActionsOptions {
+  prepareFolder?: (folder: Folder) => Promise<Folder>
   collectionDir: string
   collection: Collection | null
   updateCollection: Dispatch<SetStateAction<Collection | null>>
@@ -50,6 +51,7 @@ interface UseCollectionFileActionsOptions {
 }
 
 export function useCollectionFileActions({
+  prepareFolder,
   collectionDir,
   collection,
   updateCollection,
@@ -96,10 +98,12 @@ export function useCollectionFileActions({
   )
 
   const handleFolderSave = useCallback(async () => {
-    const draftFolder = folderDraftRef.current?.folderDraft
+    let draftFolder = folderDraftRef.current?.folderDraft
     if (!draftFolder || !collection || savingRef.current) return
     savingRef.current = true
     try {
+      if (prepareFolder) draftFolder = await prepareFolder(draftFolder)
+      const savedFolder = draftFolder
       await saveFolder(collectionDir, draftFolder)
       folderDraftRef.current?.markSaved(draftFolder)
       updateCollection((current) =>
@@ -108,8 +112,8 @@ export function useCollectionFileActions({
               ...current,
               items: updateFolderByPath(
                 current.items,
-                draftFolder.path,
-                draftFolder,
+                savedFolder.path,
+                savedFolder,
               ),
             }
           : current,
@@ -125,6 +129,7 @@ export function useCollectionFileActions({
     }
   }, [
     collection,
+    prepareFolder,
     collectionDir,
     folderDraftRef,
     savingRef,

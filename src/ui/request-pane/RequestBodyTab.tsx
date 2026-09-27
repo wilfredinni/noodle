@@ -5,7 +5,8 @@ import {
   type LineNumberRenderable,
 } from "@opentui/core"
 import type { Request, Environment } from "../../schema"
-import { formatBody } from "../formatRequest"
+import { formatJsonCode } from "../editor/codeFormatting"
+import { useFormattingTarget } from "../editor/CodeFormattingContext"
 import type { EditState } from "../editMode"
 import type { BodyType } from "../../schema"
 import type { CodeEditorRenderable } from "../editor/CodeEditor"
@@ -134,10 +135,7 @@ export function BodySection({
   const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
   const isBinaryMode = bodyType === "binary"
 
-  const formattedBody = useMemo(
-    () => formatBody(request.body, bodyType),
-    [bodyType, request.body],
-  )
+  const formattedBody = request.body ?? ""
   const editorRef = useRef<CodeEditorRenderable | null>(null)
   const [editorInstance, setEditorInstance] =
     useState<CodeEditorRenderable | null>(null)
@@ -169,6 +167,12 @@ export function BodySection({
   )
 
   const editingBody = inEdit && editState.cursor.field === "body"
+  useFormattingTarget(
+    editorInstance,
+    (editingBody || browseActive) && bodyType === "json",
+    "body",
+    "request",
+  )
 
   const handleContentChange = useCallback(() => {
     if (!editingBody) return
@@ -384,6 +388,11 @@ export function BodySection({
                   onEditorRef?.(editor)
                 }}
                 filetype={bodyType}
+                formatContent={
+                  bodyType === "json" && editingBody
+                    ? formatJsonCode
+                    : undefined
+                }
                 theme={theme}
                 initialValue={editingBody ? editValue : formattedBody}
                 extraHighlights={extraHighlights}

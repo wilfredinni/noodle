@@ -1,6 +1,7 @@
 import { generateScriptDeclarations } from "../../scriptApiTypes"
 import { SCRIPT_LIMITS, type ScriptPhase } from "../../preRequestScript"
 import type { ScriptDiagnostics } from "./scriptSemanticChecker"
+import type { CodeEdit } from "./codeFormatting"
 import type {
   ScriptAssistance,
   ScriptCompletionContext,
@@ -9,6 +10,7 @@ import type {
 
 type Input = { source: string; phase: ScriptPhase }
 type Jobs = {
+  format: Input
   check: Input
   assist: Input & {
     cursor: number
@@ -18,6 +20,7 @@ type Jobs = {
   details: Input & { cursor: number; key: string }
 }
 type Results = {
+  format: CodeEdit[] | null
   check: ScriptDiagnostics
   assist: ScriptAssistance
   details: ScriptCompletionDetails
@@ -34,6 +37,7 @@ export type ScriptDiagnosticsRequest =
 
 const unavailable = () => new Error("Semantic validation unavailable")
 const empty = {
+  format: null,
   check: { count: 0 },
   assist: { items: [], query: "" },
   details: {},
@@ -51,12 +55,13 @@ export function createScriptDiagnostics(
   let worker: Worker | undefined
   let active: Pending | undefined
   const queued = new Map<keyof Jobs, Pending>()
+  const formats: Pending[] = []
   let timer: ReturnType<typeof setTimeout> | undefined
   let sequence = 0
   let disposed = false
   let sessions = 0
   const clear = () => {
-    if (!sessions && !active && !queued.size)
+    if (!sessions && !active && !queued.size && !formats.length)
       worker?.postMessage({ kind: "clear" })
   }
   const fail = () => {
@@ -66,20 +71,21 @@ export function createScriptDiagnostics(
     failed?.terminate()
     active?.finish(unavailable())
     for (const pending of queued.values()) pending.finish(unavailable())
+    for (const pending of formats.splice(0)) pending.finish(unavailable())
     active = undefined
     queued.clear()
   }
   const dispatch = () => {
     if (active || disposed) return
-    const kind = (["assist", "details", "check"] as const).find((kind) =>
-      queued.has(kind),
+    const kind = (["format", "assist", "details", "check"] as const).find(
+      (kind) => queued.has(kind),
     )
-    if (!kind) {
+    if (!kind && !formats.length) {
       clear()
       return
     }
-    active = queued.get(kind)!
-    queued.delete(kind)
+    active = formats.shift() ?? queued.get(kind!)!
+    if (active.job.kind !== "format") queued.delete(kind!)
     timer = setTimeout(fail, deadlineMs)
     try {
       if (!worker) {
@@ -154,12 +160,18 @@ export function createScriptDiagnostics(
         dispatch()
       }
       signal?.addEventListener("abort", abort, { once: true })
-      queued.get(kind)?.finish()
-      queued.set(kind, pending)
+      if (kind === "format") formats.push(pending)
+      else {
+        queued.get(kind)?.finish()
+        queued.set(kind, pending)
+      }
       dispatch()
     })
   }
   return {
+    format(source: string, phase: ScriptPhase) {
+      return request("format", { source, phase })
+    },
     check(source: string, phase: ScriptPhase, signal?: AbortSignal) {
       return request("check", { source, phase }, signal)
     },

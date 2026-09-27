@@ -150,6 +150,12 @@ export const Definitions = {
     "request-edit",
     "folder",
   ]),
+  editor_format: keybind("ctrl+alt+f", "Format Code", false, "Workspace", [
+    "main",
+    "request-edit",
+    "folder",
+    "settings",
+  ]),
   editor_unfold_all: keybind("", "Unfold all regions", false, "Workspace", [
     "main",
     "request-edit",
@@ -313,6 +319,7 @@ export const Definitions = {
 export type KeybindName = keyof typeof Definitions
 
 export const CommandMap = {
+  editor_format: "editor.format",
   script_complete: "script.complete",
   script_open_external: "script.open",
   script_execution_order: "script.execution-order",

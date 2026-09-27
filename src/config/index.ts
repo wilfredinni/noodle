@@ -10,6 +10,7 @@ export interface NoodleConfig {
   theme: string
   layout: "stacked" | "side-by-side"
   confirm_undo_all: boolean
+  format_on_save?: boolean
   collections: string[]
   external_editor?: ExternalEditorId
   proxy?: AppProxySettings
@@ -18,6 +19,7 @@ export const DEFAULT_CONFIG: NoodleConfig = {
   theme: "noodle",
   layout: "stacked",
   confirm_undo_all: true,
+  format_on_save: false,
   collections: [],
 }
 export function normalizeCollectionPath(path: string): string {
@@ -74,6 +76,7 @@ export function loadConfig(configDir: string): NoodleConfig {
       typeof obj.confirm_undo_all === "boolean"
         ? obj.confirm_undo_all
         : DEFAULT_CONFIG.confirm_undo_all,
+    format_on_save: obj.format_on_save === true,
     collections: Array.isArray(obj.collections)
       ? obj.collections.filter((v): v is string => typeof v === "string")
       : [],

@@ -1,4 +1,5 @@
 import { CollectionScripts } from "./CollectionScripts"
+import type { PrepareScriptFields } from "../editor/codeFormatting"
 import type { ScriptFields } from "../../schema"
 import {
   MouseButton,
@@ -122,6 +123,8 @@ export function SettingsView({
   activeThemeIndex,
   layout,
   confirmUndoAll,
+  formatOnSave = false,
+  onFormatOnSaveChange = () => {},
   externalEditors = [],
   externalEditor,
   appProxy,
@@ -172,6 +175,8 @@ export function SettingsView({
   activeThemeIndex: number
   layout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
+  formatOnSave?: boolean
+  onFormatOnSaveChange?: (value: boolean) => void
   externalEditors?: ExternalEditor[]
   externalEditor?: ExternalEditor
   appProxy?: AppProxySettings
@@ -222,6 +227,7 @@ export function SettingsView({
       | "scripts"
       | "tests"
     >,
+    prepare?: PrepareScriptFields,
   ) => boolean
   onEnvironmentChange: (name: string) => void
   onKeybindChange: (name: KeybindName, key: string) => boolean
@@ -426,6 +432,13 @@ export function SettingsView({
     if (category === "keyboard") {
       const name = keybindNames[contentIndex]
       if (name) scrollRef.current?.scrollChildIntoView(`settings-key-${name}`)
+    } else if (scope === "global" && category === "behavior") {
+      const id = [
+        "settings-confirm-undo",
+        "settings-behavior-external-editor",
+        "settings-format-on-save",
+      ][contentIndex]
+      if (id) scrollRef.current?.scrollChildIntoView(id)
     } else if (category === "collections") {
       scrollRef.current?.scrollChildIntoView(
         contentIndex > 0 && contentIndex <= collections.length
@@ -681,7 +694,7 @@ export function SettingsView({
         }
 
         const fieldCount =
-          category === "appearance" || category === "behavior" ? 2 : 1
+          category === "behavior" ? 3 : category === "appearance" ? 2 : 1
         if (["up", "down", "home", "end"].includes(event.name)) {
           event.preventDefault()
           event.stopPropagation()
@@ -708,11 +721,12 @@ export function SettingsView({
         } else if (
           event.name === "space" &&
           category === "behavior" &&
-          contentIndex === 0
+          (contentIndex === 0 || contentIndex === 2)
         ) {
           event.preventDefault()
           event.stopPropagation()
-          onConfirmUndoAllChange(!confirmUndoAll)
+          if (contentIndex === 0) onConfirmUndoAllChange(!confirmUndoAll)
+          else onFormatOnSaveChange(!formatOnSave)
         }
       },
       { priority: 80 },
@@ -729,6 +743,8 @@ export function SettingsView({
     commitCollectionGeneralField,
     commitCurrentCollectionGeneralField,
     confirmUndoAll,
+    formatOnSave,
+    onFormatOnSaveChange,
     contentIndex,
     cookiesEnabled,
     focus,
@@ -935,9 +951,10 @@ export function SettingsView({
               <>
                 <SettingsSectionHeader
                   title="Behavior"
-                  description="Control confirmation prompts and external tools."
+                  description="Control confirmation prompts, formatting, and external tools."
                 />
                 <SettingLabel
+                  id="settings-confirm-undo"
                   title="Confirm undo all"
                   description="Ask before discarding every unsaved request and folder change."
                   active={focus === "settings-content" && contentIndex === 0}
@@ -970,6 +987,19 @@ export function SettingsView({
                       onExternalEditorChange(value as ExternalEditorId)
                     }
                   />
+                </SettingLabel>
+                <SettingLabel
+                  id="settings-format-on-save"
+                  title="Format on Save"
+                  description="Format inline scripts, tests, and JSON bodies when saved. Collection scripts save when you leave their editor."
+                  active={focus === "settings-content" && contentIndex === 2}
+                  onMouseDown={() => {
+                    setContentIndex(2)
+                    onFormatOnSaveChange(!formatOnSave)
+                    onPaneFocus("settings-content")
+                  }}
+                >
+                  <Checkbox checked={formatOnSave} theme={theme} />
                 </SettingLabel>
               </>
             )}

@@ -1,3 +1,4 @@
+import type { PrepareScriptFields } from "./editor/codeFormatting"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { randomUUID } from "node:crypto"
 import { join, resolve } from "node:path"
@@ -361,6 +362,16 @@ export function App({
       updateGlobalConfig(
         { external_editor: externalEditor },
         "Failed to save external editor",
+      )
+    },
+    [updateGlobalConfig],
+  )
+
+  const handleFormatOnSaveChange = useCallback(
+    (value: boolean) => {
+      updateGlobalConfig(
+        { format_on_save: value },
+        "Failed to save behavior settings",
       )
     },
     [updateGlobalConfig],
@@ -795,6 +806,7 @@ export function App({
         | "scripts"
         | "tests"
       >,
+      prepare?: PrepareScriptFields,
     ) => {
       if (mode !== "collection") return false
       const previous = settingsRef.current
@@ -816,7 +828,13 @@ export function App({
             tls: rebaseTlsSettings(settings.tls, previous.tls, patch.tls),
           }
         },
-        saveSettings,
+        async (dir, settings) => {
+          const next = prepare
+            ? { ...settings, ...(await prepare(patch)) }
+            : settings
+          await saveSettings(dir, next)
+          return next
+        },
         setSettings,
         () => showToast("Failed to save collection settings", "error"),
         (persisted) => {
@@ -1054,6 +1072,8 @@ export function App({
         onCollectionSettingsCategoryChange={setCollectionSettingsCategory}
         initialLayout={config.layout}
         confirmUndoAll={config.confirm_undo_all}
+        formatOnSave={config.format_on_save ?? false}
+        onFormatOnSaveChange={handleFormatOnSaveChange}
         onConfirmUndoAllChange={handleConfirmUndoAllChange}
         externalEditors={externalEditors}
         externalEditor={externalEditor}

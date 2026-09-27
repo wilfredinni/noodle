@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { ScriptFields } from "../../schema"
 import { SCRIPT_TABS, scriptText, withScript } from "../../scriptAuthoring"
 import type { ScriptPhase } from "../../preRequestScript"
-import { ScriptEditor } from "../editor/ScriptEditor"
+import { ScriptEditor, ScriptAuthoringContext } from "../editor/ScriptEditor"
 import { Tabs } from "../Tabs"
+import {
+  formatCodeFields,
+  type PrepareScriptFields,
+} from "../editor/codeFormatting"
+import { CodeFormattingContext } from "../editor/CodeFormattingContext"
+import { showToast } from "../Toast"
 
 export function CollectionScripts({
   fields,
@@ -17,9 +23,13 @@ export function CollectionScripts({
   focused: boolean
   onFocus: () => void
   onEditingChange: (editing: boolean) => void
-  onChange: (patch: ScriptFields) => boolean
+  onChange: (patch: ScriptFields, prepare?: PrepareScriptFields) => boolean
 }) {
   const keymap = useKeymap()
+  const context = useContext(ScriptAuthoringContext)
+  const formattingTarget = useContext(CodeFormattingContext)
+  const contextRef = useRef(context)
+  contextRef.current = context
   const [phase, setPhase] = useState<ScriptPhase>("pre")
   const [editing, setEditing] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
@@ -35,9 +45,39 @@ export function CollectionScripts({
       setDraft({ scripts: fields.scripts, tests: fields.tests })
   }, [fields.scripts, fields.tests])
   const commit = useCallback(() => {
-    if (pending.current && changeRef.current(pending.current))
-      pending.current = null
-  }, [])
+    const snapshot = pending.current
+    if (!snapshot) return
+    const context = contextRef.current
+    const target = formattingTarget?.current
+    const prepare: PrepareScriptFields | undefined =
+      context?.formatOnSave && context.diagnostics
+        ? async (fields) => {
+            try {
+              const result = await formatCodeFields(
+                fields,
+                context.diagnostics!,
+              )
+              if (
+                target?.scope === "collection" &&
+                target.field !== "body" &&
+                formattingTarget?.current === target &&
+                target.editor.plainText === scriptText(fields, target.field)
+              ) {
+                const changes = result.edits[target.field]
+                if (changes) target.editor.applyFormatting(changes)
+              }
+              return result.fields
+            } catch {
+              showToast(
+                "Formatting unavailable; saving collection scripts unchanged",
+                "warning",
+              )
+              return fields
+            }
+          }
+        : undefined
+    if (changeRef.current(snapshot, prepare)) pending.current = null
+  }, [formattingTarget])
   useEffect(() => () => commit(), [commit])
   useEffect(
     () =>

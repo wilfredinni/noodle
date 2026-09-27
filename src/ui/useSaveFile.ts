@@ -21,6 +21,7 @@ export function useSaveFile(
   req: Request | null,
   selectedRequestId: string | undefined,
   markSaved: (request: Request) => void,
+  prepare?: (request: Request) => Promise<Request>,
 ): UseSaveFileResult {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -40,42 +41,47 @@ export function useSaveFile(
     }
   }, [])
 
-  const doSave = useCallback(() => {
+  const doSave = useCallback(async () => {
     if (!req || savingRef.current) return
     savingRef.current = true
     const requestId = req.id
     setSaveState({ kind: "idle" })
-    filestore
-      .saveRequest(collectionDir, req)
-      .then(() => {
-        if (!mountedRef.current) return
-        if (selectedRequestId !== requestId) return
-        markSaved(req)
-        clearSaveTimer()
-        setSaveState({
-          kind: "success",
-          message: `Successfully edited ${req.name}`,
-        })
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, SAVE_SUCCESS_MS)
+    try {
+      const saved = prepare ? await prepare(req) : req
+      await filestore.saveRequest(collectionDir, saved)
+      if (!mountedRef.current) return
+      if (selectedRequestId !== requestId) return
+      markSaved(saved)
+      clearSaveTimer()
+      setSaveState({
+        kind: "success",
+        message: `Successfully edited ${req.name}`,
       })
-      .catch((e: unknown) => {
-        if (!mountedRef.current) return
-        const msg = e instanceof Error ? e.message : String(e)
-        clearSaveTimer()
-        setSaveState({
-          kind: "error",
-          message: `Error: ${msg}`,
-        })
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, SAVE_ERROR_MS)
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, SAVE_SUCCESS_MS)
+    } catch (e: unknown) {
+      if (!mountedRef.current) return
+      const msg = e instanceof Error ? e.message : String(e)
+      clearSaveTimer()
+      setSaveState({
+        kind: "error",
+        message: `Error: ${msg}`,
       })
-      .finally(() => {
-        savingRef.current = false
-      })
-  }, [collectionDir, clearSaveTimer, req, selectedRequestId, markSaved])
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, SAVE_ERROR_MS)
+    } finally {
+      savingRef.current = false
+    }
+  }, [
+    collectionDir,
+    clearSaveTimer,
+    req,
+    selectedRequestId,
+    markSaved,
+    prepare,
+  ])
 
   return {
     saveState,

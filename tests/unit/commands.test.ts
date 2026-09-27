@@ -28,6 +28,7 @@ import {
 } from "../../src/ui/commandActions"
 import type { ExternalEditor } from "../../src/externalEditor"
 import { Focus } from "../../src/ui/focus"
+import type { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -96,6 +97,34 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("formats the active editor from the palette and drops stale targets", () => {
+    const context = minimalContext()
+    const format = jest.fn(async () => true)
+    context.formattingTarget = {
+      current: {
+        field: "tests",
+        scope: "request",
+        editor: {
+          canFormat: true,
+          formatCode: format,
+        } as unknown as CodeEditorRenderable,
+      },
+    }
+    const command = buildCommandPaletteCommands(context).find(
+      (item) => item.id === "editor.format",
+    )
+    expect(command?.label).toBe("Format Code")
+    expect(command?.keybinding).toBe("^alt+f")
+    expect(command?.run()).toBe(true)
+    expect(format).toHaveBeenCalledTimes(1)
+    context.formattingTarget.current = null
+    expect(command?.run()).toBe(false)
+    expect(
+      buildCommandPaletteCommands(context).some(
+        (item) => item.id === "editor.format",
+      ),
+    ).toBe(false)
+  })
   it("offers keyboard access to the last notification", () => {
     const context = minimalContext()
     context.setNotificationMessage = jest.fn()

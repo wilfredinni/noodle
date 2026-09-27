@@ -1,5 +1,6 @@
 import ts from "typescript-js"
 import libraries from "./scriptTypeLibraries.json"
+import type { CodeEdit } from "./codeFormatting"
 import { SCRIPT_WRAPPER_PREFIX } from "../../scriptAsync"
 import type { ScriptPhase } from "../../preRequestScript"
 import type {
@@ -29,6 +30,7 @@ export function createScriptSemanticChecker(
   let source = ""
   let phase: ScriptPhase = "pre"
   let version = 0
+  let wrapped = true
   const files = new Map(
     Object.entries(libraries).map(([name, text]) => [
       `/${name}`,
@@ -79,16 +81,25 @@ export function createScriptSemanticChecker(
   }
   const service = ts.createLanguageService(host)
 
-  const update = (text: string, nextPhase: ScriptPhase) => {
+  const update = (text: string, nextPhase: ScriptPhase, wrap = true) => {
     if (Buffer.byteLength(text) > sourceLimit)
       throw new Error("source exceeds 256 KiB")
-    if (files.has(scriptFile) && source === text && phase === nextPhase) return
+    if (
+      files.has(scriptFile) &&
+      source === text &&
+      phase === nextPhase &&
+      wrapped === wrap
+    )
+      return
     source = text
     phase = nextPhase
+    wrapped = wrap
     version++
     files.set(
       scriptFile,
-      ts.ScriptSnapshot.fromString(`${wrapperPrefix}${source}\n})()`),
+      ts.ScriptSnapshot.fromString(
+        wrap ? `${wrapperPrefix}${source}\n})()` : source,
+      ),
     )
   }
   const display = ts.displayPartsToString
@@ -120,6 +131,29 @@ export function createScriptSemanticChecker(
 
   return {
     details,
+    format(text: string, phase: ScriptPhase): CodeEdit[] | null {
+      update(text, phase, false)
+      if (service.getSyntacticDiagnostics(scriptFile).length) return null
+      return service
+        .getFormattingEditsForDocument(scriptFile, {
+          indentSize: 2,
+          tabSize: 2,
+          convertTabsToSpaces: true,
+          newLineCharacter: "\n",
+          insertSpaceAfterCommaDelimiter: true,
+          insertSpaceAfterSemicolonInForStatements: true,
+          insertSpaceBeforeAndAfterBinaryOperators: true,
+          insertSpaceAfterKeywordsInControlFlowStatements: true,
+          insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: true,
+          insertSpaceBeforeFunctionParenthesis: false,
+          semicolons: ts.SemicolonPreference.Ignore,
+        })
+        .map(({ span, newText }) => ({
+          offset: span.start,
+          length: span.length,
+          content: newText,
+        }))
+    },
     assist(
       text: string,
       nextPhase: ScriptPhase,

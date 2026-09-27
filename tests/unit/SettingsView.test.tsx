@@ -41,6 +41,7 @@ function Harness({
   externalEditors = [],
   externalEditor,
   onExternalEditorChange = () => {},
+  onFormatOnSaveChange = () => {},
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
   activeThemeIndex = 0,
@@ -64,6 +65,7 @@ function Harness({
   externalEditors?: ExternalEditor[]
   externalEditor?: ExternalEditor
   onExternalEditorChange?: (editor: ExternalEditorId) => void
+  onFormatOnSaveChange?: (value: boolean) => void
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
   activeThemeIndex?: number
@@ -83,6 +85,7 @@ function Harness({
       activeThemeIndex={activeThemeIndex}
       layout="stacked"
       confirmUndoAll
+      onFormatOnSaveChange={onFormatOnSaveChange}
       externalEditors={externalEditors}
       externalEditor={externalEditor}
       appProxy={appProxy}
@@ -129,6 +132,28 @@ function Harness({
 }
 
 describe("SettingsView", () => {
+  it("offers Format on Save off by default and toggles it by keyboard", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: boolean[] = []
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="behavior"
+            initialFocus="settings-content"
+            onFormatOnSaveChange={(value) => changes.push(value)}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toContain("Format on Save")
+    await act(async () => host.press("end"))
+    await act(async () => host.press("space"))
+    expect(changes).toEqual([true])
+    cleanup()
+  })
   it("renders the global scope and categories at wide and compact sizes", async () => {
     for (const size of [
       { width: 110, height: 30 },

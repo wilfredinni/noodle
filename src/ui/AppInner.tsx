@@ -1,6 +1,15 @@
 import { scriptEnvironmentKeys } from "./editor/scriptCompletion"
 import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./editor/scriptDiagnostics"
+import {
+  CodeFormattingContext,
+  type FormattingTarget,
+} from "./editor/CodeFormattingContext"
+import {
+  formatCodeFields,
+  type PrepareScriptFields,
+} from "./editor/codeFormatting"
+import { SCRIPT_TABS, scriptText } from "../scriptAuthoring"
 import { ConsoleCopyContext } from "./ScriptConsole"
 import {
   ScriptAuthoringContext,
@@ -47,6 +56,7 @@ import type {
   CollectionSettings,
   CollectionTlsSettings,
   Environment,
+  Folder,
   ProxyCredentials,
   Request as NoodleRequest,
   Method,
@@ -166,6 +176,8 @@ export function AppInner({
   onCollectionSettingsCategoryChange,
   initialLayout,
   confirmUndoAll,
+  formatOnSave = false,
+  onFormatOnSaveChange = () => {},
   onConfirmUndoAllChange,
   externalEditors,
   externalEditor,
@@ -231,6 +243,8 @@ export function AppInner({
   ) => void
   initialLayout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
+  formatOnSave?: boolean
+  onFormatOnSaveChange?: (value: boolean) => void
   onConfirmUndoAllChange: (value: boolean) => void
   externalEditors: ExternalEditor[]
   externalEditor?: ExternalEditor
@@ -275,6 +289,7 @@ export function AppInner({
       | "scripts"
       | "tests"
     >,
+    prepare?: PrepareScriptFields,
   ) => boolean
   initialLastRequestId?: string
   collectionPaths: string[]
@@ -292,6 +307,7 @@ export function AppInner({
   const [activeScriptSource, setActiveScriptSource] =
     useState<ActiveScriptSource | null>(null)
   const [scriptDiagnostics] = useState(createScriptDiagnostics)
+  const formattingTarget = useRef<FormattingTarget | null>(null)
   useEffect(() => () => scriptDiagnostics.dispose(), [scriptDiagnostics])
   const [activeScriptOrder, setActiveScriptOrder] =
     useState<ScriptOrder | null>(null)
@@ -480,6 +496,44 @@ export function AppInner({
   const draft = useRequestDraft(selectedRequest)
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const prepareRequest = useCallback(
+    async (request: NoodleRequest) => {
+      const target = formattingTarget.current
+      const result = await formatCodeFields(request, scriptDiagnostics)
+      if (draftRef.current.draft !== request)
+        throw new Error("Request changed while formatting; save again")
+      if (target?.scope === "request" && formattingTarget.current === target) {
+        const changes = result.edits[target.field]
+        if (changes) target.editor.applyFormatting(changes)
+      }
+      if (result.edits.body) draftRef.current.setBody(result.fields.body ?? "")
+      for (const { phase } of SCRIPT_TABS)
+        if (result.edits[phase])
+          draftRef.current.setScript(phase, scriptText(result.fields, phase))
+      return result.fields
+    },
+    [scriptDiagnostics],
+  )
+  const prepareFolder = useCallback(
+    async (folder: Folder) => {
+      const target = formattingTarget.current
+      const result = await formatCodeFields(folder, scriptDiagnostics)
+      if (folderDraftRef.current.folderDraft !== folder)
+        throw new Error("Folder changed while formatting; save again")
+      if (target?.scope === "folder" && formattingTarget.current === target) {
+        const changes = result.edits[target.field]
+        if (changes) target.editor.applyFormatting(changes)
+      }
+      for (const { phase } of SCRIPT_TABS)
+        if (result.edits[phase])
+          folderDraftRef.current.setScript(
+            phase,
+            scriptText(result.fields, phase),
+          )
+      return result.fields
+    },
+    [scriptDiagnostics],
+  )
   const markRequestSaved = useCallback(
     (request: NoodleRequest) => {
       updateCollection((current) =>
@@ -557,6 +611,7 @@ export function AppInner({
     draft.draft,
     selectedRequest?.id,
     markRequestSaved,
+    formatOnSave ? prepareRequest : undefined,
   )
 
   const doSaveRef = useRef(doSave)
@@ -1033,6 +1088,7 @@ export function AppInner({
     handleRequestDeleteConfirm,
     executeInitPending,
   } = useCollectionFileActions({
+    prepareFolder: formatOnSave ? prepareFolder : undefined,
     collection,
     collectionDir,
     updateCollection,
@@ -1752,6 +1808,7 @@ export function AppInner({
         appConfigDir,
         externalEditor,
         scriptActions,
+        formattingTarget,
         confirmUndoAll,
         renderer,
         proxyPolicy,
@@ -1829,6 +1886,7 @@ export function AppInner({
       view,
       effectiveCollectionMode,
       paletteTarget,
+      overlays.commandPaletteVisible,
       handleOpenRunner,
       proxyPolicy,
       tlsPolicy,
@@ -2030,6 +2088,8 @@ export function AppInner({
             activeThemeIndex={activeIndex}
             layout={layout}
             confirmUndoAll={confirmUndoAll}
+            formatOnSave={formatOnSave}
+            onFormatOnSaveChange={onFormatOnSaveChange}
             externalEditors={externalEditors}
             externalEditor={externalEditor}
             appProxy={appProxy}
@@ -2165,26 +2225,29 @@ export function AppInner({
     </box>
   )
   return (
-    <ResponseFileContext.Provider value={responseFileActions}>
-      <ScriptAuthoringContext.Provider
-        value={{
-          collectionDir,
-          collection,
-          diagnostics: scriptDiagnostics,
-          completionContext,
-          completionShortcut: keybinds.script_complete,
-          overlayActive,
-          setActive: setActiveScriptSource,
-          setActiveOrder: setActiveScriptOrder,
-          showOrder: overlays.setScriptOrder,
-          open: openScript,
-          confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
-        }}
-      >
-        <ConsoleCopyContext.Provider value={consoleCopyRef}>
-          {content}
-        </ConsoleCopyContext.Provider>
-      </ScriptAuthoringContext.Provider>
-    </ResponseFileContext.Provider>
+    <CodeFormattingContext.Provider value={formattingTarget}>
+      <ResponseFileContext.Provider value={responseFileActions}>
+        <ScriptAuthoringContext.Provider
+          value={{
+            collectionDir,
+            collection,
+            diagnostics: scriptDiagnostics,
+            formatOnSave,
+            completionContext,
+            completionShortcut: keybinds.script_complete,
+            overlayActive,
+            setActive: setActiveScriptSource,
+            setActiveOrder: setActiveScriptOrder,
+            showOrder: overlays.setScriptOrder,
+            open: openScript,
+            confirm: (confirm) => overlays.setScriptSourceConfirm({ confirm }),
+          }}
+        >
+          <ConsoleCopyContext.Provider value={consoleCopyRef}>
+            {content}
+          </ConsoleCopyContext.Provider>
+        </ScriptAuthoringContext.Provider>
+      </ResponseFileContext.Provider>
+    </CodeFormattingContext.Provider>
   )
 }

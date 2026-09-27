@@ -187,8 +187,8 @@ describe("BodySection — edit mode", () => {
     await act(async () => editBrowseState!.returnToTextBodyTypeSelect())
     await renderOnce()
     await act(async () => draftState!.setBody('{"updated":true}'))
-    await waitFor(() => editor.plainText === '{\n  "updated": true\n}')
-    expect(editor.plainText).toBe('{\n  "updated": true\n}')
+    await waitFor(() => editor.plainText === '{"updated":true}')
+    expect(editor.plainText).toBe('{"updated":true}')
     cleanup()
   })
 
@@ -255,7 +255,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("does not report formatted JSON as an edit while browsing", async () => {
+  it("does not report stored JSON as an edit while browsing", async () => {
     const { keymap, cleanup } = setupKeymap()
     const changes: string[] = []
     const { renderOnce } = await testRender(
@@ -444,7 +444,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("formats stored JSON before body edit focus", async () => {
+  it("preserves stored JSON before body edit focus", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -467,8 +467,8 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain('"name": "hello"')
-    expect(frame).toContain('"count": 42')
+    expect(frame).toContain('"name":"hello"')
+    expect(frame).toContain('"count":42')
     cleanup()
   })
 

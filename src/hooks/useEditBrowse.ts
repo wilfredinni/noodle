@@ -40,7 +40,6 @@ import {
   type FieldSubfield,
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
-import { formatBody } from "../ui/formatRequest"
 import { syncPathParamsWithUrl } from "../ui/urlParams"
 import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
 import { formatAssertionValue, parseAssertionValue } from "../ui/assertionValue"
@@ -707,9 +706,7 @@ export function useEditBrowse(
         prev.cursor.row === 0 &&
         isTextBodyType(draftRef.current?.bodyType)
       ) {
-        setEditValue(
-          formatBody(draftRef.current?.body, draftRef.current?.bodyType),
-        )
+        setEditValue(draftRef.current?.body ?? "")
         return beginEditing({
           ...prev,
           cursor: { field: "body", row: 1, addingRow: false },
@@ -728,9 +725,7 @@ export function useEditBrowse(
         prev.cursor.row === 0 &&
         isTextBodyType(draftRef.current?.bodyType)
       ) {
-        setEditValue(
-          formatBody(draftRef.current?.body, draftRef.current?.bodyType),
-        )
+        setEditValue(draftRef.current?.body ?? "")
         return beginEditing({
           ...prev,
           cursor: { field: "body", row: 1, addingRow: false },
@@ -749,9 +744,7 @@ export function useEditBrowse(
         !isTextBodyType(draftRef.current?.bodyType)
       )
         return prev
-      setEditValue(
-        formatBody(draftRef.current?.body, draftRef.current?.bodyType),
-      )
+      setEditValue(draftRef.current?.body ?? "")
       return beginEditing({
         ...prev,
         cursor: { field: "body", row: 1, addingRow: false },
