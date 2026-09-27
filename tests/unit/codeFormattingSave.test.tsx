@@ -202,6 +202,7 @@ it.each(["request", "folder"] as const)(
             onTlsPassphraseChange={async () => true}
             onTlsProfileRemove={async () => true}
             onCollectionSettingsChange={yes}
+            onCollectionScriptsChange={async () => true}
             initialLastRequestId="api/request"
             collectionPaths={[dir]}
             collectionSettingsByPath={{}}

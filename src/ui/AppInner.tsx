@@ -1,3 +1,4 @@
+import type { SaveCollectionScripts } from "./settings/CollectionScripts"
 import { scriptEnvironmentKeys } from "./editor/scriptCompletion"
 import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./editor/scriptDiagnostics"
@@ -193,6 +194,7 @@ export function AppInner({
   collectionTls,
   tlsPassphrases,
   collectionScripts,
+  collectionScriptDraft,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -208,6 +210,7 @@ export function AppInner({
   onTlsPassphraseChange,
   onTlsProfileRemove,
   onCollectionSettingsChange,
+  onCollectionScriptsChange,
   initialLastRequestId,
   collectionPaths,
   collectionSettingsByPath,
@@ -260,6 +263,7 @@ export function AppInner({
   collectionTls?: CollectionTlsSettings
   tlsPassphrases: Record<string, string>
   collectionScripts?: Pick<CollectionSettings, "scripts" | "tests">
+  collectionScriptDraft?: Pick<CollectionSettings, "scripts" | "tests">
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -278,6 +282,7 @@ export function AppInner({
   onProxyAuthDisable: (scope: "app" | "collection") => Promise<boolean>
   onTlsPassphraseChange: (index: number, value: string) => Promise<boolean>
   onTlsProfileRemove: (index: number) => Promise<boolean>
+  onCollectionScriptsChange: SaveCollectionScripts
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
@@ -2129,6 +2134,7 @@ export function AppInner({
             collectionTls={collectionTls}
             tlsPassphrases={tlsPassphrases}
             collectionScripts={collectionScripts ?? collection ?? undefined}
+            collectionScriptDraft={collectionScriptDraft}
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
@@ -2166,6 +2172,7 @@ export function AppInner({
             onTlsPassphraseChange={onTlsPassphraseChange}
             onTlsProfileRemove={onTlsProfileRemove}
             onCollectionSettingsChange={onCollectionSettingsChange}
+            onCollectionScriptsChange={onCollectionScriptsChange}
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}

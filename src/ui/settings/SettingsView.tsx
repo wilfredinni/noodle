@@ -1,4 +1,7 @@
-import { CollectionScripts } from "./CollectionScripts"
+import {
+  CollectionScripts,
+  type SaveCollectionScripts,
+} from "./CollectionScripts"
 import type { PrepareScriptFields } from "../editor/codeFormatting"
 import type { ScriptFields } from "../../schema"
 import {
@@ -134,6 +137,7 @@ export function SettingsView({
   collectionTls,
   tlsPassphrases = {},
   collectionScripts,
+  collectionScriptDraft,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -161,6 +165,7 @@ export function SettingsView({
   onTlsPassphraseChange = async () => false,
   onTlsProfileRemove = async () => false,
   onCollectionSettingsChange,
+  onCollectionScriptsChange,
   onEnvironmentChange,
   onKeybindChange,
   onCollectionsChange,
@@ -186,6 +191,7 @@ export function SettingsView({
   collectionTls?: CollectionTlsSettings
   tlsPassphrases?: Record<string, string>
   collectionScripts?: ScriptFields
+  collectionScriptDraft?: ScriptFields
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -216,6 +222,7 @@ export function SettingsView({
   onProxyAuthDisable?: (scope: "app" | "collection") => Promise<boolean>
   onTlsPassphraseChange?: (index: number, value: string) => Promise<boolean>
   onTlsProfileRemove?: (index: number) => Promise<boolean>
+  onCollectionScriptsChange: SaveCollectionScripts
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
@@ -894,10 +901,11 @@ export function SettingsView({
               <CollectionScripts
                 key={activeCollectionDir}
                 fields={collectionScripts ?? {}}
+                pendingFields={collectionScriptDraft}
                 focused={focus === "settings-content"}
                 onEditingChange={setScriptEditing}
                 onFocus={() => onPaneFocus("settings-content")}
-                onChange={onCollectionSettingsChange}
+                onChange={onCollectionScriptsChange}
               />
             )}
             {scope === "global" && category === "appearance" && (

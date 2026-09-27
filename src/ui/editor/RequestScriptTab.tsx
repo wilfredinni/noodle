@@ -14,6 +14,7 @@ import { requestScriptBlocks } from "../../scriptInheritance"
 import { scriptText } from "../../scriptAuthoring"
 import { isExternalScriptSource } from "../../lang/scriptSource"
 import { ActionButton } from "../ActionButton"
+import { useTheme } from "../theme"
 import {
   ScriptAuthoringContext,
   ScriptDescription,
@@ -28,6 +29,7 @@ type Props = Omit<
 }
 
 export function RequestScriptTab({ request, onFocus, ...props }: Props) {
+  const theme = useTheme()
   const context = useContext(ScriptAuthoringContext)
   const keymap = useKeymap()
   const renderer = useRenderer()
@@ -188,6 +190,12 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
         focusable={false}
         scrollY
         scrollX={false}
+        verticalScrollbarOptions={{
+          trackOptions: {
+            backgroundColor: theme.background,
+            foregroundColor: theme.borderActive,
+          },
+        }}
         flexGrow={1}
         flexBasis={0}
         minHeight={0}

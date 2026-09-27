@@ -122,6 +122,11 @@ function Harness({
         setCollectionSettings((current) => ({ ...current, ...patch }))
         return true
       }}
+      onCollectionScriptsChange={async (patch) => {
+        if (!onCollectionSettingsChange(patch)) return false
+        setCollectionSettings((current) => ({ ...current, ...patch }))
+        return true
+      }}
       onEnvironmentChange={() => {}}
       onKeybindChange={onKeybindChange}
       onCollectionsChange={onCollectionsChange}

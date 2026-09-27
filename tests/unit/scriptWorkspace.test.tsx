@@ -121,7 +121,7 @@ describe("script workspaces", () => {
                 focused
                 onFocus={() => {}}
                 onEditingChange={() => {}}
-                onChange={(snapshot, formatter) => {
+                onChange={async (snapshot, formatter) => {
                   fields = snapshot
                   prepare = formatter!
                   return false
@@ -465,7 +465,7 @@ describe("script workspaces", () => {
             onEditingChange={() => {}}
             onChange={(patch, prepare) => {
               patches.push(patch)
-              void queueCollectionSettingsSave(
+              return queueCollectionSettingsSave(
                 persistence,
                 dir,
                 (settings) => ({ ...settings, ...patch }),
@@ -480,8 +480,10 @@ describe("script workspaces", () => {
                 },
                 setFields,
                 () => {},
+              ).then(
+                () => true,
+                () => false,
               )
-              return true
             }}
           />
         )
@@ -535,6 +537,7 @@ describe("script workspaces", () => {
           : 'const x={a:1};console.info("tests")',
       )
       expect(saved.name).toBe("Original")
+      expect(patches).toHaveLength(3)
       expect(
         patches.every((patch) => !Object.hasOwn(patch as object, "name")),
       ).toBe(true)

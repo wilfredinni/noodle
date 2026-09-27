@@ -4,10 +4,14 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
+import {
+  RGBA,
+  type InputRenderable,
+  type ScrollBoxRenderable,
+} from "@opentui/core"
 import { createTestRender } from "../testRender"
 import { setupKeymap } from "./_helpers"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { RequestScriptTab } from "../../src/ui/editor/RequestScriptTab"
 import {
   ScriptAuthoringContext,
@@ -337,6 +341,28 @@ async function mount({
 }
 
 describe("request script references", () => {
+  it.each(["pre", "post", "tests"] as const)(
+    "themes the external %s workspace scrollbar",
+    async (phase) => {
+      const h = await mount({ own: "./request.js", phase, height: 9 })
+      const workspace = h.renderer.root.findDescendantById(
+        "script-workspace",
+      ) as ScrollBoxRenderable
+      const scrollbar = workspace.verticalScrollBar
+      expect(scrollbar.visible).toBe(true)
+      expect(
+        scrollbar.slider.backgroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.background),
+        ),
+      ).toBe(true)
+      expect(
+        scrollbar.slider.foregroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.borderActive),
+        ),
+      ).toBe(true)
+    },
+  )
+
   it.each(["pre", "post", "tests"] as const)(
     "shows %s execution order in a reference-only modal",
     async (phase) => {
