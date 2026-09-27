@@ -829,10 +829,10 @@ export function App({
           }
         },
         async (dir, settings) => {
-          const next = prepare
-            ? { ...settings, ...(await prepare(patch)) }
-            : settings
+          const prepared = await prepare?.(patch)
+          const next = prepared ? { ...settings, ...prepared.fields } : settings
           await saveSettings(dir, next)
+          prepared?.apply?.()
           return next
         },
         setSettings,

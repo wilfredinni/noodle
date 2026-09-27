@@ -6,9 +6,10 @@ import { SCRIPT_TABS, scriptText, withScript } from "../../scriptAuthoring"
 import type { createScriptDiagnostics } from "./scriptDiagnostics"
 
 export type CodeEdit = Edit
+export type PreparedSave<T> = { fields: T; apply?: () => void }
 export type PrepareScriptFields = (
   fields: ScriptFields,
-) => Promise<ScriptFields>
+) => Promise<PreparedSave<ScriptFields>>
 
 export function formatJsonCode(source: string): CodeEdit[] | null {
   if (!source.trim()) return []

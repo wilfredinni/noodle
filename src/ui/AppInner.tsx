@@ -507,15 +507,27 @@ export function AppInner({
           "Formatting unavailable; saving unformatted scripts",
           "warning",
         )
-      if (target?.scope === "request" && formattingTarget.current === target) {
-        const changes = result.edits[target.field]
-        if (changes) target.editor.applyFormatting(changes)
+      return {
+        fields: result.fields,
+        apply() {
+          if (draftRef.current.draft !== request) return
+          if (
+            target?.scope === "request" &&
+            formattingTarget.current === target
+          ) {
+            const changes = result.edits[target.field]
+            if (changes) target.editor.applyFormatting(changes)
+          }
+          if (result.edits.body)
+            draftRef.current.setBody(result.fields.body ?? "")
+          for (const { phase } of SCRIPT_TABS)
+            if (result.edits[phase])
+              draftRef.current.setScript(
+                phase,
+                scriptText(result.fields, phase),
+              )
+        },
       }
-      if (result.edits.body) draftRef.current.setBody(result.fields.body ?? "")
-      for (const { phase } of SCRIPT_TABS)
-        if (result.edits[phase])
-          draftRef.current.setScript(phase, scriptText(result.fields, phase))
-      return result.fields
     },
     [scriptDiagnostics],
   )
@@ -530,17 +542,25 @@ export function AppInner({
           "Formatting unavailable; saving unformatted scripts",
           "warning",
         )
-      if (target?.scope === "folder" && formattingTarget.current === target) {
-        const changes = result.edits[target.field]
-        if (changes) target.editor.applyFormatting(changes)
+      return {
+        fields: result.fields,
+        apply() {
+          if (folderDraftRef.current.folderDraft !== folder) return
+          if (
+            target?.scope === "folder" &&
+            formattingTarget.current === target
+          ) {
+            const changes = result.edits[target.field]
+            if (changes) target.editor.applyFormatting(changes)
+          }
+          for (const { phase } of SCRIPT_TABS)
+            if (result.edits[phase])
+              folderDraftRef.current.setScript(
+                phase,
+                scriptText(result.fields, phase),
+              )
+        },
       }
-      for (const { phase } of SCRIPT_TABS)
-        if (result.edits[phase])
-          folderDraftRef.current.setScript(
-            phase,
-            scriptText(result.fields, phase),
-          )
-      return result.fields
     },
     [scriptDiagnostics],
   )

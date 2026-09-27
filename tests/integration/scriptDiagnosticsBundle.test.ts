@@ -55,6 +55,21 @@ try {
       new Response(build.stderr).text(),
     ])
     expect({ buildCode, errors }).toMatchObject({ buildCode: 0 })
+    const sign = Bun.spawn(
+      [
+        process.execPath,
+        fileURLToPath(
+          new URL("../../scripts/sign-macos-binary.ts", import.meta.url),
+        ),
+        binary,
+      ],
+      { stdout: "pipe", stderr: "pipe" },
+    )
+    const [signCode, signError] = await Promise.all([
+      sign.exited,
+      new Response(sign.stderr).text(),
+    ])
+    expect({ signCode, signError }).toMatchObject({ signCode: 0 })
     await mkdir(join(dir, "empty"))
     const run = Bun.spawn([binary], {
       cwd: join(dir, "empty"),

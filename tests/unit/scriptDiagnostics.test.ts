@@ -27,6 +27,45 @@ class FakeWorker extends EventTarget {
 afterEach(() => jest.useRealTimers())
 
 describe("script diagnostics worker lifecycle", () => {
+  it("services interactive jobs between formats without dropping queued saves", async () => {
+    const worker = new FakeWorker()
+    const service = createScriptDiagnostics(() => worker as unknown as Worker)
+    const pending: Promise<unknown>[] = []
+    try {
+      pending.push(service.format("first", "pre"))
+      pending.push(service.format("second", "post"))
+      pending.push(service.format("third", "tests"))
+      pending.push(service.check("latest", "pre"))
+      pending.push(service.details("noodle.", "pre", 7, "request"))
+      pending.push(
+        service.assist("noodle.", "pre", 7, {
+          environmentKeys: [],
+          requestIds: [],
+        }),
+      )
+      for (const kind of [
+        "assist",
+        "format",
+        "details",
+        "format",
+        "check",
+      ] as const) {
+        worker.reply()
+        expect(worker.requests.at(-1)?.kind).toBe(kind)
+      }
+      worker.reply()
+      await Promise.all(pending)
+      expect(
+        worker.requests
+          .filter((job) => job.kind === "format")
+          .map((job) => job.source),
+      ).toEqual(["first", "second", "third"])
+    } finally {
+      service.dispose()
+      await Promise.allSettled(pending)
+    }
+  })
+
   it("starts lazily, coalesces queued edits, and clears completed source", async () => {
     const worker = new FakeWorker()
     const diagnostics = createScriptDiagnostics(

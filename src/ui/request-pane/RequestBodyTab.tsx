@@ -169,7 +169,7 @@ export function BodySection({
   const editingBody = inEdit && editState.cursor.field === "body"
   useFormattingTarget(
     editorInstance,
-    (editingBody || browseActive) && bodyType === "json",
+    editingBody && bodyType === "json",
     "body",
     "request",
   )

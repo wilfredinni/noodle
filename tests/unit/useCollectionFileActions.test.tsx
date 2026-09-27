@@ -13,7 +13,10 @@ import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import { useCollectionFileActions } from "../../src/ui/useCollectionFileActions"
 import { lang } from "../../src/lang"
 import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
-import { formatCodeFields } from "../../src/ui/editor/codeFormatting"
+import {
+  formatCodeFields,
+  type PreparedSave,
+} from "../../src/ui/editor/codeFormatting"
 
 const testRender = createTestRender()
 
@@ -73,7 +76,7 @@ function ActionsHarness({
   ) => void
   onCreateFailed?: () => void
   onDeleteReady?: (setFile: (id: string) => void, confirm: () => void) => void
-  prepareFolder?: (folder: Folder) => Promise<Folder>
+  prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
   draftFolder?: Folder
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
@@ -202,7 +205,7 @@ describe("useCollectionFileActions", () => {
               tests: 'test("ok",()=>{})',
             }}
             prepareFolder={async (folder) =>
-              (await formatCodeFields(folder, formatter)).fields
+              formatCodeFields(folder, formatter)
             }
             onSaveReady={(handleSave) => (save = handleSave)}
             onMarkSaved={() => markedSaved++}

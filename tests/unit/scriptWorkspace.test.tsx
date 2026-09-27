@@ -58,6 +58,11 @@ import type {
   Request,
 } from "../../src/schema"
 import type { FieldKind } from "../../src/ui/editMode"
+import type { PrepareScriptFields } from "../../src/ui/editor/codeFormatting"
+import {
+  CodeFormattingContext,
+  type FormattingTarget,
+} from "../../src/ui/editor/CodeFormattingContext"
 
 const testRender = createTestRender()
 const directories: string[] = []
@@ -90,6 +95,64 @@ async function fixture() {
 }
 
 describe("script workspaces", () => {
+  it("prepares collection formatting without changing the editor until the save succeeds", async () => {
+    const { keymap, host } = setupKeymap()
+    const diagnostics = createScriptDiagnostics()
+    formatServices.push(diagnostics)
+    const target = { current: null as FormattingTarget | null }
+    let prepare!: PrepareScriptFields
+    let fields!: Parameters<PrepareScriptFields>[0]
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CodeFormattingContext.Provider value={target}>
+            <ScriptAuthoringContext.Provider
+              value={{
+                collectionDir: ".",
+                collection: null,
+                diagnostics,
+                formatOnSave: true,
+                confirm: (run) => run(),
+                setActive: () => {},
+              }}
+            >
+              <CollectionScripts
+                fields={{}}
+                focused
+                onFocus={() => {}}
+                onEditingChange={() => {}}
+                onChange={(snapshot, formatter) => {
+                  fields = snapshot
+                  prepare = formatter!
+                  return false
+                }}
+              />
+            </ScriptAuthoringContext.Provider>
+          </CodeFormattingContext.Provider>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 23 },
+    )
+    await act(async () => host.press("down"))
+    const editor = h.renderer.root.findDescendantById(
+      "script-source",
+    ) as CodeEditorRenderable
+    const source = "const x={a:1}"
+    await act(async () => editor.insertText(source))
+    await act(async () => host.press("escape"))
+    const prepared = await act(async () => prepare(fields))
+    expect(prepared.fields.scripts?.pre).toBe("const x = { a: 1 }")
+    expect(editor.plainText).toBe(source)
+    await act(async () => host.press("down"))
+    await act(async () => prepared.apply?.())
+    expect(editor.plainText).toBe("const x = { a: 1 }")
+    await act(async () => editor.undo())
+    expect(editor.plainText).toBe(source)
+    await act(async () => editor.replaceText("const newer=2"))
+    await act(async () => prepared.apply?.())
+    expect(editor.plainText).toBe("const newer=2")
+  })
+
   it.each([
     ["pre", "preScript"],
     ["post", "postScript"],
@@ -407,10 +470,12 @@ describe("script workspaces", () => {
                 dir,
                 (settings) => ({ ...settings, ...patch }),
                 async (dir, fields) => {
-                  const next = prepare
-                    ? { ...fields, ...(await prepare(patch)) }
+                  const prepared = await prepare?.(patch)
+                  const next = prepared
+                    ? { ...fields, ...prepared.fields }
                     : fields
                   await saveSettings(dir, next)
+                  prepared?.apply?.()
                   return next
                 },
                 setFields,

@@ -20,9 +20,10 @@ import { updateFolderByPath } from "./tree"
 import { syncParamsWithUrl, syncPathParamsWithUrl } from "./urlParams"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
+import type { PreparedSave } from "./editor/codeFormatting"
 
 interface UseCollectionFileActionsOptions {
-  prepareFolder?: (folder: Folder) => Promise<Folder>
+  prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
   collectionDir: string
   collection: Collection | null
   updateCollection: Dispatch<SetStateAction<Collection | null>>
@@ -102,9 +103,11 @@ export function useCollectionFileActions({
     if (!draftFolder || !collection || savingRef.current) return
     savingRef.current = true
     try {
-      if (prepareFolder) draftFolder = await prepareFolder(draftFolder)
+      const prepared = await prepareFolder?.(draftFolder)
+      if (prepared) draftFolder = prepared.fields
       const savedFolder = draftFolder
       await saveFolder(collectionDir, draftFolder)
+      prepared?.apply?.()
       folderDraftRef.current?.markSaved(draftFolder)
       updateCollection((current) =>
         current

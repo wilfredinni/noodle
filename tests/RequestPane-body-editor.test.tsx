@@ -24,6 +24,10 @@ import {
 } from "../src/hooks/useEditBrowse"
 import { getHighlightCount, setupKeymap } from "./unit/_helpers"
 import { codeEditorParsers } from "../src/ui/editor/codeEditorParsers"
+import {
+  CodeFormattingContext,
+  type FormattingTarget,
+} from "../src/ui/editor/CodeFormattingContext"
 
 const testRender = createTestRender()
 
@@ -67,6 +71,47 @@ const editStateEditingTimeout = {
   cursor: { field: "settings" as const, row: 0, addingRow: false },
   editingRow: 0,
 }
+
+it("registers JSON body formatting only while editing the body", async () => {
+  const { keymap } = setupKeymap()
+  const target = { current: null as FormattingTarget | null }
+  let setEditing!: (value: boolean) => void
+  function Harness() {
+    const [editing, updateEditing] = useState(false)
+    setEditing = updateEditing
+    return (
+      <RequestPane
+        request={testRequest}
+        activeTab="body"
+        focused
+        editState={editing ? editStateEditing : editStateBrowse}
+        editKey=""
+        editValue={testRequest.body!}
+        setEditKey={() => {}}
+        setEditValue={() => {}}
+      />
+    )
+  }
+  const h = await testRender(
+    <KeymapProvider keymap={keymap}>
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CodeFormattingContext.Provider value={target}>
+          <Harness />
+        </CodeFormattingContext.Provider>
+      </ThemeProvider>
+    </KeymapProvider>,
+    { width: 80, height: 20 },
+  )
+  expect(target.current?.field).toBeUndefined()
+  await act(async () => setEditing(true))
+  const editor = h.renderer.root.findDescendantById(
+    "request-body-editor",
+  ) as CodeEditorRenderable
+  expect(target.current?.editor).toBe(editor)
+  expect(editor.canFormat).toBe(true)
+  await act(async () => setEditing(false))
+  expect(target.current?.field).toBeUndefined()
+})
 
 function ActiveJsonEditorHarness({
   onInteraction,

@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Request } from "../schema"
 import type { SaveState } from "./saveState"
 import { filestore } from "../filestore"
+import type { PreparedSave } from "./editor/codeFormatting"
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
@@ -21,7 +22,7 @@ export function useSaveFile(
   req: Request | null,
   selectedRequestId: string | undefined,
   markSaved: (request: Request) => void,
-  prepare?: (request: Request) => Promise<Request>,
+  prepare?: (request: Request) => Promise<PreparedSave<Request>>,
 ): UseSaveFileResult {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -47,10 +48,12 @@ export function useSaveFile(
     const requestId = req.id
     setSaveState({ kind: "idle" })
     try {
-      const saved = prepare ? await prepare(req) : req
+      const prepared = await prepare?.(req)
+      const saved = prepared?.fields ?? req
       await filestore.saveRequest(collectionDir, saved)
       if (!mountedRef.current) return
       if (selectedRequestId !== requestId) return
+      prepared?.apply?.()
       markSaved(saved)
       clearSaveTimer()
       setSaveState({

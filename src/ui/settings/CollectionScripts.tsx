@@ -59,16 +59,20 @@ export function CollectionScripts({
                 "Formatting unavailable; saving unformatted scripts",
                 "warning",
               )
-            if (
-              target?.scope === "collection" &&
-              target.field !== "body" &&
-              formattingTarget?.current === target &&
-              target.editor.plainText === scriptText(fields, target.field)
-            ) {
-              const changes = result.edits[target.field]
-              if (changes) target.editor.applyFormatting(changes)
+            return {
+              fields: result.fields,
+              apply() {
+                if (
+                  target?.scope === "collection" &&
+                  target.field !== "body" &&
+                  formattingTarget?.current === target &&
+                  target.editor.plainText === scriptText(fields, target.field)
+                ) {
+                  const changes = result.edits[target.field]
+                  if (changes) target.editor.applyFormatting(changes)
+                }
+              },
             }
-            return result.fields
           }
         : undefined
     if (changeRef.current(snapshot, prepare)) pending.current = null

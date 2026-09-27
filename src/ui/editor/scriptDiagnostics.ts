@@ -49,13 +49,15 @@ type Pending = {
 
 export function createScriptDiagnostics(
   startWorker = () =>
-    new Worker(new URL("./scriptDiagnostics.worker.ts", import.meta.url).href),
+    // Compiled workers use .js; Bun also resolves this to .ts in source runs.
+    new Worker(new URL("./scriptDiagnostics.worker.js", import.meta.url).href),
   deadlineMs = 5_000,
 ) {
   let worker: Worker | undefined
   let active: Pending | undefined
   const queued = new Map<keyof Jobs, Pending>()
   const formats: Pending[] = []
+  let preferFormat = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let sequence = 0
   let disposed = false
@@ -77,15 +79,19 @@ export function createScriptDiagnostics(
   }
   const dispatch = () => {
     if (active || disposed) return
-    const kind = (["format", "assist", "details", "check"] as const).find(
-      (kind) => queued.has(kind),
+    const kind = (["assist", "details", "check"] as const).find((kind) =>
+      queued.has(kind),
     )
     if (!kind && !formats.length) {
       clear()
       return
     }
-    active = formats.shift() ?? queued.get(kind!)!
-    if (active.job.kind !== "format") queued.delete(kind!)
+    active =
+      kind && (!formats.length || !preferFormat)
+        ? queued.get(kind)!
+        : formats.shift()!
+    preferFormat = active.job.kind !== "format"
+    if (active.job.kind !== "format") queued.delete(active.job.kind)
     timer = setTimeout(fail, deadlineMs)
     try {
       if (!worker) {
