@@ -41,6 +41,7 @@ function Harness({
   externalEditors = [],
   externalEditor,
   onExternalEditorChange = () => {},
+  onFormatOnSaveChange = () => {},
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
   activeThemeIndex = 0,
@@ -64,6 +65,7 @@ function Harness({
   externalEditors?: ExternalEditor[]
   externalEditor?: ExternalEditor
   onExternalEditorChange?: (editor: ExternalEditorId) => void
+  onFormatOnSaveChange?: (value: boolean) => void
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
   activeThemeIndex?: number
@@ -83,6 +85,7 @@ function Harness({
       activeThemeIndex={activeThemeIndex}
       layout="stacked"
       confirmUndoAll
+      onFormatOnSaveChange={onFormatOnSaveChange}
       externalEditors={externalEditors}
       externalEditor={externalEditor}
       appProxy={appProxy}
@@ -119,6 +122,11 @@ function Harness({
         setCollectionSettings((current) => ({ ...current, ...patch }))
         return true
       }}
+      onCollectionScriptsChange={async (patch) => {
+        if (!onCollectionSettingsChange(patch)) return false
+        setCollectionSettings((current) => ({ ...current, ...patch }))
+        return true
+      }}
       onEnvironmentChange={() => {}}
       onKeybindChange={onKeybindChange}
       onCollectionsChange={onCollectionsChange}
@@ -129,6 +137,28 @@ function Harness({
 }
 
 describe("SettingsView", () => {
+  it("offers Format on Save off by default and toggles it by keyboard", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: boolean[] = []
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="behavior"
+            initialFocus="settings-content"
+            onFormatOnSaveChange={(value) => changes.push(value)}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toContain("Format on Save")
+    await act(async () => host.press("end"))
+    await act(async () => host.press("space"))
+    expect(changes).toEqual([true])
+    cleanup()
+  })
   it("renders the global scope and categories at wide and compact sizes", async () => {
     for (const size of [
       { width: 110, height: 30 },
@@ -734,40 +764,51 @@ describe("SettingsView", () => {
     expect(environment.screenY - create.screenY).toBeGreaterThan(1)
     cleanup()
   })
-  it("captures custom Save and Open shortcuts in Settings", async () => {
+  it("captures custom shortcuts and rejects printable script completion bindings", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const changes: Array<[string, string]> = []
-    const { renderer, renderOnce, mockMouse } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <Harness
-            initialCategory="keyboard"
-            initialFocus="settings-content"
-            onKeybindChange={(name, key) => {
-              changes.push([name, key])
-              return true
-            }}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 110, height: 120 },
-    )
+    const { renderer, renderOnce, mockMouse, captureCharFrame } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness
+              initialCategory="keyboard"
+              initialFocus="settings-content"
+              onKeybindChange={(name, key) => {
+                changes.push([name, key])
+                return true
+              }}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 110, height: 120 },
+      )
     await renderOnce()
     for (const [name, letter] of [
       ["response_save_file", "s"],
       ["response_open_file", "o"],
+      ["script_complete", "a"],
     ] as const) {
       const row = renderer.root.findDescendantById(`settings-key-${name}-row`)!
       await act(async () =>
         mockMouse.click(row.screenX + 1, row.screenY, MouseButtons.LEFT),
       )
       await act(async () => host.press("return"))
+      if (name === "script_complete") {
+        await act(async () => host.press("x"))
+        await renderOnce()
+        expect(captureCharFrame()).toContain(
+          "Script completion needs Ctrl, Alt",
+        )
+        expect(changes).toHaveLength(2)
+      }
       await act(async () => host.press(letter, { meta: true }))
       await renderOnce()
     }
     expect(changes).toEqual([
       ["response_save_file", "alt+s"],
       ["response_open_file", "alt+o"],
+      ["script_complete", "alt+a"],
     ])
     cleanup()
   })

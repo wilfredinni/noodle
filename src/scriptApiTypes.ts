@@ -14,7 +14,9 @@ interface DirectRequest { url: string; method?: Method; headers?: Record<string,
 
 `
 
-export function generateScriptDeclarations(): string {
+export function generateScriptDeclarations(editorPhase?: ScriptPhase): string {
+  // Editor-only JSON readers use any so ordinary property access needs no JSDoc
+  // narrowing. Exported declarations keep their stricter JsonValue types.
   const members = (
     global: ScriptApiDescriptor["global"],
     parent: string,
@@ -33,7 +35,20 @@ export function generateScriptDeclarations(): string {
       .map((entry) => {
         const name = entry.member.split(".").at(-1)!
         const doc = `/** ${entry.description} @phases ${entry.phases.join(", ")} */`
-        if (entry.kind === "method") return `${doc}\n${entry.signature};`
+        if (entry.kind === "method") {
+          const signature =
+            editorPhase &&
+            entry.global === "noodle" &&
+            ["request.body.json", "response.json", "run.get"].includes(
+              entry.member,
+            )
+              ? entry.signature.replace(
+                  /: JsonValue(?: \| undefined)?$/,
+                  ": any",
+                )
+              : entry.signature
+          return `${doc}\n${signature};`
+        }
         const nested = members(global, entry.member, phase)
         const signature = entry.signature.replace(/^noodle\./, "")
         const hasMembers = SCRIPT_API_CONTRACT.some(
@@ -41,12 +56,17 @@ export function generateScriptDeclarations(): string {
             child.global === global &&
             child.member.startsWith(`${entry.member}.`),
         )
-        const type =
+        let type =
           nested || hasMembers
             ? `{\n${nested}\n}`
             : signature.startsWith(`${name}:`)
               ? signature.slice(name.length + 1).trim()
               : signature
+        if (editorPhase && entry.member === "iteration")
+          type = type.replace(
+            "data: object",
+            "data: Readonly<Record<string, any>>",
+          )
         const writable = phase
           ? entry.writableIn?.includes(phase)
           : !!entry.writableIn?.length
@@ -57,6 +77,7 @@ export function generateScriptDeclarations(): string {
   const globals = SCRIPT_API_CONTRACT.filter(
     (entry) =>
       entry.kind === "global" &&
+      (!editorPhase || entry.phases.includes(editorPhase)) &&
       (entry.global === "test" || entry.global === "expect"),
   )
     .map(
@@ -64,5 +85,8 @@ export function generateScriptDeclarations(): string {
         `/** ${entry.description} Tests phase only. */\ndeclare function ${entry.signature.replace(/\bMatchers\b/g, "NoodleScript.Matchers")};`,
     )
     .join("\n")
-  return `// Generated from SCRIPT_API_CONTRACT. Run bun scripts/generate-script-api.ts.\n// The noodle global includes all phases; external editors cannot infer a file's execution phase.\n// Runtime phase checks remain authoritative. For phase-specific member checking, use a typed alias:\n// /** @type {NoodleScript.Post} */ const post = noodle;\n// Use NoodleScript.Pre or NoodleScript.Tests for other phases; test/expect globals are tests-only.\ndeclare namespace NoodleScript {\n${values}\ninterface ScriptResponse {\n${members("noodle", "response", "post")}\nreadonly execution?: JsonValue;\n}\ninterface Matchers {\n${members("expect", "")}\n}\ninterface Api {\n${members("noodle", "")}\n}\n${(["pre", "post", "tests"] as const).map((phase) => `interface ${phase[0]!.toUpperCase() + phase.slice(1)} {\n${members("noodle", "", phase)}\n}`).join("\n")}\n}\ndeclare const noodle: NoodleScript.Api;\ninterface Console {\n${members("console", "")}\n}\ndeclare var console: Console;\n${globals}\n`
+  const globalType = editorPhase
+    ? editorPhase[0]!.toUpperCase() + editorPhase.slice(1)
+    : "Api"
+  return `// Generated from SCRIPT_API_CONTRACT. Run bun scripts/generate-script-api.ts.\n// The noodle global includes all phases; external editors cannot infer a file's execution phase.\n// Runtime phase checks remain authoritative. For phase-specific member checking, use a typed alias:\n// /** @type {NoodleScript.Post} */ const post = noodle;\n// Use NoodleScript.Pre or NoodleScript.Tests for other phases; test/expect globals are tests-only.\ndeclare namespace NoodleScript {\n${values}\ninterface ScriptResponse {\n${members("noodle", "response", "post")}\nreadonly execution?: JsonValue;\n}\ninterface Matchers {\n${members("expect", "")}\n}\ninterface Api {\n${members("noodle", "")}\n}\n${(["pre", "post", "tests"] as const).map((phase) => `interface ${phase[0]!.toUpperCase() + phase.slice(1)} {\n${members("noodle", "", phase)}\n}`).join("\n")}\n}\ndeclare const noodle: NoodleScript.${globalType};\ninterface Console {\n${members("console", "")}\n}\ndeclare var console: Console;\n${globals}\n`
 }

@@ -7,10 +7,6 @@ import {
 import { highlightJsonTokens } from "./syntax"
 import { tokenizeYamlLine } from "./yamlSyntax"
 import {
-  buildByteToDisplayOffsets,
-  byteOffsetToDisplayOffset,
-} from "./codeEditorOffsets"
-import {
   styleIdForJsonToken,
   styleIdForYamlForeground,
 } from "./codeEditorStyles"
@@ -27,15 +23,15 @@ export function buildTreeSitterHighlightRanges(
   content: string,
   style: SyntaxStyle,
 ): EditorHighlightRange[] {
-  const displayOffsets = buildByteToDisplayOffsets(content)
+  const displayOffsets = buildCharToDisplayOffsets(content)
   return highlights.flatMap(([start, end, group]) => {
     if (start >= end) return []
     const styleId = style.getStyleId(group)
     if (styleId === null) return []
     return [
       {
-        start: byteOffsetToDisplayOffset(displayOffsets, start),
-        end: byteOffsetToDisplayOffset(displayOffsets, end),
+        start: charOffsetToDisplayOffset(displayOffsets, start),
+        end: charOffsetToDisplayOffset(displayOffsets, end),
         styleId,
         priority: 1,
       },

@@ -31,6 +31,22 @@ import { launchExternalEditor, type ExternalEditor } from "../externalEditor"
 import { installNoodleSkill, type AgentSkillInstallResult } from "../agentSkill"
 import type { ResponseFilePending } from "./useOverlayState"
 import { openResponseFile, prepareResponseOutput } from "../responseFile"
+import type { CodeEditorRenderable } from "./editor/CodeEditor"
+
+export function formatCode(
+  editor: CodeEditorRenderable | null | undefined,
+): boolean {
+  if (!editor?.canFormat) return false
+  void editor
+    .formatCode()
+    .catch((error: unknown) =>
+      showToast(
+        error instanceof Error ? error.message : "Unable to format code",
+        "warning",
+      ),
+    )
+  return true
+}
 
 export function beginResponseFileSave(
   state: SendState,

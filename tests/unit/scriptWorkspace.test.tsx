@@ -1,3 +1,4 @@
+import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
 import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import { act, useState } from "react"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
@@ -57,10 +58,17 @@ import type {
   Request,
 } from "../../src/schema"
 import type { FieldKind } from "../../src/ui/editMode"
+import type { PrepareScriptFields } from "../../src/ui/editor/codeFormatting"
+import {
+  CodeFormattingContext,
+  type FormattingTarget,
+} from "../../src/ui/editor/CodeFormattingContext"
 
 const testRender = createTestRender()
 const directories: string[] = []
+const formatServices: ReturnType<typeof createScriptDiagnostics>[] = []
 afterEach(async () => {
+  for (const service of formatServices.splice(0)) service.dispose()
   for (const dir of directories.splice(0))
     await rm(dir, { recursive: true, force: true })
 })
@@ -87,6 +95,64 @@ async function fixture() {
 }
 
 describe("script workspaces", () => {
+  it("prepares collection formatting without changing the editor until the save succeeds", async () => {
+    const { keymap, host } = setupKeymap()
+    const diagnostics = createScriptDiagnostics()
+    formatServices.push(diagnostics)
+    const target = { current: null as FormattingTarget | null }
+    let prepare!: PrepareScriptFields
+    let fields!: Parameters<PrepareScriptFields>[0]
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CodeFormattingContext.Provider value={target}>
+            <ScriptAuthoringContext.Provider
+              value={{
+                collectionDir: ".",
+                collection: null,
+                diagnostics,
+                formatOnSave: true,
+                confirm: (run) => run(),
+                setActive: () => {},
+              }}
+            >
+              <CollectionScripts
+                fields={{}}
+                focused
+                onFocus={() => {}}
+                onEditingChange={() => {}}
+                onChange={async (snapshot, formatter) => {
+                  fields = snapshot
+                  prepare = formatter!
+                  return false
+                }}
+              />
+            </ScriptAuthoringContext.Provider>
+          </CodeFormattingContext.Provider>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 23 },
+    )
+    await act(async () => host.press("down"))
+    const editor = h.renderer.root.findDescendantById(
+      "script-source",
+    ) as CodeEditorRenderable
+    const source = "const x={a:1}"
+    await act(async () => editor.insertText(source))
+    await act(async () => host.press("escape"))
+    const prepared = await act(async () => prepare(fields))
+    expect(prepared.fields.scripts?.pre).toBe("const x = { a: 1 }")
+    expect(editor.plainText).toBe(source)
+    await act(async () => host.press("down"))
+    await act(async () => prepared.apply?.())
+    expect(editor.plainText).toBe("const x = { a: 1 }")
+    await act(async () => editor.undo())
+    expect(editor.plainText).toBe(source)
+    await act(async () => editor.replaceText("const newer=2"))
+    await act(async () => prepared.apply?.())
+    expect(editor.plainText).toBe("const newer=2")
+  })
+
   it.each([
     ["pre", "preScript"],
     ["post", "postScript"],
@@ -372,76 +438,111 @@ describe("script workspaces", () => {
     },
   )
 
-  it("edits all collection phases using the settings queue without overwriting unrelated settings", async () => {
-    const dir = await fixture()
-    await saveSettings(dir, { name: "Original", cookies: { enabled: false } })
-    const initial = await loadSettings(dir)
-    const persistence: CollectionSettingsPersistence = {
-      activeCollectionDir: { current: dir },
-      currentSettings: { current: initial },
-      persistedSettings: { current: initial },
-      saveChain: { current: Promise.resolve() },
-      pendingUpdates: { current: [] },
-    }
-    const { keymap, host } = setupKeymap()
-    const patches: unknown[] = []
-    function Harness() {
-      const [fields, setFields] = useState<CollectionSettings>(initial)
-      return (
-        <CollectionScripts
-          fields={fields}
-          focused
-          onFocus={() => {}}
-          onEditingChange={() => {}}
-          onChange={(patch) => {
-            patches.push(patch)
-            void queueCollectionSettingsSave(
-              persistence,
-              dir,
-              (settings) => ({ ...settings, ...patch }),
-              saveSettings,
-              setFields,
-              () => {},
-            )
-            return true
-          }}
-        />
+  it.each([false, true])(
+    "edits all collection phases with format on save %s without overwriting unrelated settings",
+    async (formatOnSave) => {
+      const dir = await fixture()
+      await saveSettings(dir, { name: "Original", cookies: { enabled: false } })
+      const initial = await loadSettings(dir)
+      const persistence: CollectionSettingsPersistence = {
+        activeCollectionDir: { current: dir },
+        currentSettings: { current: initial },
+        persistedSettings: { current: initial },
+        saveChain: { current: Promise.resolve() },
+        pendingUpdates: { current: [] },
+      }
+      const { keymap, host } = setupKeymap()
+      const patches: unknown[] = []
+      const diagnostics = createScriptDiagnostics()
+      formatServices.push(diagnostics)
+      function Harness() {
+        const [fields, setFields] = useState<CollectionSettings>(initial)
+        return (
+          <CollectionScripts
+            fields={fields}
+            focused
+            onFocus={() => {}}
+            onEditingChange={() => {}}
+            onChange={(patch, prepare) => {
+              patches.push(patch)
+              return queueCollectionSettingsSave(
+                persistence,
+                dir,
+                (settings) => ({ ...settings, ...patch }),
+                async (dir, fields) => {
+                  const prepared = await prepare?.(patch)
+                  const next = prepared
+                    ? { ...fields, ...prepared.fields }
+                    : fields
+                  await saveSettings(dir, next)
+                  prepared?.apply?.()
+                  return next
+                },
+                setFields,
+                () => {},
+              ).then(
+                () => true,
+                () => false,
+              )
+            }}
+          />
+        )
+      }
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <ScriptAuthoringContext.Provider
+              value={{
+                collectionDir: dir,
+                collection: null,
+                diagnostics,
+                formatOnSave,
+                confirm: (run) => run(),
+                setActive: () => {},
+              }}
+            >
+              <Harness />
+            </ScriptAuthoringContext.Provider>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 90, height: 23 },
       )
-    }
-    const h = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <Harness />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 90, height: 23 },
-    )
-    for (const phase of ["pre", "post", "tests"] as const) {
-      await act(async () => host.press("down"))
-      const editor = h.renderer.root.findDescendantById(
-        "script-source",
-      ) as CodeEditorRenderable
-      await act(async () => {
-        editor.insertText('console.info("')
-        editor.insertText(`${phase}")`)
+      for (const phase of ["pre", "post", "tests"] as const) {
+        await act(async () => host.press("down"))
+        const editor = h.renderer.root.findDescendantById(
+          "script-source",
+        ) as CodeEditorRenderable
+        await act(async () => {
+          editor.insertText('const x={a:1};console.info("')
+          editor.insertText(`${phase}")`)
+        })
+        await act(async () => host.press("escape"))
+        await act(async () => {
+          await persistence.saveChain.current
+        })
+        await act(async () => host.press("right"))
+      }
+      const saved = await loadSettings(dir)
+      expect(saved.scripts).toEqual({
+        pre: formatOnSave
+          ? 'const x = { a: 1 }; console.info("pre")'
+          : 'const x={a:1};console.info("pre")',
+        post: formatOnSave
+          ? 'const x = { a: 1 }; console.info("post")'
+          : 'const x={a:1};console.info("post")',
       })
-      await act(async () => host.press("escape"))
-      await act(async () => {
-        await persistence.saveChain.current
-      })
-      await act(async () => host.press("right"))
-    }
-    const saved = await loadSettings(dir)
-    expect(saved.scripts).toEqual({
-      pre: 'console.info("pre")',
-      post: 'console.info("post")',
-    })
-    expect(saved.tests).toBe('console.info("tests")')
-    expect(saved.name).toBe("Original")
-    expect(
-      patches.every((patch) => !Object.hasOwn(patch as object, "name")),
-    ).toBe(true)
-  })
+      expect(saved.tests).toBe(
+        formatOnSave
+          ? 'const x = { a: 1 }; console.info("tests")'
+          : 'const x={a:1};console.info("tests")',
+      )
+      expect(saved.name).toBe("Original")
+      expect(patches).toHaveLength(3)
+      expect(
+        patches.every((patch) => !Object.hasOwn(patch as object, "name")),
+      ).toBe(true)
+    },
+  )
 
   it("manual sends and the Runner preflight every applicable source before HTTP", async () => {
     const dir = await fixture()

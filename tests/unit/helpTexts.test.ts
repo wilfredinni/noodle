@@ -86,14 +86,19 @@ describe("getHelpSections", () => {
     const sections = getHelpSections(defaults)
     const editor = sections.find((s) => s.title === "Code Editor")!
     const keys = editor.keys.map((k) => k.key)
-    expect(keys).toEqual(["^g"])
+    expect(keys).toEqual(["^alt+f", "^g"])
 
     const configured = getHelpSections({
       ...defaults,
       editor_fold_all: "f8",
       editor_unfold_all: "f9",
     }).find((s) => s.title === "Code Editor")!
-    expect(configured.keys.map((key) => key.key)).toEqual(["^g", "f8", "f9"])
+    expect(configured.keys.map((key) => key.key)).toEqual([
+      "^alt+f",
+      "^g",
+      "f8",
+      "f9",
+    ])
   })
 
   it("ACTIONS section shows ^return / ^j, ^s, ^n, ^k, ^w, ^shift+p, ^l", () => {

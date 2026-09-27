@@ -12,6 +12,7 @@ import { syncCodeEditorGutter } from "../../src/ui/editor/codeEditorGutter"
 import { opencodeTheme } from "../../src/ui/theme-data"
 import { getHighlightCount, keyEvent } from "./_helpers"
 import { codeEditorParsers } from "../../src/ui/editor/codeEditorParsers"
+import { formatJsonCode } from "../../src/ui/editor/codeFormatting"
 
 const testRender = createTestRender()
 
@@ -19,6 +20,137 @@ extend({ "code-editor": CodeEditorRenderable })
 addDefaultParsers([...codeEditorParsers])
 
 describe("CodeEditorRenderable", () => {
+  it("formats in one undo step and preserves the cursor, source, and scroll position", async () => {
+    let editor!: CodeEditorRenderable
+    const source = '{"emoji":"🙂", "value":$VALUE,"n":90071992547409931234}'
+    const h = await testRender(
+      <code-editor
+        ref={(r) => {
+          if (r) editor = r
+        }}
+        filetype="json"
+        theme={opencodeTheme}
+        initialValue={source}
+        formatContent={formatJsonCode}
+      />,
+      { width: 60, height: 10 },
+    )
+    await act(async () => {
+      editor.focus()
+      editor.cursorOffset = source.indexOf("$VALUE")
+      await editor.formatCode()
+      await editor.refreshHighlights()
+    })
+    const formatted = editor.plainText
+    expect(formatted).toContain('\n  "value": $VALUE,')
+    expect(formatted.slice(editor.sourceCursorOffset)).toStartWith("$VALUE")
+    expect(editor.scrollY).toBe(0)
+    await act(async () => {
+      editor.undo()
+      await h.renderOnce()
+    })
+    expect(editor.plainText).toBe(source)
+    await act(async () => {
+      editor.redo()
+      await h.renderOnce()
+    })
+    expect(editor.plainText).toBe(formatted)
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toContain('"value": $VALUE')
+  })
+
+  it("keeps invalid, read-only, and newer source unchanged", async () => {
+    let editor!: CodeEditorRenderable
+    const h = await testRender(
+      <code-editor
+        ref={(r) => {
+          if (r) editor = r
+        }}
+        filetype="json"
+        theme={opencodeTheme}
+        initialValue='{"a":}'
+        formatContent={formatJsonCode}
+      />,
+      { width: 60, height: 10 },
+    )
+    await expect(editor.formatCode()).rejects.toThrow(
+      "Cannot format code with syntax errors",
+    )
+    expect(editor.plainText).toBe('{"a":}')
+    const deferred = Promise.withResolvers<ReturnType<typeof formatJsonCode>>()
+    editor.formatContent = () => deferred.promise
+    const pending = editor.formatCode()
+    await act(async () => {
+      editor.value = '{"new":1}'
+      deferred.resolve([])
+      expect(await pending).toBe(false)
+      editor.readOnly = true
+      expect(await editor.formatCode()).toBe(false)
+    })
+    expect(editor.plainText).toBe('{"new":1}')
+    await h.renderOnce()
+  })
+
+  it.each([
+    ["json", '{"name": "hello"}', '"name"'],
+    ["yaml", 'name: "hello"', "name"],
+    ["javascript", 'console.log("hello");', "log"],
+    ["xml", '<note name="hello"/>', "note"],
+  ])(
+    "keeps %s colors while highlight refresh is pending",
+    async (filetype, content, token) => {
+      let editor: CodeEditorRenderable | null = null
+      const { renderOnce, captureSpans, mockInput } = await testRender(
+        <box width={60} height={6}>
+          <code-editor
+            ref={(r) => {
+              editor = r
+            }}
+            filetype={filetype}
+            theme={opencodeTheme}
+            initialValue={content}
+            debounceMs={60_000}
+          />
+        </box>,
+        { width: 60, height: 6 },
+      )
+      await editor!.refreshHighlights()
+      await renderOnce()
+      const tokenColor = (text = token) =>
+        captureSpans()
+          .lines.flatMap((line) => line.spans)
+          .find((span) => span.text.includes(text))?.fg
+      const color = tokenColor()
+      const stringColor = tokenColor("hello")
+      expect(color).toBeDefined()
+      expect(stringColor).toBeDefined()
+      editor!.focus()
+      editor!.setCursor(0, 0)
+      for (const key of [" ", "return", "backspace", "return"]) {
+        editor!.handleKeyPress(keyEvent(key))
+        await renderOnce()
+        expect(tokenColor()).toEqual(color)
+        expect(tokenColor("hello")).toEqual(stringColor)
+      }
+      editor!.setCursor(1, content.indexOf("hello") + 2)
+      mockInput.pasteBracketedText("😊é")
+      await renderOnce()
+      expect(editor!.plainText).toContain("he😊éllo")
+      expect(tokenColor()).toEqual(color)
+      expect(tokenColor("he😊éllo")).toEqual(stringColor)
+      editor!.undo()
+      await renderOnce()
+      expect(tokenColor("hello")).toEqual(stringColor)
+      editor!.redo()
+      await renderOnce()
+      expect(tokenColor("he😊éllo")).toEqual(stringColor)
+      await editor!.refreshHighlights()
+      await renderOnce()
+      expect(tokenColor()).toEqual(color)
+      expect(tokenColor("he😊éllo")).toEqual(stringColor)
+    },
+  )
+
   function computeFolds(editor: CodeEditorRenderable): void {
     ;(
       editor as unknown as { computeFoldRanges: () => void }

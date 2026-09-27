@@ -1,44 +1,120 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { ScriptFields } from "../../schema"
 import { SCRIPT_TABS, scriptText, withScript } from "../../scriptAuthoring"
 import type { ScriptPhase } from "../../preRequestScript"
-import { ScriptEditor } from "../editor/ScriptEditor"
+import { ScriptEditor, ScriptAuthoringContext } from "../editor/ScriptEditor"
 import { Tabs } from "../Tabs"
+import {
+  formatCodeFields,
+  type PrepareScriptFields,
+} from "../editor/codeFormatting"
+import { CodeFormattingContext } from "../editor/CodeFormattingContext"
+import { showToast } from "../Toast"
+
+export type SaveCollectionScripts = (
+  patch: ScriptFields,
+  prepare?: PrepareScriptFields,
+) => Promise<boolean>
 
 export function CollectionScripts({
   fields,
+  pendingFields,
   focused,
   onFocus,
   onEditingChange,
   onChange,
 }: {
   fields: ScriptFields
+  pendingFields?: ScriptFields
   focused: boolean
   onFocus: () => void
   onEditingChange: (editing: boolean) => void
-  onChange: (patch: ScriptFields) => boolean
+  onChange: SaveCollectionScripts
 }) {
   const keymap = useKeymap()
+  const context = useContext(ScriptAuthoringContext)
+  const formattingTarget = useContext(CodeFormattingContext)
+  const contextRef = useRef(context)
+  contextRef.current = context
   const [phase, setPhase] = useState<ScriptPhase>("pre")
   const [editing, setEditing] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
-  const [draft, setDraft] = useState<ScriptFields>({
-    scripts: fields.scripts,
-    tests: fields.tests,
-  })
-  const pending = useRef<ScriptFields | null>(null)
+  const [draft, setDraft] = useState<ScriptFields>(
+    pendingFields ?? { scripts: fields.scripts, tests: fields.tests },
+  )
+  const pending = useRef<ScriptFields | null>(pendingFields ?? null)
+  const previousPendingFields = useRef(pendingFields)
+  const saving = useRef<ScriptFields | null>(null)
   const changeRef = useRef(onChange)
   changeRef.current = onChange
   useEffect(() => {
-    if (!pending.current)
-      setDraft({ scripts: fields.scripts, tests: fields.tests })
-  }, [fields.scripts, fields.tests])
-  const commit = useCallback(() => {
-    if (pending.current && changeRef.current(pending.current))
-      pending.current = null
-  }, [])
-  useEffect(() => () => commit(), [commit])
+    if (!pending.current || pending.current === previousPendingFields.current) {
+      pending.current = pendingFields ?? null
+      setDraft(
+        pendingFields ?? { scripts: fields.scripts, tests: fields.tests },
+      )
+    }
+    previousPendingFields.current = pendingFields
+  }, [fields.scripts, fields.tests, pendingFields])
+  const commit = useCallback(async () => {
+    const snapshot = pending.current
+    if (!snapshot || saving.current === snapshot) return
+    saving.current = snapshot
+    let savedSnapshot = snapshot
+    let savedFields = snapshot
+    const context = contextRef.current
+    const diagnostics = context?.diagnostics
+    const target = formattingTarget?.current
+    const prepare: PrepareScriptFields | undefined =
+      context?.formatOnSave && diagnostics
+        ? async (fields) => {
+            const result = await formatCodeFields(fields, diagnostics)
+            savedFields = result.fields
+            if (result.failed)
+              showToast(
+                "Formatting unavailable; saving unformatted scripts",
+                "warning",
+              )
+            return {
+              fields: result.fields,
+              apply() {
+                if (pending.current !== snapshot) return
+                if (
+                  target?.scope === "collection" &&
+                  target.field !== "body" &&
+                  formattingTarget?.current === target &&
+                  target.editor.plainText === scriptText(fields, target.field)
+                ) {
+                  const changes = result.edits[target.field]
+                  if (changes) target.editor.applyFormatting(changes)
+                }
+                // Formatting can emit an editor change for the saved snapshot.
+                savedSnapshot = pending.current ?? snapshot
+              },
+            }
+          }
+        : undefined
+    try {
+      if (
+        (await changeRef.current(snapshot, prepare)) &&
+        pending.current === savedSnapshot
+      ) {
+        pending.current = null
+        setDraft(savedFields)
+      }
+    } catch {
+      // The save caller reports failures; keep the draft available for retry.
+    } finally {
+      if (saving.current === snapshot) saving.current = null
+    }
+  }, [formattingTarget])
+  useEffect(
+    () => () => {
+      void commit()
+    },
+    [commit],
+  )
   useEffect(
     () =>
       keymap.intercept(

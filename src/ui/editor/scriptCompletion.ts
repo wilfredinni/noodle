@@ -1,5 +1,53 @@
 import { SCRIPT_API_CONTRACT, type ScriptPhase } from "../../preRequestScript"
 import { javascriptTokens } from "./javascriptSyntax"
+import type { Environment } from "../../schema"
+
+export type ScriptCompletionContext = {
+  environmentKeys: string[]
+  requestIds: string[]
+}
+export type ScriptCompletionItem = {
+  key: string
+  label: string
+  insert: string
+  start: number
+  end: number
+  description?: string
+  signature?: string
+}
+export type ScriptSignatureHelp = {
+  prefix: string
+  parameters: string[]
+  separator: string
+  suffix: string
+  activeParameter: number
+}
+export type ScriptAssistance = {
+  items: ScriptCompletionItem[]
+  query: string
+  signatureHelp?: ScriptSignatureHelp
+}
+export type ScriptCompletionDetails = Pick<
+  ScriptCompletionItem,
+  "description" | "signature"
+>
+
+export function scriptEnvironmentKeys(
+  environment: Environment | null,
+): string[] {
+  return [
+    ...new Set([
+      ...Object.keys(environment?.vars ?? {}),
+      ...Object.keys(environment?.secretVars ?? {}),
+    ]),
+  ]
+    .filter(
+      (key) =>
+        !Object.hasOwn(environment?.disabledVars ?? {}, key) &&
+        environment?.secretVars?.[key] !== "disabled",
+    )
+    .sort()
+}
 
 export function scriptCompletions(
   source: string,

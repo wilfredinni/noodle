@@ -29,6 +29,11 @@ import {
 } from "./codeEditorValidation"
 import { CodeEditorHighlightRenderer } from "./codeEditorHighlightRenderer"
 import { highlightJsonTokens } from "./syntax"
+import {
+  applyCodeEdits,
+  formattedOffset,
+  type CodeEdit,
+} from "./codeFormatting"
 
 export type { FoldInfo } from "./codeEditorFolds"
 
@@ -50,6 +55,9 @@ export interface CodeEditorOptions extends Pick<
   onValidationChange?: (error: string | null) => void
   onSourceChange?: () => void
   onFoldsChange?: () => void
+  formatContent?: (
+    source: string,
+  ) => CodeEdit[] | null | Promise<CodeEdit[] | null>
   backgroundColor?: string
   textColor?: string
   focusedBackgroundColor?: string
@@ -66,6 +74,7 @@ export interface CodeEditorScrollBarOptions extends Omit<
 
 export class CodeEditorRenderable extends TextareaRenderable {
   private _filetype: string
+  formatContent?: CodeEditorOptions["formatContent"]
   private _theme: Theme
   private _debounceMs: number
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
@@ -112,6 +121,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     })
     this._readOnly = options.readOnly ?? false
     this._filetype = options.filetype
+    this.formatContent = options.formatContent
     this._theme = options.theme
     this.cacheDisplayedText(options.value ?? options.initialValue ?? "")
     this._debounceMs = options.debounceMs ?? 200
@@ -160,16 +170,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     )
     if (!this._readOnly) this._validation.refresh(this._foldManager.sourceText)
 
-    this.editBuffer.on("content-changed", () => {
-      if (this.isDestroyed || this._suppressContentChanged) return
-      if (this._readOnly) return
-      if (this._foldManager.isFoldedDisplay) return
-      const content = super.plainText
-      if (this._foldManager.sourceText === content) return
-      this._foldManager.setSourceText(content)
-      this.scheduleHighlight()
-      this._onSourceChange?.()
-    })
+    this.editBuffer.on("content-changed", () => this.syncSourceFromBuffer())
 
     if (this._foldManager.sourceText.length > 0) {
       if (this._readOnly) this.scheduleHighlight()
@@ -186,6 +187,62 @@ export class CodeEditorRenderable extends TextareaRenderable {
   get filetype(): string {
     return this._filetype
   }
+  private syncSourceFromBuffer(): void {
+    if (
+      this.isDestroyed ||
+      this._suppressContentChanged ||
+      this._readOnly ||
+      this._foldManager.isFoldedDisplay
+    )
+      return
+    const content = super.plainText
+    if (this._foldManager.sourceText === content) return
+    this._foldManager.setSourceText(content)
+    this._highlights.apply(content, this._filetype)
+    this.scheduleHighlight()
+    this._onSourceChange?.()
+  }
+  override undo(): boolean {
+    const result = super.undo()
+    this.syncSourceFromBuffer()
+    return result
+  }
+  override redo(): boolean {
+    const result = super.redo()
+    this.syncSourceFromBuffer()
+    return result
+  }
+  get canFormat(): boolean {
+    return !this.isDestroyed && !this._readOnly && !!this.formatContent
+  }
+  async formatCode(): Promise<boolean> {
+    if (!this.canFormat) return false
+    const source = this.plainText
+    const changes = await this.formatContent!(source)
+    if (!this.canFormat || this.plainText !== source) return false
+    if (!changes) throw new Error("Cannot format code with syntax errors")
+    this.applyFormatting(changes)
+    return true
+  }
+  applyFormatting(changes: CodeEdit[]): void {
+    if (this.isDestroyed || !changes.length) return
+    const source = this.plainText
+    const text = applyCodeEdits(source, changes)
+    if (source === text) return
+    const cursor = formattedOffset(this.sourceCursorOffset, changes)
+    const scrollY = this.scrollY
+    this._foldManager.unfoldAll()
+    this.replaceText(text)
+    if (this._readOnly) {
+      this._foldManager.setSourceText(text)
+      this.cacheDisplayedText(text)
+      this.clearReadonlyHighlights()
+      this._readonlyNeedsFolds = true
+      this.scheduleHighlight()
+    } else this.syncSourceFromBuffer()
+    this.editBuffer.setCursorByOffset(cursor)
+    this.scrollTo(scrollY)
+  }
   override getSelectedText(): string {
     const selectedText = super.getSelectedText()
     if (!selectedText || !this._foldManager.isFoldedDisplay) return selectedText
@@ -199,6 +256,21 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
   override get plainText(): string {
     return this._foldManager.sourceText
+  }
+  get sourceCursorOffset(): number {
+    if (!this._foldManager.isFoldedDisplay) return this.cursorOffset
+    const displayLine = this.logicalCursor.row
+    const sourceLine = this._foldManager.displayLineToSourceLine(displayLine)
+    const lineStart = (text: string, line: number) =>
+      text
+        .split("\n")
+        .slice(0, line)
+        .reduce((offset, text) => offset + text.length + 1, 0)
+    const column = this.cursorOffset - lineStart(super.plainText, displayLine)
+    return (
+      lineStart(this.plainText, sourceLine) +
+      Math.min(column, this.plainText.split("\n")[sourceLine]!.length)
+    )
   }
   override get lineInfo(): LineInfo {
     if (!this._readOnly) return super.lineInfo
@@ -557,9 +629,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this._foldManager.unfoldAll()
       if (key.shift) this.redo()
       else this.undo()
-      this._foldManager.setSourceText(super.plainText)
-      this._onSourceChange?.()
-      this.scheduleHighlight()
       return true
     }
     if (

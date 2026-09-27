@@ -1139,6 +1139,46 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("formats only an editable code editor and honors overrides, overlays, and read-only modes", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    let formatted = 0
+    let editable = true
+    const editor = Object.create(
+      CodeEditorRenderable.prototype,
+    ) as CodeEditorRenderable
+    Object.defineProperty(editor, "canFormat", { get: () => editable })
+    editor.formatCode = async () => {
+      formatted++
+      return true
+    }
+    Object.defineProperty(context.renderer, "currentFocusedRenderable", {
+      value: editor,
+    })
+    context.keybinds = { ...context.keybinds, editor_format: "f8" }
+    const disposers = register(context)
+    host.press("f", { ctrl: true, meta: true })
+    expect(formatted).toBe(0)
+    host.press("f8")
+    expect(formatted).toBe(1)
+    for (const [field, blocked, restore] of [
+      ["app.overlay", "command-palette", "none"],
+      ["app.jump", "active", "none"],
+    ] as const) {
+      keymap.setData(field, blocked)
+      host.press("f8")
+      keymap.setData(field, restore)
+    }
+    context.global.modeRef.current = "browse"
+    host.press("f8")
+    context.global.modeRef.current = "collection"
+    editable = false
+    host.press("f8")
+    expect(formatted).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("dispatches a live settings shortcut override instead of the old key", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

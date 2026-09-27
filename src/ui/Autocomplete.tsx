@@ -13,6 +13,7 @@ import {
 import { useTheme } from "./theme"
 import { highlightMatches } from "./highlightMatches"
 import { registerCompletion } from "./variable-completion/variableCompletionInterceptor"
+import type { ScriptSignatureHelp } from "./editor/scriptCompletion"
 
 interface AutocompleteItem {
   key: string
@@ -41,6 +42,9 @@ export function Autocomplete({
   message,
   onSelect,
   onDismiss,
+  onHighlight,
+  signatureHelp,
+  pending = false,
 }: {
   id: string
   compactDetails?: boolean
@@ -51,6 +55,9 @@ export function Autocomplete({
   message?: string
   onSelect: (index: number, trigger: "tab" | "return" | "mouse") => boolean
   onDismiss: () => void
+  onHighlight?: (index: number) => void
+  signatureHelp?: ScriptSignatureHelp
+  pending?: boolean
 }) {
   const renderer = useRenderer()
   const { width: terminalWidth, height: terminalHeight } =
@@ -64,6 +71,30 @@ export function Autocomplete({
   const anchorReadyRef = useRef(getEditor() !== null)
   const index = Math.max(0, Math.min(selectedIndex, items.length - 1))
   const selected = items[index]
+  useEffect(() => {
+    if (selected) onHighlight?.(index)
+  }, [index, selected, onHighlight])
+  const signatureText = signatureHelp
+    ? signatureHelp.prefix +
+      signatureHelp.parameters.join(signatureHelp.separator) +
+      signatureHelp.suffix
+    : ""
+  const compactSignature =
+    Bun.stringWidth(signatureText) >
+    Math.max(1, Math.min(64, terminalWidth) - 4) * 3
+  const signatureHeight = signatureHelp
+    ? Math.min(
+        3,
+        Math.max(
+          1,
+          Math.ceil(
+            Bun.stringWidth(signatureText) /
+              Math.max(1, Math.min(64, terminalWidth) - 4),
+          ),
+        ),
+        Math.max(0, terminalHeight - 2),
+      )
+    : 0
   const details = [
     selected?.description,
     selected?.signature,
@@ -71,10 +102,16 @@ export function Autocomplete({
   ]
     .filter((line): line is string => !!line)
     .join("\n")
-  const hasDetails = details.length > 0 && terminalHeight >= 8
+  const hasDetails =
+    (compactDetails ? items.length > 0 : details.length > 0) &&
+    terminalHeight >= 8
   const maxVisibleCount = Math.max(
     0,
-    Math.min(10, terminalHeight - 2, Math.max(message ? 1 : 0, items.length)),
+    Math.min(
+      10,
+      terminalHeight - 2 - signatureHeight,
+      Math.max(message ? 1 : 0, items.length),
+    ),
   )
   const labelWidth = useMemo(() => {
     let width = 0
@@ -88,7 +125,7 @@ export function Autocomplete({
     terminalWidth,
     Math.max(
       18,
-      hasDetails ? 64 : 0,
+      hasDetails || signatureHelp ? 64 : 0,
       labelWidth + 4 + (items.length > maxVisibleCount ? 1 : 0),
       Bun.stringWidth(message ?? "") + 4,
     ),
@@ -109,15 +146,18 @@ export function Autocomplete({
     : 0
   const visibleCount = Math.max(
     0,
-    Math.min(maxVisibleCount, terminalHeight - 2 - detailHeight),
+    Math.min(
+      maxVisibleCount,
+      terminalHeight - 2 - detailHeight - signatureHeight,
+    ),
   )
-  const menuHeight = visibleCount + detailHeight + 2
+  const menuHeight = visibleCount + detailHeight + signatureHeight + 2
   const start = Math.max(
     0,
     Math.min(Math.floor(top) - 3, items.length - visibleCount),
   )
   const end = Math.min(items.length, start + visibleCount + 6)
-  const mounted = anchor !== null && visibleCount > 0
+  const mounted = anchor !== null && (visibleCount > 0 || signatureHeight > 0)
 
   useEffect(() => {
     const scroll = scrollRef.current
@@ -143,7 +183,7 @@ export function Autocomplete({
   }, [items.length])
 
   useEffect(() => {
-    if (visibleCount === 0) return
+    if (visibleCount === 0 && signatureHeight === 0) return
     return registerCompletion((key) => {
       const editor = getEditor()
       if (!editor?.focused || editor.isDestroyed || key.defaultPrevented)
@@ -161,16 +201,16 @@ export function Autocomplete({
         onDismiss()
         return true
       }
+      if (pending) return key.name === "tab"
       if (key.name === "up" || key.name === "down") {
-        if (items.length) {
-          setSelectedIndex(
-            (current) =>
-              (Math.min(current, items.length - 1) +
-                (key.name === "up" ? -1 : 1) +
-                items.length) %
-              items.length,
-          )
-        }
+        if (!items.length) return false
+        setSelectedIndex(
+          (current) =>
+            (Math.min(current, items.length - 1) +
+              (key.name === "up" ? -1 : 1) +
+              items.length) %
+            items.length,
+        )
         return true
       }
       if ((key.name === "tab" || key.name === "return") && items.length) {
@@ -178,7 +218,16 @@ export function Autocomplete({
       }
       return false
     })
-  }, [getEditor, index, items.length, onDismiss, onSelect, visibleCount])
+  }, [
+    getEditor,
+    index,
+    items.length,
+    onDismiss,
+    onSelect,
+    visibleCount,
+    signatureHeight,
+    pending,
+  ])
 
   useEffect(() => {
     const revealSelection = () => {
@@ -251,7 +300,7 @@ export function Autocomplete({
     value,
   ])
 
-  if (!anchor || visibleCount === 0) return null
+  if (!mounted) return null
 
   return createPortal(
     <box
@@ -259,8 +308,8 @@ export function Autocomplete({
       ref={popupRef}
       visible={anchorReadyRef.current}
       position="absolute"
-      top={anchor.y}
-      left={anchor.x}
+      top={anchor!.y}
+      left={anchor!.x}
       width={menuWidth}
       height={menuHeight}
       zIndex={10000}
@@ -273,6 +322,43 @@ export function Autocomplete({
       onMouseDown={(event) => event.stopPropagation()}
       onMouseScroll={(event) => event.stopPropagation()}
     >
+      {signatureHelp && signatureHeight > 0 ? (
+        <box
+          id={`${id}-signature`}
+          height={signatureHeight}
+          flexShrink={0}
+          overflow="hidden"
+        >
+          <text fg={theme.textMuted} wrapMode="char">
+            {signatureHelp.prefix}
+            {compactSignature && signatureHelp.activeParameter > 0
+              ? `…${signatureHelp.separator}`
+              : ""}
+            {signatureHelp.parameters.map((parameter, index) =>
+              compactSignature &&
+              index !== signatureHelp.activeParameter ? null : (
+                <span key={index}>
+                  {index && !compactSignature ? signatureHelp.separator : ""}
+                  <span
+                    fg={
+                      index === signatureHelp.activeParameter
+                        ? theme.primary
+                        : theme.textMuted
+                    }
+                  >
+                    {parameter}
+                  </span>
+                </span>
+              ),
+            )}
+            {compactSignature &&
+            signatureHelp.activeParameter < signatureHelp.parameters.length - 1
+              ? `${signatureHelp.separator}…`
+              : ""}
+            {signatureHelp.suffix}
+          </text>
+        </box>
+      ) : null}
       <scrollbox
         id={`${id}-scroll`}
         ref={scrollRef}
@@ -310,9 +396,12 @@ export function Autocomplete({
                 backgroundColor={
                   itemIndex === index ? theme.backgroundElement : undefined
                 }
-                onMouseOver={() => setSelectedIndex(itemIndex)}
+                onMouseOver={() => {
+                  if (!pending) setSelectedIndex(itemIndex)
+                }}
                 onMouseDown={(event) => {
                   if (
+                    pending ||
                     event.button !== MouseButton.LEFT ||
                     !onSelect(itemIndex, "mouse")
                   )

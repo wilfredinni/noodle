@@ -15,6 +15,7 @@ import {
 } from "../commandActions"
 import type { AppKeymapContext } from "./types"
 import { CodeEditorRenderable } from "../editor/CodeEditor"
+import { formatCode } from "../commandActions"
 
 export function createGlobalLayers(
   context: AppKeymapContext,
@@ -270,6 +271,18 @@ export function createGlobalLayers(
         run: () => focusedCodeEditor()?.foldAll(),
       },
       {
+        name: "editor.format",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.editor_format,
+            global.modeRef.current === "collection" &&
+              keymap.getData("app.overlay") === "none" &&
+              keymap.getData("app.jump") !== "active" &&
+              !!focusedCodeEditor()?.canFormat,
+          ),
+        run: () => formatCode(focusedCodeEditor()),
+      },
+      {
         name: "editor.unfold-all",
         enabled: () =>
           shortcutEnabled(
@@ -462,6 +475,9 @@ export function createGlobalLayers(
       },
     ],
     bindings: [
+      ...(keybinds.editor_format
+        ? [{ key: keybinds.editor_format, cmd: "editor.format" }]
+        : []),
       ...(keybinds.script_open_external
         ? [
             {

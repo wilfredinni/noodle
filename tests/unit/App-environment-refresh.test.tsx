@@ -1,10 +1,13 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import * as fsPromises from "node:fs/promises"
 import { join, resolve } from "node:path"
-import { act } from "react"
+import { act, useState } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { CollectionSettings, ScriptFields } from "../../src/schema"
-import { CollectionScripts } from "../../src/ui/settings/CollectionScripts"
+import {
+  CollectionScripts,
+  type SaveCollectionScripts,
+} from "../../src/ui/settings/CollectionScripts"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { setupKeymap } from "./_helpers"
 import * as collectionPath from "../../src/collectionPath"
@@ -15,6 +18,7 @@ import * as secrets from "../../src/secrets"
 import * as appInner from "../../src/ui/AppInner"
 import { bindingDefaults } from "../../src/ui/keybind"
 import * as uiState from "../../src/ui/tabs/uiState"
+import * as settingsPersistence from "../../src/ui/settings/settingsPersistence"
 import { createTestRender } from "../testRender"
 
 type EnvItem = { name: string; color?: string }
@@ -26,7 +30,8 @@ type AppInnerProps = {
   onEnvListChanged: (names?: string[]) => Promise<void>
   collectionScripts?: ScriptFields
   collectionSettingsByPath: Record<string, CollectionSettings>
-  onCollectionSettingsChange: (patch: ScriptFields) => boolean
+  onCollectionSettingsChange: (patch: Partial<CollectionSettings>) => boolean
+  onCollectionScriptsChange: SaveCollectionScripts
 }
 
 function deferred<T>() {
@@ -45,6 +50,7 @@ let staleRefresh = deferred<EnvItem[]>()
 let latestProps: AppInnerProps | undefined
 let nextCollectionRenders: Pick<AppInnerProps, "envNames" | "envColors">[] = []
 let showScripts = false
+let setScriptsVisible: (visible: boolean) => void
 const loadSettings = spyOn(filestore, "loadSettings").mockResolvedValue({})
 
 const config = {
@@ -80,6 +86,8 @@ const spies = [
     },
   ),
   spyOn(appInner, "AppInner").mockImplementation((props) => {
+    const [scriptsVisible, setVisible] = useState(showScripts)
+    setScriptsVisible = setVisible
     const observed: AppInnerProps = props
     latestProps = observed
     if (observed.activeCollectionDir === nextDir) {
@@ -88,14 +96,15 @@ const spies = [
         envColors: observed.envColors,
       })
     }
-    return showScripts ? (
+    return scriptsVisible ? (
       <CollectionScripts
         key={props.activeCollectionDir}
         fields={props.collectionScripts ?? {}}
+        pendingFields={props.collectionScriptDraft}
         focused
         onFocus={() => {}}
         onEditingChange={() => {}}
-        onChange={props.onCollectionSettingsChange}
+        onChange={props.onCollectionScriptsChange}
       />
     ) : null
   }),
@@ -118,6 +127,139 @@ describe("App environment refreshes", () => {
     showScripts = false
     loadSettings.mockResolvedValue({})
   })
+
+  it.each(["success", "failure"] as const)(
+    "retains failed script drafts and newer edits after a delayed save %s",
+    async (outcome) => {
+      showScripts = true
+      loadSettings.mockResolvedValue({ scripts: { pre: "const old=1" } })
+      const failure = Promise.withResolvers<void>()
+      const started = Promise.withResolvers<void>()
+      const delayed = Promise.withResolvers<void>()
+      const delayedStarted = Promise.withResolvers<void>()
+      const save = spyOn(filestore, "saveSettings")
+        .mockImplementationOnce(async () => {
+          started.resolve()
+          await failure.promise
+        })
+        .mockResolvedValue(undefined)
+      const queue = settingsPersistence.queueCollectionSettingsSave
+      let settled = Promise.resolve()
+      const queueSpy = spyOn(
+        settingsPersistence,
+        "queueCollectionSettingsSave",
+      ).mockImplementation((...args) => {
+        const result = queue(...args)
+        settled = result.catch(() => {})
+        return result
+      })
+      try {
+        const { keymap, host } = setupKeymap()
+        const render = await act(async () =>
+          testRender(
+            <KeymapProvider keymap={keymap}>
+              <App
+                collectionDir={currentDir}
+                initialSettings={{ scripts: { pre: "const old=1" } }}
+                envList={[]}
+                systemProxy={{ bypass: [] }}
+                keybinds={bindingDefaults()}
+                mode="collection"
+              />
+            </KeymapProvider>,
+            { width: 90, height: 24 },
+          ),
+        )
+        await act(async () => initialRefresh.resolve([]))
+        await act(async () => host.press("down"))
+        const editor = render.renderer.root.findDescendantById(
+          "script-source",
+        ) as CodeEditorRenderable
+        const edited = "const edited=2"
+        await act(async () => editor.replaceText(edited))
+        await act(async () => {
+          host.press("escape")
+          await started.promise
+        })
+        await act(async () => host.press("down"))
+        await act(async () => host.press("escape"))
+        expect(queueSpy).toHaveBeenCalledTimes(1)
+        await act(async () => setScriptsVisible(false))
+        if (outcome === "failure") {
+          await act(async () => setScriptsVisible(true))
+          await act(async () => host.press("down"))
+          await act(async () => host.press("escape"))
+          expect(queueSpy).toHaveBeenCalledTimes(1)
+        }
+        await act(async () => {
+          failure.reject(new Error("disk full"))
+          await settled
+        })
+        if (outcome === "success")
+          await act(async () => setScriptsVisible(true))
+        let restored = render.renderer.root.findDescendantById(
+          "script-source",
+        ) as CodeEditorRenderable
+        expect(restored.plainText).toBe(edited)
+        expect(latestProps?.collectionScripts?.scripts?.pre).toBe("const old=1")
+        await act(async () => host.press("down"))
+        await act(async () => {
+          host.press("escape")
+          await settled
+        })
+        expect(save).toHaveBeenCalledTimes(2)
+        expect(save.mock.calls[1]?.[1].scripts?.pre).toBe(edited)
+        expect(latestProps?.collectionScripts?.scripts?.pre).toBe(edited)
+
+        save.mockImplementationOnce(async () => {
+          delayedStarted.resolve()
+          await delayed.promise
+        })
+        await act(async () => host.press("down"))
+        await act(async () => restored.replaceText("const saving=3"))
+        await act(async () => {
+          host.press("escape")
+          await delayedStarted.promise
+        })
+        await act(async () => setScriptsVisible(false))
+        await act(async () => setScriptsVisible(true))
+        restored = render.renderer.root.findDescendantById(
+          "script-source",
+        ) as CodeEditorRenderable
+        await act(async () => host.press("down"))
+        await act(async () => restored.replaceText("const newer=4"))
+        await act(async () => {
+          if (outcome === "success") delayed.resolve()
+          else delayed.reject(new Error("disk full"))
+          await settled
+        })
+        expect(restored.plainText).toBe("const newer=4")
+        await act(async () => {
+          host.press("escape")
+          await settled
+        })
+        expect(save).toHaveBeenCalledTimes(4)
+        expect(save.mock.calls[3]?.[1].scripts?.pre).toBe("const newer=4")
+        await act(async () => setScriptsVisible(false))
+        await act(async () => setScriptsVisible(true))
+        await act(async () => host.press("down"))
+        await act(async () => host.press("escape"))
+        expect(save).toHaveBeenCalledTimes(4)
+        await act(async () => {
+          expect(
+            latestProps!.onCollectionSettingsChange({ name: "Renamed" }),
+          ).toBe(true)
+          await settled
+        })
+      } finally {
+        failure.resolve()
+        delayed.resolve()
+        await act(async () => settled)
+        save.mockRestore()
+        queueSpy.mockRestore()
+      }
+    },
+  )
 
   it("saves an unmounted script draft against its original collection settings", async () => {
     const original: CollectionSettings = {

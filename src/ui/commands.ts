@@ -1,4 +1,6 @@
 import type { ScriptActions } from "./editor/ScriptEditor"
+import type { FormattingTarget } from "./editor/CodeFormattingContext"
+import { formatCode } from "./commandActions"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./overlays/CommandPaletteOverlay"
@@ -73,6 +75,7 @@ export interface CommandBuilderContext {
   collectionDir: string
   appConfigDir: string
   scriptActions?: ScriptActions
+  formattingTarget?: RefObject<FormattingTarget | null>
   externalEditor?: ExternalEditor
   confirmUndoAll: boolean
   renderer: CliRenderer
@@ -656,6 +659,17 @@ export function buildCommandPaletteCommands(
             section: "Workspace",
             keybinding: displayKey(keybinds.script_open_external),
             run: ctx.scriptActions.open,
+          },
+        ]
+      : []),
+    ...(ctx.formattingTarget?.current?.editor.canFormat
+      ? [
+          {
+            id: "editor.format",
+            label: "Format Code",
+            section: "Workspace",
+            keybinding: displayKey(keybinds.editor_format),
+            run: () => formatCode(ctx.formattingTarget?.current?.editor),
           },
         ]
       : []),

@@ -19,6 +19,7 @@ const DEFAULTS: NoodleConfig = {
   theme: DEFAULT_THEME_NAME,
   layout: "stacked",
   confirm_undo_all: true,
+  format_on_save: false,
   collections: [],
 }
 
@@ -34,6 +35,12 @@ describe("loadConfig", () => {
     await rm(dir, { recursive: true, force: true })
   })
 
+  it("persists format_on_save and ignores non-boolean values", () => {
+    saveConfig(dir, { ...DEFAULTS, format_on_save: true })
+    expect(loadConfig(dir).format_on_save).toBe(true)
+    writeFileSync(join(dir, CONFIG_FILE_NAME), 'format_on_save: "true"\n')
+    expect(loadConfig(dir).format_on_save).toBe(false)
+  })
   it("returns defaults when file does not exist", () => {
     const result = loadConfig(dir)
     expect(result).toEqual(DEFAULTS)
@@ -54,6 +61,7 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: ["/tmp/a", "/tmp/b"],
     })
   })
@@ -77,6 +85,7 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "stacked",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     })
   })
@@ -96,6 +105,7 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "stacked",
       confirm_undo_all: false,
+      format_on_save: false,
       collections: [],
     })
     const result = loadConfig(dir)
@@ -180,6 +190,7 @@ describe("saveConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     })
     const raw = readFileSync(join(dir, CONFIG_FILE_NAME), "utf8")
@@ -187,6 +198,7 @@ describe("saveConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     })
   })
@@ -196,6 +208,7 @@ describe("saveConfig", () => {
       theme: "system",
       layout: "side-by-side",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     }
     saveConfig(dir, input)
@@ -226,6 +239,7 @@ describe("saveConfig", () => {
       theme: "monokai",
       layout: "stacked",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     })
     const result = loadConfig(dir)
@@ -233,6 +247,7 @@ describe("saveConfig", () => {
       theme: "monokai",
       layout: "stacked",
       confirm_undo_all: true,
+      format_on_save: false,
       collections: [],
     })
   })

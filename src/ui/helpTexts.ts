@@ -62,6 +62,14 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
               },
             ]
           : []),
+        ...(keybinds.script_complete
+          ? [
+              {
+                key: displayKey(keybinds.script_complete),
+                description: "Complete script / show parameter help",
+              },
+            ]
+          : []),
         ...(keybinds.script_execution_order
           ? [
               {
@@ -75,6 +83,14 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
     {
       title: "Code Editor",
       keys: [
+        ...(keybinds.editor_format
+          ? [
+              {
+                key: displayKey(keybinds.editor_format),
+                description: "Format Code (scripts, tests, JSON)",
+              },
+            ]
+          : []),
         { key: "^g", description: "Toggle fold at cursor" },
         ...(keybinds.editor_fold_all
           ? [

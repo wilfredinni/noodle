@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Request } from "../schema"
 import type { SaveState } from "./saveState"
 import { filestore } from "../filestore"
+import type { PreparedSave } from "./editor/codeFormatting"
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
@@ -10,7 +11,7 @@ const SAVE_ERROR_MS = 3000
 export interface UseSaveFileResult {
   saveState: SaveState
   setSaveState: Dispatch<SetStateAction<SaveState>>
-  doSave: () => void
+  doSave: () => Promise<void>
   clearSaveTimer: () => void
   savingRef: RefObject<boolean>
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
@@ -21,6 +22,7 @@ export function useSaveFile(
   req: Request | null,
   selectedRequestId: string | undefined,
   markSaved: (request: Request) => void,
+  prepare?: (request: Request) => Promise<PreparedSave<Request>>,
 ): UseSaveFileResult {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -40,42 +42,49 @@ export function useSaveFile(
     }
   }, [])
 
-  const doSave = useCallback(() => {
+  const doSave = useCallback(async () => {
     if (!req || savingRef.current) return
     savingRef.current = true
     const requestId = req.id
     setSaveState({ kind: "idle" })
-    filestore
-      .saveRequest(collectionDir, req)
-      .then(() => {
-        if (!mountedRef.current) return
-        if (selectedRequestId !== requestId) return
-        markSaved(req)
-        clearSaveTimer()
-        setSaveState({
-          kind: "success",
-          message: `Successfully edited ${req.name}`,
-        })
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, SAVE_SUCCESS_MS)
+    try {
+      const prepared = await prepare?.(req)
+      const saved = prepared?.fields ?? req
+      await filestore.saveRequest(collectionDir, saved)
+      if (!mountedRef.current) return
+      if (selectedRequestId !== requestId) return
+      prepared?.apply?.()
+      markSaved(saved)
+      clearSaveTimer()
+      setSaveState({
+        kind: "success",
+        message: `Successfully edited ${req.name}`,
       })
-      .catch((e: unknown) => {
-        if (!mountedRef.current) return
-        const msg = e instanceof Error ? e.message : String(e)
-        clearSaveTimer()
-        setSaveState({
-          kind: "error",
-          message: `Error: ${msg}`,
-        })
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, SAVE_ERROR_MS)
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, SAVE_SUCCESS_MS)
+    } catch (e: unknown) {
+      if (!mountedRef.current) return
+      const msg = e instanceof Error ? e.message : String(e)
+      clearSaveTimer()
+      setSaveState({
+        kind: "error",
+        message: `Error: ${msg}`,
       })
-      .finally(() => {
-        savingRef.current = false
-      })
-  }, [collectionDir, clearSaveTimer, req, selectedRequestId, markSaved])
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, SAVE_ERROR_MS)
+    } finally {
+      savingRef.current = false
+    }
+  }, [
+    collectionDir,
+    clearSaveTimer,
+    req,
+    selectedRequestId,
+    markSaved,
+    prepare,
+  ])
 
   return {
     saveState,

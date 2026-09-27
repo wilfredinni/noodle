@@ -1,3 +1,5 @@
+import type { SaveCollectionScripts } from "./settings/CollectionScripts"
+import type { PrepareScriptFields } from "./editor/codeFormatting"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { randomUUID } from "node:crypto"
 import { join, resolve } from "node:path"
@@ -29,6 +31,7 @@ import type {
   CollectionSettings,
   CollectionTlsSettings,
   ProxyCredentials,
+  ScriptFields,
 } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import { resolveCollectionRegistration } from "./settings/collectionRegistry"
@@ -199,6 +202,10 @@ export function App({
   const [tlsPassphrases, setTlsPassphrases] = useState(initialTlsPassphrases)
   const [registeredCollectionSettings, setRegisteredCollectionSettings] =
     useState<Record<string, CollectionSettings>>({})
+  const [collectionScriptDrafts, setCollectionScriptDrafts] = useState<
+    Record<string, ScriptFields | undefined>
+  >({})
+  const scriptSaves = useRef(new WeakMap<ScriptFields, Promise<boolean>>())
   const activeCollectionDirRef = useRef(initialCollectionDir)
   const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
   // Unmount saves keep the settings of the collection their callbacks belong to.
@@ -361,6 +368,16 @@ export function App({
       updateGlobalConfig(
         { external_editor: externalEditor },
         "Failed to save external editor",
+      )
+    },
+    [updateGlobalConfig],
+  )
+
+  const handleFormatOnSaveChange = useCallback(
+    (value: boolean) => {
+      updateGlobalConfig(
+        { format_on_save: value },
+        "Failed to save behavior settings",
       )
     },
     [updateGlobalConfig],
@@ -783,7 +800,7 @@ export function App({
     [mode, persistCollectionSettingsTransaction],
   )
 
-  const handleCollectionSettingsChange = useCallback(
+  const persistCollectionSettingsChange = useCallback(
     (
       patch: Pick<
         CollectionSettings,
@@ -795,15 +812,16 @@ export function App({
         | "scripts"
         | "tests"
       >,
+      prepare?: PrepareScriptFields,
     ) => {
-      if (mode !== "collection") return false
+      if (mode !== "collection") return undefined
       const previous = settingsRef.current
       const nextSettings = { ...previous, ...patch }
       const previousLimit =
         previous.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
       const nextLimit =
         nextSettings.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
-      void queueCollectionSettingsSave(
+      return queueCollectionSettingsSave(
         settingsPersistence,
         activeCollectionDir,
         (settings) => {
@@ -816,7 +834,13 @@ export function App({
             tls: rebaseTlsSettings(settings.tls, previous.tls, patch.tls),
           }
         },
-        saveSettings,
+        async (dir, settings) => {
+          const prepared = await prepare?.(patch)
+          const next = prepared ? { ...settings, ...prepared.fields } : settings
+          await saveSettings(dir, next)
+          prepared?.apply?.()
+          return next
+        },
         setSettings,
         () => showToast("Failed to save collection settings", "error"),
         (persisted) => {
@@ -834,9 +858,47 @@ export function App({
           }
         },
       )
-      return true
     },
     [activeCollectionDir, mode, settingsPersistence],
+  )
+
+  const handleCollectionSettingsChange = useCallback(
+    (...args: Parameters<typeof persistCollectionSettingsChange>) => {
+      const save = persistCollectionSettingsChange(...args)
+      if (!save) return false
+      void save.catch(() => {})
+      return true
+    },
+    [persistCollectionSettingsChange],
+  )
+  const handleCollectionScriptsChange = useCallback<SaveCollectionScripts>(
+    (patch, prepare) => {
+      const pending = scriptSaves.current.get(patch)
+      if (pending) return pending
+      const save = persistCollectionSettingsChange(patch, prepare)
+      if (!save) return Promise.resolve(false)
+      setCollectionScriptDrafts((current) => ({
+        ...current,
+        [activeCollectionDir]: patch,
+      }))
+      const result = save
+        .then(
+          () => {
+            setCollectionScriptDrafts((current) => {
+              if (current[activeCollectionDir] !== patch) return current
+              const next = { ...current }
+              delete next[activeCollectionDir]
+              return next
+            })
+            return true
+          },
+          () => false,
+        )
+        .finally(() => scriptSaves.current.delete(patch))
+      scriptSaves.current.set(patch, result)
+      return result
+    },
+    [activeCollectionDir, persistCollectionSettingsChange],
   )
 
   const handleEnvListChanged = useCallback(
@@ -1054,6 +1116,8 @@ export function App({
         onCollectionSettingsCategoryChange={setCollectionSettingsCategory}
         initialLayout={config.layout}
         confirmUndoAll={config.confirm_undo_all}
+        formatOnSave={config.format_on_save ?? false}
+        onFormatOnSaveChange={handleFormatOnSaveChange}
         onConfirmUndoAllChange={handleConfirmUndoAllChange}
         externalEditors={externalEditors}
         externalEditor={externalEditor}
@@ -1085,7 +1149,9 @@ export function App({
         onTlsPassphraseChange={handleTlsPassphraseChange}
         onTlsProfileRemove={handleTlsProfileRemove}
         collectionScripts={settings}
+        collectionScriptDraft={collectionScriptDrafts[activeCollectionDir]}
         onCollectionSettingsChange={handleCollectionSettingsChange}
+        onCollectionScriptsChange={handleCollectionScriptsChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}
         collectionSettingsByPath={collectionSettingsByPath}

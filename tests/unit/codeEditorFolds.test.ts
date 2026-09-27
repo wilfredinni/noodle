@@ -8,6 +8,72 @@ import {
 } from "../../src/ui/editor/codeEditorFolds"
 
 describe("codeEditorFolds", () => {
+  it("skips JavaScript folding when parsing exhausts the stack or source is oversized", () => {
+    const nested = "[\n".repeat(10_000) + "0" + "\n]".repeat(10_000)
+    const oversized = "const x = [\n" + "0,\n".repeat(34_000) + "]"
+    for (const source of [nested, oversized])
+      expect(computeFoldRanges(source, "javascript", new Map()).size).toBe(0)
+    expect(
+      computeFoldRanges("const x = [\n1\n]", "javascript", new Map()).size,
+    ).toBe(1)
+  })
+
+  it("folds nested JavaScript blocks and arrays without reading literal brackets", () => {
+    const content = [
+      'test("response", () => {',
+      '  const text = "}";',
+      "  const pattern = /[}\\]]/;",
+      "  // } ]",
+      "  const template = `raw } ${`nested ]`} text`;",
+      "  const values = [",
+      "    { value: 1 },",
+      "    { value: 2 },",
+      "  ];",
+      "  if (values.length) {",
+      "    console.log(text, pattern, template);",
+      "  }",
+      "});",
+      "/* comment {",
+      "   still a comment ]",
+      "*/",
+    ].join("\n")
+    const folds = computeFoldRanges(content, "javascript", new Map())
+    expect([...folds.keys()]).toEqual([5, 9, 0, 13])
+    expect(folds.get(0)).toMatchObject({ endLine: 12, folded: false })
+    expect(folds.get(5)).toMatchObject({ endLine: 8 })
+    expect(folds.get(9)).toMatchObject({ endLine: 11 })
+    expect(folds.get(13)).toMatchObject({ endLine: 15 })
+    folds.get(5)!.folded = true
+    expect(computeFoldRanges(content, "javascript", folds).get(5)?.folded).toBe(
+      true,
+    )
+    expect(buildFoldDisplay(content, folds).text).not.toContain("{ value: 2 }")
+  })
+
+  it("does not fold incomplete JavaScript blocks or multiline template text as code", () => {
+    const content =
+      "const text = `raw {\nraw }`;\nif (true) {\n  console.log(text);"
+    expect(computeFoldRanges(content, "javascript", new Map()).size).toBe(0)
+    const nested = computeFoldRanges(
+      "if (true) {\n  if (false) {\n  }\n",
+      "javascript",
+      new Map(),
+    )
+    expect([...nested.keys()]).toEqual([1])
+  })
+
+  it.each([
+    "function request(\n  url,\n  options\n) {\n  return url;\n}",
+    "if (\n  ready &&\n  enabled\n) {\n  run();\n}",
+  ])(
+    "folds multiline JavaScript headers independently of their bodies: %s",
+    (content) => {
+      const folds = computeFoldRanges(content, "javascript", new Map())
+      expect(folds.get(0)).toMatchObject({ endLine: 3 })
+      expect(folds.get(3)).toMatchObject({ endLine: 5 })
+    },
+  )
+
   it("keeps nested JSON folds ordered by closing bracket", () => {
     const content = `{
   "outer": {

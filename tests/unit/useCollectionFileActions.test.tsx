@@ -12,6 +12,11 @@ import type {
 import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import { useCollectionFileActions } from "../../src/ui/useCollectionFileActions"
 import { lang } from "../../src/lang"
+import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
+import {
+  formatCodeFields,
+  type PreparedSave,
+} from "../../src/ui/editor/codeFormatting"
 
 const testRender = createTestRender()
 
@@ -45,6 +50,8 @@ function ActionsHarness({
   onNewReady,
   onCreateFailed,
   onDeleteReady,
+  prepareFolder,
+  draftFolder = savedFolder,
 }: {
   collectionDir: string
   onSaveReady: (save: () => void) => void
@@ -69,16 +76,19 @@ function ActionsHarness({
   ) => void
   onCreateFailed?: () => void
   onDeleteReady?: (setFile: (id: string) => void, confirm: () => void) => void
+  prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
+  draftFolder?: Folder
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
   const folderDraftRef = useRef<UseFolderDraftResult>({
-    folderDraft: savedFolder,
+    folderDraft: draftFolder,
     markSaved: onMarkSaved,
   } as never)
   const savingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestDeleteFileRef = useRef<string | null>(null)
   const actions = useCollectionFileActions({
+    prepareFolder,
     collectionDir,
     collection,
     updateCollection,
@@ -167,6 +177,61 @@ describe("useCollectionFileActions", () => {
       await readFile(join(collectionDir, "api", "folder.yml"), "utf8"),
     ).toContain("name: Saved API")
   })
+
+  it.each([false, true])(
+    "saves folder scripts with formatter unavailable: %s",
+    async (unavailable) => {
+      const collectionDir = await mkdtemp(
+        join(tmpdir(), "noodle-format-folder-"),
+      )
+      dirs.push(collectionDir)
+      const service = createScriptDiagnostics()
+      const formatter = {
+        format: unavailable
+          ? async () => {
+              throw new Error("Semantic validation unavailable")
+            }
+          : service.format,
+      }
+      let save: (() => void) | undefined
+      let markedSaved = 0
+      try {
+        await testRender(
+          <ActionsHarness
+            collectionDir={collectionDir}
+            draftFolder={{
+              ...savedFolder,
+              scripts: { pre: "const x={a:1}", post: "./scripts/post.js" },
+              tests: 'test("ok",()=>{})',
+            }}
+            prepareFolder={async (folder) =>
+              formatCodeFields(folder, formatter)
+            }
+            onSaveReady={(handleSave) => (save = handleSave)}
+            onMarkSaved={() => markedSaved++}
+          />,
+          { width: 1, height: 1 },
+        )
+        await act(async () => {
+          await save?.()
+        })
+        expect(markedSaved).toBe(1)
+        const yaml = await readFile(
+          join(collectionDir, "api", "folder.yml"),
+          "utf8",
+        )
+        expect(yaml).toContain(
+          unavailable ? "const x={a:1}" : "const x = { a: 1 }",
+        )
+        expect(yaml).toContain(
+          unavailable ? 'test("ok",()=>{})' : 'test("ok", () => { })',
+        )
+        expect(yaml).toContain("./scripts/post.js")
+      } finally {
+        service.dispose()
+      }
+    },
+  )
 
   it("synchronizes renamed path params when saving an edited URL", async () => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))

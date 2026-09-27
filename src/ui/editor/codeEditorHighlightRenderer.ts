@@ -32,6 +32,9 @@ export class CodeEditorHighlightRenderer {
   private _envResolvedStyleId = 0
   private _envMissingStyleId = 0
   private _extra?: (content: string) => Highlight[]
+  private _content = ""
+  private _filetype = ""
+  private _treeSitterHighlights: SimpleHighlight[] = []
 
   constructor(
     theme: Theme,
@@ -75,18 +78,31 @@ export class CodeEditorHighlightRenderer {
   }
 
   clear(): void {
+    this._content = ""
+    this._treeSitterHighlights = []
     this.host.clear()
   }
 
   apply(content: string, filetype: string): void {
-    if (content.length === 0) {
-      this.host.clear()
+    if (content.length === 0 || content.length > 100_000) {
+      this.clear()
       return
     }
+    if (filetype !== this._filetype) this._treeSitterHighlights = []
+    this.rebaseHighlights(content)
+    this._filetype = filetype
     if (filetype === "json") this.applyJson(content)
     else if (filetype === "yaml") this.applyYaml(content)
     else if (filetype === "javascript") this.applyJavascript(content)
     else this.host.clear()
+    this.host.setStyle(this._style)
+    this.host.applyRanges(
+      buildTreeSitterHighlightRanges(
+        this._treeSitterHighlights,
+        content,
+        this._style,
+      ),
+    )
     this.applyExtra(content)
   }
 
@@ -96,41 +112,58 @@ export class CodeEditorHighlightRenderer {
     client: TreeSitterClient,
     isCurrent: () => boolean,
   ): Promise<void> {
-    let succeeded = false
+    let highlights: SimpleHighlight[] = []
     try {
       const result = await client.highlightOnce(content, filetype)
-      if (!isCurrent()) return
-      if (result.highlights?.length) {
-        this.applyTreeSitter(result.highlights, content, filetype)
-        succeeded = true
-      }
+      highlights = result.highlights ?? []
     } catch {
-      // Local YAML highlighting covers unavailable parsers.
+      // Local highlighting covers unavailable parsers.
     }
     if (!isCurrent()) return
-    if (!succeeded) {
-      this.host.clear()
-      if (filetype === "json") this.applyJson(content)
-      if (filetype === "yaml") this.applyYaml(content)
-      if (filetype === "javascript") this.applyJavascript(content)
-    }
-    this.applyExtra(content)
+    this._content = content
+    this._filetype = filetype
+    this._treeSitterHighlights = highlights
+    this.apply(content, filetype)
   }
 
-  private applyTreeSitter(
-    highlights: SimpleHighlight[],
-    content: string,
-    filetype: string,
-  ): void {
-    if (filetype === "json") this.applyJson(content)
-    else if (filetype === "yaml") this.applyYaml(content)
-    else {
-      this.host.clear()
-      this.host.setStyle(this._style)
+  private rebaseHighlights(content: string): void {
+    if (content === this._content) return
+    if (this._treeSitterHighlights.length > 0) {
+      // The worker returns JavaScript string offsets. Keep surviving tokens colored
+      // while the debounced parser catches up with the edited buffer.
+      const before = this._content
+      const after = content
+      let start = 0
+      while (
+        start < before.length &&
+        start < after.length &&
+        before[start] === after[start]
+      )
+        start++
+      let oldEnd = before.length
+      let newEnd = after.length
+      while (
+        oldEnd > start &&
+        newEnd > start &&
+        before[oldEnd - 1] === after[newEnd - 1]
+      ) {
+        oldEnd--
+        newEnd--
+      }
+      const delta = newEnd - oldEnd
+      this._treeSitterHighlights = this._treeSitterHighlights.flatMap(
+        (highlight) => {
+          const [from, to, group, meta] = highlight
+          if (to <= start) return [highlight]
+          if (from >= oldEnd)
+            return [[from + delta, to + delta, group, meta] as SimpleHighlight]
+          if (from < start && to > oldEnd)
+            return [[from, to + delta, group, meta] as SimpleHighlight]
+          return []
+        },
+      )
     }
-    this.host.applyRanges(
-      buildTreeSitterHighlightRanges(highlights, content, this._style),
-    )
+    this._content = content
   }
 
   private applyJavascript(content: string): void {

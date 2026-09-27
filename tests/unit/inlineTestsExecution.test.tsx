@@ -311,6 +311,7 @@ describe("rendered inline test parity", () => {
               onTlsPassphraseChange={async () => true}
               onTlsProfileRemove={async () => true}
               onCollectionSettingsChange={yes}
+              onCollectionScriptsChange={async () => true}
               initialLastRequestId="manual"
               collectionPaths={[dir]}
               collectionSettingsByPath={{}}

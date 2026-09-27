@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { extend } from "@opentui/react"
-import { MouseButton } from "@opentui/core"
+import { MouseButton, type LineNumberRenderable } from "@opentui/core"
 import type { Collection } from "../../schema"
 import {
   validateScriptSyntax,
@@ -23,8 +23,16 @@ import { Select } from "../Select"
 import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
 import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
+import { createScriptDiagnostics } from "./scriptDiagnostics"
+import type { ScriptCompletionContext } from "./scriptCompletion"
+import { RESERVED_FOLD_SIGN, syncCodeEditorGutter } from "./codeEditorGutter"
+import { useFormattingTarget } from "./CodeFormattingContext"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
+const emptyCompletionContext: ScriptCompletionContext = {
+  environmentKeys: [],
+  requestIds: [],
+}
 export type ScriptActions = {
   open?: () => boolean
   order?: () => boolean
@@ -33,11 +41,15 @@ export const ScriptAuthoringContext = createContext<{
   collectionDir: string
   collection: Collection | null
   overlayActive?: boolean
+  diagnostics?: ReturnType<typeof createScriptDiagnostics>
+  completionContext?: ScriptCompletionContext
+  completionShortcut?: string
   confirm: (action: () => void) => void
   setActive: (source: ActiveScriptSource | null) => void
   setActiveOrder?: (order: ScriptOrder | null) => void
   showOrder?: (order: ScriptOrder) => void
   open?: (source: ActiveScriptSource) => void
+  formatOnSave?: boolean
 } | null>(null)
 
 function ScriptLink({
@@ -148,8 +160,22 @@ export function ScriptEditor({
   const theme = useTheme()
   const keymap = useKeymap()
   const context = useContext(ScriptAuthoringContext)
+  const [localDiagnostics] = useState(createScriptDiagnostics)
+  const diagnostics = context?.diagnostics ?? localDiagnostics
+  useEffect(() => () => localDiagnostics.dispose(), [localDiagnostics])
   const overlayActive = context?.overlayActive ?? false
   const [editor, setEditor] = useState<CodeEditorRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const hoveredFoldLineRef = useRef<number | null>(null)
+  const syncFoldSigns = (hoveredFoldLine?: number) => {
+    if (editor && lineNumberRef.current)
+      syncCodeEditorGutter(
+        lineNumberRef.current,
+        editor,
+        hoveredFoldLine,
+        theme.primary,
+      )
+  }
   const [selectedKind, setKind] = useState(
     value.startsWith("./") ? "external" : "inline",
   )
@@ -159,7 +185,9 @@ export function ScriptEditor({
         ? "external"
         : "inline"
       : selectedKind
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ title?: string; detail: string } | null>(
+    null,
+  )
   const [selectOpen, setSelectOpen] = useState(false)
   const [control, setControl] = useState(0)
   const diagnosticsRef = useRef(onDiagnostics)
@@ -168,6 +196,17 @@ export function ScriptEditor({
   const sourceRef = useRef(source)
   sourceRef.current = source
   const externalFocused = kind === "external" && focused
+  useFormattingTarget(
+    editor,
+    focused && interactive && kind === "inline",
+    phase,
+    source.scope,
+  )
+
+  useEffect(
+    () => setError(null),
+    [sourceKey, phase, kind, context?.collectionDir],
+  )
 
   useEffect(() => {
     if (value) setKind(kind)
@@ -175,7 +214,7 @@ export function ScriptEditor({
 
   useEffect(() => {
     let current = true
-    setError(null)
+    const controller = new AbortController()
     const timer = setTimeout(() => {
       void (async () => {
         if (kind === "external" && !isExternalScriptSource(value))
@@ -185,20 +224,38 @@ export function ScriptEditor({
           context?.collectionDir,
         ).resolve(value, sourceRef.current)
         const diagnostic = await validateScriptSyntax(resolved.text)
-        if (current)
+        if (!current) return
+        if (diagnostic) {
+          setError({
+            detail: `${diagnostic.name} at ${diagnostic.line ?? 1}:${diagnostic.column ?? 1}: ${diagnostic.message}`,
+          })
+          return
+        }
+        const result = await diagnostics.check(
+          resolved.text,
+          phase,
+          controller.signal,
+        )
+        if (current) {
+          const first = result.first
           setError(
-            diagnostic
-              ? `${diagnostic.name} at ${diagnostic.line ?? 1}:${diagnostic.column ?? 1}: ${diagnostic.message}`
+            first
+              ? {
+                  title: `JavaScript at ${first.line}:${first.column}${result.count > 1 ? ` (+${result.count - 1} more)` : ""}`,
+                  detail: first.message,
+                }
               : null,
           )
+        }
       })()
         .catch((reason: unknown) => {
           if (current)
-            setError(
-              reason instanceof Error
-                ? reason.message
-                : "Unable to validate script",
-            )
+            setError({
+              detail:
+                reason instanceof Error
+                  ? reason.message
+                  : "Unable to validate script",
+            })
         })
         .finally(() => {
           if (current) {
@@ -208,10 +265,13 @@ export function ScriptEditor({
     }, diagnosticDelayMs)
     return () => {
       current = false
+      controller.abort()
       clearTimeout(timer)
     }
   }, [
     value,
+    phase,
+    diagnostics,
     kind,
     sourceKey,
     context?.collectionDir,
@@ -378,7 +438,7 @@ export function ScriptEditor({
           flexDirection="column"
           flexGrow={1}
           flexBasis={0}
-          minHeight={0}
+          minHeight={2}
           onMouseDown={(event) => {
             if (event.button !== MouseButton.LEFT) return
             event.stopPropagation()
@@ -388,6 +448,7 @@ export function ScriptEditor({
           <box flexDirection="row" flexGrow={1} flexBasis={0} minHeight={0}>
             <line-number
               id="script-line-numbers"
+              ref={lineNumberRef}
               minWidth={4}
               paddingRight={1}
               fg={theme.textMuted}
@@ -395,6 +456,48 @@ export function ScriptEditor({
               flexGrow={1}
               flexBasis={0}
               minHeight={0}
+              lineSigns={RESERVED_FOLD_SIGN}
+              onMouseMove={(event) => {
+                const displayLine =
+                  editor && event.x === lineNumberRef.current?.x
+                    ? editor.lineInfo.lineSources[
+                        event.y - editor.y + editor.scrollY
+                      ]
+                    : undefined
+                const hovered =
+                  displayLine !== undefined &&
+                  editor?.getFoldSigns().has(displayLine)
+                    ? displayLine
+                    : null
+                if (hovered === hoveredFoldLineRef.current) return
+                hoveredFoldLineRef.current = hovered
+                syncFoldSigns(hovered ?? undefined)
+              }}
+              onMouseOut={() => {
+                if (hoveredFoldLineRef.current === null) return
+                hoveredFoldLineRef.current = null
+                syncFoldSigns()
+              }}
+              onMouseDown={(event) => {
+                if (
+                  event.button !== MouseButton.LEFT ||
+                  !editor ||
+                  event.x >= editor.x
+                )
+                  return
+                const displayLine =
+                  editor.lineInfo.lineSources[
+                    event.y - editor.y + editor.scrollY
+                  ]
+                if (
+                  displayLine === undefined ||
+                  !editor.getFoldSigns().has(displayLine)
+                )
+                  return
+                editor.toggleFold(displayLine)
+                event.preventDefault()
+                event.stopPropagation()
+              }}
               onMouseScroll={(event) => {
                 if (!editor || !event.scroll) return
                 if (event.scroll.direction === "up")
@@ -410,13 +513,17 @@ export function ScriptEditor({
                 id="script-source"
                 ref={setEditor}
                 filetype="javascript"
+                formatContent={(text) => diagnostics.format(text, phase)}
                 theme={theme}
                 value={value}
                 readOnly={!interactive || !editing}
                 flexGrow={1}
                 flexBasis={0}
                 minHeight={0}
-                foldable={false}
+                onFoldsChange={() => {
+                  hoveredFoldLineRef.current = null
+                  syncFoldSigns()
+                }}
                 onSourceChange={() => {
                   if (editing && editor) onChange(editor.plainText)
                 }}
@@ -446,6 +553,12 @@ export function ScriptEditor({
             isEditing={focused && editing && !overlayActive}
             value={value}
             scriptPhase={phase}
+            script={{
+              service: diagnostics,
+              sourceKey,
+              context: context?.completionContext ?? emptyCompletionContext,
+              shortcut: context?.completionShortcut ?? "ctrl+space",
+            }}
           />
         </box>
       ) : (
@@ -504,7 +617,19 @@ export function ScriptEditor({
           </ScriptDescription>
         </box>
       )}
-      {error && <ValidationNotice detail={error} />}
+      {kind === "inline" ? (
+        <box
+          height={error ? (error.title ? 2 : 1) : 0}
+          flexShrink={1}
+          minHeight={0}
+          overflow="hidden"
+          flexDirection="column"
+        >
+          {error && <ValidationNotice {...error} />}
+        </box>
+      ) : error ? (
+        <ValidationNotice {...error} />
+      ) : null}
     </box>
   )
 }
