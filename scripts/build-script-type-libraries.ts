@@ -32,8 +32,35 @@ async function include(name: string): Promise<void> {
   libraries[name] = filtered
 }
 await include("lib.es2023.d.ts")
+await include("lib.es2024.arraybuffer.d.ts")
+await include("lib.es2024.collection.d.ts")
+await include("lib.es2024.object.d.ts")
+await include("lib.es2024.promise.d.ts")
+await include("lib.es2024.regexp.d.ts")
+await include("lib.es2024.sharedmemory.d.ts")
+await include("lib.es2024.string.d.ts")
+await include("lib.es2025.collection.d.ts")
+await include("lib.es2025.promise.d.ts")
+await include("lib.es2025.regexp.d.ts")
 await include("lib.es2025.iterator.d.ts")
 await include("lib.es2025.float16.d.ts")
+await include("lib.esnext.collection.d.ts")
+await include("lib.esnext.error.d.ts")
+// Shipped QuickJS helpers that the pinned TypeScript libraries do not yet declare.
+libraries["lib.quickjs.d.ts"] = `
+interface Math {
+  /** Sums an iterable of numbers with improved precision. */
+  sumPrecise(values: Iterable<number>): number;
+}
+interface IteratorConstructor {
+  /** Yields each iterable in order. */
+  concat<T>(...iterables: Iterable<T>[]): IteratorObject<T, undefined, unknown>;
+}
+interface SetConstructor {
+  /** Groups items by the callback's key, retaining each group's original values. */
+  groupBy<K, T>(items: Iterable<T>, keySelector: (item: T, index: number) => K): Map<K, T[]>;
+}
+`
 const expected = `${JSON.stringify(Object.fromEntries(Object.entries(libraries).sort()), null, 2)}\n`
 const file = Bun.file(
   new URL("../src/ui/editor/scriptTypeLibraries.json", import.meta.url),

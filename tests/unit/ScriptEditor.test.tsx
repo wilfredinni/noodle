@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -6,6 +6,7 @@ import { act, useState } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { BoxRenderable, InputRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
+import { parseKeypress } from "@opentui/core"
 import { createTestRender } from "../testRender"
 import { setupKeymap, keyEvent, getHighlightCount } from "./_helpers"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -21,10 +22,20 @@ import {
 } from "../../src/ui/editor/CodeEditor"
 
 import type { ScriptPhase, ScriptSource } from "../../src/preRequestScript"
-import type { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
+import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
+import type { ScriptCompletionContext } from "../../src/ui/editor/scriptCompletion"
 import type { ScriptDiagnostics } from "../../src/ui/editor/scriptSemanticChecker"
 
 const testRender = createTestRender()
+const services: ReturnType<typeof createScriptDiagnostics>[] = []
+afterEach(() => {
+  for (const service of services.splice(0)) service.dispose()
+})
+const noAssistance = {
+  assist: async () => ({ items: [], query: "" }),
+  details: async () => ({}),
+  retain: () => () => {},
+}
 
 async function mountEditor(
   initial: string,
@@ -34,10 +45,40 @@ async function mountEditor(
   options: {
     phase?: ScriptPhase
     collectionDir?: string
+    completionContext?: ScriptCompletionContext
+    shortcut?: string
     diagnostics?: ReturnType<typeof createScriptDiagnostics>
   } = {},
 ) {
   const { keymap, host } = setupKeymap()
+  const service = options.diagnostics ?? createScriptDiagnostics()
+  services.push(service)
+  const pending = new Set<Promise<unknown>>()
+  function track<T>(promise: Promise<T>): Promise<T> {
+    pending.add(promise)
+    void promise.then(
+      () => pending.delete(promise),
+      () => pending.delete(promise),
+    )
+    return promise
+  }
+  const diagnostics = {
+    ...service,
+    assist: (...args: Parameters<typeof service.assist>) =>
+      track(service.assist(...args)),
+    details: (...args: Parameters<typeof service.details>) =>
+      track(service.details(...args)),
+  }
+  const settleAssistance = async () => {
+    do {
+      await act(async () => {
+        await Promise.allSettled([...pending])
+      })
+      await act(async () => {
+        await render.renderOnce()
+      })
+    } while (pending.size)
+  }
   let complete = Promise.withResolvers<void>()
   let value = initial
   let editing = true
@@ -47,10 +88,11 @@ async function mountEditor(
   let change!: (text: string) => void
   let edit!: (value: boolean) => void
   let focus!: (value: boolean) => void
+  let changeNames!: (value: ScriptCompletionContext) => void
   let changePhase!: (value: ScriptPhase) => void
   const context = {
     collectionDir: options.collectionDir ?? "/tmp",
-    diagnostics: options.diagnostics,
+    diagnostics,
     collection: null,
     confirm: (action: () => void) => {
       confirm = action
@@ -63,6 +105,8 @@ async function mountEditor(
     },
   }
   function Harness() {
+    const [names, setNames] = useState(options.completionContext)
+    changeNames = setNames
     const [text, setText] = useState(initial)
     const [isEditing, setEditing] = useState(initiallyEditing)
     const [focused, setFocused] = useState(true)
@@ -74,7 +118,13 @@ async function mountEditor(
     value = text
     editing = isEditing
     return (
-      <ScriptAuthoringContext.Provider value={context}>
+      <ScriptAuthoringContext.Provider
+        value={{
+          ...context,
+          completionContext: names,
+          completionShortcut: options.shortcut,
+        }}
+      >
         <VariableCompletionInterceptor />
         <ScriptEditor
           value={text}
@@ -103,6 +153,7 @@ async function mountEditor(
     await act(async () => {
       await complete.promise
     })
+    await settleAssistance()
     await act(async () => {
       await render.renderOnce()
       await render.renderOnce()
@@ -127,6 +178,11 @@ async function mountEditor(
       complete = Promise.withResolvers<void>()
     },
     settle,
+    settleAssistance,
+    names: async (names: ScriptCompletionContext) => {
+      await act(async () => changeNames(names))
+      await settleAssistance()
+    },
     replace: async (text: string) => {
       complete = Promise.withResolvers<void>()
       await act(async () => change(text))
@@ -160,6 +216,359 @@ async function mountEditor(
 }
 
 describe("ScriptEditor", () => {
+  it("keeps the scrolled source viewport when accepting a completion", async () => {
+    const source = Array.from({ length: 80 }, (_, row) =>
+      row === 40 ? "JSON.pa" : `// line ${row + 1}`,
+    ).join("\n")
+    const service = createScriptDiagnostics()
+    const h = await mountEditor(source, 70, true, undefined, {
+      diagnostics: { ...service, check: async () => ({ count: 0 }) },
+    })
+    await act(async () => {
+      h.editor().editBuffer.setCursor(40, 7)
+      h.editor().scrollTo(36)
+      await h.renderOnce()
+    })
+    const before = h.editor().viewport.offsetY
+    await act(async () => h.host.press("space", { ctrl: true }))
+    await h.settleAssistance()
+    expect(h.editor().viewport.offsetY).toBe(before)
+    h.beginDiagnostics()
+    await act(async () => h.host.press("tab"))
+    await h.settle()
+    expect(h.value().split("\n")[40]).toBe("JSON.parse")
+    expect(h.editor().viewport.offsetY).toBe(before)
+  })
+
+  it("keeps the popup mounted and sized while assistance and details refresh", async () => {
+    let respond!: (result: {
+      items: {
+        key: string
+        label: string
+        insert: string
+        start: number
+        end: number
+      }[]
+      query: string
+    }) => void
+    let describe!: (result: { description: string; signature: string }) => void
+    const h = await mountEditor("JSON.p", 70, true, undefined, {
+      diagnostics: {
+        ...noAssistance,
+        check: async () => ({ count: 0 }),
+        assist: (_source, _phase, _cursor, _context, _explicit, signal) =>
+          new Promise((resolve) => {
+            respond = resolve
+            signal?.addEventListener(
+              "abort",
+              () => resolve({ items: [], query: "" }),
+              { once: true },
+            )
+          }),
+        details: (_source, _phase, _cursor, _key, signal) =>
+          new Promise((resolve) => {
+            describe = resolve
+            signal?.addEventListener("abort", () => resolve({}), { once: true })
+          }),
+        dispose() {},
+      },
+    })
+    await act(async () => {
+      h.editor().cursorOffset = h.value().length
+      h.host.press("space", { ctrl: true })
+    })
+    await act(async () => {
+      respond({
+        items: [
+          { key: "parse", label: "parse", insert: "parse", start: 5, end: 6 },
+        ],
+        query: "p",
+      })
+    })
+    await act(async () => h.renderOnce())
+    const popup = h.renderer.root.findDescendantById("script-completion-menu")!
+    const geometry = {
+      x: popup.x,
+      y: popup.y,
+      width: popup.width,
+      height: popup.height,
+    }
+    await act(async () =>
+      describe({
+        description: "Parses JSON.",
+        signature: "parse(text: string): any",
+      }),
+    )
+    await h.settleAssistance()
+    expect({
+      x: popup.x,
+      y: popup.y,
+      width: popup.width,
+      height: popup.height,
+    }).toEqual(geometry)
+    h.beginDiagnostics()
+    await act(async () => {
+      await h.mockInput.typeText("a")
+      await h.renderOnce()
+    })
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu")?.num,
+    ).toBe(popup.num)
+    await act(async () => h.host.press("tab"))
+    expect(h.value()).toBe("JSON.pa")
+    expect(h.editing()).toBe(true)
+    await act(async () =>
+      respond({
+        items: [
+          { key: "parse", label: "parse", insert: "parse", start: 5, end: 7 },
+        ],
+        query: "pa",
+      }),
+    )
+    await act(async () =>
+      describe({
+        description: "Parses JSON.",
+        signature: "parse(text: string): any",
+      }),
+    )
+    await h.settle()
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu")?.num,
+    ).toBe(popup.num)
+    const keys: string[] = []
+    const release = h.keymap.intercept(
+      "key",
+      ({ event }) => {
+        keys.push(event.name)
+      },
+      { priority: 0 },
+    )
+    h.beginDiagnostics()
+    await act(async () => h.mockInput.typeText("r"))
+    await act(async () => {
+      h.host.press("up")
+      h.host.press("down")
+    })
+    expect(keys).toContain("up")
+    expect(keys).toContain("down")
+    await act(async () => h.host.press("return"))
+    expect(h.value()).toBe("JSON.par\n")
+    await act(async () => respond({ items: [], query: "" }))
+    await h.settle()
+    release()
+  })
+
+  it("keeps editor height stable while incomplete script diagnostics refresh", async () => {
+    let finish!: (result: ScriptDiagnostics) => void
+    const source = Array.from({ length: 80 }, (_, row) =>
+      row === 40 ? "JSON.p" : `// line ${row + 1}`,
+    ).join("\n")
+    const h = await mountEditor(source, 70, true, undefined, {
+      diagnostics: {
+        ...noAssistance,
+        check: async (text) =>
+          text === source
+            ? {
+                count: 1,
+                first: {
+                  code: 1,
+                  line: 1,
+                  column: 6,
+                  message: "Unknown member",
+                },
+              }
+            : new Promise((resolve) => {
+                finish = resolve
+              }),
+        dispose() {},
+      },
+    })
+    await act(async () => {
+      h.editor().editBuffer.setCursor(40, 6)
+      h.editor().scrollTo(36)
+      await h.renderOnce()
+    })
+    const before = h.editor().height
+    const offset = h.editor().viewport.offsetY
+    h.beginDiagnostics()
+    await act(async () => h.mockInput.typeText("a"))
+    await act(async () => h.renderOnce())
+    expect(h.editor().height).toBe(before)
+    expect(h.editor().viewport.offsetY).toBe(offset)
+    await h.waitFor(() => !!finish)
+    await act(async () =>
+      finish({
+        count: 1,
+        first: { code: 1, line: 1, column: 6, message: "Unknown member" },
+      }),
+    )
+    await h.settle()
+    expect(h.editor().height).toBe(before)
+    expect(h.editor().viewport.offsetY).toBe(offset)
+    const previous = finish
+    h.beginDiagnostics()
+    await act(async () => h.mockInput.typeText("rse"))
+    await h.waitFor(() => finish !== previous)
+    await act(async () => finish({ count: 0 }))
+    await h.settle()
+    expect(h.editor().height).toBe(before)
+    expect(h.editor().viewport.offsetY).toBe(offset)
+  })
+
+  it.each(["request", "folder", "collection"] as const)(
+    "completes JavaScript in the %s editor, accepts one undoable edit, and supports raw Ctrl+Space",
+    async (scope) => {
+      expect(parseKeypress("\x00")).toMatchObject({ name: "space", ctrl: true })
+      const source = 'const token = "hello"; token.toU'
+      const h = await mountEditor(source, 70, true, {
+        scope,
+        path: "sample.yml",
+      })
+      await act(async () => {
+        h.editor().cursorOffset = source.length
+        h.host.press("space", { ctrl: true })
+      })
+      await h.settleAssistance()
+      expect(h.captureCharFrame()).toContain("toUpperCase")
+      h.beginDiagnostics()
+      await act(async () => h.host.press("tab"))
+      await h.settle()
+      expect(h.value()).toBe('const token = "hello"; token.toUpperCase')
+      h.beginDiagnostics()
+      await act(async () =>
+        h.editor().handleKeyPress(keyEvent("z", { ctrl: true })),
+      )
+      await h.settle()
+      expect(h.value()).toBe(source)
+    },
+  )
+
+  it("shows noninteractive parameter hints, preserves multiline keys, and dismisses before leaving edit mode", async () => {
+    const source = 'noodle.run.set("key", 12)'
+    const h = await mountEditor(source, 90)
+    await act(async () => {
+      h.editor().cursorOffset = source.length - 1
+    })
+    h.beginDiagnostics()
+    await act(async () => h.mockInput.typeText("3"))
+    await h.settle()
+    expect(h.captureCharFrame()).toContain("value: NoodleScript.JsonValue")
+    const signature = h.renderer.root.findDescendantById(
+      "script-completion-menu-signature",
+    )
+    expect(signature).toBeDefined()
+    const before = h.editor().cursorOffset
+    await act(async () => h.editor().handleKeyPress(keyEvent("left")))
+    await h.settleAssistance()
+    expect(h.editor().cursorOffset).toBe(before - 1)
+    await act(async () => h.host.press("escape"))
+    expect(h.editing()).toBe(true)
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu"),
+    ).toBeUndefined()
+    await act(async () => h.host.press("escape"))
+    expect(h.editing()).toBe(false)
+  })
+
+  it("refreshes collection names, honors shortcut overrides, and hides suggestions on phase changes", async () => {
+    const source = 'noodle.env.get("")'
+    const h = await mountEditor(source, 42, true, undefined, {
+      shortcut: "ctrl+alt+a",
+      completionContext: {
+        environmentKeys: ["TOKEN"],
+        requestIds: ["auth/login"],
+      },
+    })
+    await act(async () => {
+      h.editor().cursorOffset = source.length - 2
+      h.host.press("space", { ctrl: true })
+    })
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu"),
+    ).toBeUndefined()
+    await act(async () => h.host.press("a", { ctrl: true, meta: true }))
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("TOKEN")
+    await h.names({ environmentKeys: ["NEW_KEY"], requestIds: ["users/list"] })
+    expect(h.captureCharFrame()).toContain("NEW_KEY")
+    expect(h.captureCharFrame()).not.toContain("TOKEN")
+    h.beginDiagnostics()
+    await act(async () => h.host.press("tab"))
+    await h.settle()
+    expect(h.value()).toBe('noodle.env.get("NEW_KEY")')
+    await h.phase("post")
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu"),
+    ).toBeUndefined()
+  })
+
+  it("completes after Unicode and multiline source without corrupting the prefix", async () => {
+    const source = "// 😀 café\nJSON.pa"
+    const h = await mountEditor(source)
+    await act(async () => {
+      h.editor().editBuffer.setCursor(1, 7)
+      h.host.press("space", { ctrl: true })
+    })
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("parse")
+    h.beginDiagnostics()
+    await act(async () => h.host.press("tab"))
+    await h.settle()
+    expect(h.value()).toBe("// 😀 café\nJSON.parse")
+  })
+
+  it("keeps the active parameter visible in a narrow editor", async () => {
+    const source = 'noodle.run.set("key", 12, {})'
+    const h = await mountEditor(source, 30)
+    await act(async () => {
+      h.editor().cursorOffset = source.length - 2
+      h.host.press("space", { ctrl: true })
+    })
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("options?")
+    const popup = h.renderer.root.findDescendantById("script-completion-menu")!
+    expect(popup.x + popup.width).toBeLessThanOrEqual(30)
+  })
+
+  it("preserves typing with a printable completion shortcut override", async () => {
+    const h = await mountEditor("JSON.", 70, true, undefined, { shortcut: "x" })
+    await act(async () => {
+      h.editor().cursorOffset = h.value().length
+      h.host.press("x")
+    })
+    await h.settleAssistance()
+    expect(
+      h.renderer.root.findDescendantById("script-completion-menu"),
+    ).toBeUndefined()
+    h.beginDiagnostics()
+    await act(async () => h.editor().handleKeyPress(keyEvent("x")))
+    await h.settle()
+    expect(h.value()).toBe("JSON.x")
+  })
+
+  it("falls back to Noodle API completion when the worker fails", async () => {
+    const h = await mountEditor("noodle.run.s", 70, true, undefined, {
+      diagnostics: {
+        ...noAssistance,
+        check: async () => ({ count: 0 }),
+        assist: async () => {
+          throw new Error("worker unavailable")
+        },
+        dispose() {},
+      },
+    })
+    await act(async () => {
+      h.editor().cursorOffset = h.value().length
+      h.host.press("space", { ctrl: true })
+    })
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("set(name: string")
+    h.beginDiagnostics()
+    await act(async () => h.host.press("tab"))
+    await h.settle()
+    expect(h.value()).toBe("noodle.run.set")
+  })
+
   it("shows compact advisory diagnostics and removes them after correction", async () => {
     const h = await mountEditor("missing; another", 40)
     expect(h.captureCharFrame()).toContain("JavaScript at 1:1 (+1 more)")
@@ -188,6 +597,7 @@ describe("ScriptEditor", () => {
       signal?: AbortSignal
     }[] = []
     const diagnostics = {
+      ...noAssistance,
       check: (source: string, _phase: ScriptPhase, signal?: AbortSignal) =>
         source.includes('"initial"')
           ? Promise.resolve({ count: 0 })
@@ -222,6 +632,7 @@ describe("ScriptEditor", () => {
 
   it("shows worker unavailability while retaining syntax validation", async () => {
     const diagnostics = {
+      ...noAssistance,
       check: () => Promise.reject(new Error("Semantic validation unavailable")),
       dispose() {},
     }
@@ -581,7 +992,7 @@ describe("ScriptEditor", () => {
     async (value) => {
       const h = await mountEditor(value, 60, false)
       const external = value.startsWith("./")
-      if (external) await act(() => h.host.press("down"))
+      if (external) await act(async () => h.host.press("down"))
       h.keymap.setData("app.jump", "active")
       const swallowed: string[] = []
       const dispose = h.keymap.intercept(
@@ -594,13 +1005,13 @@ describe("ScriptEditor", () => {
         { priority: 100 },
       )
       for (const key of ["up", "down", "tab", "return"])
-        await act(() => h.host.press(key))
+        await act(async () => h.host.press(key))
       expect(swallowed).toEqual(["up", "down", "tab", "return"])
       expect(h.editing()).toBe(false)
       expect(h.value()).toBe(value)
       h.keymap.setData("app.jump", "inactive")
       dispose()
-      await act(() => h.host.press(external ? "return" : "up"))
+      await act(async () => h.host.press(external ? "return" : "up"))
       expect(h.editing()).toBe(true)
     },
   )

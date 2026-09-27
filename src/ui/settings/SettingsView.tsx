@@ -29,6 +29,7 @@ import {
   Definitions,
   displayKey,
   findKeybindConflict,
+  isScriptCompletionBinding,
   keyEventToBinding,
   type KeybindCategory,
   type KeybindName,
@@ -459,6 +460,16 @@ export function SettingsView({
         if (!binding) {
           setMessage({
             text: "That key cannot be assigned. Use Ctrl, Alt, Shift, or a documented key.",
+            kind: "error",
+          })
+          return
+        }
+        if (
+          captureName === "script_complete" &&
+          !isScriptCompletionBinding(binding)
+        ) {
+          setMessage({
+            text: "Script completion needs Ctrl, Alt, or a function key.",
             kind: "error",
           })
           return

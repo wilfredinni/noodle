@@ -2,6 +2,12 @@ import ts from "typescript-js"
 import libraries from "./scriptTypeLibraries.json"
 import { SCRIPT_WRAPPER_PREFIX } from "../../scriptAsync"
 import type { ScriptPhase } from "../../preRequestScript"
+import type {
+  ScriptAssistance,
+  ScriptCompletionContext,
+  ScriptCompletionDetails,
+  ScriptCompletionItem,
+} from "./scriptCompletion"
 
 export type ScriptDiagnostic = {
   code: number
@@ -51,11 +57,7 @@ export function createScriptSemanticChecker(
     target: ts.ScriptTarget.ES2023,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
-    lib: [
-      "lib.es2023.d.ts",
-      "lib.es2025.iterator.d.ts",
-      "lib.es2025.float16.d.ts",
-    ],
+    lib: Object.keys(libraries),
   }
   const host: ts.LanguageServiceHost = {
     getCompilationSettings: () => options,
@@ -77,17 +79,261 @@ export function createScriptSemanticChecker(
   }
   const service = ts.createLanguageService(host)
 
+  const update = (text: string, nextPhase: ScriptPhase) => {
+    if (Buffer.byteLength(text) > sourceLimit)
+      throw new Error("source exceeds 256 KiB")
+    if (files.has(scriptFile) && source === text && phase === nextPhase) return
+    source = text
+    phase = nextPhase
+    version++
+    files.set(
+      scriptFile,
+      ts.ScriptSnapshot.fromString(`${wrapperPrefix}${source}\n})()`),
+    )
+  }
+  const display = ts.displayPartsToString
+  const position = (cursor: number) =>
+    wrapperPrefix.length + Math.max(0, Math.min(source.length, cursor))
+  const details = (
+    text: string,
+    nextPhase: ScriptPhase,
+    cursor: number,
+    key: string,
+  ): ScriptCompletionDetails => {
+    update(text, nextPhase)
+    const entry = service.getCompletionEntryDetails(
+      scriptFile,
+      position(cursor),
+      key,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    )
+    return entry
+      ? {
+          description: display(entry.documentation),
+          signature: display(entry.displayParts),
+        }
+      : {}
+  }
+
   return {
-    check(text: string, nextPhase: ScriptPhase): ScriptDiagnostics {
-      if (Buffer.byteLength(text) > sourceLimit)
-        throw new Error("source exceeds 256 KiB")
-      source = text
-      phase = nextPhase
-      version++
-      files.set(
-        scriptFile,
-        ts.ScriptSnapshot.fromString(`${wrapperPrefix}${source}\n})()`),
+    details,
+    assist(
+      text: string,
+      nextPhase: ScriptPhase,
+      cursor: number,
+      context: ScriptCompletionContext,
+      explicit = false,
+    ): ScriptAssistance {
+      update(text, nextPhase)
+      cursor = Math.max(0, Math.min(text.length, cursor))
+      const pos = position(cursor)
+      const info = service.getCompletionsAtPosition(scriptFile, pos, {
+        includeCompletionsForModuleExports: false,
+        includeCompletionsWithInsertText: true,
+        includeCompletionsWithSnippetText: false,
+        includeCompletionsWithClassMemberSnippets: false,
+        includeCompletionsWithObjectLiteralMethodSnippets: false,
+      })
+      const help = service.getSignatureHelpItems(scriptFile, pos, undefined)
+      const signature = help?.items[help.selectedItemIndex]
+      const signatureHelp =
+        signature && help
+          ? {
+              prefix: display(signature.prefixDisplayParts),
+              parameters: signature.parameters.map((parameter) =>
+                display(parameter.displayParts),
+              ),
+              separator: display(signature.separatorDisplayParts),
+              suffix: display(signature.suffixDisplayParts),
+              activeParameter: Math.min(
+                help.argumentIndex,
+                Math.max(0, signature.parameters.length - 1),
+              ),
+            }
+          : undefined
+      const program = service.getProgram()!
+      const parsed = program.getSourceFile(scriptFile)!
+      const types = program.getTypeChecker()
+      let token: ts.Node = parsed
+      let call: ts.CallExpression | undefined
+      const visit = (node: ts.Node) => {
+        if (node.getFullStart() > pos || node.end < pos) return
+        token = node
+        if (
+          ts.isCallExpression(node) &&
+          node.arguments.pos <= pos &&
+          pos <= node.arguments.end
+        )
+          call = node
+        ts.forEachChild(node, visit)
+      }
+      visit(parsed)
+      const literal =
+        ts.isStringLiteral(token) &&
+        pos > token.getStart(parsed) &&
+        (pos < token.end ||
+          parsed.text[token.end - 1] !== parsed.text[token.getStart(parsed)])
+          ? token
+          : undefined
+      const word = /[\w$]*$/.exec(text.slice(0, cursor))![0]
+      const start = literal
+        ? literal.getStart(parsed) + 1 - wrapperPrefix.length
+        : cursor - word.length
+      const quotedEnd =
+        literal &&
+        parsed.text[literal.end - 1] === parsed.text[literal.getStart(parsed)]
+      const end = literal
+        ? literal.end - wrapperPrefix.length - (quotedEnd ? 1 : 0)
+        : cursor + (/^[\w$]*/.exec(text.slice(cursor))?.[0].length ?? 0)
+      const quote = literal ? parsed.text[literal.getStart(parsed)]! : '"'
+      const scanner = ts.createScanner(ts.ScriptTarget.Latest, false)
+      scanner.setText(`${quote}${text.slice(start, cursor)}${quote}`)
+      scanner.scan()
+      const query = literal ? scanner.getTokenValue() : word
+      const escape = (name: string) =>
+        JSON.stringify(name)
+          .slice(1, -1)
+          .replaceAll("'", quote === "'" ? "\\'" : "'")
+      const alreadyComplete =
+        !explicit &&
+        cursor === end &&
+        info?.entries.some((entry) => entry.name === query)
+      const items: ScriptCompletionItem[] = (info?.entries ?? []).flatMap(
+        (entry) => {
+          if (
+            entry.hasAction ||
+            entry.isSnippet ||
+            entry.kind === ts.ScriptElementKind.warning ||
+            entry.kind === ts.ScriptElementKind.scriptElement ||
+            (entry.kind === ts.ScriptElementKind.keyword &&
+              [
+                "as",
+                "export",
+                "import",
+                "package",
+                "satisfies",
+                "using",
+                "with",
+              ].includes(entry.name))
+          )
+            return []
+          if (!entry.name.toLowerCase().includes(query.toLowerCase())) return []
+          const span = entry.replacementSpan ?? info?.optionalReplacementSpan
+          const itemStart = span ? span.start - wrapperPrefix.length : start
+          const itemEnd = span ? itemStart + span.length : end
+          if (itemStart < 0 || itemEnd > text.length) return []
+          const insert = literal
+            ? escape(entry.name)
+            : (entry.insertText ?? entry.name)
+          if (
+            !explicit &&
+            text.slice(itemStart, itemEnd) === insert &&
+            cursor === itemEnd
+          )
+            return []
+          return [
+            {
+              key: entry.name,
+              label: entry.name,
+              insert,
+              start: itemStart,
+              end: itemEnd,
+            },
+          ]
+        },
       )
+      // Collection suggestions are tied to the resolved declaration, including aliases.
+      const declaration = call && types.getResolvedSignature(call)?.declaration
+      if (
+        declaration?.getSourceFile().fileName === apiFile &&
+        help?.argumentIndex === 0
+      ) {
+        const path: string[] = []
+        for (
+          let node: ts.Node | undefined = declaration;
+          node && !ts.isInterfaceDeclaration(node);
+          node = node.parent
+        ) {
+          if (
+            (ts.isMethodSignature(node) || ts.isPropertySignature(node)) &&
+            ts.isIdentifier(node.name)
+          )
+            path.unshift(node.name.text)
+        }
+        const name = path.join(".")
+        const names =
+          name === "runRequest"
+            ? context.requestIds
+            : ["env.get", "run.get", "run.set", "run.unset"].includes(name)
+              ? context.environmentKeys
+              : []
+        const first = call?.arguments[0]
+        if (!first || literal === first) {
+          for (const name of new Set(names)) {
+            if (!name.toLowerCase().includes(query.toLowerCase())) continue
+            items.push({
+              key: `context:${name}`,
+              label: name,
+              insert: literal ? escape(name) : JSON.stringify(name),
+              start,
+              end,
+              description:
+                path[0] === "runRequest"
+                  ? "Saved request ID."
+                  : "Active environment key.",
+            })
+          }
+        }
+      }
+      // Preserve Noodle's existing root shorthand without inventing local aliases.
+      if (info?.isGlobalCompletion && word && !literal) {
+        const noodle = types.resolveName(
+          "noodle",
+          token,
+          ts.SymbolFlags.Value,
+          false,
+        )
+        if (
+          noodle?.declarations?.some(
+            (node) => node.getSourceFile().fileName === apiFile,
+          )
+        ) {
+          for (const member of types.getPropertiesOfType(
+            types.getTypeOfSymbolAtLocation(noodle, token),
+          )) {
+            const name = `noodle.${member.name}`
+            if (!name.toLowerCase().includes(query.toLowerCase())) continue
+            items.push({
+              key: `api:${member.name}`,
+              label: name,
+              insert: name,
+              start,
+              end,
+              description: display(member.getDocumentationComment(types)),
+              signature: types.typeToString(
+                types.getTypeOfSymbolAtLocation(member, token),
+              ),
+            })
+          }
+        }
+      }
+      // Whitespace only requests signature help unless completion was explicitly invoked.
+      const shouldSuggest =
+        explicit ||
+        !!literal ||
+        !!word ||
+        /[.?:{,]$/.test(text.slice(0, cursor).trimEnd())
+      return {
+        query,
+        items: shouldSuggest && !alreadyComplete ? items : [],
+        ...(signatureHelp ? { signatureHelp } : {}),
+      }
+    },
+    check(text: string, nextPhase: ScriptPhase): ScriptDiagnostics {
+      update(text, nextPhase)
       const diagnostics = service.getSemanticDiagnostics(scriptFile)
       const program = service.getProgram()!
       const parsed = program.getSourceFile(scriptFile)!

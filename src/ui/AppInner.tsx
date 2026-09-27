@@ -1,3 +1,4 @@
+import { scriptEnvironmentKeys } from "./editor/scriptCompletion"
 import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./editor/scriptDiagnostics"
 import { ConsoleCopyContext } from "./ScriptConsole"
@@ -1105,6 +1106,14 @@ export function AppInner({
     [externalEditor, collectionDir],
   )
 
+  const completionContext = useMemo(
+    () => ({
+      environmentKeys: scriptEnvironmentKeys(envState.activeEnv),
+      requestIds: requests.map((request) => request.id),
+    }),
+    [envState.activeEnv, requests],
+  )
+
   const scriptActions = useMemo(
     () => ({
       open: activeScriptSource
@@ -2162,6 +2171,8 @@ export function AppInner({
           collectionDir,
           collection,
           diagnostics: scriptDiagnostics,
+          completionContext,
+          completionShortcut: keybinds.script_complete,
           overlayActive,
           setActive: setActiveScriptSource,
           setActiveOrder: setActiveScriptOrder,

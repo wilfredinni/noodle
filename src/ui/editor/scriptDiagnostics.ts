@@ -1,24 +1,46 @@
 import { generateScriptDeclarations } from "../../scriptApiTypes"
 import { SCRIPT_LIMITS, type ScriptPhase } from "../../preRequestScript"
 import type { ScriptDiagnostics } from "./scriptSemanticChecker"
+import type {
+  ScriptAssistance,
+  ScriptCompletionContext,
+  ScriptCompletionDetails,
+} from "./scriptCompletion"
 
+type Input = { source: string; phase: ScriptPhase }
+type Jobs = {
+  check: Input
+  assist: Input & {
+    cursor: number
+    context: ScriptCompletionContext
+    explicit: boolean
+  }
+  details: Input & { cursor: number; key: string }
+}
+type Results = {
+  check: ScriptDiagnostics
+  assist: ScriptAssistance
+  details: ScriptCompletionDetails
+}
+type Job = { [K in keyof Jobs]: Jobs[K] & { kind: K; id: number } }[keyof Jobs]
 export type ScriptDiagnosticsRequest =
   | {
       kind: "init"
       declarations: Record<ScriptPhase, string>
       sourceLimit: number
     }
-  | { kind: "check"; id: number; source: string; phase: ScriptPhase }
+  | Job
   | { kind: "clear" }
 
 const unavailable = () => new Error("Semantic validation unavailable")
+const empty = {
+  check: { count: 0 },
+  assist: { items: [], query: "" },
+  details: {},
+}
 type Pending = {
-  id: number
-  source: string
-  phase: ScriptPhase
-  resolve: (result: ScriptDiagnostics) => void
-  reject: (error: Error) => void
-  cleanup: () => void
+  job: Job
+  finish: (error?: Error, result?: Results[keyof Results]) => void
 }
 
 export function createScriptDiagnostics(
@@ -28,33 +50,36 @@ export function createScriptDiagnostics(
 ) {
   let worker: Worker | undefined
   let active: Pending | undefined
-  let queued: Pending | undefined
+  const queued = new Map<keyof Jobs, Pending>()
   let timer: ReturnType<typeof setTimeout> | undefined
   let sequence = 0
   let disposed = false
-  const finish = (
-    pending: Pending | undefined,
-    error?: Error,
-    result?: ScriptDiagnostics,
-  ) => {
-    if (!pending) return
-    pending.cleanup()
-    if (error) pending.reject(error)
-    else pending.resolve(result ?? { count: 0 })
+  let sessions = 0
+  const clear = () => {
+    if (!sessions && !active && !queued.size)
+      worker?.postMessage({ kind: "clear" })
   }
   const fail = () => {
     clearTimeout(timer)
     const failed = worker
     worker = undefined
     failed?.terminate()
-    finish(active, unavailable())
-    finish(queued, unavailable())
-    active = queued = undefined
+    active?.finish(unavailable())
+    for (const pending of queued.values()) pending.finish(unavailable())
+    active = undefined
+    queued.clear()
   }
   const dispatch = () => {
-    if (active || !queued || disposed) return
-    active = queued
-    queued = undefined
+    if (active || disposed) return
+    const kind = (["assist", "details", "check"] as const).find((kind) =>
+      queued.has(kind),
+    )
+    if (!kind) {
+      clear()
+      return
+    }
+    active = queued.get(kind)!
+    queued.delete(kind)
     timer = setTimeout(fail, deadlineMs)
     try {
       if (!worker) {
@@ -63,23 +88,19 @@ export function createScriptDiagnostics(
         created.onmessage = (
           event: MessageEvent<{
             id: number
-            result?: ScriptDiagnostics
+            result?: Results[keyof Results]
             error?: boolean
           }>,
         ) => {
-          if (worker !== created || event.data.id !== active?.id) return
+          if (worker !== created || event.data.id !== active?.job.id) return
           if (event.data.error) {
             fail()
             return
           }
           clearTimeout(timer)
-          finish(active, undefined, event.data.result)
+          active.finish(undefined, event.data.result)
           active = undefined
-          if (queued) dispatch()
-          else
-            created.postMessage({
-              kind: "clear",
-            } satisfies ScriptDiagnosticsRequest)
+          dispatch()
         }
         created.onerror = (event) => {
           event.preventDefault()
@@ -98,53 +119,83 @@ export function createScriptDiagnostics(
           },
         } satisfies ScriptDiagnosticsRequest)
       }
-      worker.postMessage({
-        kind: "check",
-        id: active.id,
-        source: active.source,
-        phase: active.phase,
-      } satisfies ScriptDiagnosticsRequest)
+      worker.postMessage(active.job)
     } catch {
       fail()
     }
   }
+  function request<K extends keyof Jobs>(
+    kind: K,
+    input: Jobs[K],
+    signal?: AbortSignal,
+  ): Promise<Results[K]> {
+    if (disposed) return Promise.reject(unavailable())
+    if (Buffer.byteLength(input.source) > SCRIPT_LIMITS.sourceBytes)
+      return Promise.reject(new Error("source exceeds 256 KiB"))
+    if (signal?.aborted || (kind === "check" && !input.source.trim()))
+      return Promise.resolve(empty[kind] as Results[K])
+    return new Promise((resolve, reject) => {
+      let finished = false
+      const pending: Pending = {
+        job: { ...input, kind, id: ++sequence } as Job,
+        finish(error, result) {
+          if (finished) return
+          finished = true
+          signal?.removeEventListener("abort", abort)
+          if (error) reject(error)
+          else resolve((result ?? empty[kind]) as Results[K])
+        },
+      }
+      const abort = () => {
+        if (queued.get(kind) === pending) queued.delete(kind)
+        // Superseded edits discard their replies without throwing away a warm service.
+        // The existing hard deadline still recovers a worker that never replies.
+        pending.finish()
+        dispatch()
+      }
+      signal?.addEventListener("abort", abort, { once: true })
+      queued.get(kind)?.finish()
+      queued.set(kind, pending)
+      dispatch()
+    })
+  }
   return {
-    check(
+    check(source: string, phase: ScriptPhase, signal?: AbortSignal) {
+      return request("check", { source, phase }, signal)
+    },
+    assist(
       source: string,
       phase: ScriptPhase,
+      cursor: number,
+      context: ScriptCompletionContext,
+      explicit = false,
       signal?: AbortSignal,
-    ): Promise<ScriptDiagnostics> {
-      if (disposed) return Promise.reject(unavailable())
-      if (Buffer.byteLength(source) > SCRIPT_LIMITS.sourceBytes)
-        return Promise.reject(new Error("source exceeds 256 KiB"))
-      if (signal?.aborted || !source.trim())
-        return Promise.resolve({ count: 0 })
-      return new Promise((resolve, reject) => {
-        const pending: Pending = {
-          id: ++sequence,
-          source,
-          phase,
-          resolve,
-          reject,
-          cleanup: () => signal?.removeEventListener("abort", abort),
+    ) {
+      return request(
+        "assist",
+        { source, phase, cursor, context, explicit },
+        signal,
+      )
+    },
+    details(
+      source: string,
+      phase: ScriptPhase,
+      cursor: number,
+      key: string,
+      signal?: AbortSignal,
+    ) {
+      return request("details", { source, phase, cursor, key }, signal)
+    },
+    retain() {
+      sessions++
+      let released = false
+      return () => {
+        if (!released) {
+          released = true
+          sessions--
+          clear()
         }
-        const abort = () => {
-          if (queued === pending) queued = undefined
-          if (active === pending) {
-            clearTimeout(timer)
-            const obsolete = worker
-            worker = undefined
-            active = undefined
-            obsolete?.terminate()
-          }
-          finish(pending)
-          dispatch()
-        }
-        signal?.addEventListener("abort", abort, { once: true })
-        finish(queued)
-        queued = pending
-        dispatch()
-      })
+      }
     },
     dispose() {
       disposed = true

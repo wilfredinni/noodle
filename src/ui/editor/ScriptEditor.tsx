@@ -24,8 +24,13 @@ import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
 import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
 import { createScriptDiagnostics } from "./scriptDiagnostics"
+import type { ScriptCompletionContext } from "./scriptCompletion"
 
 export type ActiveScriptSource = { value: string; source: ScriptSource }
+const emptyCompletionContext: ScriptCompletionContext = {
+  environmentKeys: [],
+  requestIds: [],
+}
 export type ScriptActions = {
   open?: () => boolean
   order?: () => boolean
@@ -35,6 +40,8 @@ export const ScriptAuthoringContext = createContext<{
   collection: Collection | null
   overlayActive?: boolean
   diagnostics?: ReturnType<typeof createScriptDiagnostics>
+  completionContext?: ScriptCompletionContext
+  completionShortcut?: string
   confirm: (action: () => void) => void
   setActive: (source: ActiveScriptSource | null) => void
   setActiveOrder?: (order: ScriptOrder | null) => void
@@ -176,6 +183,11 @@ export function ScriptEditor({
   sourceRef.current = source
   const externalFocused = kind === "external" && focused
 
+  useEffect(
+    () => setError(null),
+    [sourceKey, phase, kind, context?.collectionDir],
+  )
+
   useEffect(() => {
     if (value) setKind(kind)
   }, [kind, sourceKey, value])
@@ -183,7 +195,6 @@ export function ScriptEditor({
   useEffect(() => {
     let current = true
     const controller = new AbortController()
-    setError(null)
     const timer = setTimeout(() => {
       void (async () => {
         if (kind === "external" && !isExternalScriptSource(value))
@@ -407,7 +418,7 @@ export function ScriptEditor({
           flexDirection="column"
           flexGrow={1}
           flexBasis={0}
-          minHeight={0}
+          minHeight={2}
           onMouseDown={(event) => {
             if (event.button !== MouseButton.LEFT) return
             event.stopPropagation()
@@ -475,6 +486,12 @@ export function ScriptEditor({
             isEditing={focused && editing && !overlayActive}
             value={value}
             scriptPhase={phase}
+            script={{
+              service: diagnostics,
+              sourceKey,
+              context: context?.completionContext ?? emptyCompletionContext,
+              shortcut: context?.completionShortcut ?? "ctrl+space",
+            }}
           />
         </box>
       ) : (
@@ -533,7 +550,19 @@ export function ScriptEditor({
           </ScriptDescription>
         </box>
       )}
-      {error && <ValidationNotice {...error} />}
+      {kind === "inline" ? (
+        <box
+          height={2}
+          flexShrink={1}
+          minHeight={0}
+          overflow="hidden"
+          flexDirection="column"
+        >
+          {error && <ValidationNotice {...error} />}
+        </box>
+      ) : error ? (
+        <ValidationNotice {...error} />
+      ) : null}
     </box>
   )
 }

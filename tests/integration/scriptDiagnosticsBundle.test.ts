@@ -27,6 +27,12 @@ try {
   if (!invalid.first?.message.includes('not assignable')) throw new Error(JSON.stringify(invalid));
   const valid = await checker.check('const child = await noodle.runRequest("child"); console.log(child.json().id)', 'pre');
   if (valid.count) throw new Error(JSON.stringify(valid));
+  const source = 'noodle.random.';
+  const completion = await checker.assist(source, 'pre', source.length, { environmentKeys: [], requestIds: [] });
+  if (!completion.items.some(item => item.label === 'email')) throw new Error('Missing bundled completion');
+  const call = 'noodle.run.set("key", ';
+  const help = await checker.assist(call, 'pre', call.length, { environmentKeys: [], requestIds: [] });
+  if (help.signatureHelp?.activeParameter !== 1) throw new Error('Missing bundled parameter help');
   console.log('bundled semantic diagnostics passed');
 } finally { checker.dispose(); }`,
     )

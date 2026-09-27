@@ -53,6 +53,32 @@ describe("parseOverrides", () => {
     expect(() => parseOverrides({ unknown_key: "x" })).toThrow()
   })
 
+  it("rejects completion shortcuts that would consume typing", () => {
+    for (const key of [
+      "x",
+      "shift+x",
+      "space",
+      "shift+space",
+      "left",
+      "right",
+      "up",
+      "down",
+      "home",
+      "end",
+      "backspace",
+      "delete",
+      "return",
+      "tab",
+    ]) {
+      expect(() => parseOverrides({ script_complete: key })).toThrow(
+        "Script completion needs Ctrl, Alt, or a function key.",
+      )
+    }
+    for (const key of ["ctrl+space", "alt+x", "f6", ""]) {
+      expect(parseOverrides({ script_complete: key }).script_complete).toBe(key)
+    }
+  })
+
   it("accepts all known configurable keys", () => {
     const overrides: Record<string, string> = {}
     for (const [name, def] of Object.entries(Definitions)) {

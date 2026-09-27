@@ -55,6 +55,13 @@ function keybind(
 }
 
 export const Definitions = {
+  script_complete: keybind(
+    "ctrl+space",
+    "Complete script / show parameter help",
+    false,
+    "Request",
+    ["request-edit", "folder-edit", "settings"],
+  ),
   request_send: keybind("ctrl+return", "Send request", true, "Request", [
     "main",
     "request-browse",
@@ -306,6 +313,7 @@ export const Definitions = {
 export type KeybindName = keyof typeof Definitions
 
 export const CommandMap = {
+  script_complete: "script.complete",
   script_open_external: "script.open",
   script_execution_order: "script.execution-order",
   request_send: "request.send",
@@ -372,6 +380,10 @@ const AllNames = new Set(Object.keys(Definitions))
 export type Keybinds = { [K in KeybindName]: string }
 export type KeybindOverrides = Partial<Keybinds>
 
+export function isScriptCompletionBinding(binding: string): boolean {
+  return /^(?:(?:ctrl|alt)\+.+|(?:shift\+)?f(?:[1-9]|1[0-2]))?$/.test(binding)
+}
+
 export function parseOverrides(overrides: Record<string, unknown>): Keybinds {
   const unknown = Object.keys(overrides).filter((k) => !AllNames.has(k))
   if (unknown.length > 0) {
@@ -388,6 +400,9 @@ export function parseOverrides(overrides: Record<string, unknown>): Keybinds {
     } else {
       result[name] = def.default
     }
+  }
+  if (!isScriptCompletionBinding(result.script_complete!)) {
+    throw new Error("Script completion needs Ctrl, Alt, or a function key.")
   }
   return result as Keybinds
 }
