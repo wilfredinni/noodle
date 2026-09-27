@@ -90,4 +90,26 @@ describe("code formatting", () => {
     }
     expect((await formatCodeFields(xml, service)).fields).toEqual(xml)
   })
+
+  it("preserves a failed script while formatting the remaining saved fields", async () => {
+    const source = {
+      body: '{"x":1}',
+      scripts: { pre: "unavailable()", post: "const p=1" },
+      tests: "./tests.js",
+    }
+    const result = await formatCodeFields(source, {
+      format: async (text, phase) => {
+        if (phase === "pre") throw new Error("Semantic validation unavailable")
+        return service.format(text, phase)
+      },
+    })
+    expect(result.fields).toEqual({
+      body: '{\n  "x": 1\n}',
+      scripts: { pre: source.scripts.pre, post: "const p = 1" },
+      tests: source.tests,
+    })
+    expect(result.edits.pre).toBeUndefined()
+    expect(result.edits.post).toBeDefined()
+    expect(result.failed).toBe(true)
+  })
 })

@@ -15,6 +15,8 @@ interface DirectRequest { url: string; method?: Method; headers?: Record<string,
 `
 
 export function generateScriptDeclarations(editorPhase?: ScriptPhase): string {
+  // Editor-only JSON readers use any so ordinary property access needs no JSDoc
+  // narrowing. Exported declarations keep their stricter JsonValue types.
   const members = (
     global: ScriptApiDescriptor["global"],
     parent: string,

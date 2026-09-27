@@ -20,13 +20,22 @@ afterEach(async () => {
 })
 
 describe("format on save", () => {
-  it.each([false, true])(
-    "saves request bodies and inline scripts with formatting enabled: %s",
-    async (enabled) => {
+  it.each(["disabled", "enabled", "unavailable"])(
+    "saves request bodies and inline scripts with formatting %s",
+    async (mode) => {
+      const enabled = mode !== "disabled"
       const dir = await mkdtemp(join(tmpdir(), "noodle-format-save-"))
       directories.push(dir)
       const service = createScriptDiagnostics()
       services.push(service)
+      const formatter = {
+        format:
+          mode === "unavailable"
+            ? async () => {
+                throw new Error("Semantic validation unavailable")
+              }
+            : service.format,
+      }
       const request: Request = {
         id: "request",
         name: "Request",
@@ -51,7 +60,7 @@ describe("format on save", () => {
             saved = value
           },
           enabled
-            ? async (value) => (await formatCodeFields(value, service)).fields
+            ? async (value) => (await formatCodeFields(value, formatter)).fields
             : undefined,
         )
         return null
@@ -71,7 +80,7 @@ describe("format on save", () => {
           : request.body,
       )
       expect(disk.scripts?.pre).toBe(
-        enabled ? "const x = { a: 1 }" : request.scripts?.pre,
+        mode === "enabled" ? "const x = { a: 1 }" : request.scripts?.pre,
       )
       expect(disk.scripts?.post).toBe("./scripts/post.js")
       expect(disk.tests).toBe("test(")

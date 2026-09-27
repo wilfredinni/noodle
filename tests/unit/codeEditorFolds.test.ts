@@ -8,6 +8,16 @@ import {
 } from "../../src/ui/editor/codeEditorFolds"
 
 describe("codeEditorFolds", () => {
+  it("skips JavaScript folding when parsing exhausts the stack or source is oversized", () => {
+    const nested = "[\n".repeat(10_000) + "0" + "\n]".repeat(10_000)
+    const oversized = "const x = [\n" + "0,\n".repeat(34_000) + "]"
+    for (const source of [nested, oversized])
+      expect(computeFoldRanges(source, "javascript", new Map()).size).toBe(0)
+    expect(
+      computeFoldRanges("const x = [\n1\n]", "javascript", new Map()).size,
+    ).toBe(1)
+  })
+
   it("folds nested JavaScript blocks and arrays without reading literal brackets", () => {
     const content = [
       'test("response", () => {',

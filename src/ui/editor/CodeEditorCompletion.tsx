@@ -141,6 +141,7 @@ function ScriptCodeCompletion({
     key: string
     description?: string
     signature?: string
+    snapshot: NonNullable<typeof snapshot>
   } | null>(null)
   const getEditor = useCallback(
     () => (editor && !editor.isDestroyed ? editor : null),
@@ -282,6 +283,7 @@ function ScriptCodeCompletion({
       : undefined
   useEffect(() => {
     if (
+      !current ||
       !item ||
       item.description ||
       item.key.startsWith("context:") ||
@@ -292,16 +294,19 @@ function ScriptCodeCompletion({
     void service
       .details(value, phase, cursor, item.key, controller.signal)
       .then((result) => {
-        if (!controller.signal.aborted) setDetail({ ...result, key: item.key })
+        if (!controller.signal.aborted)
+          setDetail({ ...result, key: item.key, snapshot: current })
       })
       .catch(() => {})
     return () => controller.abort()
-  }, [item, value, phase, cursor, service])
+  }, [item, value, phase, cursor, service, current])
   if (!isEditing || dismissed || !visible || !editor) return null
   const items = suggestionsDismissed
     ? []
     : visible.result.items.map((item) =>
-        item.key === detail?.key ? { ...item, ...detail } : item,
+        item.key === detail?.key && detail.snapshot === current
+          ? { ...item, ...detail }
+          : item,
       )
   if (!items.length && !visible.result.signatureHelp) return null
   return (

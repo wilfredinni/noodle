@@ -48,32 +48,27 @@ export function CollectionScripts({
     const snapshot = pending.current
     if (!snapshot) return
     const context = contextRef.current
+    const diagnostics = context?.diagnostics
     const target = formattingTarget?.current
     const prepare: PrepareScriptFields | undefined =
-      context?.formatOnSave && context.diagnostics
+      context?.formatOnSave && diagnostics
         ? async (fields) => {
-            try {
-              const result = await formatCodeFields(
-                fields,
-                context.diagnostics!,
-              )
-              if (
-                target?.scope === "collection" &&
-                target.field !== "body" &&
-                formattingTarget?.current === target &&
-                target.editor.plainText === scriptText(fields, target.field)
-              ) {
-                const changes = result.edits[target.field]
-                if (changes) target.editor.applyFormatting(changes)
-              }
-              return result.fields
-            } catch {
+            const result = await formatCodeFields(fields, diagnostics)
+            if (result.failed)
               showToast(
-                "Formatting unavailable; saving collection scripts unchanged",
+                "Formatting unavailable; saving unformatted scripts",
                 "warning",
               )
-              return fields
+            if (
+              target?.scope === "collection" &&
+              target.field !== "body" &&
+              formattingTarget?.current === target &&
+              target.editor.plainText === scriptText(fields, target.field)
+            ) {
+              const changes = result.edits[target.field]
+              if (changes) target.editor.applyFormatting(changes)
             }
+            return result.fields
           }
         : undefined
     if (changeRef.current(snapshot, prepare)) pending.current = null

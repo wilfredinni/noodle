@@ -63,8 +63,10 @@ export async function formatCodeFields<
 ): Promise<{
   fields: T
   edits: Partial<Record<"body" | "pre" | "post" | "tests", CodeEdit[]>>
+  failed: boolean
 }> {
   let next = fields
+  let failed = false
   const edits: Partial<Record<"body" | "pre" | "post" | "tests", CodeEdit[]>> =
     {}
   if (fields.body !== undefined && (fields.bodyType ?? "json") === "json") {
@@ -77,11 +79,17 @@ export async function formatCodeFields<
   for (const { phase } of SCRIPT_TABS) {
     const source = scriptText(fields, phase)
     if (!source.trim() || isExternalScriptSource(source)) continue
-    const changes = await service.format(source, phase)
+    let changes: CodeEdit[] | null
+    try {
+      changes = await service.format(source, phase)
+    } catch {
+      failed = true
+      continue
+    }
     if (changes?.length) {
       edits[phase] = changes
       next = withScript(next, phase, applyCodeEdits(source, changes))
     }
   }
-  return { fields: next, edits }
+  return { fields: next, edits, failed }
 }

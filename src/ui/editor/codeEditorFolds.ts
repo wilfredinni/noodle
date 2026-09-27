@@ -31,8 +31,17 @@ export function computeFoldRanges(
     computeYamlFoldRanges(content, folds, previousFolds)
   } else if (filetype === "xml") {
     computeXmlFoldRanges(content, folds, previousFolds)
-  } else if (filetype === "javascript" && content) {
-    computeJavascriptFoldRanges(content, folds, previousFolds)
+  } else if (
+    filetype === "javascript" &&
+    content &&
+    content.length <= 100_000
+  ) {
+    try {
+      computeJavascriptFoldRanges(content, folds, previousFolds)
+    } catch {
+      // Parser exhaustion must leave the editor usable without partial folds.
+      folds.clear()
+    }
   }
 
   return folds

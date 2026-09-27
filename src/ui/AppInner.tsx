@@ -502,6 +502,11 @@ export function AppInner({
       const result = await formatCodeFields(request, scriptDiagnostics)
       if (draftRef.current.draft !== request)
         throw new Error("Request changed while formatting; save again")
+      if (result.failed)
+        showToast(
+          "Formatting unavailable; saving unformatted scripts",
+          "warning",
+        )
       if (target?.scope === "request" && formattingTarget.current === target) {
         const changes = result.edits[target.field]
         if (changes) target.editor.applyFormatting(changes)
@@ -520,6 +525,11 @@ export function AppInner({
       const result = await formatCodeFields(folder, scriptDiagnostics)
       if (folderDraftRef.current.folderDraft !== folder)
         throw new Error("Folder changed while formatting; save again")
+      if (result.failed)
+        showToast(
+          "Formatting unavailable; saving unformatted scripts",
+          "warning",
+        )
       if (target?.scope === "folder" && formattingTarget.current === target) {
         const changes = result.edits[target.field]
         if (changes) target.editor.applyFormatting(changes)

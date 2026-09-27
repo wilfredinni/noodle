@@ -10,7 +10,7 @@ const SAVE_ERROR_MS = 3000
 export interface UseSaveFileResult {
   saveState: SaveState
   setSaveState: Dispatch<SetStateAction<SaveState>>
-  doSave: () => void
+  doSave: () => Promise<void>
   clearSaveTimer: () => void
   savingRef: RefObject<boolean>
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>

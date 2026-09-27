@@ -438,6 +438,56 @@ describe("ScriptEditor", () => {
     release()
   })
 
+  it("does not reuse completion details from a different source snapshot", async () => {
+    const nextDetails = Promise.withResolvers<{ description: string }>()
+    const h = await mountEditor("first.g", 70, true, undefined, {
+      diagnostics: {
+        ...noAssistance,
+        check: async () => ({ count: 0 }),
+        assist: async () => ({
+          items: [
+            { key: "get", label: "get", insert: "get", start: 6, end: 7 },
+          ],
+          query: "g",
+        }),
+        details: async (text) =>
+          text === "first.g"
+            ? { description: "First object documentation" }
+            : nextDetails.promise,
+        dispose() {},
+      },
+    })
+    await act(async () => {
+      h.editor().cursorOffset = h.value().length
+      h.host.press("space", { ctrl: true })
+    })
+    await h.settleAssistance()
+    expect(h.captureCharFrame()).toContain("First object documentation")
+    try {
+      await h.startReplace("second.g")
+      await act(async () => h.renderOnce())
+      expect(h.captureCharFrame()).not.toContain("First object documentation")
+    } finally {
+      nextDetails.resolve({ description: "Second object documentation" })
+      await h.settle()
+    }
+    expect(h.captureCharFrame()).toContain("Second object documentation")
+  })
+
+  it("reserves one row for a detail-only syntax error", async () => {
+    const h = await mountEditor("const =", 70, true, undefined, {
+      diagnostics: {
+        ...noAssistance,
+        check: async () => ({ count: 0 }),
+        dispose() {},
+      },
+    })
+    expect(h.captureCharFrame()).toContain("SyntaxError")
+    const before = h.editor().height
+    await h.replace("const value = 1")
+    expect(h.editor().height).toBe(before + 1)
+  })
+
   it("keeps diagnostic space stable during refresh and reclaims it after correction", async () => {
     let finish!: (result: ScriptDiagnostics) => void
     const source = Array.from({ length: 80 }, (_, row) =>
@@ -940,7 +990,7 @@ describe("ScriptEditor", () => {
     expect(h.captureCharFrame()).not.toMatch(/Checking syntax|Syntax valid/)
     await h.replace("const broken = ;")
     expect(h.captureCharFrame()).toContain("SyntaxError at 1:")
-    expect(editor.height).toBe(fullHeight - 2)
+    expect(editor.height).toBe(fullHeight - 1)
     await h.replace('console.log("fixed")')
     expect(h.captureCharFrame()).not.toContain("SyntaxError")
     expect(editor.height).toBe(fullHeight)

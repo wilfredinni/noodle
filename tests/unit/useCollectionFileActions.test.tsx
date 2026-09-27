@@ -175,44 +175,60 @@ describe("useCollectionFileActions", () => {
     ).toContain("name: Saved API")
   })
 
-  it("formats inline folder scripts and tests before saving", async () => {
-    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-format-folder-"))
-    dirs.push(collectionDir)
-    const service = createScriptDiagnostics()
-    let save: (() => void) | undefined
-    let markedSaved = 0
-    try {
-      await testRender(
-        <ActionsHarness
-          collectionDir={collectionDir}
-          draftFolder={{
-            ...savedFolder,
-            scripts: { pre: "const x={a:1}", post: "./scripts/post.js" },
-            tests: 'test("ok",()=>{})',
-          }}
-          prepareFolder={async (folder) =>
-            (await formatCodeFields(folder, service)).fields
-          }
-          onSaveReady={(handleSave) => (save = handleSave)}
-          onMarkSaved={() => markedSaved++}
-        />,
-        { width: 1, height: 1 },
+  it.each([false, true])(
+    "saves folder scripts with formatter unavailable: %s",
+    async (unavailable) => {
+      const collectionDir = await mkdtemp(
+        join(tmpdir(), "noodle-format-folder-"),
       )
-      await act(async () => {
-        await save?.()
-      })
-      expect(markedSaved).toBe(1)
-      const yaml = await readFile(
-        join(collectionDir, "api", "folder.yml"),
-        "utf8",
-      )
-      expect(yaml).toContain("const x = { a: 1 }")
-      expect(yaml).toContain('test("ok", () => { })')
-      expect(yaml).toContain("./scripts/post.js")
-    } finally {
-      service.dispose()
-    }
-  })
+      dirs.push(collectionDir)
+      const service = createScriptDiagnostics()
+      const formatter = {
+        format: unavailable
+          ? async () => {
+              throw new Error("Semantic validation unavailable")
+            }
+          : service.format,
+      }
+      let save: (() => void) | undefined
+      let markedSaved = 0
+      try {
+        await testRender(
+          <ActionsHarness
+            collectionDir={collectionDir}
+            draftFolder={{
+              ...savedFolder,
+              scripts: { pre: "const x={a:1}", post: "./scripts/post.js" },
+              tests: 'test("ok",()=>{})',
+            }}
+            prepareFolder={async (folder) =>
+              (await formatCodeFields(folder, formatter)).fields
+            }
+            onSaveReady={(handleSave) => (save = handleSave)}
+            onMarkSaved={() => markedSaved++}
+          />,
+          { width: 1, height: 1 },
+        )
+        await act(async () => {
+          await save?.()
+        })
+        expect(markedSaved).toBe(1)
+        const yaml = await readFile(
+          join(collectionDir, "api", "folder.yml"),
+          "utf8",
+        )
+        expect(yaml).toContain(
+          unavailable ? "const x={a:1}" : "const x = { a: 1 }",
+        )
+        expect(yaml).toContain(
+          unavailable ? 'test("ok",()=>{})' : 'test("ok", () => { })',
+        )
+        expect(yaml).toContain("./scripts/post.js")
+      } finally {
+        service.dispose()
+      }
+    },
+  )
 
   it("synchronizes renamed path params when saving an edited URL", async () => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
