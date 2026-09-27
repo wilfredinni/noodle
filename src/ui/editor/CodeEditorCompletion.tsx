@@ -44,15 +44,16 @@ export function CodeEditorCompletion({
 
   useEffect(() => {
     setDismissed(false)
-  }, [completion.token?.prefix])
+  }, [scriptPhase ? value : completion.token?.prefix])
 
   useEffect(() => {
+    if (scriptPhase) setDismissed(true)
     if (!isEditing || !editor) return
     editor.refreshHighlights()
     const onChange = () => {
       if (cursorRef.current === editor.cursorOffset) return
       cursorRef.current = editor.cursorOffset
-      setDismissed(false)
+      setDismissed(true)
       refreshCursor((n) => n + 1)
     }
     if (scriptPhase) editor.editBuffer.on("cursor-changed", onChange)

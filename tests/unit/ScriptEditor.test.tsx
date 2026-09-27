@@ -447,15 +447,80 @@ describe("ScriptEditor", () => {
     expect(h.captureCharFrame()).not.toContain("SyntaxError")
   })
 
+  it.each(["keyboard", "mouse"])(
+    "keeps completion closed during %s navigation through existing APIs",
+    async (input) => {
+      const source = 'noodle.crypto.randomBytes(8, "hex")'
+      const h = await mountEditor(source)
+      const editor = h.editor()
+      const menu = () =>
+        h.renderer.root.findDescendantById("script-completion-menu")
+      for (const cursor of [9, 19, 8]) {
+        await act(async () => {
+          if (input === "mouse") {
+            await h.mockMouse.click(
+              editor.x + cursor,
+              editor.y,
+              MouseButtons.LEFT,
+            )
+          } else {
+            editor.cursorOffset = cursor + 1
+            editor.handleKeyPress(keyEvent("left"))
+          }
+        })
+        await h.renderOnce()
+        expect(editor.cursorOffset).toBe(cursor)
+        expect(menu()).toBeUndefined()
+      }
+      await h.focus(false)
+      await h.focus(true)
+      expect(menu()).toBeUndefined()
+      expect(h.value()).toBe(source)
+    },
+  )
+
+  it.each(["pre", "post", "tests"] as const)(
+    "completes edits inside an existing API in %s scripts and keeps Escape dismissed",
+    async (phase) => {
+      const source = 'noodle.crypto.randomBytes(8, "hex")'
+      const h = await mountEditor(source, 90, true, undefined, { phase })
+      const menu = () =>
+        h.renderer.root.findDescendantById("script-completion-menu")
+      await act(async () => {
+        h.editor().cursorOffset = "noodle.cr".length
+      })
+      h.beginDiagnostics()
+      await act(async () => h.mockInput.typeText("y"))
+      await h.settle()
+      expect(h.value()).toBe('noodle.cryypto.randomBytes(8, "hex")')
+      expect(menu()).toBeDefined()
+      expect(h.captureCharFrame()).toContain("Bounded cryptographic helpers")
+      h.beginDiagnostics()
+      await act(async () => h.host.press("tab"))
+      await h.settle()
+      expect(h.value()).toBe(source)
+      expect(menu()).toBeUndefined()
+
+      h.beginDiagnostics()
+      await act(async () => h.editor().handleKeyPress(keyEvent("backspace")))
+      await h.settle()
+      expect(menu()).toBeDefined()
+      await act(async () => h.host.press("escape"))
+      await act(async () => h.editor().handleKeyPress(keyEvent("left")))
+      await act(async () => h.editor().handleKeyPress(keyEvent("right")))
+      expect(menu()).toBeUndefined()
+      expect(h.editing()).toBe(true)
+    },
+  )
+
   it("uses shared completion help and consumes completion and multiline keys before request commands", async () => {
-    const h = await mountEditor("noodle.run.se")
+    const h = await mountEditor("noodle.run.s")
     await act(async () => {
       h.editor().cursorOffset = h.editor().plainText.length
     })
-    await act(async () => {
-      await h.renderOnce()
-      await h.renderOnce()
-    })
+    h.beginDiagnostics()
+    await act(async () => h.mockInput.typeText("e"))
+    await h.settle()
     expect(h.captureCharFrame()).toContain("persist")
     let sent = 0
     h.keymap.intercept(
