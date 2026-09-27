@@ -37,6 +37,7 @@ export function usePathCompletion({
   const root = options?.root
   const relativeRoot = options?.relativeRoot
   const wrapFileSelection = options?.wrapFileSelection
+  const fileExtension = options?.fileExtension
   const query = useMemo(
     () =>
       kind && isEditing
@@ -61,7 +62,7 @@ export function usePathCompletion({
     let cancelled = false
     setItems([])
     setMessage("Loading...")
-    void listPathCompletions(value, { kind, root, relativeRoot })
+    void listPathCompletions(value, { kind, root, relativeRoot, fileExtension })
       .then((next) => {
         if (cancelled) return
         setItems(next)
@@ -75,7 +76,7 @@ export function usePathCompletion({
     return () => {
       cancelled = true
     }
-  }, [dismissed, kind, query, relativeRoot, root, value])
+  }, [dismissed, fileExtension, kind, query, relativeRoot, root, value])
 
   const active = Boolean(query && !dismissed)
   const selectItem = useCallback(

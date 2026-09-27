@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { collapseUserPath, expandUserPath } from "../../src/userPath"
@@ -62,6 +62,25 @@ describe("home path completion", () => {
     expect(items[0]?.value).toBe("./nested/report final.pdf")
   })
 
+  it.skipIf(process.platform !== "win32")(
+    "rejects paths on another drive or UNC share",
+    () => {
+      expect(
+        getPathCompletionQuery("./D:/private/", undefined, "C:\\collection"),
+      ).toBeNull()
+      expect(
+        getPathCompletionQuery("@/D:/private/", "C:\\collection"),
+      ).toBeNull()
+      expect(
+        getPathCompletionQuery(
+          "./\\\\other\\share\\private/",
+          undefined,
+          "\\\\server\\collection",
+        ),
+      ).toBeNull()
+    },
+  )
+
   it("sorts prefix matches first, directories before files, and preserves spaces", async () => {
     const items = await listPathCompletions("@alpha", {
       kind: "file",
@@ -78,6 +97,39 @@ describe("home path completion", () => {
       root,
     })
     expect(nested[0]?.value).toBe("@/nested/report final.pdf")
+  })
+
+  it("filters script files while keeping directories and rejecting symlink escapes", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "noodle-path-outside-"))
+    try {
+      await writeFile(join(root, "check.js"), "")
+      await writeFile(join(root, "check.JS"), "")
+      await writeFile(join(outside, "escaped.js"), "")
+      await symlink(join(outside, "escaped.js"), join(root, "escaped.js"))
+      await symlink(outside, join(root, "escaped-folder"))
+      const options = {
+        kind: "file" as const,
+        relativeRoot: root,
+        fileExtension: ".js",
+      }
+      const items = await listPathCompletions("./", options)
+      expect(items.map((item) => item.value)).toEqual([
+        "./Alpha Folder/",
+        "./nested/",
+        "./check.js",
+      ])
+      expect(await listPathCompletions("./../", options)).toEqual([])
+      expect(
+        (await listPathCompletions("./nested/../check", options)).map(
+          (item) => item.value,
+        ),
+      ).toEqual(["./check.js"])
+      expect(await listPathCompletions("./escaped-folder/", options)).toEqual(
+        [],
+      )
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
   })
 
   it("shows hidden entries only for an explicit dot query", async () => {

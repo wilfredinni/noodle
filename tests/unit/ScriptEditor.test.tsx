@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
+import { scheduler } from "node:timers/promises"
 import { act, useState } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { BoxRenderable, InputRenderable } from "@opentui/core"
@@ -217,6 +218,81 @@ async function mountEditor(
 }
 
 describe("ScriptEditor", () => {
+  it.each(["pre", "post", "tests"] as const)(
+    "completes collection-relative %s files with the shared path menu",
+    async (phase) => {
+      const dir = await mkdtemp(join(tmpdir(), "noodle-script-path-"))
+      try {
+        await mkdir(join(dir, "scripts"))
+        await writeFile(join(dir, "scripts", "check.js"), "")
+        await writeFile(join(dir, "scripts", "ignore.ts"), "")
+        const h = await mountEditor("./scripts/../", 60, true, undefined, {
+          phase,
+          collectionDir: dir,
+        })
+        const waitForMenu = async (text: string) => {
+          const deadline = Date.now() + 2000
+          while (true) {
+            await act(async () => {
+              await scheduler.yield()
+              await h.renderOnce()
+            })
+            const menu = h.renderer.root.findDescendantById(
+              "path-completion-menu",
+            )
+            if (menu && h.captureCharFrame().includes(text)) return menu
+            if (Date.now() >= deadline)
+              throw new Error(`Path menu unavailable: ${h.captureCharFrame()}`)
+          }
+        }
+        await waitForMenu("scripts/")
+        h.beginDiagnostics()
+        await h.focus(false)
+        await h.settle()
+        expect(
+          h.renderer.root.findDescendantById("path-completion-menu"),
+        ).toBeUndefined()
+        h.beginDiagnostics()
+        await h.focus(true)
+        await h.settle()
+        await waitForMenu("scripts/")
+        h.beginDiagnostics()
+        await act(async () => h.host.press("tab"))
+        await h.settle()
+        expect(h.value()).toBe("./scripts/")
+        expect(h.editing()).toBe(true)
+        await waitForMenu("check.js")
+        expect(h.captureCharFrame()).not.toContain("ignore.ts")
+        await act(async () => {
+          h.resize(30, 10)
+          await h.renderOnce()
+        })
+        const menu = await waitForMenu("check.js")
+        expect(menu.x + menu.width).toBeLessThanOrEqual(30)
+        expect(menu.y + menu.height).toBeLessThanOrEqual(10)
+        h.beginDiagnostics()
+        await act(async () => {
+          if (phase === "tests") {
+            const item = h.renderer.root.findDescendantById(
+              "path-completion-menu-item-0",
+            )!
+            await h.mockMouse.click(item.x, item.y)
+          } else h.host.press(phase === "pre" ? "tab" : "return")
+        })
+        await h.settle()
+        expect(h.value()).toBe("./scripts/check.js")
+        expect(h.editing()).toBe(true)
+        expect(
+          h.renderer.root.findDescendantById("path-completion-menu"),
+        ).toBeUndefined()
+        await act(async () => h.host.press("escape"))
+        expect(h.editing()).toBe(false)
+      } finally {
+        await rm(dir, { recursive: true, force: true })
+      }
+    },
+  )
+
   it("completes the source after a folded block without replacing hidden code", async () => {
     const source = 'if (true) {\n  console.log("😀 keep");\n}\nJSON.pa'
     const h = await mountEditor(source)
@@ -1184,6 +1260,13 @@ describe("ScriptEditor", () => {
       await act(async () => h.host.press("down"))
       await act(async () => h.host.press("return"))
       expect(h.editing()).toBe(true)
+      if (key === "escape") {
+        await act(async () => h.host.press("escape"))
+        expect(h.editing()).toBe(true)
+        expect(
+          h.renderer.root.findDescendantById("path-completion-menu"),
+        ).toBeUndefined()
+      }
       await act(async () => h.host.press(key, { shift: key === "tab" }))
       expect(h.editing()).toBe(false)
       await act(async () => h.host.press("return"))

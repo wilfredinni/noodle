@@ -20,6 +20,7 @@ import {
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
 import { ValidationNotice } from "./ValidationNotice"
 import { Select } from "../Select"
+import { VarInput } from "../VarInput"
 import { SettingsField } from "../settings/SettingsField"
 import { useTheme } from "../theme"
 import type { ScriptOrder } from "../overlays/ScriptOrderOverlay"
@@ -575,20 +576,34 @@ export function ScriptEditor({
                 : undefined
             }
           >
-            <input
+            <VarInput
               id="script-path"
               value={value}
+              env={null}
+              variableAware={false}
+              isEditing
               placeholder="./scripts/example.js"
-              flexGrow={1}
-              minWidth={0}
-              focused={focused && editing && !overlayActive}
-              onMouseDown={() => {
+              style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+              backgroundColor="transparent"
+              focusedBackgroundColor="transparent"
+              paddingX={0}
+              isFocused={focused && editing && interactive && !overlayActive}
+              pathCompletion={
+                context?.collectionDir
+                  ? {
+                      kind: "file",
+                      relativeRoot: context.collectionDir,
+                      fileExtension: ".js",
+                    }
+                  : undefined
+              }
+              onFocus={() => {
                 if (interactive) {
                   setControl(1)
                   onActivate()
                 }
               }}
-              onInput={(text) => {
+              onChange={(text) => {
                 if (interactive)
                   onChange(
                     !text || text === "." || text.startsWith("./")
@@ -596,8 +611,6 @@ export function ScriptEditor({
                       : `./${text}`,
                   )
               }}
-              textColor={theme.text}
-              focusedTextColor={theme.text}
             />
           </SettingsField>
           <ScriptDescription

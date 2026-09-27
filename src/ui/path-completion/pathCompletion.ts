@@ -1,6 +1,6 @@
 import { readdir, realpath, stat } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join, relative, resolve, sep } from "node:path"
+import { isAbsolute, join, relative, resolve, sep } from "node:path"
 
 export type PathCompletionKind = "file" | "directory"
 
@@ -9,6 +9,7 @@ export interface PathCompletionOptions {
   root?: string
   relativeRoot?: string
   wrapFileSelection?: boolean
+  fileExtension?: string
 }
 
 export interface PathCompletionItem {
@@ -49,20 +50,21 @@ export function getPathCompletionQuery(
   const directory = resolve(completionRoot, directoryPart || ".")
   const rel = relative(completionRoot, directory)
 
-  if (rel === ".." || rel.startsWith(`..${sep}`)) {
+  if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`)) {
     return null
   }
+  const directoryBase = rel.split(sep).join("/")
 
   return {
     root: completionRoot,
     directory,
     query,
     valueBase: isHomePath
-      ? directoryPart
-        ? `@/${directoryPart}/`
+      ? directoryBase
+        ? `@/${directoryBase}/`
         : "@/"
-      : directoryPart
-        ? `./${directoryPart}/`
+      : directoryBase
+        ? `./${directoryBase}/`
         : "./",
   }
 }
@@ -106,7 +108,13 @@ export async function listPathCompletions(
         }
       }
 
-      if (!type || (options.kind === "directory" && type === "file")) {
+      if (
+        !type ||
+        (type === "file" &&
+          (options.kind === "directory" ||
+            (options.fileExtension &&
+              !entry.name.endsWith(options.fileExtension))))
+      ) {
         return null
       }
 
@@ -139,5 +147,5 @@ export async function listPathCompletions(
 
 function isWithin(root: string, candidate: string): boolean {
   const rel = relative(root, candidate)
-  return rel !== ".." && !rel.startsWith(`..${sep}`)
+  return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`)
 }

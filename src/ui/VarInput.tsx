@@ -92,6 +92,7 @@ export type ValueCompletion =
   | { value: string; label: string; matchQuery?: string }
 
 export interface VarInputProps {
+  id?: string
   value: string
   env: Environment | null
   isEditing: boolean
@@ -117,6 +118,7 @@ export interface VarInputProps {
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
   function VarInput(
     {
+      id,
       value,
       env,
       isEditing,
@@ -371,6 +373,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             }}
           >
             <textarea
+              id={id}
               ref={textareaRef}
               initialValue={value}
               placeholder={placeholder}
@@ -413,6 +416,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           }}
         >
           <input
+            id={id}
             ref={inputRef}
             value={value}
             placeholder={placeholder}
