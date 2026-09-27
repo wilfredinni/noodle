@@ -610,7 +610,7 @@ export function ScriptEditor({
       )}
       {kind === "inline" ? (
         <box
-          height={2}
+          height={error ? 2 : 0}
           flexShrink={1}
           minHeight={0}
           overflow="hidden"

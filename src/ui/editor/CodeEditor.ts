@@ -167,6 +167,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       const content = super.plainText
       if (this._foldManager.sourceText === content) return
       this._foldManager.setSourceText(content)
+      this._highlights.apply(content, this._filetype)
       this.scheduleHighlight()
       this._onSourceChange?.()
     })

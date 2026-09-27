@@ -437,7 +437,7 @@ describe("ScriptEditor", () => {
     release()
   })
 
-  it("keeps editor height stable while incomplete script diagnostics refresh", async () => {
+  it("keeps diagnostic space stable during refresh and reclaims it after correction", async () => {
     let finish!: (result: ScriptDiagnostics) => void
     const source = Array.from({ length: 80 }, (_, row) =>
       row === 40 ? "JSON.p" : `// line ${row + 1}`,
@@ -490,7 +490,7 @@ describe("ScriptEditor", () => {
     await h.waitFor(() => finish !== previous)
     await act(async () => finish({ count: 0 }))
     await h.settle()
-    expect(h.editor().height).toBe(before)
+    expect(h.editor().height).toBe(before + 2)
     expect(h.editor().viewport.offsetY).toBe(offset)
   })
 
@@ -904,6 +904,8 @@ describe("ScriptEditor", () => {
       h.resize(30, 6)
       await h.renderOnce()
     })
+    const container = h.renderer.root.findDescendantById("script-editor")!
+    expect(editor.y + editor.height).toBe(container.y + container.height)
     for (let i = 0; i < 45; i++) {
       await h.mockMouse.scroll(gutter.x + 1, editor.y, "down")
       await h.renderOnce()
@@ -925,6 +927,10 @@ describe("ScriptEditor", () => {
 
   it("shows only actionable diagnostics without status messages on focus changes", async () => {
     const h = await mountEditor('console.log("valid")')
+    const editor = h.editor()
+    const container = h.renderer.root.findDescendantById("script-editor")!
+    const fullHeight = editor.height
+    expect(editor.y + editor.height).toBe(container.y + container.height)
     expect(h.captureCharFrame()).not.toMatch(/Checking syntax|Syntax valid/)
     await h.browse()
     await h.focus(false)
@@ -933,8 +939,10 @@ describe("ScriptEditor", () => {
     expect(h.captureCharFrame()).not.toMatch(/Checking syntax|Syntax valid/)
     await h.replace("const broken = ;")
     expect(h.captureCharFrame()).toContain("SyntaxError at 1:")
+    expect(editor.height).toBe(fullHeight - 2)
     await h.replace('console.log("fixed")')
     expect(h.captureCharFrame()).not.toContain("SyntaxError")
+    expect(editor.height).toBe(fullHeight)
   })
 
   it.each(["keyboard", "mouse"])(
