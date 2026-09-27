@@ -4,7 +4,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type RefObject,
 } from "react"
 import { useKeymap } from "@opentui/keymap/react"
@@ -12,9 +11,6 @@ import { useRenderer } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { ResponseExecutionResults } from "../executionResults"
 import type { ScriptLog, ScriptPhase } from "../preRequestScript"
-import { scriptSourceLabel } from "../scriptInheritance"
-import { Select } from "./Select"
-import { ActionButton } from "./ActionButton"
 import { copyToClipboard } from "./clipboard"
 import { showToast } from "./Toast"
 import { useTheme } from "./theme"
@@ -42,9 +38,11 @@ export function scriptConsoleEntries(
 export function formatConsoleEntry(
   log: ScriptLog & { phase: ScriptPhase },
 ): string {
-  const time =
-    log.timeMs === undefined ? "?ms" : `${Math.max(0, log.timeMs).toFixed(1)}ms`
-  return `[${time}] ${scriptSourceLabel(log.source)} ${log.phase} ${log.level.toUpperCase()} ${log.message}`
+  return `[${formatConsoleTime(log.timeMs)}] ${log.phase} ${log.level.toUpperCase()} ${log.message}`
+}
+
+function formatConsoleTime(timeMs: number | undefined): string {
+  return timeMs === undefined ? "?ms" : `${Math.max(0, timeMs).toFixed(1)}ms`
 }
 
 export function ScriptConsole({
@@ -61,14 +59,12 @@ export function ScriptConsole({
   const keymap = useKeymap()
   const copyRef = useContext(ConsoleCopyContext)
   const scroll = useRef<ScrollBoxRenderable | null>(null)
-  const [level, setLevel] = useState("all")
-  const [control, setControl] = useState(0)
-  const [selectOpen, setSelectOpen] = useState(false)
   const entries = useMemo(() => scriptConsoleEntries(execution), [execution])
-  const displayed = entries.filter(
-    (log) => level === "all" || log.level === level,
+  const timeWidth = Math.max(
+    3,
+    ...entries.map((log) => formatConsoleTime(log.timeMs).length),
   )
-  const text = displayed.map(formatConsoleEntry).join("\n")
+  const text = entries.map(formatConsoleEntry).join("\n")
   const copy = () => {
     const copied = copyToClipboard(text, renderer)
     showToast(
@@ -78,8 +74,6 @@ export function ScriptConsole({
     return copied
   }
   useEffect(() => {
-    setLevel("all")
-    setControl(0)
     scroll.current?.scrollTo(0)
   }, [execution])
   useEffect(() => {
@@ -96,19 +90,10 @@ export function ScriptConsole({
         ({ event }) => {
           if (
             !focused ||
-            selectOpen ||
             (!allowOverlay && keymap.getData("app.overlay") !== "none")
           )
             return
-          if (event.name === "tab") {
-            const next = control + (event.shift ? -1 : 1)
-            if (next < 0 || next > 1) {
-              setControl(0)
-              return
-            }
-            setControl(next)
-          } else if (event.name === "return" && control === 1) copy()
-          else if (event.name === "up" || event.name === "down")
+          if (event.name === "up" || event.name === "down")
             scroll.current?.scrollBy(event.name === "up" ? -1 : 1)
           else if (event.name === "pageup" || event.name === "pagedown")
             scroll.current?.scrollBy(
@@ -124,55 +109,92 @@ export function ScriptConsole({
         },
         { priority: 115 },
       ),
-    [keymap, focused, selectOpen, allowOverlay, control, text, renderer],
+    [keymap, focused, allowOverlay],
   )
   return (
     <box flexDirection="column" flexGrow={1} flexBasis={0} minHeight={0}>
-      <box flexDirection="row" flexShrink={0}>
-        <Select
-          items={["all", "log", "info", "warn", "error"].map((id) => ({
-            id,
-            label: id === "all" ? "All levels" : id.toUpperCase(),
-          }))}
-          value={level}
-          onChange={setLevel}
-          focused={focused && control === 0}
-          onActivate={() => setControl(0)}
-          onOpenChange={setSelectOpen}
-          triggerPriority={allowOverlay ? 110 : undefined}
-          badge={false}
-          fitContent
-        />
-        <ActionButton
-          id="console-copy"
-          label="Copy"
-          focused={focused && control === 1}
-          onAction={copy}
-        />
-      </box>
       <scrollbox
         id="script-console-logs"
         ref={scroll}
         scrollY
+        verticalScrollbarOptions={{
+          trackOptions: {
+            backgroundColor: theme.background,
+            foregroundColor: theme.borderActive,
+          },
+        }}
         style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
       >
-        {displayed.length ? (
-          displayed.map((log, index) => (
-            <text
+        {entries.length ? (
+          entries.map((log, index) => (
+            <box
+              id={`script-console-row-${index}`}
               key={index}
-              fg={
-                log.level === "error"
-                  ? theme.error
-                  : log.level === "warn"
-                    ? theme.warning
-                    : theme.text
-              }
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                columnGap: 2,
+                paddingLeft: 1,
+                paddingRight: 1,
+                minWidth: 0,
+              }}
             >
-              {formatConsoleEntry(log)}
-            </text>
+              <text
+                id={`script-console-metadata-${index}`}
+                fg={theme.textMuted}
+                wrapMode="word"
+                style={{
+                  width: timeWidth + 14,
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+              >
+                {formatConsoleTime(log.timeMs).padStart(timeWidth)}
+                {"  "}
+                <span
+                  fg={
+                    log.phase === "pre"
+                      ? theme.primary
+                      : log.phase === "post"
+                        ? theme.secondary
+                        : theme.accent
+                  }
+                >
+                  {log.phase.padEnd(7)}
+                </span>
+                <span
+                  fg={
+                    log.level === "error"
+                      ? theme.error
+                      : log.level === "warn"
+                        ? theme.warning
+                        : log.level === "info"
+                          ? theme.info
+                          : theme.textMuted
+                  }
+                >
+                  {log.level.toUpperCase()}
+                </span>
+              </text>
+              <text
+                id={`script-console-message-${index}`}
+                fg={theme.text}
+                wrapMode="word"
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 24,
+                  minWidth: 0,
+                }}
+              >
+                {log.message}
+              </text>
+            </box>
           ))
         ) : (
-          <text fg={theme.textMuted}>No logs at this level.</text>
+          <text fg={theme.textMuted} paddingLeft={1}>
+            No console logs.
+          </text>
         )}
       </scrollbox>
     </box>

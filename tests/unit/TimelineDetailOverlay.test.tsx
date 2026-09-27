@@ -80,7 +80,7 @@ async function renderOverlay(
 }
 
 describe("TimelineDetailOverlay", () => {
-  it("opens and applies the Console level filter inside Runner details", async () => {
+  it("shows all Console levels without a toolbar inside Runner details", async () => {
     const h = await renderOverlay(makeEntry(), () => {}, true, {
       execution: {
         tests: {
@@ -98,12 +98,9 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => h.host.press("right"))
     await h.renderOnce()
     expect(h.captureCharFrame()).toContain("informational log")
-    await act(async () => h.host.press("return"))
-    for (let i = 0; i < 3; i++) await act(async () => h.host.press("down"))
-    await act(async () => h.host.press("return"))
-    await h.renderOnce()
     expect(h.captureCharFrame()).toContain("warning log")
-    expect(h.captureCharFrame()).not.toContain("informational log")
+    expect(h.captureCharFrame()).not.toContain("All levels")
+    expect(h.captureCharFrame()).not.toContain("Copy")
     h.cleanup()
   })
 
@@ -310,7 +307,7 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => host.press("right"))
     await act(async () => host.press("right"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("INFO ready")
+    expect(captureCharFrame()).toMatch(/INFO\s+ready/)
     await act(async () => host.press("right"))
     await renderOnce()
     expect(captureCharFrame()).toContain("Pre-request")
