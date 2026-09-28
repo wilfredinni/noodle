@@ -24,6 +24,7 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 | Convert a cURL command or unsupported format at file level | [workflows/convert.md](workflows/convert.md) |
 | Understand file formats, schemas, field rules | [schema.md](schema.md) |
 | Author JavaScript with external-editor types | [noodle-script.d.ts](noodle-script.d.ts) |
+| Look up every scripting member, phase, and fixed limit | [reference/script-api.md](reference/script-api.md) |
 | Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
 | Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
 | See annotated example files | [reference/examples.md](reference/examples.md) |
@@ -37,6 +38,20 @@ These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
 Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml`, `.env`, and `.js` edits for folders, request bodies, auth, headers, params, inline or external pre/post scripts and tests, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+
+### Foreign scripts
+
+Import preserves only scripts whose compatibility can be established by parsing
+JavaScript and checking free identifiers against Noodle's contract and a
+conservative ECMAScript allowlist. Read ordered `data.warnings` in `--json`:
+`itemPath`, original `phase`, `format`, `code`, `reason`, `unsupportedGlobals`, and
+safe `message`. Never reconstruct omitted scripts with regex replacements.
+Postman pre-request events map to collection/folder/request pre; only request
+`test` events map to tests. Insomnia preserves request pre/post hooks only.
+Foreign APIs, plugins, modules, duplicate Postman phases, disabled events,
+external Postman sources, API aliases, computed access, reflection, and async
+source are left unconverted. Script-free requests import normally. See
+[import details](workflows/import.md#script-compatibility).
 
 ### Variable syntax
 `$VARNAME` (no braces), where names match `^\w+$`. Use `$$` for a literal dollar: `$$NAME` sends `$NAME`, while `$$$NAME` sends a literal `$` followed by the resolved value. Values resolve once; substituted values are not scanned again. In request YAML substitution applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved exactly until enabled. Every evaluated reference must resolve from the selected environment or a committed capture/script RunScope value from an earlier request in the same collection run.

@@ -32,11 +32,11 @@ export function formatCollectionImportMessage(
     ...warnings
       .slice(0, 3)
       .map(
-        ({ itemPath, phase }) =>
-          `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`,
+        ({ itemPath, phase, unsupportedGlobals, reason }) =>
+          `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})${unsupportedGlobals?.length ? `\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}` : reason ? `\n  ${label(reason, 60)}` : ""}`,
       ),
     ...(warnings.length > 3 ? [`and ${warnings.length - 3} more`] : []),
-    "Foreign runtime APIs were not converted.",
+    "Unconverted scripts were omitted. Review before sending.",
   ].join("\n")
 }
 

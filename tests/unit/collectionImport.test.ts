@@ -27,6 +27,7 @@ describe("runCollectionImport", () => {
       itemPath: ["Collection", `Request ${index + 1}`],
       phase,
       message: "Foreign runtime APIs were not converted.",
+      unsupportedGlobals: ["pm", "require"],
     }))
     const message = formatCollectionImportMessage(warnings)
     expect(message).toContain("4 unconverted script(s)")
@@ -35,7 +36,8 @@ describe("runCollectionImport", () => {
     expect(message).toContain("Collection / Request 3 (test)")
     expect(message).not.toContain("Request 4")
     expect(message).toContain("and 1 more")
-    expect(message).toContain("Foreign runtime APIs were not converted.")
+    expect(message).toContain("Unconverted scripts were omitted")
+    expect(message).toContain("Unsupported: pm, require")
     warnings[0]!.itemPath = ["界".repeat(1000), "\n\u001b[2J"]
     warnings[0]!.phase = "pre\n" + "x".repeat(1000)
     const bounded = formatCollectionImportMessage(warnings)

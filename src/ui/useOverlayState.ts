@@ -184,7 +184,10 @@ export function useOverlayState({
     if (codeGeneratorVisible) return "code-generator"
     if (exportCollectionVisible) return "export-collection"
     if (importCollectionVisible) return "import-collection"
-    if (importOpenPending !== null) return "import-open-confirm"
+    if (importOpenPending !== null)
+      return notificationMessage !== null
+        ? "notification"
+        : "import-open-confirm"
     if (requestFinderVisible) return "request-finder"
     if (helpVisible) return "help"
     if (aboutVisible) return "about"

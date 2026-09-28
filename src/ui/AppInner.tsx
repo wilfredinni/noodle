@@ -1577,7 +1577,8 @@ export function AppInner({
             )
           }
           overlays.setImportCollectionVisible(false)
-          if (result.warnings?.length) showToast(importMessage, "warning")
+          if (result.warnings?.length)
+            overlays.setNotificationMessage(importMessage)
           overlays.setImportOpenPending({
             path: result.path,
             name: result.name,
@@ -1599,6 +1600,7 @@ export function AppInner({
       overlays.setImportCollectionPending,
       overlays.setImportCollectionVisible,
       overlays.setImportOpenPending,
+      overlays.setNotificationMessage,
     ],
   )
 
