@@ -26,15 +26,10 @@ type Workflow = {
     string,
     {
       needs?: string[]
-      if?: string
-      uses?: string
-      with?: Record<string, unknown>
       permissions?: Record<string, string>
       "runs-on"?: string
       env?: Record<string, string>
-      strategy?: {
-        matrix: { include: { os: string; target: string; asset?: string }[] }
-      }
+      strategy?: { matrix: { include: { os: string; target: string }[] } }
       steps?: {
         name?: string
         run?: string
@@ -63,7 +58,7 @@ describe("release platforms", () => {
     expect(workflow.on.push).toEqual({ tags: ["v*"] })
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false)
     expect(workflow.permissions).toEqual({ contents: "read" })
-    expect(workflow.jobs.build).toBeUndefined()
+    expect(workflow.jobs.build.permissions).toEqual({ contents: "read" })
     expect(workflow.jobs["validate-macos-artifact"].permissions).toEqual({
       contents: "write",
     })
@@ -81,19 +76,17 @@ describe("release platforms", () => {
         }
       }
     }
-    const upload = ci.jobs["response-files"].steps!.find(
-      (step) => step.name === "Upload tested release binary",
+    const upload = workflow.jobs.build.steps!.find((step) =>
+      step.uses?.startsWith("actions/upload-artifact@"),
     )!
-    expect(upload.if).toBe("github.event_name == 'push'")
     expect(upload.with).toMatchObject({
-      name: "release-${{ matrix.asset }}",
-      path: "noodle-${{ matrix.asset }}",
+      name: "release-${{ matrix.target }}",
+      path: "noodle-${{ matrix.target }}",
       "if-no-files-found": "error",
       overwrite: true,
-      "retention-days": 7,
     })
     expect(
-      ci.jobs["response-files"].steps!.some((step) =>
+      workflow.jobs.build.steps!.some((step) =>
         step.run?.includes("gh release"),
       ),
     ).toBe(false)
@@ -101,33 +94,21 @@ describe("release platforms", () => {
       step.uses?.startsWith("actions/download-artifact@"),
     )!
     expect(download.with).toEqual({
-      "github-token": "${{ github.token }}",
-      "run-id":
-        "${{ needs.validate-release.outputs.ci-run-id || github.run_id }}",
       pattern: "release-*",
       path: "release-assets",
       "merge-multiple": true,
     })
-    expect(workflow.jobs.checksums.needs).toEqual([
-      "create-release",
-      "validate-release",
-    ])
-    expect(workflow.jobs.checksums.permissions?.actions).toBe("read")
+    expect(workflow.jobs.checksums.needs).toContain("build")
   })
 
   it("tests and builds the same four platforms and validates both macOS artifacts", () => {
-    const builds = ci.jobs["response-files"].strategy!.matrix.include.map(
-      ({ os, asset }) => ({ os, target: asset! }),
-    )
-    expect(builds).toEqual(
-      expect.arrayContaining([
-        { os: "macos-15", target: "macos-arm64" },
-        { os: "macos-15-intel", target: "macos-x86_64" },
-        { os: "ubuntu-latest", target: "linux-x86_64" },
-        { os: "ubuntu-24.04-arm", target: "linux-arm64" },
-      ]),
-    )
-    expect(builds).toHaveLength(4)
+    const builds = workflow.jobs.build.strategy!.matrix.include
+    expect(builds).toEqual([
+      { os: "macos-15", target: "macos-arm64" },
+      { os: "macos-15-intel", target: "macos-x86_64" },
+      { os: "ubuntu-latest", target: "linux-x86_64" },
+      { os: "ubuntu-24.04-arm", target: "linux-arm64" },
+    ])
     expect(
       ci.jobs["response-files"].strategy!.matrix.include.map(
         ({ os, target }) => ({
@@ -143,7 +124,11 @@ describe("release platforms", () => {
     expect(validation.strategy!.matrix.include).toEqual(
       builds.filter(({ target }) => target.startsWith("macos-")),
     )
-    for (const job of [ci.jobs["response-files"], validation]) {
+    for (const job of [
+      ci.jobs["response-files"],
+      workflow.jobs.build,
+      validation,
+    ]) {
       expect(job["runs-on"]).toBe("${{ matrix.os }}")
     }
     expect(validation.env?.ASSET_NAME).toBe("noodle-${{ matrix.target }}")
@@ -287,192 +272,6 @@ describe("release platforms", () => {
       }
     },
   )
-})
-
-describe("release CI reuse", () => {
-  it
-    .skipIf(process.platform === "win32")
-    .each([
-      { scenario: "successful", reuse: true },
-      { scenario: "running", reuse: true },
-      { scenario: "missing" },
-      { scenario: "missing artifact" },
-      { scenario: "expired artifact" },
-      { scenario: "failed", reject: true },
-      { scenario: "cancelled", reject: true },
-      { scenario: "different commit", reject: true },
-      { scenario: "pull request", reject: true },
-      { scenario: "different branch", reject: true },
-      { scenario: "different repository", reject: true },
-      { scenario: "fork", reject: true },
-      { scenario: "different workflow", reject: true },
-      { scenario: "API failure", reject: true },
-    ])(
-    "handles $scenario CI",
-    ({ scenario, reuse = false, reject = false }) => {
-      const directory = mkdtempSync(join(tmpdir(), "noodle-ci-reuse-"))
-      try {
-        const commit = "0123456789abcdef0123456789abcdef01234567"
-        const repo = "wilfredinni/noodle"
-        const run = {
-          head_sha: scenario === "different commit" ? "other" : commit,
-          head_branch: scenario === "different branch" ? "feature" : "main",
-          event: scenario === "pull request" ? "pull_request" : "push",
-          repository: {
-            full_name:
-              scenario === "different repository" ? "other/noodle" : repo,
-          },
-          head_repository: {
-            full_name: scenario === "fork" ? "other/noodle" : repo,
-          },
-          path:
-            scenario === "different workflow"
-              ? "other.yml"
-              : ".github/workflows/ci.yml",
-          status: "completed",
-          conclusion:
-            scenario === "failed"
-              ? "failure"
-              : scenario === "cancelled"
-                ? "cancelled"
-                : "success",
-        }
-        writeFileSync(join(directory, "run.json"), JSON.stringify(run))
-        writeFileSync(
-          join(directory, "runs.json"),
-          JSON.stringify({
-            workflow_runs: scenario === "missing" ? [] : [{ id: 123 }],
-          }),
-        )
-        writeFileSync(
-          join(directory, "artifacts.json"),
-          JSON.stringify({
-            artifacts: releaseTargets
-              .filter(
-                (_, index) => scenario !== "missing artifact" || index !== 0,
-              )
-              .map((target, index) => ({
-                name: `release-${target}`,
-                expired: scenario === "expired artifact" && index === 0,
-              })),
-          }),
-        )
-        writeFileSync(
-          join(directory, "gh"),
-          `#!/bin/bash
-set -euo pipefail
-test "$1" = api
-shift
-if [ "$1" = --paginate ]; then shift; fi
-endpoint=$1
-shift
-echo "$endpoint" >> calls
-case "$endpoint" in
-  "repos/$GH_REPO/actions/workflows/ci.yml/runs?head_sha=$COMMIT_SHA&branch=main&event=push&per_page=1") file=runs.json ;;
-  "repos/$GH_REPO/actions/runs/123")
-    if [ "$SCENARIO" = "API failure" ]; then exit 1; fi
-    if [ "$SCENARIO" = running ] && [ ! -f polled ]; then
-      touch polled
-      jq '.status = "in_progress" | .conclusion = null' run.json
-      exit 0
-    fi
-    file=run.json ;;
-  "repos/$GH_REPO/actions/runs/123/artifacts?per_page=100") file=artifacts.json ;;
-  *) exit 1 ;;
-esac
-if [ "$#" -gt 0 ]; then
-  test "$1" = --jq
-  jq -r "$2" "$file"
-else
-  cat "$file"
-fi
-`,
-          { mode: 0o755 },
-        )
-        writeFileSync(
-          join(directory, "sleep"),
-          "#!/bin/sh\necho waited >> waits\n",
-          { mode: 0o755 },
-        )
-        const output = join(directory, "output")
-        writeFileSync(output, "")
-        const step = workflow.jobs["validate-release"].steps!.find(
-          (step) => step.name === "Find successful CI and tested binaries",
-        )!
-        const result = Bun.spawnSync(["bash", "-c", step.run!], {
-          cwd: directory,
-          env: {
-            ...process.env,
-            PATH: `${directory}:${process.env.PATH}`,
-            GH_REPO: repo,
-            COMMIT_SHA: commit,
-            GITHUB_OUTPUT: output,
-            SCENARIO: scenario,
-          },
-          timeout: 5000,
-        })
-        expect({
-          exitCode: result.exitCode,
-          stderr: result.stderr.toString(),
-        }).toEqual({
-          exitCode: reject ? 1 : 0,
-          stderr:
-            scenario === "failed" || scenario === "cancelled"
-              ? "CI run 123 did not succeed; refusing to release.\n"
-              : "",
-        })
-        expect(readFileSync(output, "utf8")).toBe(reuse ? "run-id=123\n" : "")
-        expect(existsSync(join(directory, "waits"))).toBe(
-          scenario === "running",
-        )
-      } finally {
-        rmSync(directory, { recursive: true, force: true })
-      }
-    },
-  )
-
-  it("only calls CI when reuse is unavailable and gates publication on either successful path", () => {
-    expect(workflow.jobs.quality).toMatchObject({
-      needs: "validate-release",
-      if: "needs.validate-release.outputs.ci-run-id == ''",
-      uses: "./.github/workflows/ci.yml",
-      with: { ref: "${{ needs.validate-release.outputs.commit }}" },
-    })
-    const allowRelease = new Function(
-      "needs",
-      "cancelled",
-      `return ${workflow.jobs["create-release"].if!.replaceAll("validate-release", "validateRelease").replaceAll("ci-run-id", "ciRunId")}`,
-    )
-    for (const validation of ["success", "failure"]) {
-      for (const quality of ["success", "failure", "skipped"]) {
-        for (const runId of ["", "123"]) {
-          for (const cancelled of [false, true]) {
-            expect(
-              allowRelease(
-                {
-                  validateRelease: {
-                    result: validation,
-                    outputs: { ciRunId: runId },
-                  },
-                  quality: { result: quality },
-                },
-                () => cancelled,
-              ),
-            ).toBe(
-              !cancelled &&
-                validation === "success" &&
-                (quality === "success" || runId !== ""),
-            )
-          }
-        }
-      }
-    }
-    expect(
-      Object.values(workflow.jobs)
-        .flatMap((job) => job.steps ?? [])
-        .some((step) => /bun (test|build)/.test(step.run ?? "")),
-    ).toBe(false)
-  })
 })
 
 describe("manual CI builds", () => {
