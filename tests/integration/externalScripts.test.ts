@@ -111,8 +111,8 @@ it("runs the shipped external examples individually and as a folder using loopba
     ).toEqual([
       ["pre", "folder", "external"],
       ["pre", "request", "external"],
-      ["post", "request", "external"],
       ["post", "folder", "external"],
+      ["post", "request", "external"],
     ])
     expect(run.result.tests?.invocations?.[1]?.source?.sourcePath).toBe(
       "./external-scripts/post-tests.js",
@@ -325,7 +325,7 @@ it("preflights every selected source before scripts or HTTP, including post and 
 it("proves exact nested order, once per request, captures, assertions and inherited tests", async () => {
   await fs.mkdir(join(dir, "outer/inner"), { recursive: true })
   const expected =
-    "collection-pre,outer-pre,inner-pre,request-pre,request-post,inner-post,outer-post,collection-post,"
+    "collection-pre,outer-pre,inner-pre,request-pre,collection-post,outer-post,inner-post,request-post,"
   const fields = (scope: string) => ({
     scripts: {
       pre: `./scripts/${scope}-pre.js`,
@@ -407,10 +407,10 @@ it("proves exact nested order, once per request, captures, assertions and inheri
       "outer:pre",
       "outer/inner:pre",
       `${result.id}:pre`,
-      `${result.id}:post`,
-      "outer/inner:post",
-      "outer:post",
       `${dir.split("/").at(-1)}:post`,
+      "outer:post",
+      "outer/inner:post",
+      `${result.id}:post`,
     ])
     expect(result.tests?.results).toHaveLength(4)
     expect(result.tests?.results.every((test) => test.passed)).toBe(true)

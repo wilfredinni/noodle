@@ -374,10 +374,11 @@ describe("request script references", () => {
       expect(await h.frame()).not.toContain("Folder: users")
       await h.openOrder()
       const frame = await h.frame()
-      const labels =
-        phase === "post"
-          ? ["1  This request", "2  Folder: users", "3  Collection: Demo"]
-          : ["1  Collection: Demo", "2  Folder: users", "3  This request"]
+      const labels = [
+        "1  Collection: Demo",
+        "2  Folder: users",
+        "3  This request",
+      ]
       expect(frame).toContain(
         phase === "pre"
           ? "Scripts run in this order before sending the request."

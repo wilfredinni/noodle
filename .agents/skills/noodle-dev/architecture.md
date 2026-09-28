@@ -389,7 +389,7 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      5. Commit successful pre request and RunScope mutations
      6. Pass only the prepared transport request to executor.send()
      7. Evaluate and commit captures in executionResults.ts
-     8. Run request, nearest-to-outermost folder, and collection scripts.post blocks with captures, response, and final-leg request readers;
+     8. Run collection, outermost-to-nearest folder, and request scripts.post blocks with captures, response, and final-leg request readers;
         atomically commit successful post RunScope and URL-scoped cookie writes
      9. Evaluate assertions against the same response resolver, even after post failure
     10. Run read-only tests in collection-to-request order, retaining every block error

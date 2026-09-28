@@ -417,11 +417,9 @@ describe("script workspaces", () => {
       })
       frame = h.captureCharFrame()
       const ordered =
-        phase === "post"
-          ? ["1  This request", "2  Folder: users", "3  Collection: Demo"]
-          : phase === "pre"
-            ? ["1  Collection: Demo", "2  Folder: users", "3  This request"]
-            : ["1  Collection: Demo", "2  This request"]
+        phase === "tests"
+          ? ["1  Collection: Demo", "2  This request"]
+          : ["1  Collection: Demo", "2  Folder: users", "3  This request"]
       let previous = -1
       for (const label of ordered) {
         expect(frame).toContain(label)

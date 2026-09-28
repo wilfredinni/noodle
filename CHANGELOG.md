@@ -4,6 +4,10 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Run inherited pre scripts, post scripts, and tests in the same collection → outermost folder → nearest folder → request order. Post scripts still run after captures and before assertions/tests. This changes the post order from 0.9.4 and 0.9.5: the most specific successful post write now wins, including persisted writes. Update collection or folder post scripts that depend on values produced by a later request post script.
+
 ## [0.9.5] - 2026-09-27
 
 Noodle 0.9.5 brings script and test authoring into the terminal with dedicated editors, phase-aware completion, diagnostics, folding, and formatting. A Console tab makes logs easier to read, while execution-order inspection and external-file shortcuts connect request, folder, and collection scripts.

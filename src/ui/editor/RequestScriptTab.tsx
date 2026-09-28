@@ -51,7 +51,6 @@ export function RequestScriptTab({ request, onFocus, ...props }: Props) {
       (block) => scriptText(block, props.phase),
     )
     if (!blocks.some((block) => block.source.scope !== "request")) return null
-    if (props.phase === "post") blocks.reverse()
     return {
       phase: props.phase,
       entries: blocks.map((block) => ({

@@ -13,6 +13,6 @@ scripts:
 tests: |-
   test("folder and request hooks run in order", () => {
     expect(noodle.run.get("external_steps")).toEqual([
-      "folder-pre", "request-pre", "request-post", "folder-post"
+      "folder-pre", "request-pre", "folder-post", "request-post"
     ])
   })

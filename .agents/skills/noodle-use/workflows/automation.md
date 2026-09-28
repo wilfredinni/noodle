@@ -90,11 +90,12 @@ string or a collection-relative external reference such as `./scripts/sign.js`.
 Empty strings are no-ops and are omitted by canonical serialization.
 
 For every request: collection pre → folder pre (outermost to nearest) → request
-pre → HTTP → captures → request post → folder post (nearest to outermost) →
-collection post → assertions → tests (collection, outer folders, inner folders,
+pre → HTTP → captures → collection post → folder post (outermost to nearest) →
+request post → assertions → tests (collection, outer folders, inner folders,
 request). Collection and folder hooks run once per request, including each selected
 request and dataset row. Ancestors use file paths, not display names; root
 `folder.yml` remains ignored. Existing inherited tests remain supported.
+The most specific successful post write wins, including persisted writes.
 
 Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
 successful RunScope writes are visible to later blocks. A pre failure stops
