@@ -354,6 +354,11 @@ export function formatImport(data: {
   return [
     `${color("✓", "green")} Imported ${data.name}`,
     `  ${data.path}`,
+    ...(data.warnings?.length
+      ? [
+          `  ${data.warnings.length} script warning(s); unconverted scripts were omitted`,
+        ]
+      : []),
     ...(data.warnings ?? []).map(
       (warning) =>
         `  Warning: ${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(warning.phase)}): ${warning.message}`,

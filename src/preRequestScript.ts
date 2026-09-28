@@ -635,39 +635,46 @@ export function scriptWasmMemoryForTests(): WebAssembly.Memory {
   return wasmMemory
 }
 
+/** Load a reusable compile-only validator; each source gets a fresh bounded VM. */
+export async function loadScriptSyntaxValidator() {
+  const module = await quickJS()
+  return (source: string): ScriptExecutionError | null => {
+    if (!source) return null
+    if (Buffer.byteLength(source) > SCRIPT_LIMITS.sourceBytes)
+      return { name: "ScriptSourceError", message: "source exceeds 256 KiB" }
+    const runtime = module.newRuntime()
+    runtime.setMemoryLimit(SCRIPT_LIMITS.runtimeMemoryBytes)
+    runtime.setMaxStackSize(SCRIPT_LIMITS.stackBytes)
+    const deadline = performance.now() + SCRIPT_LIMITS.deadlineMs
+    runtime.setInterruptHandler(() => performance.now() >= deadline)
+    const context = runtime.newContext()
+    try {
+      const result = context.evalCode(
+        `${SCRIPT_WRAPPER_PREFIX}${source}\n})()`,
+        "pre-request.js",
+        { type: "global", compileOnly: true },
+      )
+      if (result.error) {
+        try {
+          return normalizeQuickJSError(context, result.error)
+        } finally {
+          result.error.dispose()
+        }
+      }
+      result.value.dispose()
+      return null
+    } finally {
+      context.dispose()
+      runtime.dispose()
+    }
+  }
+}
+
 /** Compile the same wrapper as execution, without installing APIs or running jobs. */
 export async function validateScriptSyntax(
   source: string,
 ): Promise<ScriptExecutionError | null> {
-  if (!source) return null
-  if (Buffer.byteLength(source) > SCRIPT_LIMITS.sourceBytes)
-    return { name: "ScriptSourceError", message: "source exceeds 256 KiB" }
-  const module = await quickJS()
-  const runtime = module.newRuntime()
-  runtime.setMemoryLimit(SCRIPT_LIMITS.runtimeMemoryBytes)
-  runtime.setMaxStackSize(SCRIPT_LIMITS.stackBytes)
-  const deadline = performance.now() + SCRIPT_LIMITS.deadlineMs
-  runtime.setInterruptHandler(() => performance.now() >= deadline)
-  const context = runtime.newContext()
-  try {
-    const result = context.evalCode(
-      `${SCRIPT_WRAPPER_PREFIX}${source}\n})()`,
-      "pre-request.js",
-      { type: "global", compileOnly: true },
-    )
-    if (result.error) {
-      try {
-        return normalizeQuickJSError(context, result.error)
-      } finally {
-        result.error.dispose()
-      }
-    }
-    result.value.dispose()
-    return null
-  } finally {
-    context.dispose()
-    runtime.dispose()
-  }
+  return (await loadScriptSyntaxValidator())(source)
 }
 
 type BridgeHandler = (args: unknown[]) => unknown

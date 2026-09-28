@@ -269,6 +269,10 @@ export async function runImport(options: ImportOptions): Promise<{
   let overwrite = true
   const plannedPaths = importPaths(result.collection.items, result.environments)
   if (options.destination?.kind === "current") {
+    if (result.collection.scripts)
+      throw new Error(
+        "Collection scripts require importing into a new collection",
+      )
     collDir = options.destination.collectionDir
     if (!existsSync(collDir) || !statSync(collDir).isDirectory()) {
       throw new Error(`import target is not a directory: ${collDir}`)
@@ -332,6 +336,9 @@ export async function runImport(options: ImportOptions): Promise<{
       await saveSettings(collDir, {
         ...settings,
         collectionId: settings.collectionId ?? randomUUID(),
+        ...(result.collection.scripts
+          ? { scripts: result.collection.scripts }
+          : {}),
       })
     }
   } catch (e) {

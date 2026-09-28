@@ -6,6 +6,12 @@ export interface ImportWarning {
   itemPath: string[]
   phase: string
   message: string
+  unsupportedGlobals?: string[]
+  reason?:
+    | "syntax"
+    | "unsupported-globals"
+    | "unverifiable"
+    | "unsupported-placement"
 }
 
 export interface ImportResult {

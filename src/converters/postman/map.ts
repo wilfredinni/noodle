@@ -18,8 +18,13 @@ import type {
   KvEntry,
   ParamEntry,
   Request,
+  ScriptFields,
 } from "../../schema"
 import type { ImportResult, ImportWarning } from "../index"
+import {
+  scriptCompatibility,
+  unconvertedScriptWarning,
+} from "../scriptCompatibility"
 import { slugify, METHOD_UPPER, setOwn } from "../shared"
 import { parsePathToken } from "../../requests/pathParams"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
@@ -457,10 +462,75 @@ function mapRequest(
   }
 }
 
+function mapEvents(
+  item: Record<string, unknown>,
+  path: string[],
+  request: boolean,
+  warnings: ImportWarning[],
+): ScriptFields {
+  const fields: ScriptFields = {}
+  const events = Array.isArray(item.event) ? item.event : []
+  for (const event of events) {
+    const script = event?.script
+    if (!script) continue
+    const source =
+      typeof script.exec === "string"
+        ? script.exec
+        : Array.isArray(script.exec) &&
+            script.exec.every((line: unknown) => typeof line === "string")
+          ? script.exec.join("\n")
+          : undefined
+    if (
+      !source?.trim() &&
+      !script.src &&
+      (source !== undefined || script.exec === undefined)
+    )
+      continue
+    const phase = typeof event.listen === "string" ? event.listen : "unknown"
+    const target =
+      phase === "prerequest"
+        ? "pre"
+        : phase === "test" && request
+          ? "tests"
+          : undefined
+    const analysis =
+      source !== undefined
+        ? scriptCompatibility(source, target ?? "tests")
+        : undefined
+    const duplicate =
+      events.filter(
+        (candidate) => candidate?.listen === phase && !candidate.disabled,
+      ).length > 1
+    if (
+      target &&
+      analysis?.compatible &&
+      !script.src &&
+      !script.packages &&
+      !event.disabled &&
+      !duplicate &&
+      (!script.type || script.type === "text/javascript")
+    ) {
+      if (target === "tests") fields.tests = source
+      else fields.scripts = { pre: source! }
+    } else
+      warnings.push(
+        unconvertedScriptWarning(
+          "postman",
+          path,
+          phase,
+          analysis?.compatible ? undefined : analysis,
+        ),
+      )
+  }
+  return fields
+}
+
 function mapItems(
   items: PropertyList<Item | ItemGroup> | undefined,
   parentPath: string,
   usedIds: Set<string>,
+  parentNames: string[],
+  warnings: ImportWarning[],
 ): CollectionItem[] {
   if (!items) return []
   const result: CollectionItem[] = []
@@ -468,6 +538,8 @@ function mapItems(
 
   items.each((item) => {
     idx++
+    const names = [...parentNames, item.name || `item-${idx}`]
+    const fields = mapEvents(item.toJSON(), names, !("items" in item), warnings)
 
     if ("items" in item) {
       const itemGroup = item as ItemGroup
@@ -487,13 +559,17 @@ function mapItems(
           name,
           path: path.slice(0, -1),
           overrides,
-          children: mapItems(itemGroup.items, path, usedIds),
+          ...fields,
+          children: mapItems(itemGroup.items, path, usedIds, names, warnings),
         },
       })
     } else {
       result.push({
         type: "request",
-        data: mapRequest(item as Item, parentPath, idx, usedIds),
+        data: {
+          ...mapRequest(item as Item, parentPath, idx, usedIds),
+          ...fields,
+        },
       })
     }
   })
@@ -505,44 +581,8 @@ export function mapCollection(col: Collection): ImportResult {
   const name = col.name || "postman-import"
   const collectionId = slugify(name)
   const warnings: ImportWarning[] = []
-  function scripts(item: Record<string, unknown>, path: string[]) {
-    if (Array.isArray(item.event))
-      for (const event of item.event) {
-        const script = event?.script
-        if (
-          !script ||
-          !(
-            (typeof script.exec === "string" && script.exec.trim()) ||
-            (Array.isArray(script.exec) &&
-              script.exec.some(
-                (line: unknown) => typeof line === "string" && line.trim(),
-              )) ||
-            (typeof script.src === "string" && script.src.trim()) ||
-            (script.src && typeof script.src === "object")
-          )
-        )
-          continue
-        warnings.push({
-          code: "foreign-script-not-converted",
-          format: "postman",
-          itemPath: path,
-          phase: typeof event.listen === "string" ? event.listen : "unknown",
-          message:
-            "Postman runtime API was not converted; recreate this script in Noodle.",
-        })
-      }
-    if (Array.isArray(item.item))
-      item.item.forEach((child, index) => {
-        if (child && typeof child === "object")
-          scripts(child, [
-            ...path,
-            typeof child.name === "string" ? child.name : `item-${index + 1}`,
-          ])
-      })
-  }
-  scripts(col.toJSON(), [name])
-
-  const rootItems = mapItems(col.items, "", new Set<string>())
+  const fields = mapEvents(col.toJSON(), [name], false, warnings)
+  const rootItems = mapItems(col.items, "", new Set<string>(), [name], warnings)
 
   const envVars: Record<string, string> = {}
   try {
@@ -559,7 +599,7 @@ export function mapCollection(col: Collection): ImportResult {
   }
 
   return {
-    collection: { id: collectionId, name, items: rootItems },
+    collection: { id: collectionId, name, items: rootItems, ...fields },
     environments,
     ...(warnings.length ? { warnings } : {}),
   }
