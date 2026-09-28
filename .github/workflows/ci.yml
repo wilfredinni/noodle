@@ -29,12 +29,16 @@ jobs:
         include:
           - os: macos-15
             target: darwin-arm64
+            asset: macos-arm64
           - os: macos-15-intel
             target: darwin-x64
+            asset: macos-x86_64
           - os: ubuntu-24.04-arm
             target: linux-arm64
+            asset: linux-arm64
           - os: ubuntu-latest
             target: linux-x64
+            asset: linux-x86_64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     defaults:
@@ -72,6 +76,20 @@ jobs:
         run: |
           bun scripts/build-response-file-native.ts --target=${{ matrix.target }}
           bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
+      - name: Stage tested release binary
+        if: github.event_name == 'push'
+        env:
+          ASSET_NAME: noodle-${{ matrix.asset }}
+        run: cp noodle-response-smoke "$ASSET_NAME"
+      - name: Upload tested release binary
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-${{ matrix.asset }}
+          path: noodle-${{ matrix.asset }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
       - name: Package test build
         if: github.event_name == 'workflow_dispatch'
         env:

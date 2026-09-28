@@ -14,13 +14,21 @@ concurrency:
 
 jobs:
   quality:
+    needs: validate-release
+    if: needs.validate-release.outputs.ci-run-id == ''
     uses: ./.github/workflows/ci.yml
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ needs.validate-release.outputs.commit }}
 
   validate-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      commit: ${{ steps.tag.outputs.commit }}
+      ci-run-id: ${{ steps.ci.outputs.run-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -31,6 +39,7 @@ jobs:
         with:
           bun-version: 1.4.0
       - name: Validate tag and package version
+        id: tag
         shell: bash
         run: |
           set -euo pipefail
@@ -50,9 +59,53 @@ jobs:
             echo "Tag $tag must point to a commit already integrated into main" >&2
             exit 1
           fi
+          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+      - name: Find successful CI and tested binaries
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ steps.tag.outputs.commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?head_sha=$COMMIT_SHA&branch=main&event=push&per_page=1" --jq '.workflow_runs[0].id // empty')
+          if [ -z "$run_id" ]; then
+            echo "No main CI run for $COMMIT_SHA; release will run CI."
+            exit 0
+          fi
+          while :; do
+            run=$(gh api "repos/$GH_REPO/actions/runs/$run_id")
+            jq -e --arg sha "$COMMIT_SHA" --arg repo "$GH_REPO" '
+              .head_sha == $sha and .head_branch == "main" and .event == "push"
+              and .repository.full_name == $repo and .head_repository.full_name == $repo
+              and .path == ".github/workflows/ci.yml"
+            ' <<< "$run" > /dev/null
+            if [ "$(jq -r '.status' <<< "$run")" = completed ]; then
+              break
+            fi
+            echo "Waiting for CI run $run_id on $COMMIT_SHA..."
+            sleep 15
+          done
+          if [ "$(jq -r '.conclusion' <<< "$run")" != success ]; then
+            echo "CI run $run_id did not succeed; refusing to release." >&2
+            exit 1
+          fi
+          artifacts=$(gh api --paginate "repos/$GH_REPO/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.expired == false) | .name')
+          for target in macos-arm64 macos-x86_64 linux-x86_64 linux-arm64; do
+            if ! grep -Fxq "release-$target" <<< "$artifacts"; then
+              echo "CI binaries are missing or expired; release will run CI."
+              exit 0
+            fi
+          done
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Reusing CI run $run_id and its tested binaries."
 
   create-release:
     needs: [quality, validate-release]
+    if: >-
+      !cancelled() && needs.validate-release.result == 'success' &&
+      (needs.quality.result == 'success' || needs.validate-release.outputs.ci-run-id != '')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
@@ -90,70 +143,19 @@ jobs:
             gh release create "$TAG" --draft --title "$TAG" --notes-file release-notes.md
           fi
 
-  build:
-    needs: create-release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: macos-arm64
-          - os: macos-15-intel
-            target: macos-x86_64
-          - os: ubuntu-latest
-            target: linux-x86_64
-          - os: ubuntu-24.04-arm
-            target: linux-arm64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.4.0
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-      - run: bun scripts/build-script-type-libraries.ts --check && bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
-      - run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle-${{ matrix.target }}
-      - name: Sign and verify macOS binary
-        run: bun scripts/sign-macos-binary.ts "./noodle-${{ matrix.target }}"
-      - name: Smoke test compiled binary
-        shell: bash
-        run: |
-          set -euo pipefail
-          bun scripts/compiled-script-smoke.ts "./noodle-${{ matrix.target }}"
-          expected="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
-          actual="$(./noodle-${{ matrix.target }} --version)"
-          test "$actual" = "$expected" || {
-            echo "Compiled binary reported $actual, expected $expected" >&2
-            exit 1
-          }
-      - name: Upload build artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-${{ matrix.target }}
-          path: noodle-${{ matrix.target }}
-          if-no-files-found: error
-          overwrite: true
-
   checksums:
-    needs: [create-release, build]
+    needs: [create-release, validate-release]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Download release binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.validate-release.outputs.ci-run-id || github.run_id }}
           pattern: release-*
           path: release-assets
           merge-multiple: true
