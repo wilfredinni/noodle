@@ -27,6 +27,9 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 | Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
 | Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
 | See annotated example files | [reference/examples.md](reference/examples.md) |
+| Find troubleshooting, TUI guidance, or examples beyond bundled references | [Online documentation index](https://noodlerest.dev/llms.txt) |
+
+When bundled references do not answer the question, consult the online documentation index. Start with its abridged documentation and fetch the complete documentation only if needed. Check `noodle --version` before relying on features described online, since the site may document a newer version. Routine collection tasks should use bundled references without requiring network access.
 
 ## Critical rules
 
