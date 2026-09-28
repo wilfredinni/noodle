@@ -1,8 +1,38 @@
 import {
   SCRIPT_API_CONTRACT,
+  SCRIPT_LIMITS,
   type ScriptApiDescriptor,
   type ScriptPhase,
 } from "./preRequestScript"
+
+export function generateScriptReference(): string {
+  const code = (value: string) => `\`${value.replaceAll("|", "\\|")}\``
+  return [
+    "# Noodle scripting API",
+    "",
+    "<!-- Generated from SCRIPT_API_CONTRACT. Run bun run script:generate. -->",
+    "",
+    "Methods and properties are phase-specific. `expect` members belong to the matcher returned by `expect(value)`. Cookies are available only with an enabled jar and outgoing cookies enabled. Request mutation is pre-only; test execution is read-only.",
+    "",
+    "| API | Signature | Phases | Description |",
+    "| --- | --- | --- | --- |",
+    ...SCRIPT_API_CONTRACT.map(
+      (entry) =>
+        `| ${code(entry.member ? `${entry.global}.${entry.member}` : entry.global)} | ${code(entry.signature)} | ${entry.phases.join(", ")} | ${entry.description}${entry.writableIn ? ` Writable in: ${entry.writableIn.join(", ")}.` : ""} |`,
+    ),
+    "",
+    "## Fixed runtime limits",
+    "",
+    "| Limit | Value |",
+    "| --- | --- |",
+    ...Object.entries(SCRIPT_LIMITS).map(
+      ([name, value]) => `| ${code(name)} | ${value} |`,
+    ),
+    "",
+    "These limits apply to each invocation unless the lifecycle shares a smaller remaining budget. Only one child request may be outstanding per script. See [sandbox and lifecycle rules](../schema.md#inline-request-scripts) and [examples](examples.md).",
+    "",
+  ].join("\n")
+}
 
 // Supporting value shapes; callable names, signatures, and phase capabilities
 // come exclusively from SCRIPT_API_CONTRACT (including random/time catalogs).
@@ -85,8 +115,11 @@ export function generateScriptDeclarations(editorPhase?: ScriptPhase): string {
         `/** ${entry.description} Tests phase only. */\ndeclare function ${entry.signature.replace(/\bMatchers\b/g, "NoodleScript.Matchers")};`,
     )
     .join("\n")
+  const globalDoc = (name: string) =>
+    SCRIPT_API_CONTRACT.find((entry) => entry.global === name && !entry.member)!
+      .description
   const globalType = editorPhase
     ? editorPhase[0]!.toUpperCase() + editorPhase.slice(1)
     : "Api"
-  return `// Generated from SCRIPT_API_CONTRACT. Run bun scripts/generate-script-api.ts.\n// The noodle global includes all phases; external editors cannot infer a file's execution phase.\n// Runtime phase checks remain authoritative. For phase-specific member checking, use a typed alias:\n// /** @type {NoodleScript.Post} */ const post = noodle;\n// Use NoodleScript.Pre or NoodleScript.Tests for other phases; test/expect globals are tests-only.\ndeclare namespace NoodleScript {\n${values}\ninterface ScriptResponse {\n${members("noodle", "response", "post")}\nreadonly execution?: JsonValue;\n}\ninterface Matchers {\n${members("expect", "")}\n}\ninterface Api {\n${members("noodle", "")}\n}\n${(["pre", "post", "tests"] as const).map((phase) => `interface ${phase[0]!.toUpperCase() + phase.slice(1)} {\n${members("noodle", "", phase)}\n}`).join("\n")}\n}\ndeclare const noodle: NoodleScript.${globalType};\ninterface Console {\n${members("console", "")}\n}\ndeclare var console: Console;\n${globals}\n`
+  return `// Generated from SCRIPT_API_CONTRACT. Run bun scripts/generate-script-api.ts.\n// The noodle global includes all phases; external editors cannot infer a file's execution phase.\n// Runtime phase checks remain authoritative. For phase-specific member checking, use a typed alias:\n// /** @type {NoodleScript.Post} */ const post = noodle;\n// Use NoodleScript.Pre or NoodleScript.Tests for other phases; test/expect globals are tests-only.\ndeclare namespace NoodleScript {\n${values}\ninterface ScriptResponse {\n${members("noodle", "response", "post")}\nreadonly execution?: JsonValue;\n}\ninterface Matchers {\n${members("expect", "")}\n}\ninterface Api {\n${members("noodle", "")}\n}\n${(["pre", "post", "tests"] as const).map((phase) => `interface ${phase[0]!.toUpperCase() + phase.slice(1)} {\n${members("noodle", "", phase)}\n}`).join("\n")}\n}\n/** ${globalDoc("noodle")} */\ndeclare const noodle: NoodleScript.${globalType};\ninterface Console {\n${members("console", "")}\n}\n/** ${globalDoc("console")} */\ndeclare var console: Console;\n${globals}\n`
 }
