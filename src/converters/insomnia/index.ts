@@ -4,7 +4,7 @@ import { mapExport } from "./map"
 export const insomniaImporter = {
   type: "insomnia" as const,
   detect: detectInsomnia,
-  import(content: string) {
+  async import(content: string) {
     let root: unknown
     try {
       root = JSON.parse(content)

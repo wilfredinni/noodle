@@ -13,8 +13,8 @@ function exportJson(resources: unknown[]): string {
 }
 
 describe("insomniaImporter", () => {
-  it("maps folders, HTTP requests, variables, bodies, auth, and environments", () => {
-    const result = insomniaImporter.import(
+  it("maps folders, HTTP requests, variables, bodies, auth, and environments", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         {
           _id: "req_nested",
@@ -127,8 +127,8 @@ describe("insomniaImporter", () => {
     ])
   })
 
-  it("maps form and binary bodies plus compatible authentication", () => {
-    const result = insomniaImporter.import(
+  it("maps form and binary bodies plus compatible authentication", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Bodies" },
         {
@@ -191,8 +191,8 @@ describe("insomniaImporter", () => {
     })
   })
 
-  it("maps XML bodies and preserves their MIME header", () => {
-    const result = insomniaImporter.import(
+  it("maps XML bodies and preserves their MIME header", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "XML" },
         {
@@ -219,8 +219,8 @@ describe("insomniaImporter", () => {
     })
   })
 
-  it("maps NTLM authentication", () => {
-    const result = insomniaImporter.import(
+  it("maps NTLM authentication", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "NTLM" },
         {
@@ -249,8 +249,8 @@ describe("insomniaImporter", () => {
     })
   })
 
-  it("maps known OAuth 1 and OAuth 2 authentication fields", () => {
-    const result = insomniaImporter.import(
+  it("maps known OAuth 1 and OAuth 2 authentication fields", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "OAuth" },
         {
@@ -314,8 +314,8 @@ describe("insomniaImporter", () => {
     })
   })
 
-  it("skips unsupported methods while keeping missing and blank methods as GET", () => {
-    const result = insomniaImporter.import(
+  it("skips unsupported methods while keeping missing and blank methods as GET", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Methods" },
         {
@@ -367,8 +367,8 @@ describe("insomniaImporter", () => {
     ).toEqual(["GET", "GET", "POST"])
   })
 
-  it("uses ascending metaSortKey order before export order", () => {
-    const result = insomniaImporter.import(
+  it("uses ascending metaSortKey order before export order", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Order" },
         {
@@ -412,8 +412,8 @@ describe("insomniaImporter", () => {
     ).toEqual(["Early", "Late", "Unkeyed", "Also Unkeyed"])
   })
 
-  it("uses safe unique names for environment files", () => {
-    const result = insomniaImporter.import(
+  it("uses safe unique names for environment files", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Environments" },
         {
@@ -438,8 +438,8 @@ describe("insomniaImporter", () => {
     ])
   })
 
-  it("handles cyclic environment parents without recursing forever", () => {
-    const result = insomniaImporter.import(
+  it("handles cyclic environment parents without recursing forever", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Cycles" },
         {
@@ -464,8 +464,8 @@ describe("insomniaImporter", () => {
     ])
   })
 
-  it("skips a cyclic folder edge while retaining reachable requests", () => {
-    const result = insomniaImporter.import(
+  it("skips a cyclic folder edge while retaining reachable requests", async () => {
+    const result = await insomniaImporter.import(
       exportJson([
         { _id: "wrk", _type: "workspace", name: "Folders" },
         {
@@ -501,40 +501,44 @@ describe("insomniaImporter", () => {
     ).toEqual(["Ping"])
   })
 
-  it("rejects invalid exports and leaves no HTTP requests for the caller to reject", () => {
-    expect(() => insomniaImporter.import("{}")).toThrow(
+  it("rejects invalid exports and leaves no HTTP requests for the caller to reject", async () => {
+    await expect(insomniaImporter.import("{}")).rejects.toThrow(
       "expected an Insomnia JSON v4 or v5 export",
     )
-    expect(() => insomniaImporter.import(exportJson([]))).toThrow(
+    await expect(insomniaImporter.import(exportJson([]))).rejects.toThrow(
       "expected exactly one workspace; export a single project instead",
     )
-    expect(() =>
+    await expect(
       insomniaImporter.import(
         exportJson([
           { _id: "wrk", _type: "workspace", name: "Invalid" },
           "not a resource",
         ]),
       ),
-    ).toThrow("resources must be an array of objects")
-    expect(() =>
+    ).rejects.toThrow("resources must be an array of objects")
+    await expect(
       insomniaImporter.import(
         exportJson([{ _type: "workspace", name: "Missing ID" }]),
       ),
-    ).toThrow("workspace is missing _id")
-    expect(() =>
+    ).rejects.toThrow("workspace is missing _id")
+    await expect(
       insomniaImporter.import(
         exportJson([
           { _id: "one", _type: "workspace", name: "One" },
           { _id: "two", _type: "workspace", name: "Two" },
         ]),
       ),
-    ).toThrow("expected exactly one workspace; export a single project instead")
+    ).rejects.toThrow(
+      "expected exactly one workspace; export a single project instead",
+    )
     expect(
-      insomniaImporter.import(
-        exportJson([
-          { _id: "wrk", _type: "workspace", name: "Empty" },
-          { _id: "ws", _type: "web_socket_request", parentId: "wrk" },
-        ]),
+      (
+        await insomniaImporter.import(
+          exportJson([
+            { _id: "wrk", _type: "workspace", name: "Empty" },
+            { _id: "ws", _type: "web_socket_request", parentId: "wrk" },
+          ]),
+        )
       ).collection.items,
     ).toEqual([])
   })

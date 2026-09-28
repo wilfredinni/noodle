@@ -23,7 +23,7 @@ export interface ImportResult {
 export interface Importer {
   type: string
   detect(content: string): boolean
-  import(content: string): ImportResult
+  import(content: string): ImportResult | Promise<ImportResult>
 }
 
 const _registry: Importer[] = []

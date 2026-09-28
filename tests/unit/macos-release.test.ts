@@ -54,6 +54,52 @@ const releaseTargets = [
 ]
 
 describe("release platforms", () => {
+  it("tests response downloads against the exact release binary before upload", () => {
+    const steps = workflow.jobs.build.steps!
+    const smoke = steps.findIndex(
+      (step) => step.name === "Smoke test compiled binary",
+    )
+    const upload = steps.findIndex(
+      (step) => step.name === "Upload build artifact",
+    )
+    expect(smoke).toBeGreaterThanOrEqual(0)
+    expect(smoke).toBeLessThan(upload)
+    expect(steps[smoke]!.run).toContain(
+      'NOODLE_TEST_BINARY="$PWD/noodle-${{ matrix.target }}" bun test tests/integration/binaryResponse.test.ts --timeout=30000',
+    )
+  })
+  it.each([
+    ["release", workflow.jobs.build],
+    ["CI", ci.jobs["response-files"]],
+  ] as const)(
+    "%s builds reject stale generated artifacts and avoid shared dependency caches",
+    (_name, job) => {
+      const steps = job.steps!
+      expect(steps.some((step) => step.uses?.startsWith("actions/cache"))).toBe(
+        false,
+      )
+      const install = steps.findIndex(
+        (step) => step.run === "bun install --frozen-lockfile",
+      )
+      const compile = steps.findIndex((step) =>
+        step.run?.includes("bun build --compile"),
+      )
+      expect(install).toBeGreaterThanOrEqual(0)
+      expect(compile).toBeGreaterThan(install)
+      for (const command of [
+        "bun run script:check",
+        "bun scripts/build-schema-validator.ts --check",
+        "bun scripts/build-script-type-libraries.ts --check",
+      ]) {
+        const check = steps.findIndex((step) =>
+          step.run?.split(" && ").includes(command),
+        )
+        expect(check).toBeGreaterThan(install)
+        expect(check).toBeLessThan(compile)
+      }
+    },
+  )
+
   it("keeps tag publication and read-only builds with rerunnable artifact transfers", () => {
     expect(workflow.on.push).toEqual({ tags: ["v*"] })
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false)

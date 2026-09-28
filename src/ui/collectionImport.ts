@@ -31,10 +31,13 @@ export function formatCollectionImportMessage(
     `Imported with ${warnings.length} unconverted script(s).`,
     ...warnings
       .slice(0, 3)
-      .map(
-        ({ itemPath, phase, unsupportedGlobals, reason }) =>
-          `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})${unsupportedGlobals?.length ? `\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}` : reason ? `\n  ${label(reason, 60)}` : ""}`,
-      ),
+      .map(({ itemPath, phase, unsupportedGlobals, reason }) => {
+        const header = `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`
+        if (unsupportedGlobals?.length)
+          return `${header}\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}`
+        if (reason) return `${header}\n  ${label(reason, 60)}`
+        return header
+      }),
     ...(warnings.length > 3 ? [`and ${warnings.length - 3} more`] : []),
     "Unconverted scripts were omitted. Review before sending.",
   ].join("\n")

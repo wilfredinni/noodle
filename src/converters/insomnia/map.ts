@@ -326,7 +326,7 @@ function mapEnvironments(
   return envs
 }
 
-export function mapExport(root: RawResource): ImportResult {
+export async function mapExport(root: RawResource): Promise<ImportResult> {
   const rawResources = root.resources
   if (
     !Array.isArray(rawResources) ||
@@ -371,7 +371,7 @@ export function mapExport(root: RawResource): ImportResult {
       if (!stringValue(resource[phase]).trim()) continue
       const target = phase === "preRequestScript" ? "pre" : "post"
       const source = stringValue(resource[phase])
-      const analysis = scriptCompatibility(source, target)
+      const analysis = await scriptCompatibility(source, target)
       if (
         resource._type === "request" &&
         phase !== "code" &&

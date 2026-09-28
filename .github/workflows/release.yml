@@ -115,13 +115,8 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun scripts/build-script-type-libraries.ts --check && bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
+      - run: bun run script:check && bun scripts/build-schema-validator.ts --check && bun scripts/build-script-type-libraries.ts --check && bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
       - run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle-${{ matrix.target }}
       - name: Sign and verify macOS binary
         run: bun scripts/sign-macos-binary.ts "./noodle-${{ matrix.target }}"
@@ -136,6 +131,7 @@ jobs:
             echo "Compiled binary reported $actual, expected $expected" >&2
             exit 1
           }
+          NOODLE_TEST_BINARY="$PWD/noodle-${{ matrix.target }}" bun test tests/integration/binaryResponse.test.ts --timeout=30000
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

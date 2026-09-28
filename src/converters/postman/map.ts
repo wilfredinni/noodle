@@ -462,12 +462,12 @@ function mapRequest(
   }
 }
 
-function mapEvents(
+async function mapEvents(
   item: Record<string, unknown>,
   path: string[],
   request: boolean,
   warnings: ImportWarning[],
-): ScriptFields {
+): Promise<ScriptFields> {
   const fields: ScriptFields = {}
   const events = Array.isArray(item.event) ? item.event : []
   for (const event of events) {
@@ -495,7 +495,7 @@ function mapEvents(
           : undefined
     const analysis =
       source !== undefined
-        ? scriptCompatibility(source, target ?? "tests")
+        ? await scriptCompatibility(source, target ?? "tests")
         : undefined
     const duplicate =
       events.filter(
@@ -525,21 +525,26 @@ function mapEvents(
   return fields
 }
 
-function mapItems(
+async function mapItems(
   items: PropertyList<Item | ItemGroup> | undefined,
   parentPath: string,
   usedIds: Set<string>,
   parentNames: string[],
   warnings: ImportWarning[],
-): CollectionItem[] {
+): Promise<CollectionItem[]> {
   if (!items) return []
   const result: CollectionItem[] = []
   let idx = 0
 
-  items.each((item) => {
+  for (const item of items.all()) {
     idx++
     const names = [...parentNames, item.name || `item-${idx}`]
-    const fields = mapEvents(item.toJSON(), names, !("items" in item), warnings)
+    const fields = await mapEvents(
+      item.toJSON(),
+      names,
+      !("items" in item),
+      warnings,
+    )
 
     if ("items" in item) {
       const itemGroup = item as ItemGroup
@@ -560,7 +565,13 @@ function mapItems(
           path: path.slice(0, -1),
           overrides,
           ...fields,
-          children: mapItems(itemGroup.items, path, usedIds, names, warnings),
+          children: await mapItems(
+            itemGroup.items,
+            path,
+            usedIds,
+            names,
+            warnings,
+          ),
         },
       })
     } else {
@@ -572,17 +583,23 @@ function mapItems(
         },
       })
     }
-  })
+  }
 
   return result
 }
 
-export function mapCollection(col: Collection): ImportResult {
+export async function mapCollection(col: Collection): Promise<ImportResult> {
   const name = col.name || "postman-import"
   const collectionId = slugify(name)
   const warnings: ImportWarning[] = []
-  const fields = mapEvents(col.toJSON(), [name], false, warnings)
-  const rootItems = mapItems(col.items, "", new Set<string>(), [name], warnings)
+  const fields = await mapEvents(col.toJSON(), [name], false, warnings)
+  const rootItems = await mapItems(
+    col.items,
+    "",
+    new Set<string>(),
+    [name],
+    warnings,
+  )
 
   const envVars: Record<string, string> = {}
   try {

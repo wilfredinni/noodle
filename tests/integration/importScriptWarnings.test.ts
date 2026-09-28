@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from "bun:test"
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { postmanImporter } from "../../src/converters/postman"
@@ -75,8 +75,44 @@ const insomnia = () => ({
   ],
 })
 
-it("detects Postman collection, folder and request phases without converting source", () => {
-  const result = postmanImporter.import(JSON.stringify(postman()))
+it("rejects collection scripts at an existing default-output target before any writes", async () => {
+  const input = postman()
+  input.event = []
+  input.item[0]!.event = []
+  input.item[0]!.item[0]!.event = []
+  const source = join(dir, "source.json")
+  await writeFile(source, JSON.stringify(input))
+  const result = await runImport({ source, outputDir: dir, silent: true })
+  const settingsPath = join(result.path, "settings.yml")
+  const settings = await readFile(settingsPath, "utf8")
+  const existing = "name: Existing\nmethod: GET\nurl: http://127.0.0.1/\n"
+  await writeFile(join(result.path, "existing.yml"), existing)
+  const before = await readdir(result.path, { recursive: true })
+  input.event = [
+    {
+      listen: "prerequest",
+      script: {
+        type: "text/javascript",
+        exec: ['noodle.request.headers.set("X-Imported", "yes")'],
+      },
+    },
+  ]
+  input.item[0]!.item[0]!.name = "New request"
+  await writeFile(source, JSON.stringify(input))
+  await expect(
+    runImport({ source, outputDir: dir, silent: true }),
+  ).rejects.toThrow(
+    "Collection scripts require importing into a new collection",
+  )
+  expect(await readFile(settingsPath, "utf8")).toBe(settings)
+  expect(await readFile(join(result.path, "existing.yml"), "utf8")).toBe(
+    existing,
+  )
+  expect(await readdir(result.path, { recursive: true })).toEqual(before)
+})
+
+it("detects Postman collection, folder and request phases without converting source", async () => {
+  const result = await postmanImporter.import(JSON.stringify(postman()))
   expect(
     result.warnings?.map(({ itemPath, phase }) => [itemPath, phase]),
   ).toEqual([
@@ -89,9 +125,9 @@ it("detects Postman collection, folder and request phases without converting sou
   expect(JSON.stringify(result.collection)).not.toContain('"scripts"')
 })
 
-it("detects Insomnia script phases in JSON v4 and v5 without rewriting APIs", () => {
+it("detects Insomnia script phases in JSON v4 and v5 without rewriting APIs", async () => {
   for (const version of [4, 5]) {
-    const result = insomniaImporter.import(
+    const result = await insomniaImporter.import(
       JSON.stringify({ ...insomnia(), __export_format: version }),
     )
     expect(
@@ -107,21 +143,23 @@ it("detects Insomnia script phases in JSON v4 and v5 without rewriting APIs", ()
   }
 })
 
-it("keeps script-free and empty-script imports warning-free", () => {
+it("keeps script-free and empty-script imports warning-free", async () => {
   const pm = postman()
   pm.event = []
   pm.item[0]!.event = []
   pm.item[0]!.item[0]!.event = [
     { listen: "test", script: { type: "text/javascript", exec: ["", " "] } },
   ]
-  expect(postmanImporter.import(JSON.stringify(pm)).warnings).toBeUndefined()
+  expect(
+    (await postmanImporter.import(JSON.stringify(pm))).warnings,
+  ).toBeUndefined()
   const input = insomnia()
   for (const resource of input.resources) {
     resource.preRequestScript = ""
     resource.afterResponseScript = " "
   }
   expect(
-    insomniaImporter.import(JSON.stringify(input)).warnings,
+    (await insomniaImporter.import(JSON.stringify(input))).warnings,
   ).toBeUndefined()
 })
 
@@ -242,7 +280,7 @@ it("preserves compatible Postman placement and literal source, then executes inh
   }
 })
 
-it("preserves only compatible Insomnia request hooks without synthesizing inherited tests", () => {
+it("preserves only compatible Insomnia request hooks without synthesizing inherited tests", async () => {
   const input = insomnia()
   input.resources[0]!.preRequestScript = 'console.log("workspace")'
   input.resources[1]!.afterResponseScript = 'console.log("folder")'
@@ -250,7 +288,7 @@ it("preserves only compatible Insomnia request hooks without synthesizing inheri
     'noodle.request.headers.set("X-Time", String(Date.now()))'
   input.resources[2]!.afterResponseScript =
     'if (noodle.response.status === 200) noodle.run.set("id", noodle.response.json().id)'
-  const result = insomniaImporter.import(JSON.stringify(input))
+  const result = await insomniaImporter.import(JSON.stringify(input))
   expect(result.warnings).toHaveLength(2)
   const folder = result.collection.items[0]!
   expect(result.collection.scripts).toBeUndefined()
@@ -265,7 +303,7 @@ it("preserves only compatible Insomnia request hooks without synthesizing inheri
   })
 })
 
-it("warns instead of concatenating duplicate events or enabling disabled, external and package scripts", () => {
+it("warns instead of concatenating duplicate events or enabling disabled, external and package scripts", async () => {
   const input = postman()
   input.event = []
   input.item[0]!.event = []
@@ -294,7 +332,7 @@ it("warns instead of concatenating duplicate events or enabling disabled, extern
     [{ ...hook, script: { ...hook.script, exec: ["const broken = ;"] } }],
   ]) {
     input.item[0]!.item[0]!.event = events
-    const result = postmanImporter.import(JSON.stringify(input))
+    const result = await postmanImporter.import(JSON.stringify(input))
     expect(result.warnings?.length).toBeGreaterThan(0)
     expect(JSON.stringify(result.collection)).not.toContain('"scripts"')
     expect(JSON.stringify(result.warnings)).not.toContain("literal-secret")

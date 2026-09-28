@@ -2,12 +2,10 @@ import ts from "typescript-js"
 import {
   SCRIPT_API_CONTRACT,
   SCRIPT_LIMITS,
-  loadScriptSyntaxValidator,
+  validateScriptSyntax,
   type ScriptPhase,
 } from "../preRequestScript"
 import type { ImportWarning } from "./index"
-
-const validateSyntax = await loadScriptSyntaxValidator()
 
 // Deliberately narrower than QuickJS: no indirect global access or dynamic code.
 export const SCRIPT_IMPORT_GLOBALS = Object.freeze([
@@ -53,12 +51,19 @@ export type ScriptCompatibility = {
   reason?: "syntax" | "unsupported-globals" | "unverifiable"
 }
 
-export function scriptCompatibility(
+export async function scriptCompatibility(
   source: string,
   phase: ScriptPhase,
-): ScriptCompatibility {
+): Promise<ScriptCompatibility> {
   try {
-    return analyzeScriptCompatibility(source, phase)
+    const analysis = analyzeScriptCompatibility(source, phase)
+    if (
+      analysis.compatible &&
+      source.trim() &&
+      (await validateScriptSyntax(source))
+    )
+      return { compatible: false, unsupportedGlobals: [], reason: "syntax" }
+    return analysis
   } catch {
     return { compatible: false, unsupportedGlobals: [], reason: "unverifiable" }
   }
@@ -226,6 +231,15 @@ function analyzeScriptCompatibility(
     const path = apiPath(node)
     if (path) {
       if (!paths.has(path)) uncertain = true
+      // Async request results require data-flow analysis; leave these scripts unconverted.
+      if (
+        entries.some(
+          (entry) =>
+            `${entry.global}.${entry.member}` === path &&
+            entry.signature.includes("): Promise<"),
+        )
+      )
+        uncertain = true
       const parent = node.parent
       if (
         (ts.isBinaryExpression(parent) &&
@@ -286,7 +300,6 @@ function analyzeScriptCompatibility(
   visit(file)
   if (unsupported.size) return reject("unsupported-globals")
   if (uncertain) return reject("unverifiable")
-  if (validateSyntax(source)) return reject("syntax")
   return { compatible: true, unsupportedGlobals: [] }
 }
 
