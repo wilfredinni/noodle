@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from "bun:test"
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { filestore, saveSettings, loadSettings } from "../../src/filestore"
@@ -31,7 +31,7 @@ const block = (name: string): ScriptFields => ({
     pre: `const local = "${name}"; noodle.run.set("order", (noodle.run.get("order") || "") + local + "-pre,");`,
     post: `const local = "${name}"; noodle.run.set("order", noodle.run.get("order") + local + "-post,"); console.log(local);`,
   },
-  tests: `const local = "${name}"; test(local, () => expect(noodle.run.get("order")).toBe("root-pre,outer-pre,inner-pre,request-pre,request-post,inner-post,outer-post,root-post,"))`,
+  tests: `const local = "${name}"; test(local, () => expect(noodle.run.get("order")).toBe("root-pre,outer-pre,inner-pre,request-pre,root-post,outer-post,inner-post,request-post,"))`,
 })
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-inheritance-"))
@@ -94,16 +94,16 @@ it("bounds diagnostics across inherited blocks without hiding failed tests or le
       level: "log",
       message: "[TRUNCATED]",
       source: {
-        scope: "collection",
-        path: "settings.yml",
-        scopeId: dir.split("/").at(-1),
+        scope: "folder",
+        path: "outer/folder.yml",
+        scopeId: "outer",
         sourceKind: "inline",
       },
     },
   ])
 })
 
-it("round-trips inherited literal blocks with ascending pre/tests and descending post scopes", async () => {
+it("round-trips inherited literal blocks in collection-to-request order for every phase", async () => {
   const root = block("root")
   await saveSettings(dir, { cookies: { enabled: false }, ...root })
   expect((await loadSettings(dir)).scripts).toEqual(root.scripts)
@@ -133,10 +133,10 @@ it("round-trips inherited literal blocks with ascending pre/tests and descending
     "outer/folder.yml",
     "outer/inner/folder.yml",
     "outer/inner/request.yml",
-    "outer/inner/request.yml",
-    "outer/inner/folder.yml",
-    "outer/folder.yml",
     "settings.yml",
+    "outer/folder.yml",
+    "outer/inner/folder.yml",
+    "outer/inner/request.yml",
   ])
   expect(result.result.tests?.results.map((test) => test.name)).toEqual([
     "root",
@@ -148,6 +148,56 @@ it("round-trips inherited literal blocks with ascending pre/tests and descending
   expect(JSON.stringify(audit)).not.toContain("unknown field")
   expect((await filestore.loadCollection(dir)).scripts).toEqual(root.scripts)
 })
+
+it.each(["request", "collection"] as const)(
+  "lets request post writes win in a %s run with ordered persistence",
+  async (mode) => {
+    const post = (value: string) => ({
+      post: `noodle.run.set("WINNER", "${value}", { persist: "environment" })`,
+    })
+    await saveSettings(dir, {
+      cookies: { enabled: false },
+      scripts: post("collection"),
+    })
+    await writeFile(
+      join(dir, "outer/folder.yml"),
+      lang.serializeFolder({
+        id: "outer",
+        path: "outer",
+        name: "Outer",
+        children: [],
+        scripts: post("folder"),
+      }),
+    )
+    await mkdir(join(dir, ".environments"))
+    const environmentFile = join(dir, ".environments/dev.env")
+    await writeFile(environmentFile, "WINNER=baseline\n")
+    const req = request("outer/request", {
+      scripts: post("request"),
+      tests:
+        'test("request wins", () => expect(noodle.run.get("WINNER")).toBe("request"))',
+    })
+    await writeFile(join(dir, `${req.id}.yml`), lang.serializeRequest(req))
+    const result =
+      mode === "request"
+        ? (await requestRun(req.id, dir, "dev", undefined, true)).result
+        : (await collectionRun(dir, "dev", undefined, true)).results[0]!
+    expect(result.tests?.results[0]?.passed).toBe(true)
+    expect(result.scripts?.results.map((script) => script.success)).toEqual([
+      true,
+      true,
+      true,
+    ])
+    expect(
+      result.scripts?.results.flatMap((script) =>
+        script.persistence?.map((outcome) => outcome.status),
+      ),
+    ).toEqual(Array(3).fill(mode === "request" ? "saved" : "transient"))
+    expect(await readFile(environmentFile, "utf8")).toContain(
+      `WINNER=${mode === "request" ? "request" : "baseline"}`,
+    )
+  },
+)
 
 it("stops pre on failure, discards only that block, and preserves ordered persistence", async () => {
   await saveSettings(dir, {
@@ -245,12 +295,12 @@ it("continues posts and test blocks after errors, preserving rollback and every 
     execution.scripts?.results.flatMap((script) =>
       script.error ? [script.error.message] : [],
     ),
-  ).toEqual(["request-post", "root-post"])
+  ).toEqual(["root-post", "request-post"])
   expect(
     execution.scripts?.results.flatMap((script) =>
       script.logs.map((log) => log.message),
     ),
-  ).toEqual(["request", "folder", "collection"])
+  ).toEqual(["collection", "folder", "request"])
   expect(execution.assertions?.results[0]?.passed).toBe(true)
   expect(execution.tests?.results.map((test) => test.passed)).toEqual([
     true,

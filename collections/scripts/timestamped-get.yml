@@ -5,7 +5,7 @@ timeout: 0
 followRedirects: true
 maxRedirects: 5
 scripts:
-  pre: |-
+  pre: |2-
     const now = noodle.time.now();
     const timestamp = noodle.time.iso(now);
     const expiresAt = noodle.time.add(now, 15, "minutes");
@@ -21,8 +21,12 @@ scripts:
       noodle.crypto.sha256(timestamp + ":" + noodle.request.url, "hex"),
     );
     console.info("Added timestamp and request digest");
-  post: |-
-    const remaining = noodle.time.diff(noodle.run.get("expiresAt"), noodle.time.now(), "seconds");
+  post: |2-
+    const remaining = noodle.time.diff(
+      noodle.run.get("expiresAt"),
+      noodle.time.now(),
+      "seconds"
+    );
     console.info("Expiration window remaining (seconds):", remaining);
 assert:
   - expression: status
@@ -31,5 +35,3 @@ assert:
   - expression: body.id
     operator: equals
     value: 1
-auth:
-  type: none

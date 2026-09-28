@@ -481,7 +481,7 @@ export async function executeRequestLifecycle(options: {
         rawCaptures = results
       },
       async () => {
-        for (const block of blocks.toReversed()) {
+        for (const block of blocks) {
           if (block.post === undefined) continue
           const post = await runRequestScript(
             "post",

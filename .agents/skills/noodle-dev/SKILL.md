@@ -135,8 +135,9 @@ retain child bodies. See [the public contract](../noodle-use/schema.md#async-scr
 ## Inheritance, schemas, and iteration data
 
 `scriptInheritance.ts` builds collection/folder/request blocks for the shared lifecycle.
-Pre and tests run collection to request; post runs request to nearest folder,
-outer folders, then collection. Root `folder.yml` is ignored.
+Pre, post, and tests run collection to outermost folder to nearest folder to
+request. The most specific successful post write wins, including persisted
+writes. Root `folder.yml` is ignored.
 Keep separate invocations, per-block rollback, ordered persistence, source origins,
 and legacy test error compatibility. `scriptSchemaValidator.ts` is bundled for QuickJS
 with `bun scripts/build-schema-validator.ts`; check the committed bundle with `--check`.

@@ -80,11 +80,12 @@ string or a collection-relative external reference such as `./scripts/sign.js`.
 Empty strings are no-ops and are omitted by canonical serialization.
 
 For every request: collection pre → folder pre (outermost to nearest) → request
-pre → HTTP → captures → request post → folder post (nearest to outermost) →
-collection post → assertions → tests (collection, outer folders, inner folders,
+pre → HTTP → captures → collection post → folder post (outermost to nearest) →
+request post → assertions → tests (collection, outer folders, inner folders,
 request). Collection and folder hooks run once per request, including each selected
 request and dataset row. Ancestors use file paths, not display names; root
 `folder.yml` remains ignored. Existing inherited tests remain supported.
+The most specific successful post write wins, including persisted writes.
 
 Every block has a fresh QuickJS invocation. JavaScript locals are isolated;
 successful RunScope writes are visible to later blocks. A pre failure stops
@@ -277,8 +278,8 @@ scopes.
 
 The complete order is folder merge, environment/RunScope overlay, one
 substitution pass, pre blocks (collection, outer folders, inner folders, request),
-HTTP, capture commits, post blocks (request, inner folders, outer folders,
-collection), assertions, then tests (collection, outer folders, inner folders, request).
+HTTP, capture commits, post blocks (collection, outer folders, inner folders,
+request), assertions, then tests (collection, outer folders, inner folders, request).
 Assertion expectations keep the original substitution pass, not a second pass after post.
 Post runs once for every completed response, including HTTP and capture errors,
 but never for intermediate redirects/auth challenges or transport failures. It
@@ -791,7 +792,7 @@ Every manual send and automation request follows this order:
 5. Commit successful script request and RunScope mutations.
 6. Send the prepared request.
 7. Evaluate and commit captures in declaration order.
-8. Execute post blocks in request, inner folder, outer folder, collection order using committed captures and the final prepared request; commit
+8. Execute post blocks in collection, outer folder, inner folder, request order using committed captures and the final prepared request; commit
    successful transient RunScope and URL-scoped cookie changes together.
 9. Evaluate assertions against the same response views, including after post failure.
 10. Execute test blocks in collection, outer folder, inner folder, request order, including after any completed response failure.
