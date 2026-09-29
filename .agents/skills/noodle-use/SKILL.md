@@ -46,10 +46,11 @@ JavaScript and checking free identifiers against Noodle's contract and a
 conservative ECMAScript allowlist. Read ordered `data.warnings` in `--json`:
 `itemPath`, original `phase`, `format`, `code`, `reason`, `unsupportedGlobals`, and
 safe `message`. Never reconstruct omitted scripts with regex replacements.
-Postman pre-request events map to collection/folder/request pre; only request
-`test` events map to tests. Insomnia preserves request pre/post hooks only.
+Imports retaining scripts or tests require a new collection; current or existing
+targets are rejected before writes. Postman pre-request events map to
+collection/folder/request pre; only request `test` events map to tests. Insomnia preserves request pre/post hooks only.
 Foreign APIs, plugins, modules, duplicate Postman phases, disabled events,
-external Postman sources, API aliases, computed access, reflection, and async
+external Postman sources, API aliases, dynamic access, reflection, and async
 source are left unconverted. Script-free requests import normally. See
 [import details](workflows/import.md#script-compatibility).
 

@@ -207,12 +207,13 @@ Insomnia JSON v4/v5 request `preRequestScript` and `afterResponseScript` map to
 Noodle pre and post. Workspace/group hooks and standalone test resources are
 reported without inventing inheritance. Postman collection/folder test events
 are also reported without adding inherited tests. A collection pre script is
-saved in the new collection's `settings.yml`. Importing that collection into an
-existing collection is rejected before writes; import into a new collection to
-avoid applying its script to unrelated requests.
+saved in the new collection's `settings.yml`. Any import retaining scripts or
+tests at collection, folder, or request scope requires a new collection. Current
+collection imports and CLI targets that already exist are rejected before writes;
+choose a new destination to preserve the imported execution context.
 
 Compatibility is deliberately conservative: syntax errors, unsupported free
-globals, indirect/computed access, API namespace aliases, reflection, async
+globals, indirect/dynamic access, API namespace aliases, reflection, async
 source, duplicate Postman phases, disabled events, non-JavaScript event types,
 and external/package sources stay unconverted. Some valid Noodle scripts need
 manual review. Supported Noodle runtime capabilities are unchanged by this
@@ -237,6 +238,7 @@ Insomnia export resource order, pre then post), with this safe shape:
 `reason` is `syntax`, `unsupported-globals`, `unverifiable`, or
 `unsupported-placement`. The CLI's JSON envelope carries `data.warnings` when
 warnings exist. Human output summarizes them; TUI import notifications display
-a bounded preview with unsupported names and an omitted count. Warnings contain
+a bounded preview with unsupported names and an omitted count in a scrollable
+notification before the new-collection open confirmation. Warnings contain
 no script text or literal argument values. Review locations and rewrite omitted
 hooks explicitly before relying on an imported workflow.

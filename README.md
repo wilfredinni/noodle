@@ -81,7 +81,9 @@ to create a collection, send your first request, and inspect the response.
 - 🔄 **[Import](https://noodlerest.dev/docs/import/import/) and
   [export](https://noodlerest.dev/docs/import/export/):**
   Bring OpenAPI, Swagger, Postman, and Insomnia collections into Noodle;
-  export to OpenAPI or Postman.
+  preserve compatible Postman and Insomnia scripts without translating foreign APIs.
+  Imports that retain scripts or tests require a new collection.
+  Export to OpenAPI or Postman.
 - 🤖 **[AI agent skills](https://noodlerest.dev/docs/guides/ai-agent-skills/):**
   Install the Noodle skill with `noodle agent install` so coding agents can
   create, maintain, and run collections.

@@ -4,9 +4,31 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
-### Changed
+## [0.9.6] - 2026-09-29
 
-- Run inherited pre scripts, post scripts, and tests in the same collection → outermost folder → nearest folder → request order. Post scripts still run after captures and before assertions/tests. This changes the post order from 0.9.4 and 0.9.5: the most specific successful post write now wins, including persisted writes. Update collection or folder post scripts that depend on values produced by a later request post script.
+Noodle 0.9.6 preserves compatible Postman and Insomnia scripts during import without translating foreign APIs. Inherited post scripts now follow the same collection-to-request order as pre scripts and tests, while clearer import warnings help you review omitted behavior before sending requests.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-6-compatible-script-imports/)
+
+### ✨ Features
+
+- Preserve compatible Postman pre-request events as collection, folder, or request pre scripts, and compatible request test events as Noodle tests. Insomnia v4/v5 imports preserve compatible request pre/post hooks. Accepted source is copied literally after static compatibility checks and compile-only syntax validation; import never executes scripts or loads referenced files or packages. Foreign APIs, unsupported placements, ambiguous access, async source, duplicate or disabled Postman events, and external/package sources remain unconverted with structured warnings.
+
+### 🐞 Fixes
+
+- Run inherited pre scripts, post scripts, and tests in the same collection → outermost folder → nearest folder → request order. Post scripts still run after captures and before assertions/tests, and execution-order inspection follows the same order. This changes the post order from 0.9.4 and 0.9.5: the most specific successful post write now wins, including persisted writes. Update collection or folder post scripts that depend on values produced by a later request post script.
+- Reject imports that retain scripts or tests into current or existing collection targets before any writes. Import into a new collection instead; script-free imports keep their existing behavior.
+- Show unconverted-script warnings in a scrollable TUI notification before asking to open the new collection. CLI and TUI summaries identify omitted scripts, and structured warnings include unsupported global names or a compatibility/placement reason without exposing script source or literal argument values.
+
+### 🔧 Refactors
+
+- Validate generated scripting artifacts in CI and release builds, and test binary-response behavior with the compiled release binaries. CI and release jobs now use Bun 1.4.2.
+
+### 📚 Documentation
+
+- Update `noodle-use` with compatible script-import rules, warning fields, a generated scripting API reference with phase capabilities and fixed limits, online troubleshooting guidance, and the corrected inherited post order.
+- Update `noodle-dev` with the corrected inherited post order, asynchronous importer validation, script placement and destination safeguards, and generated scripting-artifact checks.
+- Synchronize the README, agent instructions, import and agent-skill guides, automation version example, in-app tips, and release article.
 
 ## [0.9.5] - 2026-09-27
 
