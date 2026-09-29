@@ -25,6 +25,7 @@ describe("Toast", () => {
             format: "postman",
             itemPath: ["Demo", "Login"],
             phase: "pre-request",
+            unsupportedGlobals: ["pm", "require"],
             message: "",
           },
           {
@@ -59,8 +60,9 @@ describe("Toast", () => {
       if (width >= 40) {
         expect(frame).toContain("Demo / Login (pre-request)")
         expect(frame).toContain("after-response")
+        expect(frame).toContain("Unsupported: pm, require")
         expect(frame).toContain("and 1 more")
-        expect(frame).toContain("converted.")
+        expect(frame).toContain("omitted.")
       }
       const toast = renderer.root
         .getChildren()
@@ -151,7 +153,7 @@ describe("Toast", () => {
     })
     await setup.renderOnce()
     expect(setup.captureCharFrame()).toContain("and 1 more")
-    expect(setup.captureCharFrame()).toContain("converted.")
+    expect(setup.captureCharFrame()).toContain("omitted.")
     expect(setup.renderer.root.findDescendantById("request-url")?.focused).toBe(
       true,
     )
@@ -161,7 +163,7 @@ describe("Toast", () => {
     act(() => setup.resize(80, 30))
     await setup.renderOnce()
     expect(setup.captureCharFrame()).toContain("Demo / Login")
-    expect(setup.captureCharFrame()).toContain("converted.")
+    expect(setup.captureCharFrame()).toContain("omitted.")
   })
 
   it("pauses dismissal while reading without taking keyboard focus", async () => {

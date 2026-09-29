@@ -98,6 +98,16 @@ function formatItems(items: CollectionItem[]): {
   return { items: formattedItems, formattedJsonBodies }
 }
 
+function hasScriptedItems(items: CollectionItem[]): boolean {
+  return items.some((item) =>
+    Boolean(
+      item.data.scripts ||
+      item.data.tests ||
+      (item.type === "folder" && hasScriptedItems(item.data.children)),
+    ),
+  )
+}
+
 function importPaths(
   items: CollectionItem[],
   environments: Environment[],
@@ -248,7 +258,7 @@ export async function runImport(options: ImportOptions): Promise<{
 
   let result: ImportResult
   try {
-    result = importer.import(content)
+    result = await importer.import(content)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(msg, { cause: e })
@@ -266,10 +276,28 @@ export async function runImport(options: ImportOptions): Promise<{
   }
 
   let collDir: string
+  if (options.destination?.kind === "current")
+    collDir = options.destination.collectionDir
+  else
+    collDir = join(
+      options.destination?.parentDir ?? outputDir,
+      result.collection.id,
+    )
+  const hasScripts = Boolean(
+    result.collection.scripts ||
+    result.collection.tests ||
+    hasScriptedItems(result.collection.items),
+  )
+  if (
+    hasScripts &&
+    (options.destination?.kind === "current" || existsSync(collDir))
+  )
+    throw new Error(
+      "Collection scripts require importing into a new collection",
+    )
   let overwrite = true
   const plannedPaths = importPaths(result.collection.items, result.environments)
   if (options.destination?.kind === "current") {
-    collDir = options.destination.collectionDir
     if (!existsSync(collDir) || !statSync(collDir).isDirectory()) {
       throw new Error(`import target is not a directory: ${collDir}`)
     }
@@ -284,7 +312,6 @@ export async function runImport(options: ImportOptions): Promise<{
     if (!existsSync(parentDir) || !statSync(parentDir).isDirectory()) {
       throw new Error(`import parent is not a directory: ${parentDir}`)
     }
-    collDir = join(parentDir, result.collection.id)
     if (existsSync(collDir)) {
       throw new Error(`import target already exists: ${collDir}`)
     }
@@ -292,8 +319,6 @@ export async function runImport(options: ImportOptions): Promise<{
     if (conflicts.length > 0) {
       throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
     }
-  } else {
-    collDir = join(outputDir, result.collection.id)
   }
 
   for (const path of plannedPaths) {
@@ -303,7 +328,9 @@ export async function runImport(options: ImportOptions): Promise<{
   let removePartialImport = false
   const initializeCollectionId = options.destination?.kind !== "current"
   try {
-    if (options.destination?.kind === "new") {
+    if (options.destination?.kind === "new" || hasScripts) {
+      if (!options.destination)
+        await mkdir(dirname(collDir), { recursive: true })
       await mkdir(collDir)
       removePartialImport = true
     }
@@ -332,6 +359,9 @@ export async function runImport(options: ImportOptions): Promise<{
       await saveSettings(collDir, {
         ...settings,
         collectionId: settings.collectionId ?? randomUUID(),
+        ...(result.collection.scripts
+          ? { scripts: result.collection.scripts }
+          : {}),
       })
     }
   } catch (e) {

@@ -122,11 +122,9 @@ Postman imports map:
 - Folder hierarchy → noodle folder structure
 - Folder auth → the matching nested `folder.yml` override
 - Request auth → inline `auth` on requests (or `inherit` if same as parent)
-- Pre-request/post-response scripts and tests → detected, not converted. Structured
-  warnings include the foreign item path, original phase, format, and a message
-  explaining that the foreign runtime API was not converted. Human output and
-  `--json` expose these warnings; no `pm.*` or `insomnia.*` rewrites are generated.
-  The same warning policy applies to supported Insomnia JSON imports.
+- Compatible pre-request events → collection, folder, or request `scripts.pre`
+- Compatible request test events → request `tests`; collection/folder test events
+  stay unconverted
 - Collection variables → environment file
 - Raw XML bodies → `body_type: xml` (from the raw language or XML Content-Type)
 
@@ -195,3 +193,50 @@ Always suggest the user:
 2. Run a few requests to verify auth and URL substitution work
 3. Adjust folder ordering with `seq`
 4. Add descriptive display names to folders
+
+## Script compatibility
+
+Source must already use supported Noodle APIs or the supported subset of
+ECMAScript globals. The importer uses the existing JavaScript parser, resolves
+lexical identifiers, checks direct API members against `SCRIPT_API_CONTRACT`, and
+copies accepted source literally. Import never executes scripts or loads their
+referenced files/packages. It does not translate `pm.*`, `postman.*`,
+`insomnia.*`, plugin `context`, `require()`, or package/module imports.
+
+Insomnia JSON v4/v5 request `preRequestScript` and `afterResponseScript` map to
+Noodle pre and post. Workspace/group hooks and standalone test resources are
+reported without inventing inheritance. Postman collection/folder test events
+are also reported without adding inherited tests. A collection pre script is
+saved in the new collection's `settings.yml`. Importing that collection into an
+existing collection is rejected before writes; import into a new collection to
+avoid applying its script to unrelated requests.
+
+Compatibility is deliberately conservative: syntax errors, unsupported free
+globals, indirect/computed access, API namespace aliases, reflection, async
+source, duplicate Postman phases, disabled events, non-JavaScript event types,
+and external/package sources stay unconverted. Some valid Noodle scripts need
+manual review. Supported Noodle runtime capabilities are unchanged by this
+import policy. A mixed import still preserves script-free requests and other
+compatible hooks.
+
+Warnings retain traversal order (Postman collection then depth-first items;
+Insomnia export resource order, pre then post), with this safe shape:
+
+```json
+{
+  "code": "foreign-script-not-converted",
+  "format": "postman",
+  "itemPath": ["Example", "Folder", "Request"],
+  "phase": "prerequest",
+  "unsupportedGlobals": ["pm", "require"],
+  "reason": "unsupported-globals",
+  "message": "Unsupported script globals: pm, require. Script was not converted."
+}
+```
+
+`reason` is `syntax`, `unsupported-globals`, `unverifiable`, or
+`unsupported-placement`. The CLI's JSON envelope carries `data.warnings` when
+warnings exist. Human output summarizes them; TUI import notifications display
+a bounded preview with unsupported names and an omitted count. Warnings contain
+no script text or literal argument values. Review locations and rewrite omitted
+hooks explicitly before relying on an imported workflow.

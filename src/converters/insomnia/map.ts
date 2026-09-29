@@ -6,8 +6,13 @@ import type {
   KvEntry,
   ParamEntry,
   Request,
+  ScriptFields,
 } from "../../schema"
 import type { ImportResult, ImportWarning } from "../index"
+import {
+  scriptCompatibility,
+  unconvertedScriptWarning,
+} from "../scriptCompatibility"
 import { METHOD_UPPER, setOwn, slugify } from "../shared"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
 
@@ -214,7 +219,7 @@ function mapFormData(value: unknown): FormEntry[] {
   })
 }
 
-function mapRequest(resource: RawResource, id: string): Request | undefined {
+function requestMethod(resource: RawResource): Request["method"] | undefined {
   const rawMethod = resource.method
   if (
     rawMethod !== undefined &&
@@ -225,7 +230,11 @@ function mapRequest(resource: RawResource, id: string): Request | undefined {
   }
   const methodKey =
     typeof rawMethod === "string" ? rawMethod.trim().toLowerCase() : ""
-  const method = methodKey === "" ? "GET" : METHOD_UPPER[methodKey]
+  return methodKey === "" ? "GET" : METHOD_UPPER[methodKey]
+}
+
+function mapRequest(resource: RawResource, id: string): Request | undefined {
+  const method = requestMethod(resource)
   if (!method) return undefined
   const followRedirects = resource.settingFollowRedirects
   return {
@@ -321,7 +330,7 @@ function mapEnvironments(
   return envs
 }
 
-export function mapExport(root: RawResource): ImportResult {
+export async function mapExport(root: RawResource): Promise<ImportResult> {
   const rawResources = root.resources
   if (
     !Array.isArray(rawResources) ||
@@ -333,6 +342,7 @@ export function mapExport(root: RawResource): ImportResult {
   }
   const resources = rawResources as RawResource[]
   const warnings: ImportWarning[] = []
+  const scriptFields = new Map<RawResource, ScriptFields>()
   const resourcesById = new Map(
     resources.map((resource) => [stringValue(resource._id), resource]),
   )
@@ -363,14 +373,30 @@ export function mapExport(root: RawResource): ImportResult {
       ...(resource._type === "unit_test" ? ["code"] : []),
     ]) {
       if (!stringValue(resource[phase]).trim()) continue
-      warnings.push({
-        code: "foreign-script-not-converted",
-        format: "insomnia",
-        itemPath: path,
-        phase: phase === "code" ? "test" : phase,
-        message:
-          "Insomnia runtime API was not converted; recreate this script in Noodle.",
-      })
+      const target = phase === "preRequestScript" ? "pre" : "post"
+      const source = stringValue(resource[phase])
+      const analysis = await scriptCompatibility(source, target)
+      if (
+        resource._type === "request" &&
+        phase !== "code" &&
+        requestMethod(resource) &&
+        analysis.compatible
+      ) {
+        const fields = scriptFields.get(resource) ?? {}
+        fields.scripts = {
+          ...fields.scripts,
+          [target]: source,
+        } as ScriptFields["scripts"]
+        scriptFields.set(resource, fields)
+      } else
+        warnings.push(
+          unconvertedScriptWarning(
+            "insomnia",
+            path,
+            phase === "code" ? "test" : phase,
+            analysis.compatible ? undefined : analysis,
+          ),
+        )
     }
   }
   const workspaces = resources.filter(
@@ -448,7 +474,10 @@ export function mapExport(root: RawResource): ImportResult {
         const request = mapRequest(resource, requestId)
         if (!request) continue
         usedIds.add(requestId)
-        items.push({ type: "request", data: request })
+        items.push({
+          type: "request",
+          data: { ...request, ...scriptFields.get(resource) },
+        })
       }
     }
     return items

@@ -23,6 +23,7 @@ import organize from "../.agents/skills/noodle-use/workflows/organize.md" with {
 import config from "../.agents/skills/noodle-use/reference/config.md" with { type: "text" }
 import conventions from "../.agents/skills/noodle-use/reference/conventions.md" with { type: "text" }
 import examples from "../.agents/skills/noodle-use/reference/examples.md" with { type: "text" }
+import scriptReference from "../.agents/skills/noodle-use/reference/script-api.md" with { type: "text" }
 
 export const NOODLE_SKILL_FILES = {
   "SKILL.md": skill,
@@ -37,6 +38,7 @@ export const NOODLE_SKILL_FILES = {
   "reference/config.md": config,
   "reference/conventions.md": conventions,
   "reference/examples.md": examples,
+  "reference/script-api.md": scriptReference,
 } as const
 
 export const NOODLE_SKILL_MARKER = ".noodle-managed"

@@ -22,9 +22,9 @@ function reqs(result: { collection: Collection }): Request[] {
   return flatten(result.collection.items)
 }
 
-describe("postmanImporter — TakaTaka.json integration", () => {
-  const result = postmanImporter.import(content)
+const result = await postmanImporter.import(content)
 
+describe("postmanImporter — TakaTaka.json integration", () => {
   it("detects as postman", () => {
     expect(postmanImporter.detect(content)).toBe(true)
   })
@@ -99,8 +99,8 @@ describe("postmanImporter — TakaTaka.json integration", () => {
 })
 
 describe("postmanImporter — query parameters", () => {
-  it("keeps query values in params instead of the request URL", () => {
-    const result = postmanImporter.import(
+  it("keeps query values in params instead of the request URL", async () => {
+    const result = await postmanImporter.import(
       JSON.stringify({
         info: {
           name: "Query API",

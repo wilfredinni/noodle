@@ -6,6 +6,12 @@ export interface ImportWarning {
   itemPath: string[]
   phase: string
   message: string
+  unsupportedGlobals?: string[]
+  reason?:
+    | "syntax"
+    | "unsupported-globals"
+    | "unverifiable"
+    | "unsupported-placement"
 }
 
 export interface ImportResult {
@@ -17,7 +23,7 @@ export interface ImportResult {
 export interface Importer {
   type: string
   detect(content: string): boolean
-  import(content: string): ImportResult
+  import(content: string): ImportResult | Promise<ImportResult>
 }
 
 const _registry: Importer[] = []

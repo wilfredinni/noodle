@@ -1419,6 +1419,7 @@ get(name: string): string | null;
 };
 }
 }
+/** Noodle scripting APIs. */
 declare const noodle: NoodleScript.Api;
 interface Console {
 /** Capture a log message. @phases pre, post, tests */
@@ -1430,6 +1431,7 @@ warn(...values: unknown[]): void;
 /** Capture an error message. @phases pre, post, tests */
 error(...values: unknown[]): void;
 }
+/** Bounded captured logging. */
 declare var console: Console;
 /** Run a named test and await its returned Promise. Tests phase only. */
 declare function test(name: string, callback: () => unknown): void | Promise<void>;

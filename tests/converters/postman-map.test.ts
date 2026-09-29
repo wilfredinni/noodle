@@ -4,7 +4,7 @@ import { Collection as PmCollection } from "postman-collection"
 import { mapCollection, convertTpl } from "../../src/converters/postman/map"
 import { interpolatePathParams } from "../../src/requests/send"
 
-function reqs(result: ReturnType<typeof mapCollection>): unknown[] {
+function reqs(result: Awaited<ReturnType<typeof mapCollection>>): unknown[] {
   function flatten(items: CollectionItem[]): unknown[] {
     const out: unknown[] = []
     for (const item of items) {
@@ -61,8 +61,8 @@ describe("convertTpl", () => {
 })
 
 describe("Postman NTLM import", () => {
-  it("maps all NTLM credential fields", () => {
-    const result = makeCollection({
+  it("maps all NTLM credential fields", async () => {
+    const result = await makeCollection({
       info: { name: "NTLM" },
       item: [
         {
@@ -95,8 +95,8 @@ describe("Postman NTLM import", () => {
 })
 
 describe("mapCollection — flat collection, single request", () => {
-  it("maps a minimal GET request with no body or auth", () => {
-    const result = makeCollection({
+  it("maps a minimal GET request with no body or auth", async () => {
+    const result = await makeCollection({
       info: { name: "Minimal" },
       item: [
         {
@@ -125,8 +125,8 @@ describe("mapCollection — flat collection, single request", () => {
 })
 
 describe("mapCollection — auth variants", () => {
-  it("maps bearer auth", () => {
-    const result = makeCollection({
+  it("maps bearer auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -147,8 +147,8 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "bearer", token: "$apiKey" })
   })
 
-  it("maps basic auth", () => {
-    const result = makeCollection({
+  it("maps basic auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -172,8 +172,8 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "basic", user: "admin", pass: "pass" })
   })
 
-  it("maps AWS Signature v4 auth", () => {
-    const result = makeCollection({
+  it("maps AWS Signature v4 auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -207,8 +207,8 @@ describe("mapCollection — auth variants", () => {
     })
   })
 
-  it("maps standard API key fields and templates", () => {
-    const result = makeCollection({
+  it("maps standard API key fields and templates", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -238,8 +238,8 @@ describe("mapCollection — auth variants", () => {
     })
   })
 
-  it("maps noauth to none", () => {
-    const result = makeCollection({
+  it("maps noauth to none", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -257,8 +257,8 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "none" })
   })
 
-  it("maps inherit auth", () => {
-    const result = makeCollection({
+  it("maps inherit auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -276,8 +276,8 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "inherit" })
   })
 
-  it("maps OAuth 2 auth", () => {
-    const result = makeCollection({
+  it("maps OAuth 2 auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -319,8 +319,8 @@ describe("mapCollection — auth variants", () => {
     })
   })
 
-  it("maps OAuth 1 auth", () => {
-    const result = makeCollection({
+  it("maps OAuth 1 auth", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -362,8 +362,8 @@ describe("mapCollection — auth variants", () => {
     })
   })
 
-  it("maps boolean OAuth 1 parameters retained by the Postman SDK", () => {
-    const result = makeCollection({
+  it("maps boolean OAuth 1 parameters retained by the Postman SDK", async () => {
+    const result = await makeCollection({
       info: { name: "Auth" },
       item: [
         {
@@ -392,8 +392,8 @@ describe("mapCollection — auth variants", () => {
 })
 
 describe("mapCollection — body variants", () => {
-  it("maps raw JSON body", () => {
-    const result = makeCollection({
+  it("maps raw JSON body", async () => {
+    const result = await makeCollection({
       info: { name: "Body" },
       item: [
         {
@@ -416,8 +416,8 @@ describe("mapCollection — body variants", () => {
     expect(r.bodyType).toBe("json")
   })
 
-  it("maps raw XML body from its language and content type", () => {
-    const result = makeCollection({
+  it("maps raw XML body from its language and content type", async () => {
+    const result = await makeCollection({
       info: { name: "XML" },
       item: [
         {
@@ -441,8 +441,8 @@ describe("mapCollection — body variants", () => {
     expect(request.headers["Content-Type"]?.value).toBe("application/soap+xml")
   })
 
-  it("maps raw XML from a content type without a language hint", () => {
-    const result = makeCollection({
+  it("maps raw XML from a content type without a language hint", async () => {
+    const result = await makeCollection({
       info: { name: "XML" },
       item: [
         {
@@ -465,8 +465,8 @@ describe("mapCollection — body variants", () => {
     expect((reqs(result)[0] as Request).bodyType).toBe("xml")
   })
 
-  it("does not treat an XML-valued JSON media parameter as XML", () => {
-    const result = makeCollection({
+  it("does not treat an XML-valued JSON media parameter as XML", async () => {
+    const result = await makeCollection({
       info: { name: "JSON" },
       item: [
         {
@@ -486,8 +486,8 @@ describe("mapCollection — body variants", () => {
     expect((reqs(result)[0] as Request).bodyType).toBe("json")
   })
 
-  it("maps urlencoded body", () => {
-    const result = makeCollection({
+  it("maps urlencoded body", async () => {
+    const result = await makeCollection({
       info: { name: "Body" },
       item: [
         {
@@ -515,8 +515,8 @@ describe("mapCollection — body variants", () => {
     expect(fd[0].value).toBe("test@test.com")
   })
 
-  it("maps formdata body with text and file fields", () => {
-    const result = makeCollection({
+  it("maps formdata body with text and file fields", async () => {
+    const result = await makeCollection({
       info: { name: "Body" },
       item: [
         {
@@ -560,8 +560,8 @@ describe("mapCollection — body variants", () => {
     })
   })
 
-  it("preserves disabled fields and file references", () => {
-    const result = makeCollection({
+  it("preserves disabled fields and file references", async () => {
+    const result = await makeCollection({
       info: { name: "Body" },
       item: [
         {
@@ -603,8 +603,8 @@ describe("mapCollection — body variants", () => {
 })
 
 describe("mapCollection — disabled headers and params", () => {
-  it("maps disabled headers with enabled: false", () => {
-    const result = makeCollection({
+  it("maps disabled headers with enabled: false", async () => {
+    const result = await makeCollection({
       info: { name: "Headers" },
       item: [
         {
@@ -631,8 +631,8 @@ describe("mapCollection — disabled headers and params", () => {
 })
 
 describe("mapCollection — nesting", () => {
-  it("maps nested folders recursively", () => {
-    const result = makeCollection({
+  it("maps nested folders recursively", async () => {
+    const result = await makeCollection({
       info: { name: "Nested" },
       item: [
         {
@@ -656,8 +656,8 @@ describe("mapCollection — nesting", () => {
     expect(r.name).toBe("NestedReq")
   })
 
-  it("produces folder in collection items", () => {
-    const result = makeCollection({
+  it("produces folder in collection items", async () => {
+    const result = await makeCollection({
       info: { name: "Foldered" },
       item: [
         {
@@ -682,8 +682,8 @@ describe("mapCollection — nesting", () => {
 })
 
 describe("mapCollection — collection variables", () => {
-  it("maps collection variables to a default environment", () => {
-    const result = makeCollection({
+  it("maps collection variables to a default environment", async () => {
+    const result = await makeCollection({
       info: { name: "Env" },
       item: [],
       variable: [
@@ -699,8 +699,8 @@ describe("mapCollection — collection variables", () => {
     })
   })
 
-  it("returns empty environments when no collection variables", () => {
-    const result = makeCollection({
+  it("returns empty environments when no collection variables", async () => {
+    const result = await makeCollection({
       info: { name: "NoEnv" },
       item: [],
     })
@@ -709,8 +709,8 @@ describe("mapCollection — collection variables", () => {
 })
 
 describe("mapCollection — edge cases", () => {
-  it("generates unique IDs for requests with the same name", () => {
-    const result = makeCollection({
+  it("generates unique IDs for requests with the same name", async () => {
+    const result = await makeCollection({
       info: { name: "Dedup" },
       item: [
         {
@@ -738,8 +738,8 @@ describe("mapCollection — edge cases", () => {
     expect(ids[1]).toBe("get-users-2")
   })
 
-  it("generates unique IDs for folders with the same name", () => {
-    const result = makeCollection({
+  it("generates unique IDs for folders with the same name", async () => {
+    const result = await makeCollection({
       info: { name: "DedupFolders" },
       item: [
         {
@@ -776,8 +776,8 @@ describe("mapCollection — edge cases", () => {
     expect((folders[1].data as { id: string }).id).toBe("v1-2")
   })
 
-  it("falls back to $base_url when request has no URL", () => {
-    const result = makeCollection({
+  it("falls back to $base_url when request has no URL", async () => {
+    const result = await makeCollection({
       info: { name: "NoUrl" },
       item: [
         {
@@ -790,8 +790,8 @@ describe("mapCollection — edge cases", () => {
     expect(r.url).toBe("$base_url")
   })
 
-  it("falls back to $base_url when request url is undefined", () => {
-    const result = makeCollection({
+  it("falls back to $base_url when request url is undefined", async () => {
+    const result = await makeCollection({
       info: { name: "NoUrl2" },
       item: [
         {
@@ -804,8 +804,8 @@ describe("mapCollection — edge cases", () => {
     expect(r.url).toBe("$base_url")
   })
 
-  it("maps folder-level auth override", () => {
-    const result = makeCollection({
+  it("maps folder-level auth override", async () => {
+    const result = await makeCollection({
       info: { name: "FolderAuth" },
       item: [
         {
@@ -833,8 +833,8 @@ describe("mapCollection — edge cases", () => {
     expect(overrides!.auth).toEqual({ type: "bearer", token: "$folderToken" })
   })
 
-  it("reads redirect behavior from item metadata", () => {
-    const result = makeCollection({
+  it("reads redirect behavior from item metadata", async () => {
+    const result = await makeCollection({
       info: { name: "Behavior" },
       item: [
         {
@@ -853,8 +853,8 @@ describe("mapCollection — edge cases", () => {
     })
   })
 
-  it("ignores unknown body mode (graphql)", () => {
-    const result = makeCollection({
+  it("ignores unknown body mode (graphql)", async () => {
+    const result = await makeCollection({
       info: { name: "UnknownBody" },
       item: [
         {
@@ -878,8 +878,8 @@ describe("mapCollection — edge cases", () => {
 })
 
 describe("mapCollection — path params", () => {
-  it("extracts :id tokens from URL with url.variables", () => {
-    const result = makeCollection({
+  it("extracts :id tokens from URL with url.variables", async () => {
+    const result = await makeCollection({
       info: { name: "PathParams" },
       item: [
         {
@@ -909,8 +909,8 @@ describe("mapCollection — path params", () => {
     expect(pp![0]).toEqual({ name: "id", value: "$userId", enabled: true })
   })
 
-  it("extracts multiple :id tokens", () => {
-    const result = makeCollection({
+  it("extracts multiple :id tokens", async () => {
+    const result = await makeCollection({
       info: { name: "MultiPathParams" },
       item: [
         {
@@ -949,8 +949,8 @@ describe("mapCollection — path params", () => {
     )
   })
 
-  it("no pathParams when URL has no :id tokens", () => {
-    const result = makeCollection({
+  it("no pathParams when URL has no :id tokens", async () => {
+    const result = await makeCollection({
       info: { name: "NoPathParams" },
       item: [
         {
@@ -967,8 +967,8 @@ describe("mapCollection — path params", () => {
     expect(r.pathParams).toBeUndefined()
   })
 
-  it(":id without matching variable gets empty value", () => {
-    const result = makeCollection({
+  it(":id without matching variable gets empty value", async () => {
+    const result = await makeCollection({
       info: { name: "MissingVar" },
       item: [
         {
@@ -996,8 +996,8 @@ describe("mapCollection — path params", () => {
     expect(pp![0]).toEqual({ name: "id", value: "", enabled: true })
   })
 
-  it("preserves unsupported token names without creating a truncated path param", () => {
-    const result = makeCollection({
+  it("preserves unsupported token names without creating a truncated path param", async () => {
+    const result = await makeCollection({
       info: { name: "UnsupportedPathParam" },
       item: [
         {

@@ -31,12 +31,15 @@ export function formatCollectionImportMessage(
     `Imported with ${warnings.length} unconverted script(s).`,
     ...warnings
       .slice(0, 3)
-      .map(
-        ({ itemPath, phase }) =>
-          `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`,
-      ),
+      .map(({ itemPath, phase, unsupportedGlobals, reason }) => {
+        const header = `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`
+        if (unsupportedGlobals?.length)
+          return `${header}\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}`
+        if (reason) return `${header}\n  ${label(reason, 60)}`
+        return header
+      }),
     ...(warnings.length > 3 ? [`and ${warnings.length - 3} more`] : []),
-    "Foreign runtime APIs were not converted.",
+    "Unconverted scripts were omitted. Review before sending.",
   ].join("\n")
 }
 

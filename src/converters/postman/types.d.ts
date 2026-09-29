@@ -78,6 +78,7 @@ declare module "postman-collection" {
   }
 
   interface Item {
+    toJSON(): Record<string, unknown>
     name: string
     request?: Request
     response?: unknown[]
@@ -89,6 +90,7 @@ declare module "postman-collection" {
   }
 
   interface ItemGroup {
+    toJSON(): Record<string, unknown>
     name: string
     items: PropertyList<Item | ItemGroup>
     auth?: AuthMember

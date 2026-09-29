@@ -222,7 +222,7 @@ describe("Postman export", () => {
     ).toBe("localhost:3000/health?literal=%24token&template={{token}}#frag")
   })
 
-  it("preserves nested folders, effective headers, URL parts, and inherited auth", () => {
+  it("preserves nested folders, effective headers, URL parts, and inherited auth", async () => {
     const collection: Collection = {
       id: "api",
       name: "API",
@@ -296,7 +296,7 @@ describe("Postman export", () => {
       maxRedirects: 2,
     })
 
-    const roundTrip = mapCollection(new PmCollection(exported.document))
+    const roundTrip = await mapCollection(new PmCollection(exported.document))
     const nested = roundTrip.collection.items[0]!
     expect(nested.type).toBe("folder")
     if (nested.type === "folder") {
