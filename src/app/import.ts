@@ -98,6 +98,16 @@ function formatItems(items: CollectionItem[]): {
   return { items: formattedItems, formattedJsonBodies }
 }
 
+function hasScriptedItems(items: CollectionItem[]): boolean {
+  return items.some((item) =>
+    Boolean(
+      item.data.scripts ||
+      item.data.tests ||
+      (item.type === "folder" && hasScriptedItems(item.data.children)),
+    ),
+  )
+}
+
 function importPaths(
   items: CollectionItem[],
   environments: Environment[],
@@ -273,8 +283,13 @@ export async function runImport(options: ImportOptions): Promise<{
       options.destination?.parentDir ?? outputDir,
       result.collection.id,
     )
+  const hasScripts = Boolean(
+    result.collection.scripts ||
+    result.collection.tests ||
+    hasScriptedItems(result.collection.items),
+  )
   if (
-    result.collection.scripts &&
+    hasScripts &&
     (options.destination?.kind === "current" || existsSync(collDir))
   )
     throw new Error(
@@ -313,7 +328,7 @@ export async function runImport(options: ImportOptions): Promise<{
   let removePartialImport = false
   const initializeCollectionId = options.destination?.kind !== "current"
   try {
-    if (options.destination?.kind === "new" || result.collection.scripts) {
+    if (options.destination?.kind === "new" || hasScripts) {
       if (!options.destination)
         await mkdir(dirname(collDir), { recursive: true })
       await mkdir(collDir)

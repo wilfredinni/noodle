@@ -219,7 +219,7 @@ function mapFormData(value: unknown): FormEntry[] {
   })
 }
 
-function mapRequest(resource: RawResource, id: string): Request | undefined {
+function requestMethod(resource: RawResource): Request["method"] | undefined {
   const rawMethod = resource.method
   if (
     rawMethod !== undefined &&
@@ -230,7 +230,11 @@ function mapRequest(resource: RawResource, id: string): Request | undefined {
   }
   const methodKey =
     typeof rawMethod === "string" ? rawMethod.trim().toLowerCase() : ""
-  const method = methodKey === "" ? "GET" : METHOD_UPPER[methodKey]
+  return methodKey === "" ? "GET" : METHOD_UPPER[methodKey]
+}
+
+function mapRequest(resource: RawResource, id: string): Request | undefined {
+  const method = requestMethod(resource)
   if (!method) return undefined
   const followRedirects = resource.settingFollowRedirects
   return {
@@ -375,6 +379,7 @@ export async function mapExport(root: RawResource): Promise<ImportResult> {
       if (
         resource._type === "request" &&
         phase !== "code" &&
+        requestMethod(resource) &&
         analysis.compatible
       ) {
         const fields = scriptFields.get(resource) ?? {}

@@ -75,41 +75,68 @@ const insomnia = () => ({
   ],
 })
 
-it("rejects collection scripts at an existing default-output target before any writes", async () => {
-  const input = postman()
-  input.event = []
-  input.item[0]!.event = []
-  input.item[0]!.item[0]!.event = []
-  const source = join(dir, "source.json")
-  await writeFile(source, JSON.stringify(input))
-  const result = await runImport({ source, outputDir: dir, silent: true })
-  const settingsPath = join(result.path, "settings.yml")
-  const settings = await readFile(settingsPath, "utf8")
-  const existing = "name: Existing\nmethod: GET\nurl: http://127.0.0.1/\n"
-  await writeFile(join(result.path, "existing.yml"), existing)
-  const before = await readdir(result.path, { recursive: true })
-  input.event = [
-    {
-      listen: "prerequest",
-      script: {
-        type: "text/javascript",
-        exec: ['noodle.request.headers.set("X-Imported", "yes")'],
-      },
-    },
-  ]
-  input.item[0]!.item[0]!.name = "New request"
-  await writeFile(source, JSON.stringify(input))
-  await expect(
-    runImport({ source, outputDir: dir, silent: true }),
-  ).rejects.toThrow(
-    "Collection scripts require importing into a new collection",
-  )
-  expect(await readFile(settingsPath, "utf8")).toBe(settings)
-  expect(await readFile(join(result.path, "existing.yml"), "utf8")).toBe(
-    existing,
-  )
-  expect(await readdir(result.path, { recursive: true })).toEqual(before)
-})
+it.each(
+  ["collection pre", "folder pre", "request pre", "request tests"].flatMap(
+    (scope) => [[scope, "default"] as const, [scope, "current"] as const],
+  ),
+)(
+  "rejects %s at an existing %s target before any writes",
+  async (scope, destination) => {
+    const input = postman()
+    input.event = []
+    input.item[0]!.event = []
+    input.item[0]!.item[0]!.event = []
+    const source = join(dir, "source.json")
+    await writeFile(source, JSON.stringify(input))
+    const result = await runImport({ source, outputDir: dir, silent: true })
+    const settingsPath = join(result.path, "settings.yml")
+    const settings = await readFile(settingsPath, "utf8")
+    const existing = "name: Existing\nmethod: GET\nurl: http://127.0.0.1/\n"
+    await writeFile(join(result.path, "existing.yml"), existing)
+    const before = await readdir(result.path, { recursive: true })
+    const hook = {
+      listen: scope === "request tests" ? "test" : "prerequest",
+      script: { type: "text/javascript", exec: ['console.log("imported")'] },
+    }
+    input.event = scope === "collection pre" ? [hook] : []
+    input.item[0]!.event = scope === "folder pre" ? [hook] : []
+    input.item[0]!.item[0]!.event = scope.startsWith("request") ? [hook] : []
+    await writeFile(
+      source,
+      JSON.stringify({
+        ...input,
+        item: [{ name: "New outer folder", item: input.item }],
+      }),
+    )
+    await expect(
+      runImport({
+        source,
+        outputDir: dir,
+        silent: true,
+        destination:
+          destination === "current"
+            ? { kind: "current", collectionDir: result.path }
+            : undefined,
+      }),
+    ).rejects.toThrow(
+      "Collection scripts require importing into a new collection",
+    )
+    expect(await readFile(settingsPath, "utf8")).toBe(settings)
+    expect(await readFile(join(result.path, "existing.yml"), "utf8")).toBe(
+      existing,
+    )
+    expect(await readdir(result.path, { recursive: true })).toEqual(before)
+    const fresh = await runImport({
+      source,
+      outputDir: join(dir, "fresh"),
+      silent: true,
+    })
+    expect(fresh.warnings).toBeUndefined()
+    expect(await readdir(fresh.path, { recursive: true })).toContain(
+      "new-outer-folder/folder/get-request.yml",
+    )
+  },
+)
 
 it("detects Postman collection, folder and request phases without converting source", async () => {
   const result = await postmanImporter.import(JSON.stringify(postman()))
@@ -302,6 +329,59 @@ it("preserves only compatible Insomnia request hooks without synthesizing inheri
     },
   })
 })
+
+it.each(["TRACE", 123])(
+  "warns for each compatible hook on a skipped Insomnia request with method %j",
+  async (method) => {
+    const input = insomnia()
+    const skipped = input.resources[2]!
+    skipped.preRequestScript = 'console.log("private-pre-source")'
+    skipped.afterResponseScript = 'console.log("private-post-source")'
+    input.resources.push({
+      _type: "request",
+      _id: "valid",
+      parentId: "f",
+      name: "Valid",
+      method: "GET",
+      url: "http://127.0.0.1/",
+      preRequestScript: "",
+      afterResponseScript: "",
+    })
+    const result = await insomniaImporter.import(
+      JSON.stringify({
+        ...input,
+        resources: input.resources.map((resource) =>
+          resource === skipped ? { ...resource, method } : resource,
+        ),
+      }),
+    )
+    const folder = result.collection.items[0]!
+    if (folder.type !== "folder") throw Error("missing folder")
+    expect(folder.data.children.map(({ data }) => data.name)).toEqual(["Valid"])
+    expect(
+      result.warnings?.map(({ itemPath, phase, reason }) => [
+        itemPath,
+        phase,
+        reason,
+      ]),
+    ).toEqual([
+      [["Foreign"], "preRequestScript", "unsupported-globals"],
+      [["Foreign", "Folder"], "afterResponseScript", "unsupported-globals"],
+      [
+        ["Foreign", "Folder", "Request"],
+        "preRequestScript",
+        "unsupported-placement",
+      ],
+      [
+        ["Foreign", "Folder", "Request"],
+        "afterResponseScript",
+        "unsupported-placement",
+      ],
+    ])
+    expect(JSON.stringify(result)).not.toContain("private-pre-source")
+    expect(JSON.stringify(result)).not.toContain("private-post-source")
+  },
+)
 
 it("warns instead of concatenating duplicate events or enabling disabled, external and package scripts", async () => {
   const input = postman()
