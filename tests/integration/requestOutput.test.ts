@@ -12,6 +12,8 @@ const body =
 const redactedBody =
   '{"message":"visible-body","token":"[REDACTED]","cookie":"[REDACTED]"}'
 const payload = new Uint8Array([0, 255, 10, 13])
+const terminalBody =
+  "\u001b[2J\u001b[Hrewritten\rspoof\b!\u001b]0;title\u0007\u009b2J\u009d0;title\u009c\u007f\u0000\u000b\u000c\n\tCafé 界\\u001b"
 let dir: string
 let server: ReturnType<typeof Bun.serve>
 
@@ -49,6 +51,10 @@ beforeEach(async () => {
         return new Response(payload, {
           headers: { "Content-Type": "application/octet-stream" },
         })
+      if (path === "/terminal")
+        return new Response(terminalBody, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        })
       const headers = new Headers({
         Date: "Wed, 01 Jan 2020 00:00:00 GMT",
         "Content-Type": "application/json",
@@ -79,6 +85,23 @@ afterEach(async () => {
 })
 
 describe("request run response output", () => {
+  it("escapes terminal controls in human bodies while preserving JSON and saved bytes", async () => {
+    await save("/terminal")
+    const destination = join(dir, "response.txt")
+    const human = await run("--body", "--output", destination)
+    expect(human.code).toBe(0)
+    expect(human.stderr).toBe("")
+    expect(human.stdout).toContain("✓ GET get  200 OK")
+    expect(human.stdout).toContain(
+      "Body:\n\\u001b[2J\\u001b[Hrewritten\\u000dspoof\\u0008!\\u001b]0;title\\u0007\\u009b2J\\u009d0;title\\u009c\\u007f\\u0000\\u000b\\u000c\n\tCafé 界\\u001b\n",
+    )
+    expect(await readFile(destination)).toEqual(Buffer.from(terminalBody))
+    const json = await run("--json", "--body")
+    expect(json.code).toBe(0)
+    expect(json.stderr).toBe("")
+    expect(JSON.parse(json.stdout).data.result.response.body).toBe(terminalBody)
+  })
+
   it("combines human sections while retaining the default summary and redaction", async () => {
     for (let combination = 0; combination < 8; combination++) {
       const selected = flags.filter(

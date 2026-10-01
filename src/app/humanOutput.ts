@@ -289,10 +289,18 @@ export function formatRequestRun(
     )
     sections.push(`Cookies:\n${cookies.join("\n") || "  (none)"}`)
   }
-  if (options.body)
+  if (options.body) {
+    const body =
+      response.body?.replace(
+        // eslint-disable-next-line no-control-regex
+        /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g,
+        (character) =>
+          `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+      ) || "(empty)"
     sections.push(
-      `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : response.body || "(empty)"}`,
+      `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : body}`,
     )
+  }
   return sections.join("\n\n")
 }
 
