@@ -259,8 +259,41 @@ export function formatRunResult(result: RequestRunResult): string {
   ].join("\n")
 }
 
-export function formatRequestRun(data: { result: RequestRunResult }): string {
-  return formatRunResult(data.result)
+export function formatRequestRun(
+  data: { result: RequestRunResult },
+  options: { body?: boolean; headers?: boolean; cookies?: boolean } = {},
+): string {
+  const sections = [formatRunResult(data.result)]
+  const response = data.result.response
+  if (!response) return sections[0]!
+  if (options.headers) {
+    const headers = Object.entries(response.headers).map(
+      ([name, value]) => `  ${name}: ${value}`,
+    )
+    sections.push(`Headers:\n${headers.join("\n") || "  (none)"}`)
+  }
+  if (options.cookies) {
+    const cookies = (response.cookies ?? []).map(
+      (cookie) =>
+        `  ${[
+          `${cookie.name}=${cookie.value}`,
+          cookie.domain && `Domain=${cookie.domain}`,
+          cookie.path && `Path=${cookie.path}`,
+          cookie.expires && `Expires=${cookie.expires}`,
+          cookie.secure && "Secure",
+          cookie.httpOnly && "HttpOnly",
+          cookie.sameSite && `SameSite=${cookie.sameSite}`,
+        ]
+          .filter(Boolean)
+          .join("; ")}`,
+    )
+    sections.push(`Cookies:\n${cookies.join("\n") || "  (none)"}`)
+  }
+  if (options.body)
+    sections.push(
+      `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : response.body || "(empty)"}`,
+    )
+  return sections.join("\n\n")
 }
 
 export function formatCollectionRun(data: CollectionRunResult): string {

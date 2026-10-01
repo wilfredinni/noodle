@@ -254,6 +254,15 @@ describe("CLI integration", () => {
     expect(out).toContain("Milliseconds to wait between requests")
   })
 
+  it("shows optional response detail flags in request run help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "request", "run", "--help"])
+    expect(proc.exitCode).toBe(0)
+    const output = proc.stdout.toString()
+    for (const flag of ["--body", "--headers", "--cookies", "--json"])
+      expect(output).toContain(flag)
+    expect(output).toContain("redacted")
+  })
+
   it("rejects invalid collection request delays", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-delay-"))
     try {

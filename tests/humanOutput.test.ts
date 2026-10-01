@@ -141,6 +141,97 @@ describe("human CLI output", () => {
     expect(output).not.toContain('{"users":[]}')
   })
 
+  it("appends selected response sections without reformatting the body", () => {
+    const data = {
+      result: {
+        id: "get",
+        method: "GET" as const,
+        url: "https://example.com",
+        ok: true,
+        failureCategories: [],
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          cookies: [
+            {
+              name: "session",
+              value: "[REDACTED]",
+              domain: "example.com",
+              path: "/",
+              expires: "2030-01-01T00:00:00.000Z",
+              secure: true,
+              httpOnly: true,
+              sameSite: "lax" as const,
+            },
+          ],
+          body: '{\n  "id": 42\n}',
+          timeMs: 1,
+        },
+      },
+    }
+    const summary = formatRequestRun(data)
+    expect(formatRequestRun(data, { body: true })).toBe(
+      `${summary}\n\nBody:\n${data.result.response.body}`,
+    )
+    expect(
+      formatRequestRun(data, { headers: true, cookies: true, body: true }),
+    ).toBe(
+      `${summary}\n\nHeaders:\n  content-type: application/json\n\nCookies:\n  session=[REDACTED]; Domain=example.com; Path=/; Expires=2030-01-01T00:00:00.000Z; Secure; HttpOnly; SameSite=lax\n\nBody:\n${data.result.response.body}`,
+    )
+  })
+
+  it("handles empty and binary details and failures without a response", () => {
+    const result = {
+      id: "get",
+      method: "GET" as const,
+      url: "https://example.com",
+      ok: true,
+      failureCategories: [],
+    }
+    const options = { body: true, headers: true, cookies: true }
+    const empty = formatRequestRun(
+      {
+        result: {
+          ...result,
+          response: {
+            status: 204,
+            statusText: "No Content",
+            headers: {},
+            body: "",
+            timeMs: 1,
+          },
+        },
+      },
+      options,
+    )
+    expect(empty).toContain("Headers:\n  (none)")
+    expect(empty).toContain("Cookies:\n  (none)")
+    expect(empty).toContain("Body:\n(empty)")
+    const binary = formatRequestRun(
+      {
+        result: {
+          ...result,
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            bodyKind: "binary",
+            contentType: "application/octet-stream",
+            size: 4,
+            timeMs: 1,
+          },
+        },
+      },
+      { body: true },
+    )
+    expect(binary).toContain("use --output <file>")
+    const failed = { ...result, ok: false, error: "connection refused" }
+    expect(formatRequestRun({ result: failed }, options)).toBe(
+      formatRequestRun({ result: failed }),
+    )
+  })
+
   it("summarizes assertions without printing raw actual values", () => {
     const output = plain(
       formatRequestRun({

@@ -371,6 +371,21 @@ const request = defineCommand({
           alias: "o",
           description: "Save the original response body to a new file",
         },
+        body: {
+          type: "boolean",
+          default: false,
+          description: "Include the redacted response body in human output",
+        },
+        headers: {
+          type: "boolean",
+          default: false,
+          description: "Include redacted response headers in human output",
+        },
+        cookies: {
+          type: "boolean",
+          default: false,
+          description: "Include redacted response cookies in human output",
+        },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -394,7 +409,7 @@ const request = defineCommand({
               progress?.finish()
             }
           },
-          formatRequestRun,
+          (data) => formatRequestRun(data, args),
           2,
         ),
     }),
