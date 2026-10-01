@@ -43,6 +43,7 @@ import type {
   CollectionSettings,
   Environment,
   Request,
+  ResponseCookie,
   TimelineEntry,
 } from "../schema"
 import {
@@ -56,7 +57,11 @@ import {
   applySettingsSecretTransaction,
   type SecretMutation,
 } from "../secrets"
-import { redactKnownSecrets, redactResponseHeaders } from "../secrets/redact"
+import {
+  REDACTED,
+  redactKnownSecrets,
+  redactResponseHeaders,
+} from "../secrets/redact"
 import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
 import { loadIterationData, validateExecutionCount } from "../iterationData"
@@ -667,6 +672,7 @@ export interface RequestRunResult {
     status: number
     statusText: string
     headers: Record<string, string>
+    cookies?: ResponseCookie[]
     body?: string
     bodyKind?: "binary"
     size?: number
@@ -846,6 +852,23 @@ async function runRequest(
       status: response.status,
       statusText: redactKnownSecrets(response.statusText, responseSecretValues),
       headers: redactResponseHeaders(response.headers, responseSecretValues),
+      ...(response.cookies?.length
+        ? {
+            cookies: response.cookies.map(
+              (cookie) =>
+                Object.fromEntries(
+                  Object.entries(cookie).map(([name, value]) => [
+                    name,
+                    name === "value"
+                      ? REDACTED
+                      : typeof value === "string"
+                        ? redactKnownSecrets(value, responseSecretValues)
+                        : value,
+                  ]),
+                ) as ResponseCookie,
+            ),
+          }
+        : {}),
       ...(response.bodyKind === "binary"
         ? {
             bodyKind: "binary" as const,

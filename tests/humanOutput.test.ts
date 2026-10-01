@@ -141,6 +141,142 @@ describe("human CLI output", () => {
     expect(output).not.toContain('{"users":[]}')
   })
 
+  it("appends selected response sections without reformatting the body", () => {
+    const data = {
+      result: {
+        id: "get",
+        method: "GET" as const,
+        url: "https://example.com",
+        ok: true,
+        failureCategories: [],
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          cookies: [
+            {
+              name: "session",
+              value: "[REDACTED]",
+              domain: "example.com",
+              path: "/",
+              expires: "2030-01-01T00:00:00.000Z",
+              secure: true,
+              httpOnly: true,
+              sameSite: "lax" as const,
+            },
+          ],
+          body: '{\n  "id": 42\n}',
+          timeMs: 1,
+        },
+      },
+    }
+    const summary = formatRequestRun(data)
+    expect(formatRequestRun(data, { body: true })).toBe(
+      `${summary}\n\nBody:\n${data.result.response.body}`,
+    )
+    expect(
+      formatRequestRun(data, { headers: true, cookies: true, body: true }),
+    ).toBe(
+      `${summary}\n\nHeaders:\n  content-type: application/json\n\nCookies:\n  session=[REDACTED]; Domain=example.com; Path=/; Expires=2030-01-01T00:00:00.000Z; Secure; HttpOnly; SameSite=lax\n\nBody:\n${data.result.response.body}`,
+    )
+  })
+
+  it("escapes terminal controls in header and cookie fields without mutating source data", () => {
+    const data = {
+      result: {
+        id: "get",
+        method: "GET" as const,
+        url: "https://example.com",
+        ok: true,
+        failureCategories: [],
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "x-\u001b[2J": "Café 界\u009b2J\r\b" },
+          cookies: [
+            {
+              name: "session\u009d",
+              value: "[REDACTED]\u001b[H",
+              domain: "example.com\u007f",
+              path: "/\u001b[2J",
+              expires: "2030-01-01T00:00:00.000Z\u0000",
+              secure: true,
+              httpOnly: true,
+              sameSite: "lax" as const,
+            },
+          ],
+          body: "ordinary\n\tCafé 界",
+          timeMs: 1,
+        },
+      },
+    }
+    const original = JSON.stringify(data)
+    const output = formatRequestRun(data, {
+      headers: true,
+      cookies: true,
+      body: true,
+    })
+    expect(output).toContain(
+      "Headers:\n  x-\\u001b[2J: Café 界\\u009b2J\\u000d\\u0008",
+    )
+    expect(output).toContain(
+      "Cookies:\n  session\\u009d=[REDACTED]\\u001b[H; Domain=example.com\\u007f; Path=/\\u001b[2J; Expires=2030-01-01T00:00:00.000Z\\u0000; Secure; HttpOnly; SameSite=lax",
+    )
+    expect(output).toContain("Body:\nordinary\n\tCafé 界")
+    expect(JSON.stringify(data)).toBe(original)
+  })
+
+  it("handles empty and binary details and failures without a response", () => {
+    const result = {
+      id: "get",
+      method: "GET" as const,
+      url: "https://example.com",
+      ok: true,
+      failureCategories: [],
+    }
+    const options = { body: true, headers: true, cookies: true }
+    const empty = formatRequestRun(
+      {
+        result: {
+          ...result,
+          response: {
+            status: 204,
+            statusText: "No Content",
+            headers: {},
+            body: "",
+            timeMs: 1,
+          },
+        },
+      },
+      options,
+    )
+    expect(empty).toContain("Headers:\n  (none)")
+    expect(empty).toContain("Cookies:\n  (none)")
+    expect(empty).toContain("Body:\n(empty)")
+    const binary = formatRequestRun(
+      {
+        result: {
+          ...result,
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            bodyKind: "binary",
+            contentType: "application/octet-stream",
+            size: 4,
+            timeMs: 1,
+          },
+        },
+      },
+      { body: true },
+    )
+    expect(binary).toContain("use --output <file>")
+    const failed = { ...result, ok: false, error: "connection refused" }
+    expect(formatRequestRun({ result: failed }, options)).toBe(
+      formatRequestRun({ result: failed }),
+    )
+  })
+
   it("summarizes assertions without printing raw actual values", () => {
     const output = plain(
       formatRequestRun({
