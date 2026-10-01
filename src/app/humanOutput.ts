@@ -259,6 +259,15 @@ export function formatRunResult(result: RequestRunResult): string {
   ].join("\n")
 }
 
+function escapeTerminalControls(text: string): string {
+  return text.replace(
+    // eslint-disable-next-line no-control-regex
+    /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g,
+    (character) =>
+      `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  )
+}
+
 export function formatRequestRun(
   data: { result: RequestRunResult },
   options: { body?: boolean; headers?: boolean; cookies?: boolean } = {},
@@ -268,39 +277,33 @@ export function formatRequestRun(
   if (!response) return sections[0]!
   if (options.headers) {
     const headers = Object.entries(response.headers).map(
-      ([name, value]) => `  ${name}: ${value}`,
+      ([name, value]) => `  ${escapeTerminalControls(`${name}: ${value}`)}`,
     )
     sections.push(`Headers:\n${headers.join("\n") || "  (none)"}`)
   }
   if (options.cookies) {
     const cookies = (response.cookies ?? []).map(
       (cookie) =>
-        `  ${[
-          `${cookie.name}=${cookie.value}`,
-          cookie.domain && `Domain=${cookie.domain}`,
-          cookie.path && `Path=${cookie.path}`,
-          cookie.expires && `Expires=${cookie.expires}`,
-          cookie.secure && "Secure",
-          cookie.httpOnly && "HttpOnly",
-          cookie.sameSite && `SameSite=${cookie.sameSite}`,
-        ]
-          .filter(Boolean)
-          .join("; ")}`,
+        `  ${escapeTerminalControls(
+          [
+            `${cookie.name}=${cookie.value}`,
+            cookie.domain && `Domain=${cookie.domain}`,
+            cookie.path && `Path=${cookie.path}`,
+            cookie.expires && `Expires=${cookie.expires}`,
+            cookie.secure && "Secure",
+            cookie.httpOnly && "HttpOnly",
+            cookie.sameSite && `SameSite=${cookie.sameSite}`,
+          ]
+            .filter(Boolean)
+            .join("; "),
+        )}`,
     )
     sections.push(`Cookies:\n${cookies.join("\n") || "  (none)"}`)
   }
-  if (options.body) {
-    const body =
-      response.body?.replace(
-        // eslint-disable-next-line no-control-regex
-        /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g,
-        (character) =>
-          `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
-      ) || "(empty)"
+  if (options.body)
     sections.push(
-      `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : body}`,
+      `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : escapeTerminalControls(response.body || "(empty)")}`,
     )
-  }
   return sections.join("\n\n")
 }
 

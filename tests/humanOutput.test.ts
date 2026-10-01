@@ -181,6 +181,51 @@ describe("human CLI output", () => {
     )
   })
 
+  it("escapes terminal controls in header and cookie fields without mutating source data", () => {
+    const data = {
+      result: {
+        id: "get",
+        method: "GET" as const,
+        url: "https://example.com",
+        ok: true,
+        failureCategories: [],
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "x-\u001b[2J": "Café 界\u009b2J\r\b" },
+          cookies: [
+            {
+              name: "session\u009d",
+              value: "[REDACTED]\u001b[H",
+              domain: "example.com\u007f",
+              path: "/\u001b[2J",
+              expires: "2030-01-01T00:00:00.000Z\u0000",
+              secure: true,
+              httpOnly: true,
+              sameSite: "lax" as const,
+            },
+          ],
+          body: "ordinary\n\tCafé 界",
+          timeMs: 1,
+        },
+      },
+    }
+    const original = JSON.stringify(data)
+    const output = formatRequestRun(data, {
+      headers: true,
+      cookies: true,
+      body: true,
+    })
+    expect(output).toContain(
+      "Headers:\n  x-\\u001b[2J: Café 界\\u009b2J\\u000d\\u0008",
+    )
+    expect(output).toContain(
+      "Cookies:\n  session\\u009d=[REDACTED]\\u001b[H; Domain=example.com\\u007f; Path=/\\u001b[2J; Expires=2030-01-01T00:00:00.000Z\\u0000; Secure; HttpOnly; SameSite=lax",
+    )
+    expect(output).toContain("Body:\nordinary\n\tCafé 界")
+    expect(JSON.stringify(data)).toBe(original)
+  })
+
   it("handles empty and binary details and failures without a response", () => {
     const result = {
       id: "get",

@@ -71,6 +71,13 @@ beforeEach(async () => {
         "Set-Cookie",
         "metadata=y; Domain=known-response-secret.example; Path=/known-response-secret",
       )
+      if (path === "/terminal-metadata") {
+        headers.set("X-Detail", "visible-header\u009b2J known-response-secret")
+        headers.append(
+          "Set-Cookie",
+          "terminal\u009b2J=response-cookie-secret; Path=/\u009b2J/known-response-secret",
+        )
+      }
       return new Response(body, {
         status: path === "/error" ? 422 : 200,
         headers,
@@ -100,6 +107,35 @@ describe("request run response output", () => {
     expect(json.code).toBe(0)
     expect(json.stderr).toBe("")
     expect(JSON.parse(json.stdout).data.result.response.body).toBe(terminalBody)
+  })
+
+  it("escapes received header and cookie controls after redaction while retaining JSON values", async () => {
+    await save("/terminal-metadata")
+    const human = await run(...flags)
+    expect(human.code).toBe(0)
+    expect(human.stderr).toBe("")
+    expect(human.stdout).toContain(
+      "x-detail: visible-header\\u009b2J [REDACTED]",
+    )
+    expect(human.stdout).toContain(
+      "terminal\\u009b2J=[REDACTED]; Path=/\\u009b2J/[REDACTED]",
+    )
+    expect(human.stdout).toContain(`Body:\n${redactedBody}`)
+    expect(human.stdout).not.toContain("\u009b")
+    for (const secret of ["known-response-secret", "response-cookie-secret"])
+      expect(human.stdout).not.toContain(secret)
+    const json = await run("--json", ...flags)
+    expect(json.code).toBe(0)
+    expect(json.stderr).toBe("")
+    const response = JSON.parse(json.stdout).data.result.response
+    expect(response.headers["x-detail"]).toBe(
+      "visible-header\u009b2J [REDACTED]",
+    )
+    expect(response.cookies.at(-1)).toMatchObject({
+      name: "terminal\u009b2J",
+      value: "[REDACTED]",
+      path: "/\u009b2J/[REDACTED]",
+    })
   })
 
   it("combines human sections while retaining the default summary and redaction", async () => {
