@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { readFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import {
   checkForUpdates,
+  getUpdateDeps,
   installBinaryUpdate,
   installBrewUpdate,
   type UpdateAvailableInfo,
@@ -93,7 +96,39 @@ export function useUpdateFlow(
 
   const triggerAboutUpdateCheck = useCallback(startCheck, [startCheck])
 
-  useEffect(() => startCheck(), [startCheck])
+  useEffect(() => {
+    const deps = getUpdateDeps(dependenciesRef.current)
+    if (
+      deps.platform !== "win32" ||
+      isBunRuntime(deps.execPath) ||
+      previewPhase
+    ) {
+      startCheck()
+      return
+    }
+    let cancelled = false
+    const logPath = join(dirname(deps.execPath), ".noodle-update.log")
+    void readFile(logPath, "utf8")
+      .then((log) => {
+        if (cancelled) return
+        const outcome = log
+          .match(
+            /^Failed to (?:finish the Noodle update|stage update):|^Update complete\./gm,
+          )
+          ?.at(-1)
+        if (outcome?.startsWith("Failed")) {
+          const message = `The previous Windows update failed.\nUpdate details: ${logPath}\nClose Noodle and retry with: noodle update`
+          setUpdateFlow({ phase: "failed", message })
+          showToast(message, "error")
+        } else startCheck()
+      })
+      .catch(() => {
+        if (!cancelled) startCheck()
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [startCheck, previewPhase])
 
   useEffect(() => {
     if (checkToken === 0) return
@@ -205,7 +240,10 @@ export function useUpdateFlow(
           showUpdateCompleted(result.data.skill_status)
           setUpdateFlow({ phase: "done", version })
         } else if (result.data.status === "restart_required") {
-          showToast("Update staged; restart Noodle to apply", "warning")
+          showToast(
+            `Update staged; restart Noodle to apply.\nUpdate details: ${result.data.log_path}\nIf the update fails, close Noodle and retry with: noodle update`,
+            "warning",
+          )
           setUpdateFlow({
             phase: "done",
             version: result.data.version ?? update.version,

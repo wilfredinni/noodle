@@ -79,6 +79,7 @@ describe.skipIf(process.platform !== "win32")(
       environment: Record<string, string | undefined> = process.env,
       refresh = false,
       attempts = 1,
+      script = helper,
     ) {
       const args = [
         windowsPowerShell,
@@ -87,7 +88,7 @@ describe.skipIf(process.platform !== "win32")(
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        helper,
+        script,
         "-ParentPid",
         "2147483647",
         "-Source",
@@ -106,6 +107,7 @@ describe.skipIf(process.platform !== "win32")(
       if (refresh) args.push("-RefreshSkill")
       return Bun.spawn(args, {
         env: environment,
+        stdin: "pipe",
         stdout: "pipe",
         stderr: "pipe",
       })
@@ -297,6 +299,62 @@ describe.skipIf(process.platform !== "win32")(
       expect(await readFile(log, "utf8")).toContain("expected version")
       expect(await readFile(log, "utf8")).toContain("Recovery files")
     })
+
+    it("holds the destination lock through validation and rollback before a competing update", async () => {
+      const ready = join(directory, "validation-ready")
+      const pausedHelper = join(directory, "paused-helper.ps1")
+      const helperCode = await readFile(helper, "utf8")
+      const validation = "  $versionOutput = & $Destination --version 2>&1"
+      expect(helperCode).toContain(validation)
+      await writeFile(
+        pausedHelper,
+        helperCode.replace(
+          validation,
+          '  [IO.File]::WriteAllText($env:NOODLE_TEST_VERSION_READY, "ready")\n  [Console]::ReadLine() | Out-Null\n' +
+            validation,
+        ),
+      )
+      const first = startHelper(
+        {
+          ...process.env,
+          NOODLE_TEST_VERSION_READY: ready,
+          NOODLE_TEST_REPLACEMENT_VERSION: "9.9.9",
+        },
+        false,
+        100,
+        pausedHelper,
+      )
+      let second: ReturnType<typeof startHelper> | undefined
+      try {
+        await waitForFile(ready)
+        const secondStage = join(directory, "second-stage")
+        await mkdir(secondStage)
+        source = join(secondStage, "noodle-windows-x86_64.exe")
+        await copyFile(replacement, source)
+        log = join(directory, "second-update.log")
+        second = startHelper(process.env, false, 100)
+        const progress = await waitForFile(
+          log,
+          (value) =>
+            value.includes("Waiting for another update") ||
+            value.includes("Applying update"),
+        )
+        expect(progress).not.toContain("Applying update")
+        expect(sha256(await readFile(destination))).toBe(hash)
+        first.stdin.write("continue\n")
+        first.stdin.end()
+        await expectHelperExit(first, 1)
+        await expectHelperExit(second, 0)
+        expect(sha256(await readFile(destination))).toBe(hash)
+      } finally {
+        for (const child of [first, second]) {
+          if (child && child.exitCode === null) {
+            child.kill()
+            await child.exited
+          }
+        }
+      }
+    }, 60_000)
 
     it("retries a locked executable and preserves it when retries are exhausted", async () => {
       const oldHash = sha256(await readFile(destination))

@@ -1,4 +1,5 @@
 #requires -Version 5.1
+& {
 $ErrorActionPreference = "Stop"
 
 $repo = "wilfredinni/noodle"
@@ -79,11 +80,17 @@ try {
   Write-Host "Installed to $destination"
 
   if ($env:NOODLE_SKIP_PATH_UPDATE -ne "1") {
+    $environmentKey = $null
     try {
-      $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+      $environmentKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("Environment")
+      $userPath = $environmentKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
       $userEntries = @($userPath -split ";" | Where-Object { $_ })
       if (-not ($userEntries | Where-Object { $_.TrimEnd("\") -ieq $installDirectory.TrimEnd("\") })) {
-        [Environment]::SetEnvironmentVariable("Path", ((@($userEntries) + $installDirectory) -join ";"), "User")
+        $environmentKey.SetValue("Path", ((@($userEntries) + $installDirectory) -join ";"), [Microsoft.Win32.RegistryValueKind]::ExpandString)
+        # Broadcast the environment change without touching an existing user variable.
+        $pathRefreshName = "NOODLE_PATH_REFRESH_$([Guid]::NewGuid().ToString('N'))"
+        [Environment]::SetEnvironmentVariable($pathRefreshName, "1", "User")
+        [Environment]::SetEnvironmentVariable($pathRefreshName, $null, "User")
       }
       $processEntries = @($env:Path -split ";" | Where-Object { $_ })
       if (-not ($processEntries | Where-Object { $_.TrimEnd("\") -ieq $installDirectory.TrimEnd("\") })) {
@@ -92,6 +99,9 @@ try {
     }
     catch {
       Write-Warning "Noodle was installed, but its directory could not be added to your user PATH. Add $installDirectory to PATH manually."
+    }
+    finally {
+      if ($environmentKey) { $environmentKey.Dispose() }
     }
   }
 
@@ -137,11 +147,12 @@ catch {
   if ($preserveRecovery) {
     [Console]::Error.WriteLine("Recovery files were retained in $installDirectory.")
   }
-  exit 1
+  throw "Noodle installation failed."
 }
 finally {
   if (-not $preserveRecovery -and $stagedPath) {
     Remove-Item -LiteralPath $stagedPath -Force -ErrorAction SilentlyContinue
   }
   Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
 }

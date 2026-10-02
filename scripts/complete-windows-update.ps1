@@ -15,6 +15,7 @@ $stagingDirectory = Split-Path -Parent $Source
 $backup = Join-Path $stagingDirectory "previous-noodle.exe"
 $replaced = $false
 $hadDestination = $false
+$updateLock = $null
 
 function Write-UpdateLog([string]$Message) {
   try {
@@ -33,6 +34,19 @@ try {
   $actualHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
   if ($actualHash -ine $ExpectedSha256) {
     throw "Staged update checksum mismatch"
+  }
+
+  for ($attempt = 0; $attempt -lt $MaxAttempts; $attempt += 1) {
+    try {
+      # Keep the lock file in place; the open handle owns the lock, not its age.
+      $updateLock = [IO.File]::Open("$Destination.update.lock", "OpenOrCreate", "ReadWrite", "None")
+      break
+    }
+    catch [IO.IOException] {
+      if ($attempt -eq 0) { Write-UpdateLog "Waiting for another update to finish." }
+      if ($attempt + 1 -eq $MaxAttempts) { throw "Unable to acquire the destination update lock. Retry after the other update finishes." }
+      Start-Sleep -Milliseconds 100
+    }
   }
 
   $hadDestination = Test-Path -LiteralPath $Destination -PathType Leaf
@@ -88,7 +102,7 @@ try {
 catch {
   $updateError = $_.Exception.Message
   try {
-    if (Test-Path -LiteralPath $backup -PathType Leaf) {
+    if ($updateLock -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
       if ($replaced -and (Test-Path -LiteralPath $Destination -PathType Leaf)) {
         [IO.File]::Replace($backup, $Destination, $Source, $false)
       }
@@ -106,4 +120,7 @@ catch {
   Write-UpdateLog "Failed to finish the Noodle update: $updateError"
   Write-UpdateLog "Recovery files were retained in $stagingDirectory. Close Noodle and retry the update."
   exit 1
+}
+finally {
+  if ($updateLock) { $updateLock.Dispose() }
 }

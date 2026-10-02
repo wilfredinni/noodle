@@ -65,14 +65,43 @@ function Invoke-WebRequest {
 }
 $code = [IO.File]::ReadAllText($env:NOODLE_TEST_INSTALLER)
 $code = $code.Replace('$HOME', '$env:NOODLE_TEST_HOME')
-# Intercept registry calls so tests never modify the user's actual PATH.
-$code = $code.Replace('[Environment]::GetEnvironmentVariable("Path", "User")', '$env:NOODLE_TEST_USER_PATH')
-$code = $code.Replace('[Environment]::SetEnvironmentVariable("Path", ((@($userEntries) + $installDirectory) -join ";"), "User")', '[IO.File]::WriteAllText($env:NOODLE_TEST_PATH_MARKER, ((@($userEntries) + $installDirectory) -join ";"))')
-if ($code.Contains('[Environment]::SetEnvironmentVariable')) { throw "User PATH test interception failed" }
-if ($env:NOODLE_TEST_LOCK -eq "1") {
-  $lock = [IO.File]::Open((Join-Path $env:NOODLE_INSTALL_DIR "noodle.exe"), "Open", "ReadWrite", "None")
+# Exercise real registry reads/writes in an isolated key, preserving the user's PATH.
+$registryPath = "Software\\NoodleInstallerTests\\$([Guid]::NewGuid().ToString('N'))"
+$registryKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($registryPath)
+$registryKey.SetValue("Path", $env:NOODLE_TEST_USER_PATH, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+$registryKey.Dispose()
+$code = $code.Replace('[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("Environment")', '[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registryPath, $true)')
+$code = $code.Replace('[Environment]::SetEnvironmentVariable($pathRefreshName, "1", "User")', '[IO.File]::AppendAllText($env:NOODLE_TEST_PATH_MARKER + ".refresh", "set\n")')
+$code = $code.Replace('[Environment]::SetEnvironmentVariable($pathRefreshName, $null, "User")', '[IO.File]::AppendAllText($env:NOODLE_TEST_PATH_MARKER + ".refresh", "clear\n")')
+if ($code.Contains('[Environment]::SetEnvironmentVariable') -or $code.Contains('CreateSubKey("Environment")')) { throw "User PATH test interception failed" }
+try {
+  if ($env:NOODLE_TEST_LOCK -eq "1") {
+    $lock = [IO.File]::Open((Join-Path $env:NOODLE_INSTALL_DIR "noodle.exe"), "Open", "ReadWrite", "None")
+  }
+  if ($env:NOODLE_TEST_SESSION -eq "1") {
+    $ErrorActionPreference = "Continue"
+    $version = "caller version"
+    $destination = "caller destination"
+    $backupPath = "caller backup"
+    $caught = $false
+    try { Invoke-Expression $code } catch { $caught = $true }
+    if ($ErrorActionPreference -ne "Continue" -or $version -cne "caller version" -or $destination -cne "caller destination" -or $backupPath -cne "caller backup") { throw "Installer changed caller scope" }
+    [IO.File]::WriteAllText($env:NOODLE_TEST_PATH_MARKER + ".session", "survived;failure=$caught")
+  } else { Invoke-Expression $code }
+} finally {
+  if ($lock) { $lock.Dispose() }
+  $registryKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registryPath)
+  try {
+    $rawPath = $registryKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    if ($rawPath -cne $env:NOODLE_TEST_USER_PATH) {
+      [IO.File]::WriteAllText($env:NOODLE_TEST_PATH_MARKER, $rawPath)
+      [IO.File]::WriteAllText($env:NOODLE_TEST_PATH_MARKER + ".kind", $registryKey.GetValueKind("Path").ToString())
+    }
+  } finally {
+    $registryKey.Dispose()
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($registryPath)
+  }
 }
-. ([scriptblock]::Create($code))
 `,
     )
   })
@@ -132,14 +161,18 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
       PROCESSOR_ARCHITECTURE: "x86",
       PROCESSOR_ARCHITEW6432: "AMD64",
       NOODLE_SKIP_PATH_UPDATE: "0",
+      NOODLE_TEST_USER_PATH:
+        "%USERPROFILE%\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Windows",
     })
     expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(sha256(await readFile(join(expectedDirectory, "noodle.exe")))).toBe(
       hash,
     )
     expect(await readFile(pathMarker, "utf8")).toBe(
-      `C:\\Windows;${expectedDirectory}`,
+      `%USERPROFILE%\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Windows;${expectedDirectory}`,
     )
+    expect(await readFile(`${pathMarker}.kind`, "utf8")).toBe("ExpandString")
+    expect(await readFile(`${pathMarker}.refresh`, "utf8")).toBe("set\nclear\n")
     expect(result.stdout).not.toContain("Updated Noodle skill")
     expect(await readFile(join(directory, "downloads"), "utf8")).toContain(
       "/v1.2.3/noodle-windows-x86_64.exe",
@@ -154,10 +187,26 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
     })
     expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(await Bun.file(pathMarker).exists()).toBe(false)
+    expect(await Bun.file(`${pathMarker}.refresh`).exists()).toBe(false)
     expect(await readFile(join(directory, "downloads"), "utf8")).toContain(
       "/latest/download/noodle-windows-x86_64.exe",
     )
   })
+
+  it.each([false, true])(
+    "preserves the Invoke-Expression caller after installation failure %s",
+    async (failed) => {
+      const result = await run({
+        NOODLE_TEST_SESSION: "1",
+        NOODLE_TEST_DOWNLOAD_FAIL: failed ? "1" : "0",
+      })
+      expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
+      expect(await readFile(`${pathMarker}.session`, "utf8")).toBe(
+        `survived;failure=${failed ? "True" : "False"}`,
+      )
+      if (failed) expect(result.stderr).toContain("Failed to install Noodle")
+    },
+  )
 
   it("rejects native ARM64 before downloads or installation changes", async () => {
     const result = await run({
