@@ -1051,14 +1051,14 @@ describe("checkForUpdates", () => {
     const status = await checkForUpdates(false, {
       execPath: "/tmp/noodle",
       platform: "win32",
-      arch: "x64",
+      arch: "arm64",
       env: {},
     })
     expect(status).toEqual({
       kind: "unavailable",
       currentVersion,
       installType: "binary",
-      message: "Unsupported platform: win32-x64",
+      message: "Unsupported platform: win32-arm64",
     })
   })
 

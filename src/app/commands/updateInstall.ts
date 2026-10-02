@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto"
-import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import {
+  appendFile,
+  chmod,
+  mkdtemp,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises"
+import { dirname, join, posix } from "node:path"
+import windowsUpdateHelper from "../../../scripts/complete-windows-update.ps1" with { type: "text" }
 import { isNoodleSkillInstalled } from "../../agentSkill"
 import {
   getHomebrewExecutable,
@@ -59,8 +67,11 @@ async function refreshInstalledSkill(
 }
 
 async function hasInstalledSkill(deps: UpdateDependencies): Promise<boolean> {
-  if (deps.env.HOME === undefined && deps.env !== process.env) return false
-  return isNoodleSkillInstalled(deps.env.HOME)
+  const home =
+    deps.env.HOME ??
+    (deps.platform === "win32" ? deps.env.USERPROFILE : undefined)
+  if (home === undefined && deps.env !== process.env) return false
+  return isNoodleSkillInstalled(home)
 }
 
 async function runHomebrewUpdate(
@@ -94,7 +105,7 @@ async function runHomebrewUpdate(
     output("Homebrew upgrade completed.")
     const skill = await refreshInstalledSkill(
       skillInstalled,
-      join(dirname(getHomebrewExecutable(deps.execPath)), "noodle"),
+      posix.join(posix.dirname(getHomebrewExecutable(deps.execPath)), "noodle"),
       deps,
       output,
     )
@@ -162,6 +173,8 @@ async function downloadAndInstall(
   output(`Downloading ${tag} for ${platform}...`)
   onPhase?.("downloading")
   let stagingDir: string | undefined
+  let helperOwnsStaging = false
+  let windowsLogPath: string | undefined
   try {
     const binaryResponse = await deps.fetcher(binaryUrl)
     if (!binaryResponse.ok) {
@@ -176,6 +189,59 @@ async function downloadAndInstall(
     stagingDir = await mkdtemp(join(executableDir, ".noodle-update-"))
     const stagedPath = join(stagingDir, assetName)
     await writeFile(stagedPath, binary, { mode: 0o755 })
+    if (deps.platform === "win32") {
+      const helperPath = join(stagingDir, "complete-update.ps1")
+      const logPath = join(executableDir, ".noodle-update.log")
+      windowsLogPath = logPath
+      await writeFile(helperPath, windowsUpdateHelper)
+      await writeFile(
+        logPath,
+        `Update ${tag} staged; waiting for Noodle to exit.\n`,
+      )
+      const powershell = deps.env.SystemRoot
+        ? join(
+            deps.env.SystemRoot,
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe",
+          )
+        : "powershell.exe"
+      const helperArgs = [
+        powershell,
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        helperPath,
+        "-ParentPid",
+        String(process.pid),
+        "-Source",
+        stagedPath,
+        "-Destination",
+        deps.execPath,
+        "-Version",
+        tag,
+        "-ExpectedSha256",
+        expectedSha256,
+        "-LogPath",
+        logPath,
+      ]
+      if (skillInstalled) helperArgs.push("-RefreshSkill")
+      deps.startProcess(helperArgs, { env: deps.env })
+      helperOwnsStaging = true
+      output(`Update staged; restart Noodle to apply ${tag}.`)
+      output(`Update details: ${logPath}`)
+      return {
+        data: {
+          status: "restart_required",
+          version: tag,
+          log_path: logPath,
+          ...(skillInstalled ? { skill_status: "pending" } : {}),
+        },
+      }
+    }
     await chmod(stagedPath, 0o755)
     await rename(stagedPath, deps.execPath)
     output(`Updated to ${tag}`)
@@ -188,10 +254,17 @@ async function downloadAndInstall(
     return { data: { status: "updated", version: tag, ...skill } }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
+    if (windowsLogPath) {
+      try {
+        await appendFile(windowsLogPath, `Failed to stage update: ${reason}\n`)
+      } catch {
+        // The original executable remains intact even if diagnostics cannot be saved.
+      }
+    }
     output(`Failed to update: ${reason}`)
     return { data: { status: "update_failed", reason }, failed: true }
   } finally {
-    if (stagingDir) {
+    if (stagingDir && !helperOwnsStaging) {
       try {
         await rm(stagingDir, { recursive: true, force: true })
       } catch {

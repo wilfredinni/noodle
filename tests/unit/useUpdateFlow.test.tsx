@@ -8,6 +8,12 @@ import type { UpdateDependencies } from "../../src/app/commands/update"
 import { sha256 } from "../../src/app/commands/update"
 import type { UpdateFlowState } from "../../src/ui/appState"
 import { useUpdateFlow } from "../../src/ui/useUpdateFlow"
+import {
+  getUpdateStatusSegments,
+  UpdateStatusSpans,
+} from "../../src/ui/UpdateStatus"
+import { ThemeProvider } from "../../src/ui/theme"
+import { Toast } from "../../src/ui/Toast"
 import { createTestRender } from "../testRender"
 
 const testRender = createTestRender()
@@ -16,19 +22,34 @@ type UpdateHook = ReturnType<typeof useUpdateFlow>
 function Harness({
   dependencies,
   onState,
+  renderStatus = false,
 }: {
   dependencies: Partial<UpdateDependencies>
   onState: (state: UpdateHook) => void
+  renderStatus?: boolean
 }) {
   const state = useUpdateFlow(dependencies)
   useEffect(() => onState(state), [onState, state])
-  return null
+  return renderStatus ? (
+    <ThemeProvider activeIndex={0} previewIndex={null}>
+      <text>
+        <UpdateStatusSpans
+          segments={getUpdateStatusSegments(state.updateFlow)}
+        />
+      </text>
+      <Toast />
+    </ThemeProvider>
+  ) : null
 }
 
-function manifest(version: string, sha: string): string {
+function manifest(
+  version: string,
+  sha: string,
+  platform = "macos-arm64",
+): string {
   return JSON.stringify({
     version,
-    assets: { "macos-arm64": { sha256: sha } },
+    assets: { [platform]: { sha256: sha } },
   })
 }
 
@@ -59,19 +80,21 @@ describe("useUpdateFlow", () => {
   async function renderHook(
     dependencies: Partial<UpdateDependencies>,
     waitForInitialState = true,
+    renderStatus = false,
   ) {
     let state: UpdateHook | undefined
     const phases: string[] = []
     const render = await testRender(
       <Harness
         dependencies={dependencies}
+        renderStatus={renderStatus}
         onState={(next) => {
           state = next
           if (phases.at(-1) !== next.updateFlow.phase)
             phases.push(next.updateFlow.phase)
         }}
       />,
-      { width: 1, height: 1 },
+      { width: renderStatus ? 80 : 1, height: renderStatus ? 5 : 1 },
     )
     await render.renderOnce()
 
@@ -87,7 +110,7 @@ describe("useUpdateFlow", () => {
     }
 
     if (waitForInitialState) await waitFor(() => state !== undefined)
-    return { getState: () => state!, phases, waitFor }
+    return { getState: () => state!, phases, waitFor, render }
   }
 
   function binaryDependencies(
@@ -132,6 +155,49 @@ describe("useUpdateFlow", () => {
     act(() => getState().triggerAboutUpdateCheck())
     await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     expect(manifestChecks).toBe(1)
+  })
+
+  it("renders a staged Windows update as restart-to-apply and suppresses repeat checks", async () => {
+    const binary = new TextEncoder().encode("new")
+    const executable = `${execPath}.exe`
+    await writeFile(executable, "old")
+    let checks = 0
+    let launches = 0
+    const { getState, waitFor, render } = await renderHook(
+      {
+        cachePath,
+        execPath: executable,
+        platform: "win32",
+        arch: "x64",
+        env: {},
+        fetcher: async (input) => {
+          if (String(input).endsWith("update.json")) {
+            checks++
+            return new Response(
+              manifest("v99.0.0", sha256(binary), "windows-x86_64"),
+            )
+          }
+          return new Response(binary)
+        },
+        startProcess: () => {
+          launches++
+        },
+      },
+      true,
+      true,
+    )
+    await waitFor(() => getState().updateFlow.phase === "done")
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("Restart to apply v99.0.0")
+    expect(render.captureCharFrame().replaceAll("─", " ")).toContain(
+      "Update staged; restart Noodle to apply",
+    )
+    expect(render.captureCharFrame()).not.toContain("Update completed")
+    expect(await readFile(executable, "utf8")).toBe("old")
+    act(() => getState().triggerAboutUpdateCheck())
+    await act(async () => render.flush())
+    expect(checks).toBe(1)
+    expect(launches).toBe(1)
   })
 
   it("retries a failed About check on the next opening", async () => {

@@ -1,6 +1,6 @@
-import { homedir } from "node:os"
 import { join } from "node:path"
 import pkg from "../../../package.json" with { type: "json" }
+import { getNoodleConfigDir } from "../../userPath"
 import {
   getPlatformString,
   getHomebrewExecutable,
@@ -26,6 +26,10 @@ export interface UpdateDependencies {
       env?: Record<string, string | undefined>
     },
   ) => Promise<ProcessResult>
+  startProcess: (
+    args: string[],
+    options?: { env?: Record<string, string | undefined> },
+  ) => void
   execPath: string
   platform: string
   arch: string
@@ -66,7 +70,21 @@ async function runProcess(
 }
 
 function getDefaultCachePath(): string {
-  return join(homedir(), ".config", "noodle", "update-cache.json")
+  return join(getNoodleConfigDir(), "update-cache.json")
+}
+
+function startProcess(
+  args: string[],
+  options?: { env?: Record<string, string | undefined> },
+): void {
+  Bun.spawn(args, {
+    env: options?.env,
+    detached: true,
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+    windowsHide: true,
+  }).unref()
 }
 
 export function getUpdateDeps(
@@ -75,6 +93,7 @@ export function getUpdateDeps(
   return {
     fetcher: globalThis.fetch,
     runProcess,
+    startProcess,
     execPath: process.execPath,
     platform: process.platform,
     arch: process.arch,

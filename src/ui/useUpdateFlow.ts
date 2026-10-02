@@ -204,6 +204,12 @@ export function useUpdateFlow(
           const version = result.data.version ?? update.version
           showUpdateCompleted(result.data.skill_status)
           setUpdateFlow({ phase: "done", version })
+        } else if (result.data.status === "restart_required") {
+          showToast("Update staged; restart Noodle to apply", "warning")
+          setUpdateFlow({
+            phase: "done",
+            version: result.data.version ?? update.version,
+          })
         } else {
           const message =
             (result.data as Record<string, string>).reason ?? "Update failed"
