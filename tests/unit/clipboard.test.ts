@@ -39,8 +39,8 @@ describe("copyToClipboard", () => {
     expect(result).toBe(true)
   })
 
-  it("uses only Windows clip with UTF-16LE input", () => {
-    const text = "Noodle café 界 🍜\nsecond line"
+  it("sends Windows text as UTF-16LE stdin to a fixed PowerShell command", () => {
+    const text = "\ufeffNoodle café 界 🍜\n$(Write-Output 'injected') %PATH%"
     const commands: string[][] = []
     const result = copyToClipboard(
       text,
@@ -48,13 +48,30 @@ describe("copyToClipboard", () => {
       (command, { stdin }) => {
         commands.push(command)
         expect(Buffer.from(stdin).toString("utf16le")).toBe(text)
-        expect([...stdin.slice(0, 2)]).toEqual([78, 0])
+        expect(command.at(-1)).not.toContain(text)
         return { exitCode: 0 }
       },
       "win32",
     )
     expect(result).toBe(true)
-    expect(commands).toEqual([["clip.exe"]])
+    expect(commands).toHaveLength(1)
+    expect(commands[0]?.slice(0, -1)).toEqual([
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-STA",
+      "-Command",
+    ])
+    expect(commands[0]?.at(-1)).toContain("Microsoft.PowerShell.Management")
+    expect(commands[0]?.at(-1)).toContain(
+      String.raw`Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1"`,
+    )
+    expect(commands[0]?.at(-1)).toContain("[Console]::OpenStandardInput()")
+    expect(commands[0]?.at(-1)).toContain("[Text.Encoding]::Unicode.GetString")
+    expect(commands[0]?.at(-1)).toContain("Set-Clipboard -Value")
+    expect(
+      copyToClipboard(text, mockRenderer(true), spawnWith(1), "win32"),
+    ).toBe(true)
   })
 
   it("filters Linux clipboard commands and preserves UTF-8 input", () => {
@@ -86,7 +103,7 @@ describe("copyToClipboard", () => {
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          "[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))",
+          '$ErrorActionPreference = "Stop"; Import-Module "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1"; [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))',
         ])
         expect(result.exitCode).toBe(0)
         return Buffer.from(result.stdout.toString().trim(), "base64").toString(
@@ -102,6 +119,8 @@ describe("copyToClipboard", () => {
           "🍜",
           "",
           "\ufeffintentional marker",
+          "first\nsecond\r\nthird\n",
+          "$(Write-Output 'injected') & %PATH% | > < ^ \" !",
         ]) {
           expect(copyToClipboard(text, mockRenderer(false))).toBe(true)
           expect(read()).toBe(text)
@@ -110,5 +129,6 @@ describe("copyToClipboard", () => {
         copyToClipboard(original, mockRenderer(false))
       }
     },
+    20_000,
   )
 })

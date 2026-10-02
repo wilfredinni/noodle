@@ -4,7 +4,21 @@ const CLIPBOARD_CMDS: Array<{ cmd: string[]; platform: string }> = [
   { cmd: ["pbcopy"], platform: "darwin" },
   { cmd: ["xclip", "-selection", "clipboard"], platform: "linux" },
   { cmd: ["wl-copy"], platform: "linux" },
-  { cmd: ["clip.exe"], platform: "win32" },
+  {
+    cmd: [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-STA",
+      "-Command",
+      `$ErrorActionPreference = 'Stop'
+Import-Module "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1"
+$noodleClipboardInput = [IO.MemoryStream]::new()
+[Console]::OpenStandardInput().CopyTo($noodleClipboardInput)
+Set-Clipboard -Value ([Text.Encoding]::Unicode.GetString($noodleClipboardInput.ToArray()))`,
+    ],
+    platform: "win32",
+  },
 ]
 
 export type ClipboardSpawn = (
