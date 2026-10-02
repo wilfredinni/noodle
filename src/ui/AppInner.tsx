@@ -104,6 +104,7 @@ import {
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { scriptConsoleEntries } from "./ScriptConsole"
+import { scriptPhase } from "../scriptAuthoring"
 import { ResponseFileContext } from "./responseFileContext"
 import {
   beginResponseFileSave,
@@ -1281,7 +1282,8 @@ export function AppInner({
           : paneMode === "edit" &&
               focus === "request" &&
               (eb.editState.cursor.field === "assertions" ||
-                eb.editState.cursor.field === "captures")
+                eb.editState.cursor.field === "captures" ||
+                !!scriptPhase(eb.editState.cursor.field))
             ? "edit.request-send"
             : paneMode === "base" && focus !== "folder"
               ? "request.send"
