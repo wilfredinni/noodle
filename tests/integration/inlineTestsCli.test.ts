@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { lang } from "../../src/lang"
 import type { Request } from "../../src/schema"
 
@@ -85,7 +85,7 @@ describe("inline tests CLI and compiled binary", () => {
     expect(result.results[0].tests.results[0].source).toEqual({
       scope: "collection",
       path: "settings.yml",
-      scopeId: dir.split("/").at(-1),
+      scopeId: basename(dir),
       sourceKind: "inline",
     })
     await writeFile(join(dir, "rows.json"), "[null]")

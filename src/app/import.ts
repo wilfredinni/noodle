@@ -1,6 +1,21 @@
-import { existsSync, readFileSync, statSync } from "node:fs"
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs"
 import { mkdir, rm, writeFile } from "node:fs/promises"
-import { dirname, join, posix, relative, resolve, sep } from "node:path"
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  resolve,
+  sep,
+} from "node:path"
 import { randomUUID } from "node:crypto"
 import {
   getImporter,
@@ -24,6 +39,8 @@ import type {
   Request,
 } from "../schema"
 import { validateEnvironment } from "../env/save"
+import { validateFilenameSegment } from "../userPath"
+import { validateId } from "../requestId"
 
 function serializeEnv(env: Environment): string {
   let out = ""
@@ -116,8 +133,10 @@ function importPaths(
   const visit = (children: CollectionItem[]) => {
     for (const item of children) {
       if (item.type === "request") {
+        validateId(item.data.id)
         paths.push(`${item.data.id}.yml`)
       } else {
+        validateId(item.data.path)
         paths.push(posix.join(item.data.path, "folder.yml"))
         visit(item.data.children)
       }
@@ -144,6 +163,23 @@ function validateImportedEnvironments(environments: Environment[]): void {
   }
 }
 
+function canonicalDestination(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    try {
+      lstatSync(path)
+    } catch (missing) {
+      if ((missing as NodeJS.ErrnoException).code !== "ENOENT") throw missing
+      const parent = dirname(path)
+      if (parent !== path)
+        return join(canonicalDestination(parent), basename(path))
+    }
+    throw error
+  }
+}
+
 function validateImportPath(root: string, path: string): void {
   const target = resolve(root, path)
   const rel = relative(resolve(root), target)
@@ -151,10 +187,27 @@ function validateImportPath(root: string, path: string): void {
     !path ||
     path.includes("\\") ||
     rel === ".." ||
-    rel.startsWith(`..${sep}`)
+    rel.startsWith(`..${sep}`) ||
+    isAbsolute(rel)
   ) {
     throw new Error(`invalid imported path "${path}"`)
   }
+  for (const segment of path.split("/")) validateFilenameSegment(segment)
+  let canonicalRelative: string
+  try {
+    canonicalRelative = relative(
+      canonicalDestination(resolve(root)),
+      canonicalDestination(target),
+    )
+  } catch (error) {
+    throw new Error(`invalid imported path "${path}"`, { cause: error })
+  }
+  if (
+    canonicalRelative === ".." ||
+    canonicalRelative.startsWith(`..${sep}`) ||
+    isAbsolute(canonicalRelative)
+  )
+    throw new Error(`invalid imported path "${path}"`)
 }
 
 function findConflicts(
@@ -196,6 +249,7 @@ function validateCollectionId(id: string): void {
   ) {
     throw new Error(`invalid imported collection id "${id}"`)
   }
+  validateFilenameSegment(id)
 }
 
 export type ImportDestination =
@@ -269,6 +323,7 @@ export async function runImport(options: ImportOptions): Promise<{
   }
 
   const formatted = formatItems(result.collection.items)
+  validateCollectionId(result.collection.id)
   validateImportedEnvironments(result.environments)
   result = {
     ...result,

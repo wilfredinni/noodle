@@ -1,8 +1,16 @@
 import { createHash, randomUUID } from "node:crypto"
-import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
+import {
+  link,
+  mkdir,
+  readFile,
+  realpath,
+  unlink,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { loadSettings } from "../filestore/load"
 import { saveSettings } from "../filestore/save"
+import { acquireFileLock } from "../fileLock"
 import type {
   AppProxySettings,
   CollectionProxySettings,
@@ -347,11 +355,23 @@ export async function ensureCollectionId(
 ): Promise<string> {
   const settings = await loadSettings(collectionDir)
   if (settings.collectionId) return settings.collectionId
-  const reservedId = await reserveCollectionId(collectionDir)
-  const current = await loadSettings(collectionDir)
-  if (current.collectionId) return current.collectionId
-  await saveSettings(collectionDir, { ...current, collectionId: reservedId })
-  return reservedId
+  await mkdir(collectionDir, { recursive: true })
+  const directory = await realpath(collectionDir)
+  const lock = await acquireFileLock(
+    join(directory, ".noodle", "collection-id"),
+    { lockTimeoutMs: 5000, minBackoffMs: 10, maxBackoffMs: 50 },
+  )
+  try {
+    const settings = await loadSettings(directory)
+    if (settings.collectionId) return settings.collectionId
+    const reservedId = await reserveCollectionId(directory)
+    const current = await loadSettings(directory)
+    if (current.collectionId) return current.collectionId
+    await saveSettings(directory, { ...current, collectionId: reservedId })
+    return reservedId
+  } finally {
+    await lock.release()
+  }
 }
 
 export async function getStoredSecret(

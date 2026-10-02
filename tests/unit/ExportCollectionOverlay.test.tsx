@@ -1,7 +1,5 @@
-import { describe, expect, it } from "bun:test"
-import { mkdtemp, rm, symlink } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs"
 import { act, createRef } from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -114,8 +112,12 @@ describe("ExportCollectionOverlay", () => {
   })
 
   it("keeps target preview errors inline", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-preview-"))
-    await symlink("orders-postman", join(outputDir, "orders-postman"))
+    const outputDir = "/exports"
+    const readDirectory = spyOn(fs, "readdirSync").mockImplementation(() => {
+      throw Object.assign(new Error("Cannot read export destination"), {
+        code: "EACCES",
+      })
+    })
     const { keymap, host, cleanup } = setupKeymap()
     const ref = createRef<ExportCollectionOverlayHandle>()
 
@@ -150,9 +152,10 @@ describe("ExportCollectionOverlay", () => {
       expect(frame).toContain("Export Collection")
       expect(frame).toContain("Target: unavailable")
       expect(frame).toContain("Unable to preview target")
+      expect(frame).toContain("Cannot read export destination")
     } finally {
       cleanup()
-      await rm(outputDir, { recursive: true, force: true })
+      readDirectory.mockRestore()
     }
   })
 })

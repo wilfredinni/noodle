@@ -1,6 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs/promises"
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises"
+import { join, resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { env } from "../src/env"
 import {
@@ -26,6 +35,7 @@ import {
   deleteStoredSecret,
   getAppSettingSecret,
   getCollectionSettingSecret,
+  getStoredSecret,
   secretAccount,
   setSecretBackendForTests,
   setAppSettingSecret,
@@ -231,6 +241,34 @@ describe("secret storage", () => {
     expect(first).toMatch(/^[0-9a-f-]{36}$/)
   })
 
+  it("reads an existing collection id without writing to its collection directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-secret-id-read-"))
+    const collectionId = "123e4567-e89b-42d3-a456-426614174000"
+    await saveSettings(root, { collectionId })
+    const backend = memoryBackend()
+    backend.values.set(
+      `${SECRET_SERVICE}:${secretAccount(collectionId, "dev", "TOKEN")}`,
+      "stored",
+    )
+    setSecretBackendForTests(backend)
+    const makeDirectory = spyOn(fs, "mkdir").mockRejectedValue(
+      new Error("collection is read-only"),
+    )
+    const write = spyOn(fs, "writeFile").mockRejectedValue(
+      new Error("collection is read-only"),
+    )
+    try {
+      expect(await getStoredSecret(root, "dev", "TOKEN")).toBe("stored")
+      expect(makeDirectory).not.toHaveBeenCalled()
+      expect(write).not.toHaveBeenCalled()
+      expect(await readdir(root)).toEqual(["settings.yml"])
+    } finally {
+      makeDirectory.mockRestore()
+      write.mockRestore()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it("uses one collection id when secret operations initialize concurrently", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-secret-race-"))
     await saveSettings(root, { environment: "dev" })
@@ -244,16 +282,172 @@ describe("secret storage", () => {
       },
     })
 
-    await Promise.all(
-      Array.from({ length: 20 }, (_, index) =>
-        setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
+    let publications = 0
+    let activePublications = 0
+    let maxActivePublications = 0
+    const realRename = fs.rename
+    const settingsFiles = new Set([
+      join(root, "settings.yml"),
+      join(await fs.realpath(root), "settings.yml"),
+    ])
+    const publication = spyOn(fs, "rename").mockImplementation(
+      async (from, to) => {
+        if (!settingsFiles.has(String(to))) return realRename(from, to)
+        publications += 1
+        activePublications += 1
+        maxActivePublications = Math.max(
+          maxActivePublications,
+          activePublications,
+        )
+        try {
+          await Bun.sleep(25)
+          return await realRename(from, to)
+        } finally {
+          activePublications -= 1
+        }
+      },
+    )
+    try {
+      const results = await Promise.allSettled(
+        Array.from({ length: 20 }, (_, index) =>
+          setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
+        ),
+      )
+      expect(results.every((result) => result.status === "fulfilled")).toBe(
+        true,
+      )
+      const savedId = (await loadSettings(root)).collectionId
+      expect(savedId).toBeDefined()
+      expect(collectionIds).toEqual(new Set([savedId!]))
+      expect(publications).toBe(1)
+      expect(maxActivePublications).toBe(1)
+    } finally {
+      publication.mockRestore()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("preserves the reserved id and releases its initialization lock after a failed publication", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-secret-id-failure-"))
+    await saveSettings(root, { environment: "dev", name: "Retained" })
+    const canonical = await fs.realpath(root)
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    const realRename = fs.rename
+    let publications = 0
+    const publication = spyOn(fs, "rename").mockImplementation(
+      async (from, to) => {
+        if (String(to) === join(canonical, "settings.yml")) {
+          publications += 1
+          throw new Error("injected settings publication failure")
+        }
+        return realRename(from, to)
+      },
+    )
+    try {
+      await expect(
+        setStoredSecret(root, "dev", "TOKEN", "value"),
+      ).rejects.toThrow(
+        "filestore.saveSettings: injected settings publication failure",
+      )
+      expect(publications).toBe(1)
+      expect(backend.values.size).toBe(0)
+      expect(await loadSettings(root)).toEqual({
+        environment: "dev",
+        name: "Retained",
+      })
+      expect(
+        await Bun.file(
+          join(root, ".noodle", "collection-id.lock", "owner"),
+        ).exists(),
+      ).toBe(false)
+      const reservedId = await readFile(
+        join(root, ".noodle", "collection-id"),
+        "utf8",
+      )
+      publication.mockRestore()
+      await setStoredSecret(root, "dev", "TOKEN", "value")
+      expect(await loadSettings(root)).toEqual({
+        collectionId: reservedId,
+        environment: "dev",
+        name: "Retained",
+      })
+      expect(
+        await readFile(join(root, ".noodle", "collection-id"), "utf8"),
+      ).toBe(reservedId)
+      expect(await readdir(join(root, ".noodle"))).toEqual(["collection-id"])
+    } finally {
+      publication.mockRestore()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("publishes one collection id across processes opening physical and linked paths", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "noodle-secret-process-"))
+    const root = join(parent, "collection")
+    const alias = join(parent, "linked")
+    const shared = join(parent, "coordination")
+    const startFile = join(shared, "start")
+    await mkdir(root)
+    await mkdir(shared)
+    await symlink(
+      root,
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    )
+    await saveSettings(root, { environment: "dev", name: "Retained" })
+    const fixture = resolve(
+      import.meta.dir,
+      "fixtures/collection-id-process.ts",
+    )
+    const children = [root, alias].map((directory, index) =>
+      Bun.spawn(
+        [process.execPath, fixture, directory, shared, startFile, `${index}`],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+        },
       ),
     )
-
-    const savedId = (await loadSettings(root)).collectionId
-    expect(savedId).toBeDefined()
-    expect(collectionIds).toEqual(new Set([savedId!]))
-  })
+    try {
+      const deadline = Date.now() + 4000
+      for (;;) {
+        const entries = await readdir(shared)
+        if (entries.includes("ready-0") && entries.includes("ready-1")) break
+        if (Date.now() >= deadline)
+          throw new Error("Collection id fixtures did not start")
+        await Bun.sleep(10)
+      }
+      await writeFile(startFile, "start")
+      const results = await Promise.all(
+        children.map(async (child) => ({
+          code: await child.exited,
+          stdout: await new Response(child.stdout).text(),
+          stderr: await new Response(child.stderr).text(),
+        })),
+      )
+      expect(results).toEqual([
+        { code: 0, stdout: "", stderr: "" },
+        { code: 0, stdout: "", stderr: "" },
+      ])
+      const settings = await loadSettings(root)
+      expect(settings).toMatchObject({ environment: "dev", name: "Retained" })
+      expect(settings.collectionId).toBeDefined()
+      for (const index of [0, 1]) {
+        expect(await readFile(join(shared, `account-${index}`), "utf8")).toBe(
+          secretAccount(settings.collectionId!, "dev", `TOKEN_${index}`),
+        )
+      }
+      expect(
+        (await readdir(shared)).filter((file) => file.startsWith("published-")),
+      ).toHaveLength(1)
+      expect(await readdir(join(root, ".noodle"))).toEqual(["collection-id"])
+    } finally {
+      for (const child of children) child.kill()
+      await Promise.all(children.map((child) => child.exited))
+      await rm(parent, { recursive: true, force: true })
+    }
+  }, 15_000)
 
   it("rejects empty values", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-secret-empty-"))

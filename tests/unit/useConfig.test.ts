@@ -47,12 +47,13 @@ describe("loadConfig", () => {
   })
 
   it("reads valid YAML file", () => {
+    const collections = [join(dir, "CollectionA"), join(dir, "collectionB")]
     writeFileSync(
       join(dir, CONFIG_FILE_NAME),
       yaml.dump({
         theme: "dracula",
         layout: "side-by-side",
-        collections: ["/tmp/a", "/tmp/b"],
+        collections,
       }),
       "utf8",
     )
@@ -62,7 +63,7 @@ describe("loadConfig", () => {
       layout: "side-by-side",
       confirm_undo_all: true,
       format_on_save: false,
-      collections: ["/tmp/a", "/tmp/b"],
+      collections,
     })
   })
 
@@ -152,23 +153,28 @@ describe("loadConfig", () => {
 
 describe("appendCollectionPath", () => {
   it("adds a collection without reordering existing paths", () => {
-    expect(appendCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/c")).toEqual([
-      "/tmp/a",
-      "/tmp/b",
-      "/tmp/c",
+    const first = join(tmpdir(), "CollectionA")
+    const second = join(tmpdir(), "collectionB")
+    const third = join(tmpdir(), "CollectionC")
+    expect(appendCollectionPath([first, second], third)).toEqual([
+      first,
+      second,
+      third,
     ])
-    expect(appendCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/a")).toEqual([
-      "/tmp/a",
-      "/tmp/b",
+    expect(appendCollectionPath([first, second], first)).toEqual([
+      first,
+      second,
     ])
   })
 })
 
 describe("upsertCollectionPath", () => {
   it("moves the opened collection to the front without duplicating it", () => {
-    expect(upsertCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/b")).toEqual([
-      "/tmp/b",
-      "/tmp/a",
+    const first = join(tmpdir(), "CollectionA")
+    const second = join(tmpdir(), "collectionB")
+    expect(upsertCollectionPath([first, second], second)).toEqual([
+      second,
+      first,
     ])
   })
 })

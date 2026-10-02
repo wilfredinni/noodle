@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test"
 import { existsSync } from "node:fs"
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { scheduler } from "node:timers/promises"
@@ -26,14 +33,17 @@ import { collection as collectionCommand } from "../../src/app/commands/automati
 import { env } from "../../src/env"
 import { executor } from "../../src/requests"
 import { setSecretBackendForTests, type SecretBackend } from "../../src/secrets"
+import { setCookieJarStorageForTests } from "../../src/cookies"
 
 let dir: string
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-automation-"))
+  setCookieJarStorageForTests({ keyLockFile: join(dir, "cookie-jar-key") })
 })
 afterEach(async () => {
   jest.useRealTimers()
   setSecretBackendForTests(undefined)
+  setCookieJarStorageForTests()
   await rm(dir, { recursive: true, force: true })
 })
 
@@ -2909,6 +2919,10 @@ describe("automation cookie jar", () => {
   })
 
   it("reports plaintext warnings and host-only metadata", async () => {
+    setCookieJarStorageForTests({
+      platform: "linux",
+      keyLockFile: join(dir, "cookie-jar-key"),
+    })
     const failingBackend: SecretBackend = {
       async get() {
         throw new Error("no keyring")
@@ -2948,6 +2962,53 @@ describe("automation cookie jar", () => {
     expect(result.state).toBe("plaintext-warning")
     expect(result.warnings).toHaveLength(1)
     expect(result.cookies[0]?.hostOnly).toBe(true)
+  })
+
+  it("reports unavailable Windows storage and preserves its encrypted file when clear cannot access the vault", async () => {
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(dir, "cookie-jar-key"),
+    })
+    setSecretBackendForTests(memoryBackend())
+    const collectionDir = join(dir, "windows-vault")
+    const configDir = join(dir, "config")
+    const collectionId = "123e4567-e89b-42d3-a456-426614174000"
+    await mkdir(collectionDir)
+    await writeFile(
+      join(collectionDir, "settings.yml"),
+      `collection_id: ${collectionId}\n`,
+    )
+    const { CollectionCookieJar } = await import("../../src/cookies")
+    const jar = await CollectionCookieJar.open(configDir, collectionId)
+    jar.put({ name: "session", value: "secret", domain: "example.com" })
+    await jar.close()
+    const original = await readFile(jar.file, "utf8")
+    setSecretBackendForTests({
+      async get() {
+        throw new Error("vault unavailable")
+      },
+      async set() {
+        throw new Error("vault unavailable")
+      },
+      async delete() {
+        return false
+      },
+    })
+
+    const listed = await cookieList(collectionDir, configDir)
+    expect(listed).toMatchObject({
+      disabled: false,
+      state: "unavailable",
+      cookies: [],
+    })
+    expect(listed.warnings).toHaveLength(1)
+    await expect(cookieClear(collectionDir, configDir)).rejects.toMatchObject({
+      code: "key-unavailable",
+    })
+    expect(await readFile(jar.file, "utf8")).toBe(original)
+    expect(await readdir(join(configDir, "cookies"))).toEqual([
+      `${collectionId}.json`,
+    ])
   })
 
   it("backs up unreadable storage when cookie clear resets it", async () => {

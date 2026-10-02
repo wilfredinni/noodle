@@ -9,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import skill from "../.agents/skills/noodle-use/SKILL.md" with { type: "text" }
 import schema from "../.agents/skills/noodle-use/schema.md" with { type: "text" }
 // @ts-expect-error Bun embeds this declaration as text, not a TypeScript module.
@@ -296,7 +296,11 @@ async function linkSkill(
   const stagingRoot = await mkdtemp(join(parent, ".noodle-use-link-"))
   const stagedPath = join(stagingRoot, "noodle-use")
   return withStagingCleanup(stagingRoot, async () => {
-    await symlink(canonicalPath, stagedPath, "dir")
+    await symlink(
+      resolve(canonicalPath),
+      stagedPath,
+      process.platform === "win32" ? "junction" : "dir",
+    )
     return await replacePath(stagedPath, targetPath, force)
   })
 }

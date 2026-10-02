@@ -2,7 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
-const binary = resolve(process.argv[2] ?? "./noodle")
+const binary = resolve(
+  process.argv[2] ??
+    (process.platform === "win32" ? "./noodle.exe" : "./noodle"),
+)
 const collection = await mkdtemp(join(tmpdir(), "noodle-compiled-script-"))
 const marker = "compiled-quickjs-ok"
 

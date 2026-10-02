@@ -85,7 +85,11 @@ async function resolvedOutputPath(path: string): Promise<string> {
   let current = path
   while (true) {
     try {
-      return join(await realpath(current), ...suffix.reverse())
+      const canonical = await realpath(current)
+      if (suffix.length && !(await stat(canonical)).isDirectory()) {
+        throw new Error("export output parent must be a directory")
+      }
+      return join(canonical, ...suffix.reverse())
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         const message = error instanceof Error ? error.message : String(error)

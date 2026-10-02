@@ -1,5 +1,5 @@
 import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { basename, isAbsolute, join, relative, sep } from "node:path"
 import * as yaml from "../yaml"
 import { lang } from "../lang"
 import type {
@@ -128,12 +128,10 @@ async function walk(
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
-  if (
-    root !== undefined &&
-    resolved !== root &&
-    !resolved.startsWith(root + "/")
-  ) {
-    return []
+  if (root !== undefined) {
+    const path = relative(root, resolved)
+    if (path === ".." || path.startsWith(`..${sep}`) || isAbsolute(path))
+      return []
   }
   if (visited.has(resolved)) return []
   visited.add(resolved)

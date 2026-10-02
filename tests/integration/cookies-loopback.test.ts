@@ -6,6 +6,7 @@ import type { Request } from "../../src/schema"
 import { send } from "../../src/requests/send"
 import {
   CollectionCookieJar,
+  setCookieJarStorageForTests,
   setCookieJarTimingForTests,
 } from "../../src/cookies"
 import { acquireFileLock } from "../../src/fileLock"
@@ -41,10 +42,15 @@ let server: ReturnType<typeof Bun.serve>
 let port = 0
 let seenCookies: string[] = []
 let configDir = ""
+let backend: ReturnType<typeof memoryBackend>
 
 beforeAll(async () => {
   configDir = await mkdtemp(join(tmpdir(), "noodle-send-cookies-"))
-  setSecretBackendForTests(memoryBackend())
+  setCookieJarStorageForTests({
+    keyLockFile: join(configDir, "cookie-jar-key"),
+  })
+  backend = memoryBackend()
+  setSecretBackendForTests(backend)
   server = Bun.serve({
     port: 0,
     async fetch(request) {
@@ -77,11 +83,61 @@ beforeAll(async () => {
 
 afterAll(async () => {
   setSecretBackendForTests(undefined)
+  setCookieJarStorageForTests()
   server.stop(true)
   await rm(configDir, { recursive: true, force: true })
 })
 
 describe("send with cookie jar", () => {
+  it("continues HTTP with explicit cookies when the Windows vault is unavailable", async () => {
+    seenCookies = []
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    setSecretBackendForTests({
+      async get() {
+        throw new Error("vault unavailable")
+      },
+      async set() {
+        throw new Error("vault unavailable")
+      },
+      async delete() {
+        return false
+      },
+    })
+    const jar = await CollectionCookieJar.open(configDir, "vault-unavailable")
+    try {
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "key-unavailable" },
+      })
+      const response = await send(
+        {
+          ...baseReq,
+          url: `http://localhost:${port}/login`,
+          headers: { Cookie: { value: "manual=retained", enabled: true } },
+        },
+        { cookies: jar },
+      )
+      expect(response.status).toBe(200)
+      expect(seenCookies).toEqual(["manual=retained"])
+      expect(response.cookies).toContainEqual(
+        expect.objectContaining({ name: "session", value: "abc123" }),
+      )
+      expect(jar.list()).toEqual([])
+      expect(jar.status.state).toBe("unavailable")
+      await expect(jar.saveNow()).resolves.toBeUndefined()
+      expect(await Bun.file(jar.file).exists()).toBe(false)
+    } finally {
+      await jar.close().catch(() => {})
+      setSecretBackendForTests(backend)
+      setCookieJarStorageForTests({
+        keyLockFile: join(configDir, "cookie-jar-key"),
+      })
+    }
+  })
+
   it("recovers cookies on the next send after a temporary storage lock clears", async () => {
     seenCookies = []
     setCookieJarTimingForTests({ lockTimeoutMs: 0 })

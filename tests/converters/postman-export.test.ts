@@ -1,6 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test"
 import * as os from "node:os"
-import { resolve } from "node:path"
+import { join, resolve } from "node:path"
 import { Collection as PmCollection } from "postman-collection"
 import {
   exportPostman,
@@ -594,7 +594,8 @@ describe("Postman export", () => {
   })
 
   it("preserves dollar signs introduced by home expansion", () => {
-    const homedirSpy = spyOn(os, "homedir").mockReturnValue("/tmp/noodle$home")
+    const home = join(os.tmpdir(), "noodle$home")
+    const homedirSpy = spyOn(os, "homedir").mockReturnValue(home)
     try {
       const items = exportPostman({
         id: "home-path",
@@ -634,13 +635,13 @@ describe("Postman export", () => {
               key: "file",
               disabled: false,
               type: "file",
-              src: "/tmp/noodle$home/upload.bin",
+              src: resolve(home, "upload.bin"),
             },
           ],
         },
         {
           mode: "file",
-          file: { src: "/tmp/noodle$home/archive.bin" },
+          file: { src: resolve(home, "archive.bin") },
         },
       ])
     } finally {

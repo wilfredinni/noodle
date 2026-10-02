@@ -1,5 +1,6 @@
-import { describe, expect, it } from "bun:test"
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -48,20 +49,21 @@ describe("runCollectionExport", () => {
   })
 
   it("propagates unexpected filesystem errors from Postman targets", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-target-"))
-    const target = join(outputDir, "orders-postman")
-
+    const error = Object.assign(new Error("access denied"), { code: "EACCES" })
+    const read = spyOn(fs, "readdirSync").mockImplementation(() => {
+      throw error
+    })
     try {
-      await symlink("orders-postman", target)
-      let code: string | undefined
+      let received: unknown
       try {
-        getExportTargetPath(outputDir, "orders", "postman")
-      } catch (error) {
-        code = (error as NodeJS.ErrnoException).code
+        getExportTargetPath(tmpdir(), "orders", "postman")
+      } catch (caught) {
+        received = caught
       }
-      expect(code).toBe("ELOOP")
+      expect(received).toBe(error)
+      expect(read).toHaveBeenCalledTimes(1)
     } finally {
-      await rm(outputDir, { recursive: true, force: true })
+      read.mockRestore()
     }
   })
 

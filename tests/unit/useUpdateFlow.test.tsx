@@ -8,6 +8,12 @@ import type { UpdateDependencies } from "../../src/app/commands/update"
 import { sha256 } from "../../src/app/commands/update"
 import type { UpdateFlowState } from "../../src/ui/appState"
 import { useUpdateFlow } from "../../src/ui/useUpdateFlow"
+import {
+  getUpdateStatusSegments,
+  UpdateStatusSpans,
+} from "../../src/ui/UpdateStatus"
+import { ThemeProvider } from "../../src/ui/theme"
+import { Toast, takeToastMessage } from "../../src/ui/Toast"
 import { createTestRender } from "../testRender"
 
 const testRender = createTestRender()
@@ -16,19 +22,34 @@ type UpdateHook = ReturnType<typeof useUpdateFlow>
 function Harness({
   dependencies,
   onState,
+  renderStatus = false,
 }: {
   dependencies: Partial<UpdateDependencies>
   onState: (state: UpdateHook) => void
+  renderStatus?: boolean
 }) {
   const state = useUpdateFlow(dependencies)
   useEffect(() => onState(state), [onState, state])
-  return null
+  return renderStatus ? (
+    <ThemeProvider activeIndex={0} previewIndex={null}>
+      <text>
+        <UpdateStatusSpans
+          segments={getUpdateStatusSegments(state.updateFlow)}
+        />
+      </text>
+      <Toast />
+    </ThemeProvider>
+  ) : null
 }
 
-function manifest(version: string, sha: string): string {
+function manifest(
+  version: string,
+  sha: string,
+  platform = "macos-arm64",
+): string {
   return JSON.stringify({
     version,
-    assets: { "macos-arm64": { sha256: sha } },
+    assets: { [platform]: { sha256: sha } },
   })
 }
 
@@ -59,26 +80,32 @@ describe("useUpdateFlow", () => {
   async function renderHook(
     dependencies: Partial<UpdateDependencies>,
     waitForInitialState = true,
+    renderStatus = false,
   ) {
     let state: UpdateHook | undefined
     const phases: string[] = []
-    const render = await testRender(
-      <Harness
-        dependencies={dependencies}
-        onState={(next) => {
-          state = next
-          if (phases.at(-1) !== next.updateFlow.phase)
-            phases.push(next.updateFlow.phase)
-        }}
-      />,
-      { width: 1, height: 1 },
-    )
-    await render.renderOnce()
+    let render!: Awaited<ReturnType<typeof testRender>>
+    await act(async () => {
+      render = await testRender(
+        <Harness
+          dependencies={dependencies}
+          renderStatus={renderStatus}
+          onState={(next) => {
+            state = next
+            if (phases.at(-1) !== next.updateFlow.phase)
+              phases.push(next.updateFlow.phase)
+          }}
+        />,
+        { width: renderStatus ? 80 : 1, height: renderStatus ? 12 : 1 },
+      )
+      await render.renderOnce()
+    })
 
     const waitFor = async (predicate: () => boolean) => {
-      for (let i = 0; i < 100; i++) {
+      const deadline = Date.now() + 2000
+      while (Date.now() < deadline) {
         await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 5))
+          await new Promise<void>((resolve) => setImmediate(resolve))
           await render.flush()
         })
         if (predicate()) return
@@ -87,7 +114,7 @@ describe("useUpdateFlow", () => {
     }
 
     if (waitForInitialState) await waitFor(() => state !== undefined)
-    return { getState: () => state!, phases, waitFor }
+    return { getState: () => state!, phases, waitFor, render }
   }
 
   function binaryDependencies(
@@ -107,7 +134,7 @@ describe("useUpdateFlow", () => {
   it("auto-installs a binary on startup and suppresses checks after completion", async () => {
     const binary = new TextEncoder().encode("new")
     let manifestChecks = 0
-    const { getState, phases, waitFor } = await renderHook(
+    const { getState, phases, waitFor, render } = await renderHook(
       binaryDependencies(async (input) => {
         if (String(input).endsWith("update.json")) {
           manifestChecks++
@@ -130,9 +157,128 @@ describe("useUpdateFlow", () => {
     expect(await readFile(execPath, "utf8")).toBe("new")
 
     act(() => getState().triggerAboutUpdateCheck())
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
+    await act(async () => render.flush())
     expect(manifestChecks).toBe(1)
   })
+
+  it("renders a staged Windows update as restart-to-apply and suppresses repeat checks", async () => {
+    const binary = new TextEncoder().encode("new")
+    const executable = `${execPath}.exe`
+    await writeFile(executable, "old")
+    let checks = 0
+    let launches = 0
+    const { getState, waitFor, render } = await renderHook(
+      {
+        cachePath,
+        execPath: executable,
+        platform: "win32",
+        arch: "x64",
+        env: {},
+        fetcher: async (input) => {
+          if (String(input).endsWith("update.json")) {
+            checks++
+            return new Response(
+              manifest("v99.0.0", sha256(binary), "windows-x86_64"),
+            )
+          }
+          return new Response(binary)
+        },
+        startProcess: () => {
+          launches++
+        },
+      },
+      true,
+      true,
+    )
+    await waitFor(() => getState().updateFlow.phase === "done")
+    await act(async () => render.renderOnce())
+    expect(render.captureCharFrame()).toContain("Restart to apply v99.0.0")
+    expect(render.captureCharFrame().replaceAll("─", " ")).toContain(
+      "Update staged; restart Noodle to apply",
+    )
+    expect(render.captureCharFrame()).not.toContain("Update completed")
+    const details = { message: null as string | null }
+    act(() => {
+      details.message = takeToastMessage()
+    })
+    expect(details.message).toContain(join(dir, ".noodle-update.log"))
+    expect(details.message).toContain("noodle update")
+    expect(await readFile(executable, "utf8")).toBe("old")
+    act(() => getState().triggerAboutUpdateCheck())
+    await act(async () => render.flush())
+    expect(checks).toBe(1)
+    expect(launches).toBe(1)
+  })
+
+  it.each([
+    "Failed to finish the Noodle update: wrong version\nRecovery files were retained.",
+    "Rollback failed: access denied\nFailed to finish the Noodle update: locked executable",
+    "Failed to stage update: PowerShell unavailable",
+  ])(
+    "surfaces a previous Windows failure before starting another update: %s",
+    async (log) => {
+      const logPath = join(dir, ".noodle-update.log")
+      await writeFile(logPath, log)
+      let checks = 0
+      const { getState, waitFor, render } = await renderHook(
+        {
+          ...binaryDependencies(async () => {
+            checks++
+            return new Response(
+              manifest(`v${pkg.version}`, "a".repeat(64), "windows-x86_64"),
+            )
+          }),
+          platform: "win32",
+          arch: "x64",
+        },
+        true,
+        true,
+      )
+      await waitFor(() => getState().updateFlow.phase === "failed")
+      const flow = getState().updateFlow
+      expect(flow.phase === "failed" && flow.message).toContain(logPath)
+      expect(flow.phase === "failed" && flow.message).toContain("noodle update")
+      expect(checks).toBe(0)
+      expect(await readFile(logPath, "utf8")).toBe(log)
+      await act(async () => render.renderOnce())
+      expect(render.captureCharFrame()).toContain(
+        "previous Windows update failed",
+      )
+      const details = { message: null as string | null }
+      act(() => {
+        details.message = takeToastMessage()
+      })
+      expect(details.message).toContain(logPath)
+      expect(details.message).toContain("noodle update")
+      act(() => getState().triggerAboutUpdateCheck())
+      await waitFor(() => getState().updateFlow.phase === "up_to_date")
+      expect(checks).toBe(1)
+      expect(await readFile(logPath, "utf8")).toBe(log)
+    },
+  )
+
+  it.each(["Update complete.", "Update complete. Reinstalled Noodle v1.2.3."])(
+    "resumes automatic checks after confirmed recovery: %s",
+    async (recovery) => {
+      const logPath = join(dir, ".noodle-update.log")
+      const log = `Failed to finish the Noodle update: wrong version\r\n${recovery}\r\n`
+      await writeFile(logPath, log)
+      let checks = 0
+      const { getState, waitFor } = await renderHook({
+        ...binaryDependencies(async () => {
+          checks++
+          return new Response(
+            manifest(`v${pkg.version}`, "a".repeat(64), "windows-x86_64"),
+          )
+        }),
+        platform: "win32",
+        arch: "x64",
+      })
+      await waitFor(() => getState().updateFlow.phase === "up_to_date")
+      expect(checks).toBe(1)
+      expect(await readFile(logPath, "utf8")).toBe(log)
+    },
+  )
 
   it("retries a failed About check on the next opening", async () => {
     let checks = 0
@@ -162,7 +308,7 @@ describe("useUpdateFlow", () => {
       arch: "arm64",
       env: {},
       runProcess: async (args) => {
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await Promise.resolve()
         commands.push(args.join(" "))
         if (args[1] === "info") {
           return {

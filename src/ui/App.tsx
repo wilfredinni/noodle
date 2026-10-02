@@ -63,7 +63,9 @@ import {
   type ExternalEditorId,
 } from "../externalEditor"
 
-const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
+import { getNoodleConfigDir } from "../userPath"
+
+const CONFIG_DIR = getNoodleConfigDir()
 
 function sameCertificateProfile(
   left: ClientCertificateProfile,

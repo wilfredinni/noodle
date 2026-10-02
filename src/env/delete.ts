@@ -1,6 +1,7 @@
 import { unlink } from "node:fs/promises"
 import { join } from "node:path"
 import { withEnvironmentLock } from "./lock"
+import { validateFilenameSegment } from "../userPath"
 
 export async function deleteEnvironment(
   dir: string,
@@ -9,6 +10,7 @@ export async function deleteEnvironment(
   if (name.includes("..") || name.includes("/") || name.includes("\\")) {
     throw new Error("env.delete: invalid environment name")
   }
+  validateFilenameSegment(name)
 
   return withEnvironmentLock(dir, async () => {
     const filePath = join(dir, `${name}.env`)

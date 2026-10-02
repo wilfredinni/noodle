@@ -805,7 +805,7 @@ describe("filestore — symlink handling", () => {
     await symlink(
       join(dir, "outside-collection"),
       join(dir, "outside-link"),
-      "dir",
+      process.platform === "win32" ? "junction" : "dir",
     )
 
     const col = await filestore.loadCollection(dir)
@@ -821,7 +821,11 @@ describe("filestore — symlink handling", () => {
       join(dir, "real-folder", "inside.yml"),
       yamlTmpl(makeReq({ name: "Inside", id: "real-folder/inside" })),
     )
-    await symlink(join(dir, "real-folder"), join(dir, "link-to-real"), "dir")
+    await symlink(
+      join(dir, "real-folder"),
+      join(dir, "link-to-real"),
+      process.platform === "win32" ? "junction" : "dir",
+    )
 
     const col = await filestore.loadCollection(dir)
     const folderItem = col.items.find(
@@ -839,7 +843,7 @@ describe("filestore — symlink handling", () => {
     await symlink(
       join(dir, "cycle-a"),
       join(dir, "cycle-a", "link-to-self"),
-      "dir",
+      process.platform === "win32" ? "junction" : "dir",
     )
 
     const col = await filestore.loadCollection(dir)

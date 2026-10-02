@@ -11,6 +11,7 @@ import {
 } from "../lang/scriptSource"
 import { collectionTlsToYaml } from "../tls"
 import { parseCollectionProxyStrict } from "../proxy"
+import { validateFilenameSegment } from "../userPath"
 
 function validatePathId(id: string | undefined): void {
   if (!id) {
@@ -29,6 +30,7 @@ function validatePathId(id: string | undefined): void {
       'filestore.validatePathId: id must not contain backslash or ".."',
     )
   }
+  for (const segment of id.split("/")) validateFilenameSegment(segment)
 }
 
 export async function saveRequest(

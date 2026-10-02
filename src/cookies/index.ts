@@ -15,6 +15,7 @@ import {
 import { getAppSettingSecret, setAppSettingSecret } from "../secrets"
 import type { ResponseCookie } from "../schema"
 import { acquireFileLock, FileLockError } from "../fileLock"
+import { getNoodleConfigDir } from "../userPath"
 
 export interface JarCookie {
   name: string
@@ -132,6 +133,8 @@ const DEFAULT_TIMING: CookieJarTiming = {
 }
 
 let timing = { ...DEFAULT_TIMING }
+let storagePlatform = process.platform
+let keyLockFileForTests: string | undefined
 
 export function setCookieJarTimingForTests(
   overrides?: Partial<CookieJarTiming>,
@@ -139,6 +142,14 @@ export function setCookieJarTimingForTests(
   timing = overrides
     ? { ...DEFAULT_TIMING, ...overrides }
     : { ...DEFAULT_TIMING }
+}
+
+export function setCookieJarStorageForTests(overrides?: {
+  platform?: NodeJS.Platform
+  keyLockFile?: string
+}): void {
+  storagePlatform = overrides?.platform ?? process.platform
+  keyLockFileForTests = overrides?.keyLockFile
 }
 
 type CookieMutation =
@@ -164,6 +175,10 @@ interface LoadedJar {
   jar: CookieJar
   key: Buffer | null
   status: CookieJarStatus
+}
+
+interface WrittenJar extends LoadedJar {
+  backupPath?: string
 }
 
 interface LockHandle {
@@ -493,7 +508,10 @@ export class CollectionCookieJar {
           this.file,
           this.currentStatus.state === "unavailable" ? 0 : timing.lockTimeoutMs,
         )
-        const loaded = await loadJar(this.file)
+        const loaded = await loadJar(
+          this.file,
+          this.currentStatus.state === "unavailable" ? 0 : timing.lockTimeoutMs,
+        )
         for (const mutation of this.journal) {
           await applyMutation(loaded.jar, mutation)
         }
@@ -565,12 +583,11 @@ export class CollectionCookieJar {
       let lock: LockHandle | null = null
       try {
         lock = await acquireLock(this.file)
-        const backupPath = await backupExistingJar(this.file)
         const committedCount = this.journal.length
         const pending = this.journal.slice(0, committedCount)
         const jar = newCookieJar()
         for (const mutation of pending) await applyMutation(jar, mutation)
-        const written = await writeJar(this.file, jar, null)
+        const written = await writeJar(this.file, jar, null, true)
         this.journal.splice(0, committedCount)
         for (const mutation of this.journal) {
           await applyMutation(written.jar, mutation)
@@ -578,7 +595,7 @@ export class CollectionCookieJar {
         this.jar = written.jar
         this.setStatus(written.status)
         this.emit()
-        result = backupPath ? { backupPath } : {}
+        result = written.backupPath ? { backupPath: written.backupPath } : {}
       } catch (error) {
         this.fail(error, "write")
       } finally {
@@ -783,12 +800,18 @@ function toJarCookie(cookie: Cookie): JarCookie {
   }
 }
 
-async function loadJar(file: string): Promise<LoadedJar> {
+async function loadJar(
+  file: string,
+  lockTimeoutMs = timing.lockTimeoutMs,
+): Promise<LoadedJar> {
   const serialized = await readState(file)
   if (serialized === null) {
     return {
       jar: newCookieJar(),
-      key: null,
+      key:
+        storagePlatform === "win32"
+          ? await loadOrCreateKey(file, lockTimeoutMs)
+          : null,
       status: { state: "encrypted" },
     }
   }
@@ -797,7 +820,7 @@ async function loadJar(file: string): Promise<LoadedJar> {
   let key: Buffer | null = null
   let status: CookieJarStatus
   if (serialized.startsWith(ENC_PREFIX)) {
-    key = await loadExistingKey()
+    key = await loadExistingKey(file, lockTimeoutMs)
     if (!key) {
       throw new CookieJarStorageError(
         "key-unavailable",
@@ -816,6 +839,13 @@ async function loadJar(file: string): Promise<LoadedJar> {
     plain = decrypted
     status = { state: "encrypted" }
   } else if (serialized.startsWith(PLAIN_PREFIX)) {
+    if (storagePlatform === "win32") {
+      throw new CookieJarStorageError(
+        "read",
+        "Cookie storage is unavailable because plaintext cookie files are not supported on Windows. Reset the jar to create encrypted storage; the existing file will be backed up.",
+        file,
+      )
+    }
     plain = serialized.slice(PLAIN_PREFIX.length)
     status = {
       state: "plaintext-warning",
@@ -850,20 +880,35 @@ async function writeJar(
   file: string,
   jar: CookieJar,
   existingKey: Buffer | null,
-): Promise<LoadedJar> {
+  backupExisting = false,
+): Promise<WrittenJar> {
   const serialized = jar.serializeSync()
-  const key = existingKey ?? (await loadOrCreateKey())
+  const key = existingKey ?? (await loadOrCreateKey(file))
   const state = key
     ? encrypt(JSON.stringify(serialized), key)
     : `${PLAIN_PREFIX}${JSON.stringify(serialized)}`
   await mkdir(dirname(file), { recursive: true })
   const tmp = `${file}.tmp-${randomUUID()}`
+  let backupPath: string | undefined
   try {
     await writeFile(tmp, state, { encoding: "utf8", mode: 0o600 })
     await chmod(tmp, 0o600)
+    if (backupExisting) backupPath = await backupExistingJar(file)
     await rename(tmp, file)
   } catch (error) {
     await rm(tmp, { force: true }).catch(() => {})
+    if (backupPath) {
+      try {
+        await rename(backupPath, file)
+      } catch (restoreError) {
+        throw new CookieJarStorageError(
+          "write",
+          `Cookie storage could not be saved or restored. The original file is preserved at ${backupPath}.`,
+          file,
+          { cause: new AggregateError([error, restoreError]) },
+        )
+      }
+    }
     throw new CookieJarStorageError(
       "write",
       "Cookie storage could not be saved.",
@@ -877,33 +922,72 @@ async function writeJar(
     status: key
       ? { state: "encrypted" }
       : { state: "plaintext-warning", warning: COOKIE_PLAINTEXT_WARNING },
+    ...(backupPath ? { backupPath } : {}),
   }
 }
 
-async function loadExistingKey(): Promise<Buffer | null> {
-  try {
-    const stored = await getAppSettingSecret(KEY_ACCOUNT)
-    if (!stored) return null
-    const key = Buffer.from(stored, "hex")
-    return key.length === 32 ? key : null
-  } catch {
-    return null
-  }
+async function loadExistingKey(
+  file: string,
+  lockTimeoutMs: number,
+): Promise<Buffer | null> {
+  return loadKey(file, false, lockTimeoutMs)
 }
 
-async function loadOrCreateKey(): Promise<Buffer | null> {
+async function loadOrCreateKey(
+  file: string,
+  lockTimeoutMs = timing.lockTimeoutMs,
+): Promise<Buffer | null> {
+  return loadKey(file, true, lockTimeoutMs)
+}
+
+async function loadKey(
+  file: string,
+  create: boolean,
+  lockTimeoutMs: number,
+): Promise<Buffer | null> {
+  // The vault account is shared even when jars use different config directories.
+  const keyLockFile =
+    keyLockFileForTests ?? join(getNoodleConfigDir(), KEY_ACCOUNT)
+  const lock = await acquireLock(keyLockFile, lockTimeoutMs)
   try {
-    const stored = await getAppSettingSecret(KEY_ACCOUNT)
-    if (stored) {
-      const existing = Buffer.from(stored, "hex")
-      if (existing.length === 32) return existing
+    let stored: string | null
+    try {
+      stored = await getAppSettingSecret(KEY_ACCOUNT)
+    } catch (error) {
+      if (storagePlatform !== "win32") return null
+      throw unavailableKey(file, error)
     }
+    if (stored !== null) {
+      if (!/^[a-fA-F0-9]{64}$/.test(stored)) {
+        throw new CookieJarStorageError(
+          "key-unavailable",
+          "Cookie storage is unavailable because its encryption key is malformed. The stored key has not been replaced.",
+          file,
+        )
+      }
+      return Buffer.from(stored, "hex")
+    }
+    if (!create) return null
     const key = randomBytes(32)
-    await setAppSettingSecret(KEY_ACCOUNT, key.toString("hex"))
+    try {
+      await setAppSettingSecret(KEY_ACCOUNT, key.toString("hex"))
+    } catch (error) {
+      if (storagePlatform !== "win32") return null
+      throw unavailableKey(file, error)
+    }
     return key
-  } catch {
-    return null
+  } finally {
+    await lock.release()
   }
+}
+
+function unavailableKey(file: string, cause: unknown): CookieJarStorageError {
+  return new CookieJarStorageError(
+    "key-unavailable",
+    "Cookie storage is unavailable because its encryption key could not be loaded or stored in the credential vault.",
+    file,
+    { cause },
+  )
 }
 
 async function readState(file: string): Promise<string | null> {

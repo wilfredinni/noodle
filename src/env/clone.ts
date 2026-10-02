@@ -1,6 +1,7 @@
 import { loadEnvironment } from "./load"
 import { saveEnvironment } from "./save"
 import { withEnvironmentLock } from "./lock"
+import { validateFilenameSegment } from "../userPath"
 
 export async function cloneEnvironment(
   dir: string,
@@ -14,6 +15,7 @@ export async function cloneEnvironment(
   ) {
     throw new Error("env.clone: invalid target name")
   }
+  validateFilenameSegment(targetName)
 
   return withEnvironmentLock(dir, async () => {
     const source = await loadEnvironment(dir, sourceName, {

@@ -8,7 +8,10 @@ it("runs semantic diagnostics and bundled workers from an empty standalone direc
   const dir = await mkdtemp(join(tmpdir(), "noodle-script-diagnostics-"))
   try {
     const entry = join(dir, "check.ts")
-    const binary = join(dir, "check")
+    const binary = join(
+      dir,
+      process.platform === "win32" ? "check.exe" : "check",
+    )
     const module = fileURLToPath(
       new URL("../../src/ui/editor/scriptDiagnostics.ts", import.meta.url),
     )
@@ -50,11 +53,12 @@ try {
       ],
       { cwd: dir, stdout: "pipe", stderr: "pipe" },
     )
-    const [buildCode, errors] = await Promise.all([
+    const [buildCode, buildOutput, errors] = await Promise.all([
       build.exited,
+      new Response(build.stdout).text(),
       new Response(build.stderr).text(),
     ])
-    expect({ buildCode, errors }).toMatchObject({ buildCode: 0 })
+    expect({ buildCode, buildOutput, errors }).toMatchObject({ buildCode: 0 })
     const sign = Bun.spawn(
       [
         process.execPath,
@@ -65,11 +69,12 @@ try {
       ],
       { stdout: "pipe", stderr: "pipe" },
     )
-    const [signCode, signError] = await Promise.all([
+    const [signCode, signOutput, signError] = await Promise.all([
       sign.exited,
+      new Response(sign.stdout).text(),
       new Response(sign.stderr).text(),
     ])
-    expect({ signCode, signError }).toMatchObject({ signCode: 0 })
+    expect({ signCode, signOutput, signError }).toMatchObject({ signCode: 0 })
     await mkdir(join(dir, "empty"))
     const run = Bun.spawn([binary], {
       cwd: join(dir, "empty"),

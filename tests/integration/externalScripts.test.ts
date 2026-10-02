@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join, sep } from "node:path"
 import { inspect } from "node:util"
 import { lang } from "../../src/lang"
 import { filestore, loadSettings, saveSettings } from "../../src/filestore"
@@ -210,7 +210,11 @@ it("confines files and rejects missing, directory, oversize and invalid UTF-8 so
     'throw Error("private content")',
   )
   await fs.symlink(join(outside, "private.js"), join(dir, "scripts/escape.js"))
-  await fs.symlink(outside, join(dir, "scripts/outside"))
+  await fs.symlink(
+    outside,
+    join(dir, "scripts/outside"),
+    process.platform === "win32" ? "junction" : "dir",
+  )
   for (const name of [
     "missing.js",
     "directory.js",
@@ -249,7 +253,11 @@ it("confines files and rejects missing, directory, oversize and invalid UTF-8 so
 it("reads canonical aliases once per run and accepts an aliased collection root", async () => {
   await fs.writeFile(join(dir, "scripts/a.js"), "// original")
   await fs.symlink(join(dir, "scripts/a.js"), join(dir, "scripts/alias.js"))
-  await fs.symlink(dir, join(outside, "root"))
+  await fs.symlink(
+    dir,
+    join(outside, "root"),
+    process.platform === "win32" ? "junction" : "dir",
+  )
   const open = spyOn(fs, "open")
   try {
     const resolver = createScriptSourceResolver(join(outside, "root"))
@@ -289,7 +297,11 @@ it("rejects a target swapped for an escaping symlink before open", async () => {
   try {
     await expect(
       createScriptSourceResolver(dir).resolve("./scripts/a.js", origin),
-    ).rejects.toThrow("source is invalid, missing, or unreadable")
+    ).rejects.toThrow(
+      process.platform === "win32"
+        ? "source changed while being resolved"
+        : "source is invalid, missing, or unreadable",
+    )
   } finally {
     open.mockRestore()
   }
@@ -388,7 +400,9 @@ it("proves exact nested order, once per request, captures, assertions and inheri
   )
     .then((result) => {
       expect(
-        open.mock.calls.filter(([path]) => String(path).includes("/scripts/")),
+        open.mock.calls.filter(([path]) =>
+          String(path).includes(`${sep}scripts${sep}`),
+        ),
       ).toHaveLength(9)
       return result
     })
@@ -403,11 +417,11 @@ it("proves exact nested order, once per request, captures, assertions and inheri
         (script) => `${script.source?.scopeId}:${script.phase}`,
       ),
     ).toEqual([
-      `${dir.split("/").at(-1)}:pre`,
+      `${basename(dir)}:pre`,
       "outer:pre",
       "outer/inner:pre",
       `${result.id}:pre`,
-      `${dir.split("/").at(-1)}:post`,
+      `${basename(dir)}:post`,
       "outer:post",
       "outer/inner:post",
       `${result.id}:post`,

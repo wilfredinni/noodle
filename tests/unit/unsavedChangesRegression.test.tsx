@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { resolve } from "node:path"
 import { createTestRender } from "../testRender"
 import { useEffect, useRef, useState } from "react"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
@@ -137,7 +138,7 @@ describe("unsaved changes regressions", () => {
 
     for (let i = 0; i < 5; i++) await renderOnce()
 
-    expect(result).toEqual({ changes: 0, pending: "/next" })
+    expect(result).toEqual({ changes: 0, pending: resolve("/next") })
   })
 
   it("keeps a committed reload callback bound to its render values", async () => {

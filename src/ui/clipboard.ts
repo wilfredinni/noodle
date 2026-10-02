@@ -4,7 +4,22 @@ const CLIPBOARD_CMDS: Array<{ cmd: string[]; platform: string }> = [
   { cmd: ["pbcopy"], platform: "darwin" },
   { cmd: ["xclip", "-selection", "clipboard"], platform: "linux" },
   { cmd: ["wl-copy"], platform: "linux" },
-  { cmd: ["clip.exe"], platform: "win32" },
+  {
+    cmd: [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-STA",
+      "-Command",
+      `$ErrorActionPreference = 'Stop'
+Import-Module "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1"
+$noodleClipboardInput = [IO.MemoryStream]::new()
+[Console]::OpenStandardInput().CopyTo($noodleClipboardInput)
+$noodleClipboardText = [Text.Encoding]::Unicode.GetString($noodleClipboardInput.ToArray())
+if ($noodleClipboardText.Length -eq 0) { Set-Clipboard } else { Set-Clipboard -Value $noodleClipboardText }`,
+    ],
+    platform: "win32",
+  },
 ]
 
 export type ClipboardSpawn = (
@@ -16,10 +31,15 @@ export function copyToClipboard(
   text: string,
   renderer: CliRenderer,
   spawn: ClipboardSpawn = Bun.spawnSync,
+  platform = process.platform,
 ): boolean {
-  const stdin = new TextEncoder().encode(text)
+  const stdin =
+    platform === "win32"
+      ? Buffer.from(text, "utf16le")
+      : new TextEncoder().encode(text)
 
-  for (const { cmd } of CLIPBOARD_CMDS) {
+  for (const { cmd, platform: commandPlatform } of CLIPBOARD_CMDS) {
+    if (commandPlatform !== platform) continue
     try {
       const result = spawn(cmd, { stdin })
       if (result.exitCode === 0) return true

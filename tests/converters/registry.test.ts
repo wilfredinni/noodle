@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test"
+import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import {
   registerImporter,
   detectFormat,
@@ -21,8 +21,14 @@ function makeImporter(overrides: Partial<Importer> = {}): Importer {
 }
 
 describe("registry", () => {
+  let previousImporters: Importer[]
   beforeEach(() => {
+    previousImporters = supportedFormats().map((type) => getImporter(type)!)
     clearRegistry()
+  })
+  afterEach(() => {
+    clearRegistry()
+    previousImporters.forEach(registerImporter)
   })
   it("registers an importer and retrieves by type", () => {
     const imp = makeImporter({ type: "openapi" })

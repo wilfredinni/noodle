@@ -177,7 +177,8 @@ describe("script authoring contract", () => {
 
   it("validates the execution snapshot and opens only canonical files inside the collection", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-authoring-"))
-    directories.push(dir)
+    const outside = await mkdtemp(join(tmpdir(), "noodle-authoring-outside-"))
+    directories.push(dir, outside)
     await writeFile(join(dir, "valid.js"), 'console.log("first")')
     await writeFile(join(dir, "invalid.js"), "const broken = ;")
     await symlink("valid.js", join(dir, "alias.js"))
@@ -200,7 +201,8 @@ describe("script authoring contract", () => {
     await expect(
       resolver.resolveBlocks([{ source: origin, tests: "./invalid.js" }]),
     ).rejects.toThrow("1:")
-    await symlink("/etc/passwd", join(dir, "outside.js"))
+    await writeFile(join(outside, "private.js"), "// outside the collection")
+    await symlink(join(outside, "private.js"), join(dir, "outside.js"))
     await expect(resolver.resolveFile("./outside.js", origin)).rejects.toThrow(
       "outside the collection root",
     )

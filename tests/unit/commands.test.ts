@@ -367,6 +367,7 @@ describe("buildCommandPaletteCommands", () => {
 
   it("offers the external script command only for an active external source and validates its exact file", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-open-script-"))
+    const outside = await mkdtemp(join(tmpdir(), "noodle-open-script-outside-"))
     const ctx = minimalContext()
     expect(
       buildCommandPaletteCommands(ctx).some(
@@ -391,7 +392,8 @@ describe("buildCommandPaletteCommands", () => {
       await symlink("script.js", join(dir, "alias.js"))
       await openScriptInEditor(editor, dir, activeScriptSource, launch)
       expect(opened).toEqual([await realpath(join(dir, "script.js"))])
-      await symlink("/etc/passwd", join(dir, "escaped.js"))
+      await writeFile(join(outside, "private.js"), "// outside the collection")
+      await symlink(join(outside, "private.js"), join(dir, "escaped.js"))
       for (const value of [
         "./missing.js",
         "./escaped.js",
@@ -403,6 +405,7 @@ describe("buildCommandPaletteCommands", () => {
       expect(opened).toHaveLength(1)
     } finally {
       await rm(dir, { recursive: true, force: true })
+      await rm(outside, { recursive: true, force: true })
     }
   })
 
@@ -1213,7 +1216,7 @@ describe("buildCommandPaletteCommands", () => {
     } as never
 
     const file = getEditRequestYamlFile(ctx)
-    expect(file?.filePath).toBe("/tmp/collections/users/login.yml")
+    expect(file?.filePath).toBe(join("/tmp/collections", "users/login.yml"))
     expect(file?.requestName).toBe("Login")
   })
 

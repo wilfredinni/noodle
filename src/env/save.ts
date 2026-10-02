@@ -5,6 +5,7 @@ import type { Environment } from "../schema"
 import { VALID_COLORS } from "./constants"
 import { isValidVariableName } from "../variableReference"
 import { withEnvironmentLock } from "./lock"
+import { validateFilenameSegment } from "../userPath"
 
 export interface SaveEnvironmentOptions {
   mode?: "replace" | "create"
@@ -19,6 +20,7 @@ export function validateEnvironment(env: Environment): void {
   ) {
     throw new Error("env.save: invalid environment name")
   }
+  validateFilenameSegment(env.name)
 
   if (env.color !== undefined && !VALID_COLORS.has(env.color)) {
     throw new Error(

@@ -7,7 +7,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { basename, join, relative, resolve } from "node:path"
+import { basename, dirname, join, relative, resolve, sep } from "node:path"
 import { randomUUID } from "node:crypto"
 import { load as yamlLoad } from "../yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
@@ -100,7 +100,9 @@ import {
   type PreparedResponseOutput,
 } from "../responseFile"
 
-const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
+import { getNoodleConfigDir, validateFilenameSegment } from "../userPath"
+
+const CONFIG_DIR = getNoodleConfigDir()
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
 export interface CliError {
@@ -119,6 +121,7 @@ export function validateCollectionName(name: string): void {
     name.includes("..")
   )
     throw new Error(`invalid collection name "${name}"`)
+  validateFilenameSegment(name)
 }
 export function flattenRequests(items: CollectionItem[]): Request[] {
   return items.flatMap((item) =>
@@ -509,7 +512,7 @@ async function auditFile(
   issues: AuditIssue[],
   scriptSources: ScriptSourceResolver,
 ): Promise<void> {
-  const rel = relative(root, path)
+  const rel = relative(root, path).split(sep).join("/")
   const name = basename(path)
   const content = await readFile(path, "utf8")
   try {
@@ -538,7 +541,7 @@ async function auditFile(
           { ...parsed, source: { scope: "folder", path: rel } },
         ])
       if (fix) {
-        const folderPath = relative(root, join(path, ".."))
+        const folderPath = relative(root, dirname(path)).split(sep).join("/")
         const id = basename(folderPath)
         await writeFile(
           path,
@@ -634,7 +637,7 @@ export async function collectionAudit(
       const file = join(dir, entry.name)
       if (
         entry.name.endsWith(".env") &&
-        relative(root, file).startsWith(".environments/")
+        dirname(file) === join(root, ".environments")
       )
         await auditFile(file, root, fix, issues, scriptSources)
       else if (

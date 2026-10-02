@@ -12,3 +12,8 @@ declare module "*.md" {
   const text: string
   export default text
 }
+
+declare module "*.ps1" {
+  const content: string
+  export default content
+}

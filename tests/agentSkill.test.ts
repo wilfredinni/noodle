@@ -6,12 +6,13 @@ import {
   readFile,
   readdir,
   readlink,
+  realpath,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, relative } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import {
   getNoodleSkillPaths,
   installNoodleSkill,
@@ -26,7 +27,7 @@ async function filesBelow(root: string): Promise<string[]> {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) await walk(path)
-      else files.push(relative(root, path))
+      else files.push(relative(root, path).split(sep).join("/"))
     }
   }
   await walk(root)
@@ -110,7 +111,8 @@ describe("Noodle agent skill installer", () => {
       [...Object.keys(NOODLE_SKILL_FILES), NOODLE_SKILL_MARKER].sort(),
     )
     expect((await lstat(target)).isSymbolicLink()).toBe(true)
-    expect(await readlink(target)).toBe(result.path)
+    expect(isAbsolute(await readlink(target))).toBe(true)
+    expect(await realpath(target)).toBe(await realpath(result.path))
   })
 
   it("discovers Claude, Cursor, Codex, and OpenCode and links each one", async () => {
@@ -131,7 +133,8 @@ describe("Noodle agent skill installer", () => {
     expect(result.linked).toEqual(expected)
     for (const path of expected) {
       expect((await lstat(path)).isSymbolicLink()).toBe(true)
-      expect(await readlink(path)).toBe(result.path)
+      expect(isAbsolute(await readlink(path))).toBe(true)
+      expect(await realpath(path)).toBe(await realpath(result.path))
     }
   })
 
@@ -141,13 +144,18 @@ describe("Noodle agent skill installer", () => {
     await mkdir(outside, { recursive: true })
     await mkdir(dirname(target), { recursive: true })
     await writeFile(join(outside, "keep.md"), "keep")
-    await symlink(outside, target, "dir")
+    await symlink(
+      resolve(outside),
+      target,
+      process.platform === "win32" ? "junction" : "dir",
+    )
 
     expect(await isNoodleSkillInstalled(home)).toBe(true)
     const result = await installNoodleSkill(home)
 
     expect(result.action).toBe("updated")
-    expect(await readlink(target)).toBe(result.path)
+    expect(isAbsolute(await readlink(target))).toBe(true)
+    expect(await realpath(target)).toBe(await realpath(result.path))
     expect(await readFile(join(outside, "keep.md"), "utf8")).toBe("keep")
   })
 

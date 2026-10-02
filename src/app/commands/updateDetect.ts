@@ -2,7 +2,13 @@ import { realpathSync } from "node:fs"
 
 export function getPlatformString(platform: string, arch: string): string {
   const os =
-    platform === "darwin" ? "macos" : platform === "linux" ? "linux" : null
+    platform === "darwin"
+      ? "macos"
+      : platform === "linux"
+        ? "linux"
+        : platform === "win32" && arch === "x64"
+          ? "windows"
+          : null
   const cpu = arch === "arm64" ? "arm64" : arch === "x64" ? "x86_64" : null
   if (!os || !cpu) throw new Error(`Unsupported platform: ${platform}-${arch}`)
   return `${os}-${cpu}`
@@ -23,7 +29,9 @@ function getHomebrewPrefix(path: string): string | null {
 }
 
 export function isBunRuntime(execPath: string): boolean {
-  const name = execPath.split("/").pop() ?? ""
+  const name = (execPath.split(/[\\/]/).pop() ?? "")
+    .toLowerCase()
+    .replace(/\.exe$/, "")
   return name === "bun" || name === "bunx" || name.startsWith("bun-")
 }
 

@@ -1,6 +1,6 @@
-import { homedir } from "node:os"
 import { join } from "node:path"
 import pkg from "../../../package.json" with { type: "json" }
+import { getNoodleConfigDir } from "../../userPath"
 import {
   getPlatformString,
   getHomebrewExecutable,
@@ -26,6 +26,10 @@ export interface UpdateDependencies {
       env?: Record<string, string | undefined>
     },
   ) => Promise<ProcessResult>
+  startProcess: (
+    args: string[],
+    options?: { env?: Record<string, string | undefined> },
+  ) => void | Promise<void>
   execPath: string
   platform: string
   arch: string
@@ -66,7 +70,72 @@ async function runProcess(
 }
 
 function getDefaultCachePath(): string {
-  return join(homedir(), ".config", "noodle", "update-cache.json")
+  return join(getNoodleConfigDir(), "update-cache.json")
+}
+
+async function startProcess(
+  args: string[],
+  options?: { env?: Record<string, string | undefined> },
+): Promise<void> {
+  if (process.platform === "win32") {
+    const literal = (value: string) => `'${value.replaceAll("'", "''")}'`
+    const argumentsLine = args
+      .slice(1)
+      .map(
+        (value) =>
+          `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1")}"`,
+      )
+      .join(" ")
+    // Windows PowerShell 5.1 can exit before -File under DETACHED_PROCESS.
+    // Its own hidden console also keeps the helper off Bun's terminal streams.
+    const bootstrap = `
+try {
+  $launch = [Diagnostics.ProcessStartInfo]::new(${literal(args[0]!)}, ${literal(argumentsLine)})
+  $launch.UseShellExecute = $true
+  $launch.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+  $null = [Diagnostics.Process]::Start($launch)
+  exit 0
+} catch {
+  [Console]::Error.WriteLine($_.Exception.Message)
+  exit 1
+}`
+    const child = Bun.spawn(
+      [
+        args[0]!,
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        Buffer.from(bootstrap, "utf16le").toString("base64"),
+      ],
+      {
+        env: options?.env,
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+        windowsHide: true,
+      },
+    )
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
+    if (exitCode !== 0)
+      throw new Error(
+        stderr.trim() || stdout.trim() || `Helper launch exited ${exitCode}`,
+      )
+    return
+  }
+  Bun.spawn(args, {
+    env: options?.env,
+    detached: true,
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+    windowsHide: true,
+  }).unref()
 }
 
 export function getUpdateDeps(
@@ -75,6 +144,7 @@ export function getUpdateDeps(
   return {
     fetcher: globalThis.fetch,
     runProcess,
+    startProcess,
     execPath: process.execPath,
     platform: process.platform,
     arch: process.arch,

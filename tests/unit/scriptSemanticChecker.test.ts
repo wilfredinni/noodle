@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { load } from "js-yaml"
 import { generateScriptDeclarations } from "../../src/scriptApiTypes"
 import { SCRIPT_LIMITS, type ScriptPhase } from "../../src/preRequestScript"
@@ -142,7 +143,7 @@ describe("script semantic diagnostics", () => {
   })
 
   it("accepts the maintained collection examples", async () => {
-    const root = new URL("../../collections/", import.meta.url).pathname
+    const root = fileURLToPath(new URL("../../collections/", import.meta.url))
     for await (const path of new Bun.Glob("**/*.yml").scan(root)) {
       const data = load(await Bun.file(join(root, path)).text()) as {
         scripts?: { pre?: string; post?: string }

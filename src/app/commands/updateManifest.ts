@@ -1,7 +1,7 @@
 import { getPlatformString } from "./updateDetect"
 
 export function getAssetName(platform: string, arch: string): string {
-  return `noodle-${getPlatformString(platform, arch)}`
+  return `noodle-${getPlatformString(platform, arch)}${platform === "win32" ? ".exe" : ""}`
 }
 
 export function compareStableVersions(

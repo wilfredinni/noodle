@@ -2,6 +2,7 @@ import { expect, it } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { TreeSitterClient } from "@opentui/core"
 import { codeEditorParsers } from "../../src/ui/editor/codeEditorParsers"
 
@@ -19,10 +20,13 @@ it("highlights JavaScript with the bundled parser and retains its assets in a st
     expect(parsed.error).toBeUndefined()
     expect(parsed.highlights?.length).toBeGreaterThan(3)
     const entry = join(dir, "parser.ts")
-    const binary = join(dir, "parser")
+    const binary = join(
+      dir,
+      process.platform === "win32" ? "parser.exe" : "parser",
+    )
     await writeFile(
       entry,
-      `import { codeEditorParsers } from ${JSON.stringify(new URL("../../src/ui/editor/codeEditorParsers.ts", import.meta.url).pathname)};
+      `import { codeEditorParsers } from ${JSON.stringify(fileURLToPath(new URL("../../src/ui/editor/codeEditorParsers.ts", import.meta.url)))};
       const parser = codeEditorParsers.find(parser => parser.filetype === "javascript");
       const wasm = await Bun.file(parser.wasm).bytes();
       const query = await Bun.file(parser.queries.highlights[0]).text();
