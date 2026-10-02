@@ -613,11 +613,18 @@ describe("send — NTLMv2", () => {
         headers: { "www-authenticate": "NTLM !!!" },
       })
     })
-    await expect(
-      send(makeReq({ url: malformedUrl, auth: ntlmAuth }), {
+    let malformedError: unknown
+    try {
+      await send(makeReq({ url: malformedUrl, auth: ntlmAuth }), {
         environment: environment(),
-      }),
-    ).rejects.toThrow("invalid NTLM challenge")
+      })
+    } catch (error) {
+      malformedError = error
+    }
+    expect(malformedError).toBeInstanceOf(Error)
+    expect((malformedError as Error).message).toContain(
+      "invalid NTLM challenge",
+    )
   })
 
   it("does not send NTLM credentials across an origin-changing redirect", async () => {
