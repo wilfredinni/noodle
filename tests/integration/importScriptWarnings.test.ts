@@ -133,7 +133,7 @@ it.each(
     })
     expect(fresh.warnings).toBeUndefined()
     expect(await readdir(fresh.path, { recursive: true })).toContain(
-      "new-outer-folder/folder/get-request.yml",
+      join("new-outer-folder", "folder", "get-request.yml"),
     )
   },
 )
