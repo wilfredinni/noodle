@@ -40,7 +40,9 @@ extend({
   "code-editor-scrollbar": CodeEditorScrollBarRenderable,
 })
 
-const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
+import { getNoodleConfigDir } from "../userPath"
+
+const CONFIG_DIR = getNoodleConfigDir()
 
 export interface BootstrapOptions {
   targetPath?: string
@@ -172,7 +174,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     }
   }
 
-  const KEYBINDS_PATH = `${process.env.HOME ?? "~"}/.config/noodle/keybinds.yml`
+  const KEYBINDS_PATH = join(CONFIG_DIR, "keybinds.yml")
   let keybindsConfig: Record<string, unknown> = {}
   try {
     const raw = readFileSync(KEYBINDS_PATH, "utf-8")

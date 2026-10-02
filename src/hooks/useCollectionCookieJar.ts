@@ -6,7 +6,9 @@ import {
 } from "../cookies"
 import { ensureCollectionId } from "../secrets"
 
-const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
+import { getNoodleConfigDir } from "../userPath"
+
+const CONFIG_DIR = getNoodleConfigDir()
 
 export interface CollectionCookieJarState {
   jar: CollectionCookieJar | null

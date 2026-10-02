@@ -16,10 +16,15 @@ export function copyToClipboard(
   text: string,
   renderer: CliRenderer,
   spawn: ClipboardSpawn = Bun.spawnSync,
+  platform = process.platform,
 ): boolean {
-  const stdin = new TextEncoder().encode(text)
+  const stdin =
+    platform === "win32"
+      ? Buffer.from(`\ufeff${text}`, "utf16le")
+      : new TextEncoder().encode(text)
 
-  for (const { cmd } of CLIPBOARD_CMDS) {
+  for (const { cmd, platform: commandPlatform } of CLIPBOARD_CMDS) {
+    if (commandPlatform !== platform) continue
     try {
       const result = spawn(cmd, { stdin })
       if (result.exitCode === 0) return true

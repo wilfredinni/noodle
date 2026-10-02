@@ -8,6 +8,7 @@ import {
   type CollectionCookieJarState,
 } from "../../src/hooks/useCollectionCookieJar"
 import { setSecretBackendForTests } from "../../src/secrets"
+import { setCookieJarStorageForTests } from "../../src/cookies"
 import { createTestRender } from "../testRender"
 
 const testRender = createTestRender()
@@ -35,6 +36,7 @@ describe("useCollectionCookieJar", () => {
     dir = await mkdtemp(join(tmpdir(), "noodle-cookie-hook-"))
     collectionDir = join(dir, "collection")
     configDir = join(dir, "config")
+    setCookieJarStorageForTests({ keyLockFile: join(dir, "cookie-jar-key") })
     await writeFile(collectionDir, "blocked", "utf8")
     const values = new Map<string, string>()
     setSecretBackendForTests({
@@ -52,6 +54,7 @@ describe("useCollectionCookieJar", () => {
 
   afterEach(async () => {
     setSecretBackendForTests(undefined)
+    setCookieJarStorageForTests()
     await rm(dir, { recursive: true, force: true })
   })
 

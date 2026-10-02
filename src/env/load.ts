@@ -4,6 +4,7 @@ import type { Environment } from "../schema"
 import { VALID_COLORS } from "./constants"
 import { resolveStoredSecret } from "../secrets"
 import { isValidVariableName } from "../variableReference"
+import { validateFilenameSegment } from "../userPath"
 
 export interface LoadEnvironmentOptions {
   resolveSecrets?: boolean
@@ -26,6 +27,7 @@ export async function loadEnvironment(
   if (name.includes("..") || name.includes("/") || name.includes("\\")) {
     throw new Error("env.load: invalid environment name")
   }
+  validateFilenameSegment(name)
   const filePath = join(dir, `${name}.env`)
   let content: string
   try {

@@ -22,7 +22,10 @@ import {
   setStoredSecret,
 } from "../../src/secrets"
 import type { Request } from "../../src/schema"
-import { CollectionCookieJar } from "../../src/cookies"
+import {
+  CollectionCookieJar,
+  setCookieJarStorageForTests,
+} from "../../src/cookies"
 import { buildTimelineEntry } from "../../src/timelineEntry"
 
 let dir: string
@@ -63,6 +66,7 @@ const send = async (req: Request, scope = new RunScope()) =>
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-script-persistence-"))
+  setCookieJarStorageForTests({ keyLockFile: join(dir, "cookie-jar-key") })
   await mkdir(directory())
   await writeFile(
     join(dir, "settings.yml"),
@@ -115,6 +119,7 @@ beforeEach(async () => {
 afterEach(async () => {
   server.stop(true)
   setSecretBackendForTests(undefined)
+  setCookieJarStorageForTests()
   await rm(dir, { recursive: true, force: true })
 })
 

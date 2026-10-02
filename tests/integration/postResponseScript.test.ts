@@ -4,7 +4,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { executeRequestLifecycle } from "../../src/requestLifecycle"
 import { RunScope } from "../../src/runScope"
-import { CollectionCookieJar } from "../../src/cookies"
+import {
+  CollectionCookieJar,
+  setCookieJarStorageForTests,
+} from "../../src/cookies"
 import { setSecretBackendForTests } from "../../src/secrets"
 import { collectionRun, requestRun } from "../../src/app/services"
 import { lang } from "../../src/lang"
@@ -48,6 +51,7 @@ const openJar = async (id = "test") => {
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-post-"))
+  setCookieJarStorageForTests({ keyLockFile: join(dir, "cookie-jar-key") })
   seen = []
   jars = []
   const vault = new Map<string, string>()
@@ -102,6 +106,7 @@ afterEach(async () => {
   await Promise.all(jars.map((jar) => jar.close()))
   server.stop(true)
   setSecretBackendForTests(undefined)
+  setCookieJarStorageForTests()
   await rm(dir, { recursive: true, force: true })
 })
 

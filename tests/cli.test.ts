@@ -5,11 +5,12 @@ import {
   mkdtemp,
   readFile,
   readlink,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { basename, isAbsolute, join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
 import exportCommand from "../src/app/commands/export"
@@ -169,7 +170,10 @@ describe("CLI integration", () => {
 
   it("works from a compiled Bun binary", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-compiled-"))
-    const binary = join(dir, "noodle")
+    const binary = join(
+      dir,
+      process.platform === "win32" ? "noodle.exe" : "noodle",
+    )
     const home = join(dir, "home")
     try {
       await mkdir(join(home, ".codex"), { recursive: true })
@@ -185,7 +189,7 @@ describe("CLI integration", () => {
       expect(proc.stderr.toString()).not.toContain("Unknown command")
 
       const install = Bun.spawnSync([binary, "agent", "install", "--json"], {
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
       })
       expect(install.exitCode).toBe(0)
       const canonical = join(home, ".agents", "skills", "noodle-use")
@@ -203,7 +207,8 @@ describe("CLI integration", () => {
         expect(await readFile(join(canonical, path), "utf8")).toBe(contents)
       }
       expect((await lstat(codexLink)).isSymbolicLink()).toBe(true)
-      expect(await readlink(codexLink)).toBe(canonical)
+      expect(isAbsolute(await readlink(codexLink))).toBe(true)
+      expect(await realpath(codexLink)).toBe(await realpath(canonical))
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -276,7 +281,13 @@ describe("CLI integration", () => {
       ]) {
         const proc = Bun.spawnSync(
           ["bun", CLI, "collection", "run", dir, `--delay=${value}`, "--json"],
-          { env: { ...process.env, HOME: join(dir, "home") } },
+          {
+            env: {
+              ...process.env,
+              HOME: join(dir, "home"),
+              USERPROFILE: join(dir, "home"),
+            },
+          },
         )
         expect(proc.exitCode).toBe(2)
         expect(JSON.parse(proc.stdout.toString())).toMatchObject({
@@ -324,7 +335,13 @@ describe("CLI integration", () => {
           "slow",
           "--json",
         ],
-        { env: { ...process.env, HOME: join(dir, "home") } },
+        {
+          env: {
+            ...process.env,
+            HOME: join(dir, "home"),
+            USERPROFILE: join(dir, "home"),
+          },
+        },
       )
       expect(proc.exitCode).toBe(1)
       expect(JSON.parse(proc.stdout.toString())).toMatchObject({
@@ -345,7 +362,13 @@ describe("CLI integration", () => {
       await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
       const proc = Bun.spawnSync(
         ["bun", CLI, "collection", "run", dir, "empty/", "--json"],
-        { env: { ...process.env, HOME: join(dir, "home") } },
+        {
+          env: {
+            ...process.env,
+            HOME: join(dir, "home"),
+            USERPROFILE: join(dir, "home"),
+          },
+        },
       )
       expect(proc.exitCode).toBe(0)
       const success = JSON.parse(proc.stdout.toString())
@@ -373,7 +396,13 @@ describe("CLI integration", () => {
 
       const invalid = Bun.spawnSync(
         ["bun", CLI, "collection", "run", dir, "empty/", "missing/", "--json"],
-        { env: { ...process.env, HOME: join(dir, "home") } },
+        {
+          env: {
+            ...process.env,
+            HOME: join(dir, "home"),
+            USERPROFILE: join(dir, "home"),
+          },
+        },
       )
       expect(invalid.exitCode).toBe(2)
       expect(JSON.parse(invalid.stdout.toString())).toMatchObject({
@@ -420,7 +449,13 @@ describe("CLI integration", () => {
           "--fail-fast",
           "--json",
         ],
-        { env: { ...process.env, HOME: join(dir, "home") } },
+        {
+          env: {
+            ...process.env,
+            HOME: join(dir, "home"),
+            USERPROFILE: join(dir, "home"),
+          },
+        },
       )
       expect(proc.exitCode).toBe(1)
       const output = JSON.parse(proc.stdout.toString())
@@ -469,7 +504,13 @@ describe("CLI integration", () => {
           dir,
           "--json",
         ],
-        { env: { ...process.env, HOME: join(dir, "home") } },
+        {
+          env: {
+            ...process.env,
+            HOME: join(dir, "home"),
+            USERPROFILE: join(dir, "home"),
+          },
+        },
       )
       expect(json.exitCode).toBe(2)
       const output = JSON.parse(json.stdout.toString())

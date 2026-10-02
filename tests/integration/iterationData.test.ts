@@ -7,7 +7,10 @@ import {
   validateExecutionCount,
 } from "../../src/iterationData"
 import { collectionRun, type RequestRunDetail } from "../../src/app/services"
-import { CollectionCookieJar } from "../../src/cookies"
+import {
+  CollectionCookieJar,
+  setCookieJarStorageForTests,
+} from "../../src/cookies"
 import { setSecretBackendForTests } from "../../src/secrets"
 import { lang } from "../../src/lang"
 import type { Request } from "../../src/schema"
@@ -17,6 +20,7 @@ let server: ReturnType<typeof Bun.serve>
 let hits: { path: string; cookie: string | null; time: number }[]
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-data-"))
+  setCookieJarStorageForTests({ keyLockFile: join(dir, "cookie-jar-key") })
   await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
   hits = []
   server = Bun.serve({
@@ -39,6 +43,7 @@ beforeEach(async () => {
 afterEach(async () => {
   server.stop(true)
   setSecretBackendForTests(undefined)
+  setCookieJarStorageForTests()
   await rm(dir, { recursive: true, force: true })
 })
 const save = (id: string, fields: Partial<Request> = {}) =>

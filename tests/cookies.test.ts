@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
+import * as fs from "node:fs/promises"
 import {
   mkdir,
   mkdtemp,
@@ -9,12 +10,13 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { tmpdir } from "node:os"
 import {
   CollectionCookieJar,
   flushAll,
   parseResponseCookies,
+  setCookieJarStorageForTests,
   setCookieJarTimingForTests,
 } from "../src/cookies"
 import { setSecretBackendForTests, type SecretBackend } from "../src/secrets"
@@ -47,11 +49,15 @@ describe("CollectionCookieJar", () => {
     configDir = await configDirPromise
     backend = memoryBackend()
     setSecretBackendForTests(backend)
+    setCookieJarStorageForTests({
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
   })
 
   afterEach(async () => {
     await flushAll().catch(() => {})
     setCookieJarTimingForTests()
+    setCookieJarStorageForTests()
     setSecretBackendForTests(undefined)
     await rm(configDir, { recursive: true, force: true })
   })
@@ -132,6 +138,17 @@ describe("CollectionCookieJar", () => {
     expect(unavailable.status.state).toBe("unavailable")
     expect(unavailable.cookieHeaderFor("https://example.com/")).toBe("")
     expect(await readFile(file, "utf8")).toBe(encrypted)
+    unavailable.put({ name: "pending", value: "1", domain: "example.com" })
+    await expect(unavailable.saveNow()).rejects.toMatchObject({
+      code: "key-unavailable",
+    })
+    expect(await readFile(file, "utf8")).toBe(encrypted)
+    setSecretBackendForTests(backend)
+    await unavailable.saveNow()
+    expect(unavailable.cookieHeaderFor("https://example.com/")).toBe(
+      "session=secret; pending=1",
+    )
+    await unavailable.close()
   })
 
   it("deletes cookies and domains", async () => {
@@ -150,6 +167,10 @@ describe("CollectionCookieJar", () => {
   })
 
   it("falls back to plaintext when the vault is unavailable", async () => {
+    setCookieJarStorageForTests({
+      platform: "linux",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
     backend.values.clear()
     backend.values.set("blocked", "1")
     const failing: SecretBackend = {
@@ -465,6 +486,10 @@ describe("CollectionCookieJar", () => {
   })
 
   it("preserves malformed and unknown storage until explicit reset", async () => {
+    setCookieJarStorageForTests({
+      platform: "linux",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
     const cookiesDir = join(configDir, "cookies")
     const file = join(cookiesDir, "broken.json")
     await mkdir(cookiesDir, { recursive: true })
@@ -526,6 +551,10 @@ describe("CollectionCookieJar", () => {
   })
 
   it("marks plaintext storage and restricts its file permissions", async () => {
+    setCookieJarStorageForTests({
+      platform: "linux",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
     setSecretBackendForTests({
       async get() {
         throw new Error("no keyring")
@@ -542,7 +571,9 @@ describe("CollectionCookieJar", () => {
     await jar.saveNow()
 
     expect(jar.status.state).toBe("plaintext-warning")
-    expect((await stat(jar.file)).mode & 0o777).toBe(0o600)
+    if (process.platform !== "win32") {
+      expect((await stat(jar.file)).mode & 0o777).toBe(0o600)
+    }
     expect(jar.warnings).toHaveLength(1)
   })
 
@@ -672,4 +703,400 @@ describe("CollectionCookieJar", () => {
       (await CollectionCookieJar.open(configDir, "second")).list()[0]?.name,
     ).toBe("b")
   })
+
+  it("requires a vault key before opening a new Windows jar and retains manual edits", async () => {
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    setSecretBackendForTests({
+      async get() {
+        throw new Error("vault unavailable")
+      },
+      async set() {
+        throw new Error("vault unavailable")
+      },
+      async delete() {
+        return false
+      },
+    })
+    const jar = await CollectionCookieJar.open(configDir, "windows-unavailable")
+    try {
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "key-unavailable" },
+      })
+      expect(jar.warnings).toHaveLength(1)
+      expect(
+        jar.scriptTransaction("https://example.com/", () => {}),
+      ).toBeUndefined()
+      jar.storeResponseCookies(
+        "https://example.com/",
+        new Headers({ "set-cookie": "received=ignored; Path=/" }),
+      )
+      jar.put({ name: "pending", value: "1", domain: "example.com" })
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("")
+      await expect(jar.saveNow()).rejects.toMatchObject({
+        code: "key-unavailable",
+      })
+      await expect(jar.reset()).rejects.toMatchObject({
+        code: "key-unavailable",
+      })
+      expect(await readdir(join(configDir, "cookies"))).toEqual([])
+
+      setSecretBackendForTests(backend)
+      await jar.refresh()
+      await jar.saveNow()
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("pending=1")
+      expect((await readFile(jar.file, "utf8")).startsWith("enc:v1:")).toBe(
+        true,
+      )
+    } finally {
+      await jar.close().catch(() => {})
+    }
+  })
+
+  it("does not back up Windows storage when storing a vault key fails", async () => {
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    const file = join(configDir, "cookies", "windows-key-write.json")
+    await mkdir(join(configDir, "cookies"), { recursive: true })
+    const original = "plain:{existing storage}"
+    await writeFile(file, original)
+    setSecretBackendForTests({
+      async get() {
+        return null
+      },
+      async set() {
+        throw new Error("vault cannot write")
+      },
+      async delete() {
+        return false
+      },
+    })
+    const jar = await CollectionCookieJar.open(configDir, "windows-key-write")
+    try {
+      jar.put({ name: "pending", value: "1", domain: "example.com" })
+      await expect(jar.reset()).rejects.toMatchObject({
+        code: "key-unavailable",
+      })
+      expect(await readFile(file, "utf8")).toBe(original)
+      expect(await readdir(join(configDir, "cookies"))).toEqual([
+        "windows-key-write.json",
+      ])
+      setSecretBackendForTests(backend)
+      const reset = await jar.reset()
+      expect(await readFile(reset.backupPath!, "utf8")).toBe(original)
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("pending=1")
+      expect((await readFile(file, "utf8")).startsWith("enc:v1:")).toBe(true)
+    } finally {
+      await jar.close().catch(() => {})
+    }
+  })
+
+  it("refuses to load or overwrite plaintext on Windows until an explicit reset", async () => {
+    setCookieJarStorageForTests({
+      platform: "linux",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    const plaintextBackend = {
+      async get() {
+        throw new Error("no vault")
+      },
+      async set() {
+        throw new Error("no vault")
+      },
+      async delete() {
+        return false
+      },
+    }
+    setSecretBackendForTests(plaintextBackend)
+    const unixJar = await CollectionCookieJar.open(configDir, "windows-plain")
+    unixJar.put({ name: "original", value: "secret", domain: "example.com" })
+    await unixJar.close()
+    const original = await readFile(unixJar.file, "utf8")
+
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    setSecretBackendForTests(backend)
+    const jar = await CollectionCookieJar.open(configDir, "windows-plain")
+    try {
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "read" },
+      })
+      expect(jar.list()).toEqual([])
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("")
+      jar.put({ name: "pending", value: "1", domain: "example.com" })
+      await expect(jar.saveNow()).rejects.toMatchObject({ code: "read" })
+      expect(await readFile(jar.file, "utf8")).toBe(original)
+      const reset = await jar.reset()
+      expect(await readFile(reset.backupPath!, "utf8")).toBe(original)
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("pending=1")
+      expect((await readFile(jar.file, "utf8")).startsWith("enc:v1:")).toBe(
+        true,
+      )
+    } finally {
+      await jar.close().catch(() => {})
+    }
+  })
+
+  for (const [description, stored] of [
+    ["empty", ""],
+    ["short", "00"],
+    ["trailing junk", `${"ab".repeat(32)}junk`],
+    ["non-hex", "gg".repeat(32)],
+  ]) {
+    it(`does not replace a ${description} vault key or reset its jar`, async () => {
+      setCookieJarStorageForTests({
+        platform: "win32",
+        keyLockFile: join(configDir, "cookie-jar-key"),
+      })
+      const account = "dev.noodlerest.noodle:app:settings:cookie-jar-key"
+      backend.values.set(account, stored!)
+      const file = join(configDir, "cookies", "invalid-key.json")
+      await mkdir(join(configDir, "cookies"), { recursive: true })
+      const original = "enc:v1:preserved encrypted storage"
+      await writeFile(file, original)
+      const jar = await CollectionCookieJar.open(configDir, "invalid-key")
+      try {
+        expect(jar.status).toMatchObject({
+          state: "unavailable",
+          error: { code: "key-unavailable" },
+        })
+        jar.put({ name: "pending", value: "1", domain: "example.com" })
+        await expect(jar.saveNow()).rejects.toMatchObject({
+          code: "key-unavailable",
+        })
+        await expect(jar.reset()).rejects.toMatchObject({
+          code: "key-unavailable",
+        })
+        expect(backend.values.get(account)).toBe(stored)
+        expect(await readFile(file, "utf8")).toBe(original)
+        expect(await readdir(join(configDir, "cookies"))).toEqual([
+          "invalid-key.json",
+        ])
+      } finally {
+        await jar.close().catch(() => {})
+      }
+    })
+  }
+
+  it("retains encrypted storage and pending edits after write and reset publication failures", async () => {
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    const jar = await CollectionCookieJar.open(configDir, "windows-write")
+    jar.put({ name: "original", value: "1", domain: "example.com" })
+    await jar.saveNow()
+    const original = await readFile(jar.file, "utf8")
+    jar.put({ name: "pending", value: "2", domain: "example.com" })
+    const realRename = fs.rename
+    const failPublication = spyOn(fs, "rename").mockImplementation(
+      async (from, to) => {
+        if (String(from).startsWith(`${jar.file}.tmp-`)) {
+          throw new Error("publication failed")
+        }
+        return realRename(from, to)
+      },
+    )
+    try {
+      await expect(jar.saveNow()).rejects.toMatchObject({ code: "write" })
+      expect(await readFile(jar.file, "utf8")).toBe(original)
+      await expect(jar.reset()).rejects.toMatchObject({ code: "write" })
+      expect(await readFile(jar.file, "utf8")).toBe(original)
+      expect(await readdir(join(configDir, "cookies"))).toEqual([
+        "windows-write.json",
+      ])
+    } finally {
+      failPublication.mockRestore()
+    }
+    try {
+      await jar.saveNow()
+      const reopened = await CollectionCookieJar.open(
+        configDir,
+        "windows-write",
+      )
+      expect(reopened.cookieHeaderFor("https://example.com/")).toBe(
+        "original=1; pending=2",
+      )
+      await reopened.close()
+    } finally {
+      await jar.close().catch(() => {})
+    }
+  })
+
+  it("creates one shared key for concurrent first jars in different config directories", async () => {
+    setCookieJarStorageForTests({
+      platform: "win32",
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    let writes = 0
+    setSecretBackendForTests({
+      async get(options) {
+        const value = await backend.get(options)
+        await Bun.sleep(25)
+        return value
+      },
+      async set(options) {
+        writes += 1
+        await backend.set(options)
+      },
+      delete: backend.delete,
+    })
+    const dirs = [join(configDir, "first"), join(configDir, "second")]
+    const jars = await Promise.all(
+      dirs.map((dir) => CollectionCookieJar.open(dir, "new")),
+    )
+    try {
+      expect(writes).toBe(1)
+      for (const [index, jar] of jars.entries()) {
+        expect(jar.status.state).toBe("encrypted")
+        jar.put({ name: "session", value: `${index}`, domain: "example.com" })
+      }
+      await Promise.all(jars.map((jar) => jar.saveNow()))
+      for (const [index, dir] of dirs.entries()) {
+        const reopened = await CollectionCookieJar.open(dir, "new")
+        expect(reopened.cookieHeaderFor("https://example.com/")).toBe(
+          `session=${index}`,
+        )
+        await reopened.close()
+      }
+    } finally {
+      await Promise.all(jars.map((jar) => jar.close().catch(() => {})))
+    }
+  })
+
+  it("does not reclaim an aged shared key lock or silently fall back to plaintext", async () => {
+    const keyLockFile = join(configDir, "cookie-jar-key")
+    setCookieJarStorageForTests({ platform: "win32", keyLockFile })
+    setCookieJarTimingForTests({
+      lockTimeoutMs: 10,
+      minBackoffMs: 1,
+      maxBackoffMs: 1,
+    })
+    const lock = await acquireFileLock(keyLockFile, {
+      lockTimeoutMs: 0,
+      minBackoffMs: 0,
+      maxBackoffMs: 0,
+    })
+    const owner = await readFile(join(`${keyLockFile}.lock`, "owner"), "utf8")
+    const old = new Date(Date.now() - 60_000)
+    await utimes(`${keyLockFile}.lock`, old, old)
+    const jar = await CollectionCookieJar.open(configDir, "key-locked")
+    try {
+      expect(jar.status).toMatchObject({
+        state: "unavailable",
+        error: {
+          code: "lock-timeout",
+          message: expect.stringContaining(`${keyLockFile}.lock`),
+        },
+      })
+      jar.put({ name: "pending", value: "1", domain: "example.com" })
+      await expect(jar.saveNow()).rejects.toMatchObject({
+        code: "lock-timeout",
+      })
+      const wait = spyOn(globalThis, "setTimeout").mockImplementation(
+        Object.assign(
+          () => {
+            throw new Error(
+              "Unavailable cookie storage must not wait for its key lock",
+            )
+          },
+          { __promisify__: setTimeout.__promisify__ },
+        ),
+      )
+      try {
+        await expect(jar.refresh()).rejects.toMatchObject({
+          code: "lock-timeout",
+        })
+        expect(wait).not.toHaveBeenCalled()
+      } finally {
+        wait.mockRestore()
+      }
+      expect(await readFile(join(`${keyLockFile}.lock`, "owner"), "utf8")).toBe(
+        owner,
+      )
+      expect(await readdir(join(configDir, "cookies"))).toEqual([])
+      await lock.release()
+      await jar.saveNow()
+      expect(jar.cookieHeaderFor("https://example.com/")).toBe("pending=1")
+    } finally {
+      await lock.release()
+      await jar.close().catch(() => {})
+    }
+  })
+
+  it("serializes first-key creation across processes with separate jar config directories", async () => {
+    const shared = join(configDir, "process-vault")
+    await mkdir(shared, { recursive: true })
+    const vaultFile = join(shared, "key")
+    const keyLockFile = join(shared, "cookie-jar-key")
+    const startFile = join(shared, "start")
+    const fixture = resolve(import.meta.dir, "fixtures/cookie-key-process.ts")
+    const dirs = [
+      join(configDir, "process-first"),
+      join(configDir, "process-second"),
+    ]
+    const children = dirs.map((dir, index) =>
+      Bun.spawn(
+        [
+          process.execPath,
+          fixture,
+          dir,
+          vaultFile,
+          keyLockFile,
+          startFile,
+          `${index}`,
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      ),
+    )
+    try {
+      const deadline = Date.now() + 4000
+      for (;;) {
+        const entries = await readdir(shared)
+        if (entries.includes("ready-0") && entries.includes("ready-1")) break
+        if (Date.now() >= deadline)
+          throw new Error("Cookie key fixtures did not start")
+        await Bun.sleep(10)
+      }
+      await writeFile(startFile, "start")
+      const results = await Promise.all(
+        children.map(async (child) => ({
+          code: await child.exited,
+          stdout: await new Response(child.stdout).text(),
+          stderr: await new Response(child.stderr).text(),
+        })),
+      )
+      expect(results).toEqual([
+        { code: 0, stdout: "", stderr: "" },
+        { code: 0, stdout: "", stderr: "" },
+      ])
+      const entries = await readdir(shared)
+      expect(
+        entries.filter((entry) => entry.startsWith("stored-")),
+      ).toHaveLength(1)
+      backend.values.set(
+        "dev.noodlerest.noodle:app:settings:cookie-jar-key",
+        await readFile(vaultFile, "utf8"),
+      )
+      setCookieJarStorageForTests({ platform: "win32", keyLockFile })
+      for (const [index, dir] of dirs.entries()) {
+        const jar = await CollectionCookieJar.open(dir, "new")
+        expect(jar.cookieHeaderFor("https://example.com/")).toBe(
+          `session=${index}`,
+        )
+        await jar.close()
+      }
+    } finally {
+      for (const child of children) child.kill()
+      await Promise.all(children.map((child) => child.exited))
+    }
+  }, 15_000)
 })
