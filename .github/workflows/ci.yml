@@ -107,6 +107,89 @@ jobs:
         run: |
           echo "[Download test build for $TARGET]($ARTIFACT_URL) (expires in 7 days)" >> "$GITHUB_STEP_SUMMARY"
 
+  windows-x64:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - name: Verify shipped native source and prebuild hashes
+        run: bun scripts/build-response-file-native.ts --check
+      - run: bun install --frozen-lockfile
+      - name: Check generated script API
+        run: bun run script:check
+      - name: Check generated schema validator
+        run: bun scripts/build-schema-validator.ts --check
+      - name: Check bundled script type libraries
+        run: bun scripts/build-script-type-libraries.ts --check
+      - name: Run complete applicable Windows suite
+        run: bun test --timeout=30000
+      - name: Test native Windows Credential Manager
+        env:
+          NOODLE_TEST_WINDOWS_NATIVE: "1"
+        run: bun test tests/integration/windowsCredentials.test.ts --timeout=30000
+      - name: Compile standalone with shipped addon and worker assets
+        run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle-windows-x64.exe
+      - name: Verify standalone version
+        run: |
+          $expected = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $actual = & .\noodle-windows-x64.exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($actual -ne $expected) { throw "Compiled binary reported $actual, expected $expected" }
+      - name: Test standalone scripts and QuickJS
+        run: bun scripts/compiled-script-smoke.ts ./noodle-windows-x64.exe
+      - name: Test standalone binary downloads and script lifecycle
+        run: |
+          $env:NOODLE_TEST_BINARY = Join-Path $PWD 'noodle-windows-x64.exe'
+          bun test tests/integration/binaryResponse.test.ts tests/integration/postResponseCli.test.ts tests/integration/inlineTestsCli.test.ts --timeout=30000
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.15.2
+      - name: Independently rebuild Windows native source
+        run: bun scripts/build-response-file-native.ts --target=win32-x64
+      - name: Test independently rebuilt native downloads
+        run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
+      - name: Package Windows test build
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          New-Item -ItemType Directory -Path test-build | Out-Null
+          Copy-Item noodle-windows-x64.exe test-build/noodle.exe
+          $checksum = (Get-FileHash test-build/noodle.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$checksum  noodle.exe" | Set-Content test-build/SHA256SUMS -Encoding utf8NoBOM
+          $commit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = & .\noodle-windows-x64.exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $bunVersion = bun --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          @("commit=$commit", "target=windows-x64", "version=$version", "bun=$bunVersion", "native=shipped-prebuild") | Set-Content test-build/BUILD_INFO.txt -Encoding utf8NoBOM
+          Compress-Archive -Path test-build/* -DestinationPath noodle-test-windows-x64.zip
+      - name: Upload Windows test build
+        if: github.event_name == 'workflow_dispatch'
+        id: windows-test-build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          path: noodle-test-windows-x64.zip
+          archive: false
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+      - name: Link Windows test build
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ARTIFACT_URL: ${{ steps.windows-test-build.outputs.artifact-url }}
+        run: |
+          "[Download Windows x64 test build]($env:ARTIFACT_URL) (expires in 7 days)" | Add-Content $env:GITHUB_STEP_SUMMARY
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -28,6 +28,7 @@ type Workflow = {
       needs?: string[]
       permissions?: Record<string, string>
       "runs-on"?: string
+      defaults?: { run?: { shell?: string } }
       env?: Record<string, string>
       strategy?: { matrix: { include: { os: string; target: string }[] } }
       steps?: {
@@ -321,6 +322,39 @@ describe("release platforms", () => {
 })
 
 describe("manual CI builds", () => {
+  it("validates Windows x64 separately and uploads its test ZIP only on manual dispatch", () => {
+    const job = ci.jobs["windows-x64"]
+    expect(job["runs-on"]).toBe("windows-latest")
+    expect(job.defaults?.run?.shell).toBe("pwsh")
+    expect(
+      job.steps?.find(
+        (step) => step.name === "Run complete applicable Windows suite",
+      )?.run,
+    ).toBe("bun test --timeout=30000")
+    const compile = job.steps!.find((step) =>
+      step.run?.startsWith("bun build --compile"),
+    )!.run!
+    expect(compile).toContain("--entry-naming '[name].[ext]'")
+    expect(compile).toContain("src/ui/editor/scriptDiagnostics.worker.ts")
+    expect(compile).toContain("--outfile noodle-windows-x64.exe")
+    const packageStep = job.steps!.find(
+      (step) => step.name === "Package Windows test build",
+    )!
+    for (const name of [
+      "Package Windows test build",
+      "Upload Windows test build",
+      "Link Windows test build",
+    ])
+      expect(job.steps!.find((step) => step.name === name)!.if).toBe(
+        "github.event_name == 'workflow_dispatch'",
+      )
+    for (const file of ["noodle.exe", "SHA256SUMS", "BUILD_INFO.txt"])
+      expect(packageStep.run).toContain(file)
+    expect(packageStep.run).toContain("Get-FileHash")
+    expect(packageStep.run).toContain("Compress-Archive")
+    expect(workflow.jobs.build.strategy!.matrix.include).toHaveLength(4)
+  })
+
   it("isolates PR cancellation and only uploads explicitly dispatched test builds", () => {
     expect(ci.on).toHaveProperty("workflow_dispatch")
     expect(ci.on).toHaveProperty("workflow_call")

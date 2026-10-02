@@ -103,10 +103,14 @@ describe("home path completion", () => {
     const outside = await mkdtemp(join(tmpdir(), "noodle-path-outside-"))
     try {
       await writeFile(join(root, "check.js"), "")
-      await writeFile(join(root, "check.JS"), "")
+      await writeFile(join(root, "upper.JS"), "")
       await writeFile(join(outside, "escaped.js"), "")
       await symlink(join(outside, "escaped.js"), join(root, "escaped.js"))
-      await symlink(outside, join(root, "escaped-folder"))
+      await symlink(
+        outside,
+        join(root, "escaped-folder"),
+        process.platform === "win32" ? "junction" : "dir",
+      )
       const options = {
         kind: "file" as const,
         relativeRoot: root,

@@ -8,7 +8,10 @@ it("runs semantic diagnostics and bundled workers from an empty standalone direc
   const dir = await mkdtemp(join(tmpdir(), "noodle-script-diagnostics-"))
   try {
     const entry = join(dir, "check.ts")
-    const binary = join(dir, "check")
+    const binary = join(
+      dir,
+      process.platform === "win32" ? "check.exe" : "check",
+    )
     const module = fileURLToPath(
       new URL("../../src/ui/editor/scriptDiagnostics.ts", import.meta.url),
     )

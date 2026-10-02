@@ -1,4 +1,5 @@
 import { expect, it } from "bun:test"
+import { fileURLToPath } from "node:url"
 import { scriptCompatibility } from "../../src/converters/scriptCompatibility"
 
 it("leaves Promise-returning request helpers unconverted, including callback result access", async () => {
@@ -44,7 +45,7 @@ it("initializes QuickJS only when a script needs compile-only validation", async
     `,
     ],
     {
-      cwd: new URL("../../", import.meta.url).pathname,
+      cwd: fileURLToPath(new URL("../../", import.meta.url)),
       stdout: "pipe",
       stderr: "pipe",
     },

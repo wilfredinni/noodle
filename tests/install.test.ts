@@ -93,7 +93,7 @@ async function runInstaller(
   })
 }
 
-describe("install script", () => {
+describe.skipIf(process.platform === "win32")("Unix install script", () => {
   it("installs a binary only after its release checksum verifies", async () => {
     const directory = await mkdtemp(join(tmpdir(), "noodle-install-"))
     const binDir = join(directory, "bin")

@@ -251,7 +251,11 @@ describe("export — integration", () => {
     }
 
     const link = join(await tempDir(), "collection-link")
-    await symlink(collection, link, "dir")
+    await symlink(
+      collection,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    )
     await expect(
       runExport({
         collection,
