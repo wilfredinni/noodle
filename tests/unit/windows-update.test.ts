@@ -64,7 +64,8 @@ describe("Windows update staging", () => {
         arch: "x64",
         env: environment,
         fetcher: async () => new Response(binary),
-        startProcess: (args, options) => {
+        startProcess: async (args, options) => {
+          await Promise.resolve()
           expect(options?.env).toBe(environment)
           started.push(args)
         },
@@ -134,7 +135,8 @@ describe("Windows update staging", () => {
         arch: "x64",
         env: {},
         fetcher: async () => new Response(binary),
-        startProcess: () => {
+        startProcess: async () => {
+          await Promise.resolve()
           throw new Error("PowerShell unavailable")
         },
       },

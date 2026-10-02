@@ -229,7 +229,7 @@ async function downloadAndInstall(
         logPath,
       ]
       if (skillInstalled) helperArgs.push("-RefreshSkill")
-      deps.startProcess(helperArgs, { env: deps.env })
+      await deps.startProcess(helperArgs, { env: deps.env })
       helperOwnsStaging = true
       output(`Update staged; restart Noodle to apply ${tag}.`)
       output(`Update details: ${logPath}`)

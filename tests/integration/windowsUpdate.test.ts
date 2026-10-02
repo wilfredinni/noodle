@@ -19,7 +19,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { sha256 } from "../../src/app/commands/update"
+import { getUpdateDeps, sha256 } from "../../src/app/commands/update"
 import {
   compileWindowsFixture,
   waitForFile,
@@ -56,7 +56,7 @@ describe.skipIf(process.platform !== "win32")(
     })
     beforeEach(async () => {
       directory = await realpath(
-        await mkdtemp(join(tmpdir(), "noodle update café-")),
+        await mkdtemp(join(tmpdir(), "noodle update café & 100% O'Brien-")),
       )
       const stage = join(directory, "stage")
       await mkdir(stage)
@@ -143,6 +143,45 @@ describe.skipIf(process.platform !== "win32")(
         )
       }
     }
+
+    it("launches a hidden helper with literal arguments and its environment", async () => {
+      const script = join(directory, "launch probe.ps1")
+      const legacyMarker = join(directory, "legacy.txt")
+      const marker = join(directory, "hidden.txt")
+      const value = "literal & 100% O'Brien café"
+      await writeFile(
+        script,
+        'param([string]$Target, [string]$Value)\n[IO.File]::WriteAllText($Target, "$Value`n$env:NOODLE_TEST_LAUNCH_VALUE")\n',
+      )
+      const argumentsFor = (target: string) => [
+        windowsPowerShell,
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        script,
+        "-Target",
+        target,
+        "-Value",
+        value,
+      ]
+      const probe = Bun.spawnSync(argumentsFor(legacyMarker), {
+        detached: true,
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "ignore",
+        windowsHide: true,
+        timeout: 5000,
+      })
+      console.log(
+        `Windows PowerShell detached probe: exit ${probe.exitCode}, script executed ${await Bun.file(legacyMarker).exists()}`,
+      )
+      await getUpdateDeps({}).startProcess(argumentsFor(marker), {
+        env: { ...process.env, NOODLE_TEST_LAUNCH_VALUE: value },
+      })
+      expect(await waitForFile(marker)).toBe(`${value}\n${value}`)
+    }, 30_000)
 
     it("waits for the compiled parent, survives its exit, and emits one JSON envelope", async () => {
       const home = join(directory, "home")
