@@ -39,7 +39,7 @@ describe("copyToClipboard", () => {
     expect(result).toBe(true)
   })
 
-  it("uses only Windows clip with BOM-prefixed UTF-16LE input", () => {
+  it("uses only Windows clip with UTF-16LE input", () => {
     const text = "Noodle café 界 🍜\nsecond line"
     const commands: string[][] = []
     const result = copyToClipboard(
@@ -47,8 +47,8 @@ describe("copyToClipboard", () => {
       mockRenderer(false),
       (command, { stdin }) => {
         commands.push(command)
-        expect(Buffer.from(stdin).toString("utf16le")).toBe(`\ufeff${text}`)
-        expect([...stdin.slice(0, 2)]).toEqual([255, 254])
+        expect(Buffer.from(stdin).toString("utf16le")).toBe(text)
+        expect([...stdin.slice(0, 2)]).toEqual([78, 0])
         return { exitCode: 0 }
       },
       "win32",
@@ -80,7 +80,6 @@ describe("copyToClipboard", () => {
   it.skipIf(process.platform !== "win32")(
     "round trips Unicode through the real Windows clipboard",
     () => {
-      const text = "Noodle café 界 🍜"
       const read = () => {
         const result = Bun.spawnSync([
           "powershell.exe",
@@ -96,8 +95,17 @@ describe("copyToClipboard", () => {
       }
       const original = read()
       try {
-        expect(copyToClipboard(text, mockRenderer(false))).toBe(true)
-        expect(read()).toBe(text)
+        for (const text of [
+          "Noodle café 界 🍜",
+          "plain ASCII",
+          "界",
+          "🍜",
+          "",
+          "\ufeffintentional marker",
+        ]) {
+          expect(copyToClipboard(text, mockRenderer(false))).toBe(true)
+          expect(read()).toBe(text)
+        }
       } finally {
         copyToClipboard(original, mockRenderer(false))
       }

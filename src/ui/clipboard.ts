@@ -20,7 +20,7 @@ export function copyToClipboard(
 ): boolean {
   const stdin =
     platform === "win32"
-      ? Buffer.from(`\ufeff${text}`, "utf16le")
+      ? Buffer.from(text, "utf16le")
       : new TextEncoder().encode(text)
 
   for (const { cmd, platform: commandPlatform } of CLIPBOARD_CMDS) {
