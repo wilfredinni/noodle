@@ -39,9 +39,11 @@ export function waitForFile(
     const watcher = watch(dirname(path), () => {
       void check()
     })
-    const timeout = setTimeout(() => {
-      watcher.close()
-      reject(new Error(`Timed out waiting for ${path}`))
+    const timeout = setTimeout(async () => {
+      const contents = await readFile(path, "utf8").catch(() => "<missing>")
+      finish(
+        new Error(`Timed out waiting for ${path}\nLast contents:\n${contents}`),
+      )
     }, 20_000)
     const finish = (error?: Error, value?: string) => {
       clearTimeout(timeout)

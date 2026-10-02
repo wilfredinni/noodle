@@ -26,6 +26,7 @@ function Write-UpdateLog([string]$Message) {
 }
 
 try {
+  Write-UpdateLog "Update helper started; waiting for process $ParentPid to exit."
   # A PowerShell 7 parent can pass incompatible module paths through Bun.
   Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Utility" -ErrorAction Stop
   Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue

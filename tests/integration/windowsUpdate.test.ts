@@ -11,6 +11,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   realpath,
   rm,
   copyFile,
@@ -123,6 +124,26 @@ describe.skipIf(process.platform !== "win32")(
       expect(exitCode, `${stdout}\n${stderr}\n${messages}`).toBe(expected)
     }
 
+    async function waitForCompletedUpdate(stderr: string) {
+      try {
+        await waitForFile(log, (value) => value.includes("Update complete."))
+      } catch (error) {
+        const files = await readdir(directory)
+        const stages = await Promise.all(
+          files
+            .filter((name) => name.startsWith(".noodle-update-"))
+            .map(
+              async (name) =>
+                `${name}: ${(await readdir(join(directory, name))).join(", ")}`,
+            ),
+        )
+        throw new Error(
+          `${error instanceof Error ? error.message : error}\nParent stderr:\n${stderr}\nFiles: ${files.join(", ")}\n${stages.join("\n")}`,
+          { cause: error },
+        )
+      }
+    }
+
     it("waits for the compiled parent, survives its exit, and emits one JSON envelope", async () => {
       const home = join(directory, "home")
       const marker = join(directory, "skill-refresh.json")
@@ -171,9 +192,10 @@ describe.skipIf(process.platform !== "win32")(
           if (part.done) break
           stdout += decoder.decode(part.value, { stream: true })
         }
-        await waitForFile(log, (value) => value.includes("Update complete."))
+        const stderr = await new Response(parent.stderr).text()
+        await waitForCompletedUpdate(stderr)
         expect(stdout.trim().split(/\r?\n/)).toHaveLength(1)
-        expect(await new Response(parent.stderr).text()).toBe("")
+        expect(stderr).toBe("")
         expect(sha256(await readFile(destination))).toBe(hash)
         expect(
           Bun.spawnSync([destination, "--version"]).stdout.toString().trim(),
@@ -188,6 +210,30 @@ describe.skipIf(process.platform !== "win32")(
           await parent.exited
         }
       }
+    }, 60_000)
+
+    it("completes the update when the compiled CLI exits immediately after staging", async () => {
+      const parent = Bun.spawn([destination], {
+        cwd: directory,
+        env: {
+          ...process.env,
+          NOODLE_TEST_UPDATE_SOURCE: replacement,
+          NOODLE_TEST_CACHE: join(directory, "cache.json"),
+        },
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+      })
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(parent.stdout).text(),
+        new Response(parent.stderr).text(),
+        parent.exited,
+      ])
+      expect(exitCode, `${stdout}\n${stderr}`).toBe(0)
+      expect(stdout.trim().split(/\r?\n/)).toHaveLength(1)
+      expect(JSON.parse(stdout.trim()).data.status).toBe("restart_required")
+      await waitForCompletedUpdate(stderr)
+      expect(sha256(await readFile(destination))).toBe(hash)
     }, 60_000)
 
     it("rechecks the staged checksum after parent exit", async () => {
