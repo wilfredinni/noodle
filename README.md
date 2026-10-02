@@ -31,6 +31,26 @@ Prebuilt binaries support macOS and Linux on arm64 and x86_64.
 See [installation options](https://noodlerest.dev/docs/getting-started/installation/)
 for Homebrew and source builds.
 
+### Windows x64 (beta)
+
+After the first Windows-enabled release is published, install from PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.ps1 | iex
+```
+
+The installer verifies the release checksum, installs to
+`%LOCALAPPDATA%\Programs\Noodle\noodle.exe`, and updates your user PATH.
+Open a new terminal after installation. Windows ARM64 is not supported.
+Set `NOODLE_VERSION`, `NOODLE_INSTALL_DIR`, or `NOODLE_SKIP_PATH_UPDATE=1`
+before running the script to override the version, destination, or PATH update.
+
+Run `noodle update` to stage an update, then close and reopen Noodle to apply it.
+Windows executables are unsigned; browser downloads may trigger Windows trust
+prompts. Ordinary-account and interactive terminal testing remains pending.
+Until the first Windows-enabled release, download the Windows beta ZIP from a
+manually dispatched CI run and extract `noodle.exe` for testing.
+
 ## Quick start
 
 Follow the [quick start guide](https://noodlerest.dev/docs/getting-started/quick-start/)

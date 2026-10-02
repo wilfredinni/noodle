@@ -84,6 +84,7 @@ jobs:
             }
           fi
           bun scripts/release-notes.ts --tag "$TAG" > release-notes.md
+          printf '\nWindows x64 support is beta. The Windows executable is unsigned; browser downloads may trigger Windows trust prompts.\n' >> release-notes.md
           if [ "$existing_draft" = "true" ]; then
             gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md
           else
@@ -98,16 +99,33 @@ jobs:
         include:
           - os: macos-15
             target: macos-arm64
+            asset: noodle-macos-arm64
+            shell: bash
           - os: macos-15-intel
             target: macos-x86_64
+            asset: noodle-macos-x86_64
+            shell: bash
           - os: ubuntu-latest
             target: linux-x86_64
+            asset: noodle-linux-x86_64
+            shell: bash
           - os: ubuntu-24.04-arm
             target: linux-arm64
+            asset: noodle-linux-arm64
+            shell: bash
+          - os: windows-latest
+            target: windows-x86_64
+            asset: noodle-windows-x86_64.exe
+            shell: pwsh
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
       contents: read
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      ASSET_NAME: ${{ matrix.asset }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -116,27 +134,43 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
-      - run: bun run script:check && bun scripts/build-schema-validator.ts --check && bun scripts/build-script-type-libraries.ts --check && bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
-      - run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile noodle-${{ matrix.target }}
+      - run: bun run script:check
+      - run: bun scripts/build-schema-validator.ts --check
+      - run: bun scripts/build-script-type-libraries.ts --check
+      - run: bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
+      - run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile "${{ matrix.asset }}"
       - name: Sign and verify macOS binary
-        run: bun scripts/sign-macos-binary.ts "./noodle-${{ matrix.target }}"
+        if: runner.os == 'macOS'
+        run: bun scripts/sign-macos-binary.ts "./${{ matrix.asset }}"
       - name: Smoke test compiled binary
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          bun scripts/compiled-script-smoke.ts "./noodle-${{ matrix.target }}"
+          bun scripts/compiled-script-smoke.ts "./$ASSET_NAME"
           expected="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
-          actual="$(./noodle-${{ matrix.target }} --version)"
+          actual="$(./$ASSET_NAME --version)"
           test "$actual" = "$expected" || {
             echo "Compiled binary reported $actual, expected $expected" >&2
             exit 1
           }
-          NOODLE_TEST_BINARY="$PWD/noodle-${{ matrix.target }}" bun test tests/integration/binaryResponse.test.ts --timeout=30000
+          NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts --timeout=30000
+      - name: Smoke test Windows compiled binary
+        if: runner.os == 'Windows'
+        run: |
+          $expected = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $actual = & ".\$env:ASSET_NAME" --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($actual -ne $expected) { throw "Compiled binary reported $actual, expected $expected" }
+          bun scripts/compiled-script-smoke.ts "./$env:ASSET_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:NOODLE_TEST_BINARY = Join-Path $PWD $env:ASSET_NAME
+          bun test tests/integration/binaryResponse.test.ts tests/integration/postResponseCli.test.ts tests/integration/inlineTestsCli.test.ts --timeout=30000
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-${{ matrix.target }}
-          path: noodle-${{ matrix.target }}
+          path: ${{ matrix.asset }}
           if-no-files-found: error
           overwrite: true
 
@@ -160,17 +194,17 @@ jobs:
           TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           set -euo pipefail
-          test "$(find release-assets -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 4
-          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64; do
+          test "$(find release-assets -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 5
+          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64 noodle-windows-x86_64.exe; do
             test -f "release-assets/$binary"
             test -s "release-assets/$binary"
             test ! -L "release-assets/$binary"
           done
           (cd release-assets && sha256sum noodle-* | LC_ALL=C sort -k2,2) > release-assets/SHA256SUMS
           test -s release-assets/SHA256SUMS
-          test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 4
-          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64; do
-            grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
+          test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 5
+          for binary in noodle-macos-arm64 noodle-macos-x86_64 noodle-linux-x86_64 noodle-linux-arm64 noodle-windows-x86_64.exe; do
+            awk -v name="$binary" '$2 == name && length($1) == 64 && $1 !~ /[^[:xdigit:]]/ { found++ } END { exit(found != 1) }' release-assets/SHA256SUMS
           done
           test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" || {
             echo "Refusing to replace assets of published release $TAG" >&2
@@ -178,7 +212,7 @@ jobs:
           }
           gh release upload "$TAG" release-assets/noodle-* release-assets/SHA256SUMS --clobber
 
-  validate-macos-artifact:
+  validate-release-artifact:
     needs: [create-release, checksums]
     permissions:
       contents: write # Draft release downloads require push access.
@@ -188,12 +222,23 @@ jobs:
         include:
           - os: macos-15
             target: macos-arm64
+            asset: noodle-macos-arm64
+            shell: bash
           - os: macos-15-intel
             target: macos-x86_64
+            asset: noodle-macos-x86_64
+            shell: bash
+          - os: windows-latest
+            target: windows-x86_64
+            asset: noodle-windows-x86_64.exe
+            shell: pwsh
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     env:
-      ASSET_NAME: noodle-${{ matrix.target }}
+      ASSET_NAME: ${{ matrix.asset }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -202,13 +247,15 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.2
-      - name: Download draft macOS release artifact
+      - run: bun install --frozen-lockfile
+      - name: Download draft release artifact
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release download "$TAG" --pattern "$ASSET_NAME" --pattern 'SHA256SUMS' --dir release-assets
+        run: gh release download "${{ needs.create-release.outputs.tag }}" --pattern "${{ matrix.asset }}" --pattern 'SHA256SUMS' --dir release-assets
       - name: Verify downloaded macOS binary
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
@@ -233,6 +280,25 @@ jobs:
           }
           bun scripts/compiled-script-smoke.ts "./$binary"
 
+      - name: Verify downloaded Windows binary
+        if: runner.os == 'Windows'
+        run: |
+          $binary = Join-Path $PWD "release-assets/$env:ASSET_NAME"
+          $escapedAsset = [Regex]::Escape($env:ASSET_NAME)
+          $checksums = @(Get-Content release-assets/SHA256SUMS | Where-Object { $_ -match "^([0-9a-fA-F]{64})  $escapedAsset$" })
+          if ($checksums.Count -ne 1) { throw "Missing or invalid Windows release checksum" }
+          $expectedHash = ($checksums[0] -split "\s+")[0]
+          $actualHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+          if ($actualHash -ine $expectedHash) { throw "Downloaded Windows release checksum mismatch" }
+          $expectedVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $actualVersion = & $binary --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($actualVersion -ne $expectedVersion) { throw "Downloaded binary reported $actualVersion, expected $expectedVersion" }
+          bun scripts/compiled-script-smoke.ts "$binary"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:NOODLE_TEST_BINARY = $binary
+          bun test tests/integration/binaryResponse.test.ts --timeout=30000
+
   notify-homebrew:
     needs: [create-release, checksums, undraft]
     runs-on: ubuntu-latest
@@ -253,7 +319,7 @@ jobs:
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
 
   undraft:
-    needs: [create-release, checksums, validate-macos-artifact]
+    needs: [create-release, checksums, validate-release-artifact]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
@@ -290,11 +356,13 @@ jobs:
           macos_x86_hash=$(awk '$2 == "noodle-macos-x86_64" { print $1 }' SHA256SUMS)
           linux_x86_hash=$(awk '$2 == "noodle-linux-x86_64" { print $1 }' SHA256SUMS)
           linux_arm_hash=$(awk '$2 == "noodle-linux-arm64" { print $1 }' SHA256SUMS)
+          windows_x86_hash=$(awk '$2 == "noodle-windows-x86_64.exe" { print $1 }' SHA256SUMS)
 
           test -n "$macos_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
           test -n "$macos_x86_hash" || { echo "Missing macos-x86_64 checksum" >&2; exit 1; }
           test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
           test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
+          test -n "$windows_x86_hash" || { echo "Missing windows-x86_64 checksum" >&2; exit 1; }
 
           echo "{" > update.json
           echo "  \"version\": \"${TAG}\"," >> update.json
@@ -302,7 +370,8 @@ jobs:
           echo "    \"macos-arm64\": { \"sha256\": \"${macos_hash}\" }," >> update.json
           echo "    \"macos-x86_64\": { \"sha256\": \"${macos_x86_hash}\" }," >> update.json
           echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
-          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }" >> update.json
+          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }," >> update.json
+          echo "    \"windows-x86_64\": { \"sha256\": \"$windows_x86_hash\" }" >> update.json
           echo "  }" >> update.json
           echo "}" >> update.json
 
