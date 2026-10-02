@@ -1,5 +1,6 @@
-import { describe, expect, it } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { describe, expect, it, spyOn } from "bun:test"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import * as os from "node:os"
 import { join } from "node:path"
 import { scheduler } from "node:timers/promises"
 import { act, useRef, useState } from "react"
@@ -110,7 +111,9 @@ const folderCollection: Collection = {
 
 describe("CollectionRunnerView", () => {
   it("completes home and collection data paths and runs the selected file", async () => {
-    const dir = await mkdtemp(join(process.cwd(), ".runner-data-"))
+    const home = await mkdtemp(join(os.tmpdir(), "noodle-runner-home-"))
+    const homeSpy = spyOn(os, "homedir").mockReturnValue(home)
+    const dir = join(home, "collection café")
     const file = join(dir, "users data.json")
     const { keymap, host, cleanup } = setupKeymap()
     let current: UseCollectionRunnerResult | null = null
@@ -168,6 +171,7 @@ describe("CollectionRunnerView", () => {
       )
     }
     try {
+      await mkdir(dir)
       await writeFile(file, '[{"id":1},{"id":2}]')
       const render = await testRender(<Harness />, { width: 100, height: 28 })
       const waitFor = async (predicate: () => boolean) => {
@@ -208,7 +212,8 @@ describe("CollectionRunnerView", () => {
       expect(paths).toEqual([file, file])
     } finally {
       cleanup()
-      await rm(dir, { recursive: true, force: true })
+      homeSpy.mockRestore()
+      await rm(home, { recursive: true, force: true })
     }
   })
 

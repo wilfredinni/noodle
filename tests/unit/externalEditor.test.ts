@@ -26,14 +26,14 @@ describe("external editors", () => {
       platform: "darwin",
       homeDir: "/Users/test",
       which: () => null,
-      exists: (path) => path === "/Applications/Zed.app",
+      exists: (path) => path === join("/Applications", "Zed.app"),
     })
 
     expect(editors).toEqual([
       {
         id: "zed",
         label: "Zed",
-        command: ["open", "-a", "/Applications/Zed.app"],
+        command: ["open", "-a", join("/Applications", "Zed.app")],
       },
     ])
   })
@@ -93,7 +93,28 @@ describe("external editors", () => {
         })
         expect(editors.map((editor) => editor.id)).toEqual(["vscode"])
         const target = join(dir, "carpeta café notes")
-        await launchExternalEditor(editors[0]!, target)
+        await launchExternalEditor(editors[0]!, target, (command, options) => {
+          const child = Bun.spawn(command, {
+            ...options,
+            stdout: "pipe",
+            stderr: "pipe",
+          })
+          const output = Promise.all([
+            new Response(child.stdout).text(),
+            new Response(child.stderr).text(),
+          ])
+          return {
+            exited: child.exited.then(async (exitCode) => {
+              const [stdout, stderr] = await output
+              if (exitCode !== 0) {
+                throw new Error(
+                  `Windows editor launcher exited ${exitCode}: ${stdout}${stderr}`,
+                )
+              }
+              return exitCode
+            }),
+          }
+        })
         expect(JSON.parse(await readFile(capture, "utf8"))).toEqual([target])
         await rm(capture)
         for (const character of [

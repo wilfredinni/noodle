@@ -1031,12 +1031,15 @@ describe("resolveStartupCollectionDir", () => {
     }
   })
 
-  it("keeps an explicit collection path even when it does not exist", () => {
-    expect(
-      resolveStartupCollectionDir(
-        { collectionDir: "/tmp/noodle-explicit-missing" },
-        [],
-      ),
-    ).toBe("/tmp/noodle-explicit-missing")
+  it("keeps an explicit collection path even when it does not exist", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-startup-"))
+    const missing = join(dir, "MissingCollection")
+    try {
+      expect(resolveStartupCollectionDir({ collectionDir: missing }, [])).toBe(
+        missing,
+      )
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

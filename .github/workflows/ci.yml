@@ -133,6 +133,8 @@ jobs:
         run: bun scripts/build-script-type-libraries.ts --check
       - name: Run complete applicable Windows suite
         run: bun test --timeout=30000
+      - name: Repeat native Windows integration regressions
+        run: bun test tests/install-powershell.test.ts tests/integration/windowsUpdate.test.ts tests/unit/clipboard.test.ts tests/unit/externalEditor.test.ts --rerun-each=10 --timeout=30000
       - name: Test native Windows Credential Manager
         env:
           NOODLE_TEST_WINDOWS_NATIVE: "1"

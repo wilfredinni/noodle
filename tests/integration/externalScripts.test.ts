@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { basename, join, sep } from "node:path"
 import { inspect } from "node:util"
 import { lang } from "../../src/lang"
 import { filestore, loadSettings, saveSettings } from "../../src/filestore"
@@ -297,7 +297,11 @@ it("rejects a target swapped for an escaping symlink before open", async () => {
   try {
     await expect(
       createScriptSourceResolver(dir).resolve("./scripts/a.js", origin),
-    ).rejects.toThrow("source is invalid, missing, or unreadable")
+    ).rejects.toThrow(
+      process.platform === "win32"
+        ? "source changed while being resolved"
+        : "source is invalid, missing, or unreadable",
+    )
   } finally {
     open.mockRestore()
   }
@@ -396,7 +400,9 @@ it("proves exact nested order, once per request, captures, assertions and inheri
   )
     .then((result) => {
       expect(
-        open.mock.calls.filter(([path]) => String(path).includes("/scripts/")),
+        open.mock.calls.filter(([path]) =>
+          String(path).includes(`${sep}scripts${sep}`),
+        ),
       ).toHaveLength(9)
       return result
     })
