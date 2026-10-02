@@ -12,6 +12,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises"
@@ -42,7 +43,9 @@ describe.skipIf(process.platform !== "win32")("PowerShell installer", () => {
     await rm(fixtures, { recursive: true, force: true })
   })
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "noodle install café-"))
+    directory = await realpath(
+      await mkdtemp(join(tmpdir(), "noodle install café-")),
+    )
     installDirectory = join(directory, "install")
     home = join(directory, "home")
     pathMarker = join(directory, "user-path")
@@ -52,7 +55,6 @@ describe.skipIf(process.platform !== "win32")("PowerShell installer", () => {
       wrapper,
       `
 $ErrorActionPreference = "Stop"
-Set-Variable -Name HOME -Value $env:NOODLE_TEST_HOME -Force
 function Invoke-WebRequest {
   param([switch]$UseBasicParsing, [string]$Uri, [string]$OutFile)
   [IO.File]::AppendAllText($env:NOODLE_TEST_DOWNLOADS, "$Uri\n")
@@ -62,6 +64,7 @@ function Invoke-WebRequest {
   } else { [IO.File]::Copy($env:NOODLE_TEST_BINARY, $OutFile) }
 }
 $code = [IO.File]::ReadAllText($env:NOODLE_TEST_INSTALLER)
+$code = $code.Replace('$HOME', '$env:NOODLE_TEST_HOME')
 # Intercept registry calls so tests never modify the user's actual PATH.
 $code = $code.Replace('[Environment]::GetEnvironmentVariable("Path", "User")', '$env:NOODLE_TEST_USER_PATH')
 $code = $code.Replace('[Environment]::SetEnvironmentVariable("Path", ((@($userEntries) + $installDirectory) -join ";"), "User")', '[IO.File]::WriteAllText($env:NOODLE_TEST_PATH_MARKER, ((@($userEntries) + $installDirectory) -join ";"))')
@@ -130,7 +133,7 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
       PROCESSOR_ARCHITEW6432: "AMD64",
       NOODLE_SKIP_PATH_UPDATE: "0",
     })
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(sha256(await readFile(join(expectedDirectory, "noodle.exe")))).toBe(
       hash,
     )
@@ -149,7 +152,7 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
       NOODLE_SKIP_PATH_UPDATE: "0",
       NOODLE_TEST_USER_PATH: `C:\\Windows;${installDirectory.toUpperCase()}\\`,
     })
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(await Bun.file(pathMarker).exists()).toBe(false)
     expect(await readFile(join(directory, "downloads"), "utf8")).toContain(
       "/latest/download/noodle-windows-x86_64.exe",
@@ -206,6 +209,7 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
     const candidate = (await readdir(installDirectory)).find((name) =>
       name.startsWith(".noodle-install-"),
     )!
+    expect(candidate, `${result.stdout}\n${result.stderr}`).toBeDefined()
     expect(sha256(await readFile(join(installDirectory, candidate)))).toBe(hash)
     expect(await Bun.file(pathMarker).exists()).toBe(false)
   })
@@ -223,6 +227,7 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
     const candidate = (await readdir(installDirectory)).find((name) =>
       name.startsWith(".noodle-install-"),
     )!
+    expect(candidate, `${result.stdout}\n${result.stderr}`).toBeDefined()
     expect(sha256(await readFile(join(installDirectory, candidate)))).toBe(hash)
     expect(await Bun.file(pathMarker).exists()).toBe(false)
   })
@@ -238,7 +243,7 @@ if ($env:NOODLE_TEST_LOCK -eq "1") {
         NOODLE_TEST_SKILL_MARKER: marker,
         NOODLE_TEST_SKILL_FAIL: failed ? "1" : "0",
       })
-      expect(result.exitCode).toBe(0)
+      expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
       expect(sha256(await readFile(join(installDirectory, "noodle.exe")))).toBe(
         hash,
       )

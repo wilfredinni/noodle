@@ -11,6 +11,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   copyFile,
   writeFile,
@@ -53,7 +54,9 @@ describe.skipIf(process.platform !== "win32")(
       await rm(fixtures, { recursive: true, force: true })
     })
     beforeEach(async () => {
-      directory = await mkdtemp(join(tmpdir(), "noodle update café-"))
+      directory = await realpath(
+        await mkdtemp(join(tmpdir(), "noodle update café-")),
+      )
       const stage = join(directory, "stage")
       await mkdir(stage)
       source = join(stage, "noodle-windows-x86_64.exe")
@@ -63,7 +66,12 @@ describe.skipIf(process.platform !== "win32")(
       await copyFile(parentFixture, destination)
     })
     afterEach(async () => {
-      await rm(directory, { recursive: true, force: true })
+      await rm(directory, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      })
     })
 
     function startHelper(
@@ -100,6 +108,19 @@ describe.skipIf(process.platform !== "win32")(
         stdout: "pipe",
         stderr: "pipe",
       })
+    }
+
+    async function expectHelperExit(
+      child: ReturnType<typeof startHelper>,
+      expected: number,
+    ) {
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ])
+      const messages = await readFile(log, "utf8").catch(() => "")
+      expect(exitCode, `${stdout}\n${stderr}\n${messages}`).toBe(expected)
     }
 
     it("waits for the compiled parent, survives its exit, and emits one JSON envelope", async () => {
@@ -173,7 +194,7 @@ describe.skipIf(process.platform !== "win32")(
       const oldHash = sha256(await readFile(destination))
       await writeFile(source, "tampered")
       const child = startHelper()
-      expect(await child.exited).toBe(1)
+      await expectHelperExit(child, 1)
       expect(sha256(await readFile(destination))).toBe(oldHash)
       expect(await readFile(source, "utf8")).toBe("tampered")
       expect(await readFile(log, "utf8")).toContain("checksum mismatch")
@@ -185,7 +206,7 @@ describe.skipIf(process.platform !== "win32")(
         ...process.env,
         NOODLE_TEST_REPLACEMENT_VERSION: "9.9.9",
       })
-      expect(await child.exited).toBe(1)
+      await expectHelperExit(child, 1)
       expect(sha256(await readFile(destination))).toBe(oldHash)
       expect(sha256(await readFile(source))).toBe(hash)
       expect(await readFile(log, "utf8")).toContain("expected version")
@@ -216,7 +237,7 @@ describe.skipIf(process.platform !== "win32")(
       try {
         await waitForFile(ready)
         const failed = startHelper()
-        expect(await failed.exited).toBe(1)
+        await expectHelperExit(failed, 1)
         expect(sha256(await readFile(destination))).toBe(oldHash)
         expect(sha256(await readFile(source))).toBe(hash)
         await writeFile(log, "")
@@ -225,7 +246,7 @@ describe.skipIf(process.platform !== "win32")(
         locker.stdin.write("release\n")
         locker.stdin.end()
         expect(await locker.exited).toBe(0)
-        expect(await retry.exited).toBe(0)
+        await expectHelperExit(retry, 0)
         expect(sha256(await readFile(destination))).toBe(hash)
         expect(await Bun.file(source).exists()).toBe(false)
       } finally {
@@ -246,7 +267,7 @@ describe.skipIf(process.platform !== "win32")(
         },
         true,
       )
-      expect(await child.exited).toBe(0)
+      await expectHelperExit(child, 0)
       expect(sha256(await readFile(destination))).toBe(hash)
       expect(JSON.parse(await readFile(marker, "utf8")).args).toEqual([
         "agent",

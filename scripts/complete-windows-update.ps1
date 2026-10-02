@@ -26,6 +26,8 @@ function Write-UpdateLog([string]$Message) {
 }
 
 try {
+  # A PowerShell 7 parent can pass incompatible module paths through Bun.
+  Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Utility" -ErrorAction Stop
   Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
   $actualHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
   if ($actualHash -ine $ExpectedSha256) {

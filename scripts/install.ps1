@@ -36,6 +36,8 @@ $hadDestination = $false
 $preserveRecovery = $false
 
 try {
+  # A PowerShell 7 parent can pass incompatible module paths through Bun.
+  Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Utility" -ErrorAction Stop
   New-Item -ItemType Directory -Path $temporaryDirectory -Force | Out-Null
   Write-Host "Installing Noodle $version for windows-x86_64..."
   Invoke-WebRequest -UseBasicParsing -Uri "$releaseBase/$assetName" -OutFile $binaryDownload
