@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   statSync,
@@ -528,8 +529,8 @@ describe("Windows release validation", () => {
     { scenario: "failed scripting smoke", mode: "smoke" },
     { scenario: "failed native download test", mode: "native" },
   ])("checks the downloaded Windows release: $scenario", ({ mode }) => {
-    const directory = mkdtempSync(
-      join(tmpdir(), "noodle windows release café-"),
+    const directory = realpathSync(
+      mkdtempSync(join(tmpdir(), "noodle windows release café-")),
     )
     try {
       const assets = join(directory, "release-assets")
