@@ -89,16 +89,46 @@ export function launchExternalEditor(
   target: string,
   spawn: (
     command: string[],
-    options: { stdin: "ignore"; stdout: "ignore"; stderr: "ignore" },
+    options: {
+      stdin: "ignore"
+      stdout: "ignore"
+      stderr: "ignore"
+      windowsVerbatimArguments?: boolean
+    },
   ) => { exited: Promise<number> } = (command, options) =>
     Bun.spawn(command, options),
+  platform = process.platform,
 ): Promise<void> {
   let processHandle: { exited: Promise<number> }
   try {
-    processHandle = spawn([...editor.command, target], {
+    let command = [...editor.command, target]
+    const isWindowsBatch =
+      platform === "win32" && /\.(cmd|bat)[ .]*$/i.test(command[0] ?? "")
+    if (isWindowsBatch) {
+      // Keep Bun's batch metacharacter rejection before cmd.exe quoting.
+      // oxlint-disable-next-line no-control-regex
+      if (command.some((arg) => /["%&|<>^\r\n\u0000]/.test(arg))) {
+        throw Object.assign(new TypeError("Unsafe Windows batch argument"), {
+          code: "ERR_INVALID_ARG_VALUE",
+        })
+      }
+      const cmd = process.env.SystemRoot
+        ? join(process.env.SystemRoot, "System32", "cmd.exe")
+        : "cmd.exe"
+      command = [
+        cmd,
+        "/d",
+        "/v:off",
+        "/s",
+        "/c",
+        `"${command.map((arg) => `"${arg.replace(/(\\+)$/, "$1$1")}"`).join(" ")}"`,
+      ]
+    }
+    processHandle = spawn(command, {
       stdin: "ignore",
       stdout: "ignore",
       stderr: "ignore",
+      ...(isWindowsBatch ? { windowsVerbatimArguments: true } : {}),
     })
   } catch (error) {
     throw new Error(`Unable to open folder in ${editor.label}`, {
