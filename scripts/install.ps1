@@ -79,6 +79,16 @@ try {
   $replaced = $false
   Write-Host "Installed to $destination"
 
+  $updateLogPath = Join-Path $installDirectory ".noodle-update.log"
+  try {
+    if (Test-Path -LiteralPath $updateLogPath -PathType Leaf) {
+      [IO.File]::AppendAllText($updateLogPath, "`r`nUpdate complete. Reinstalled Noodle v$installedVersion.`r`n", [Text.UTF8Encoding]::new($false))
+    }
+  }
+  catch {
+    Write-Warning "Noodle was installed, but update recovery could not be recorded. Update details: $updateLogPath"
+  }
+
   if ($env:NOODLE_SKIP_PATH_UPDATE -ne "1") {
     $environmentKey = $null
     try {

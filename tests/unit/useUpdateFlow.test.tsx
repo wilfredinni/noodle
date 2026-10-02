@@ -253,29 +253,32 @@ describe("useUpdateFlow", () => {
       act(() => getState().triggerAboutUpdateCheck())
       await waitFor(() => getState().updateFlow.phase === "up_to_date")
       expect(checks).toBe(1)
+      expect(await readFile(logPath, "utf8")).toBe(log)
     },
   )
 
-  it("checks normally when a competing helper succeeded after a failed update", async () => {
-    const logPath = join(dir, ".noodle-update.log")
-    const log =
-      "Failed to finish the Noodle update: wrong version\r\nUpdate complete.\r\n"
-    await writeFile(logPath, log)
-    let checks = 0
-    const { getState, waitFor } = await renderHook({
-      ...binaryDependencies(async () => {
-        checks++
-        return new Response(
-          manifest(`v${pkg.version}`, "a".repeat(64), "windows-x86_64"),
-        )
-      }),
-      platform: "win32",
-      arch: "x64",
-    })
-    await waitFor(() => getState().updateFlow.phase === "up_to_date")
-    expect(checks).toBe(1)
-    expect(await readFile(logPath, "utf8")).toBe(log)
-  })
+  it.each(["Update complete.", "Update complete. Reinstalled Noodle v1.2.3."])(
+    "resumes automatic checks after confirmed recovery: %s",
+    async (recovery) => {
+      const logPath = join(dir, ".noodle-update.log")
+      const log = `Failed to finish the Noodle update: wrong version\r\n${recovery}\r\n`
+      await writeFile(logPath, log)
+      let checks = 0
+      const { getState, waitFor } = await renderHook({
+        ...binaryDependencies(async () => {
+          checks++
+          return new Response(
+            manifest(`v${pkg.version}`, "a".repeat(64), "windows-x86_64"),
+          )
+        }),
+        platform: "win32",
+        arch: "x64",
+      })
+      await waitFor(() => getState().updateFlow.phase === "up_to_date")
+      expect(checks).toBe(1)
+      expect(await readFile(logPath, "utf8")).toBe(log)
+    },
+  )
 
   it("retries a failed About check on the next opening", async () => {
     let checks = 0

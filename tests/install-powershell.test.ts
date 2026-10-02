@@ -193,6 +193,21 @@ try {
     )
   })
 
+  it("resolves a previous update failure after a verified reinstall without erasing diagnostics", async () => {
+    await mkdir(installDirectory)
+    const logPath = join(installDirectory, ".noodle-update.log")
+    const failure = "Failed to finish the Noodle update: locked executable"
+    await writeFile(logPath, failure)
+    const result = await run()
+    expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(sha256(await readFile(join(installDirectory, "noodle.exe")))).toBe(
+      hash,
+    )
+    expect(await readFile(logPath, "utf8")).toBe(
+      `${failure}\r\nUpdate complete. Reinstalled Noodle v1.2.3.\r\n`,
+    )
+  })
+
   it.each([false, true])(
     "preserves the Invoke-Expression caller after installation failure %s",
     async (failed) => {
@@ -227,6 +242,10 @@ try {
       await mkdir(installDirectory)
       const destination = join(installDirectory, "noodle.exe")
       await writeFile(destination, "old")
+      const logPath = join(installDirectory, ".noodle-update.log")
+      const failureLog =
+        "Failed to finish the Noodle update: locked executable\r\n"
+      await writeFile(logPath, failureLog)
       const result = await run({
         NOODLE_SKIP_PATH_UPDATE: "0",
         ...(failure === "checksum" ? { NOODLE_TEST_HASH: "0".repeat(64) } : {}),
@@ -237,7 +256,11 @@ try {
       })
       expect(result.exitCode).not.toBe(0)
       expect(await readFile(destination, "utf8")).toBe("old")
-      expect(await readdir(installDirectory)).toEqual(["noodle.exe"])
+      expect((await readdir(installDirectory)).sort()).toEqual([
+        ".noodle-update.log",
+        "noodle.exe",
+      ])
+      expect(await readFile(logPath, "utf8")).toBe(failureLog)
       expect(await Bun.file(pathMarker).exists()).toBe(false)
     },
   )
@@ -246,6 +269,10 @@ try {
     await mkdir(installDirectory)
     const destination = join(installDirectory, "noodle.exe")
     await writeFile(destination, "old")
+    const logPath = join(installDirectory, ".noodle-update.log")
+    const failureLog =
+      "Failed to finish the Noodle update: locked executable\r\n"
+    await writeFile(logPath, failureLog)
     const result = await run({
       NOODLE_TEST_LOCK: "1",
       NOODLE_SKIP_PATH_UPDATE: "0",
@@ -255,6 +282,7 @@ try {
       "Close any running Noodle processes and retry",
     )
     expect(await readFile(destination, "utf8")).toBe("old")
+    expect(await readFile(logPath, "utf8")).toBe(failureLog)
     const candidate = (await readdir(installDirectory)).find((name) =>
       name.startsWith(".noodle-install-"),
     )!
@@ -267,12 +295,17 @@ try {
     await mkdir(installDirectory)
     const destination = join(installDirectory, "noodle.exe")
     await writeFile(destination, "old")
+    const logPath = join(installDirectory, ".noodle-update.log")
+    const failureLog =
+      "Failed to finish the Noodle update: locked executable\r\n"
+    await writeFile(logPath, failureLog)
     const result = await run({
       NOODLE_TEST_REPLACEMENT_VERSION: "9.9.9",
       NOODLE_SKIP_PATH_UPDATE: "0",
     })
     expect(result.exitCode).not.toBe(0)
     expect(await readFile(destination, "utf8")).toBe("old")
+    expect(await readFile(logPath, "utf8")).toBe(failureLog)
     const candidate = (await readdir(installDirectory)).find((name) =>
       name.startsWith(".noodle-install-"),
     )!
