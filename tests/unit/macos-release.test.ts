@@ -7,14 +7,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  realpathSync,
   readdirSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { basename, join, resolve } from "node:path"
 import { load } from "js-yaml"
 
 const root = resolve(import.meta.dir, "../..")
@@ -529,8 +528,8 @@ describe("Windows release validation", () => {
     { scenario: "failed scripting smoke", mode: "smoke" },
     { scenario: "failed native download test", mode: "native" },
   ])("checks the downloaded Windows release: $scenario", ({ mode }) => {
-    const directory = realpathSync(
-      mkdtempSync(join(tmpdir(), "noodle windows release café-")),
+    const directory = mkdtempSync(
+      join(tmpdir(), "noodle windows release café-"),
     )
     try {
       const assets = join(directory, "release-assets")
@@ -617,7 +616,13 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       if (mode === "valid" || mode === "native") {
         expect(invoked).toHaveLength(2)
         expect(invoked[0]).toContain("scripts/compiled-script-smoke.ts")
-        expect(invoked[0]).toContain(binary)
+        const smokeBinary = invoked[0]!.slice(
+          "scripts/compiled-script-smoke.ts ".length,
+        )
+        expect(basename(smokeBinary)).toBe(asset)
+        expect(
+          createHash("sha256").update(readFileSync(smokeBinary)).digest("hex"),
+        ).toBe(hash)
         expect(invoked[1]).toContain("tests/integration/binaryResponse.test.ts")
       } else if (mode === "smoke") {
         expect(invoked).toHaveLength(1)
