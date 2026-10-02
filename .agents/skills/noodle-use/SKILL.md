@@ -11,6 +11,8 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 
 Use `noodle request run <id> --collection <dir> --output <file> --json` to download any response into a new file, preserving original transport bytes after normal HTTP decompression. Choose a user-authorized destination; existing files are never overwritten. Completed responses are saved even when HTTP or response checks fail, and the failures remain nonzero. Pre-script/transport failures create no output. Downloads contain original server data without redaction. Binary JSON results contain metadata only (`bodyKind`, `size`, `contentType`, optional `filename`, and successful `outputFile`); never expect body text, bytes, or base64. JSON body captures/assertions fail for binary responses; metadata expressions still work. Binary TUI history and Runner details retain metadata without a downloadable body. Humans use Save file (Save As, initially Downloads) and Open in default app; only PNG/JPEG/static WebP/GIF first frame have native previews, with explicit activation above 5 MiB. See [automation](workflows/automation.md) for exit and diagnostic behavior.
 
+For human-readable single-request inspection, add `--body`, `--headers`, or `--cookies` to `noodle request run`. These details use the redacted result, escape terminal control characters, and mask received-cookie values. `--json` remains one envelope and includes received-cookie metadata; binary bodies are never printed.
+
 ## Quick routing
 
 | Intent | Read |

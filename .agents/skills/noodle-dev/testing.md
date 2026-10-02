@@ -142,6 +142,18 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
 - **Naming** — `it("should parse basic auth headers from YAML")` — descriptive, starts with "should"
 - **Inline JSON editor** — use stored compact JSON when asserting browse rendering; assert formatted indentation explicitly. Use a real `binary`, `multipart`, or `urlencoded` request when testing non-JSON bodies.
 
+## Windows regression coverage
+
+Windows x64 CI runs the applicable full suite, standalone scripting and downloads,
+and an independent native response-file addon rebuild. Keep Windows-only installer
+and updater coverage in `tests/install-powershell.test.ts` and
+`tests/integration/windowsUpdate.test.ts`; these require native Windows execution.
+`tests/windowsPaths.test.ts`, `tests/unit/windows-update.test.ts`, clipboard, and
+external-editor tests also exercise injected Windows behavior on other platforms.
+Native Credential Manager tests require `NOODLE_TEST_WINDOWS_NATIVE=1` and clean up
+only their owned credentials. A macOS/Linux pass does not verify native Windows
+terminal behavior; ordinary-account interactive testing remains pending.
+
 ## Inline scripting regressions
 
 - Preserve pre-only/no-script behavior and strict pre/post parser round trips,

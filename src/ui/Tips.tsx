@@ -3,7 +3,7 @@ import { useTheme } from "./theme"
 import { CenterText } from "./CenterText"
 
 const TIPS = [
-  "send the request with {^↩}: works from any pane",
+  "send the request with {^↩}, including while editing its {Pre Script}, {Post Script}, or {Tests}",
   "save the current request to disk with {^S}",
   "cycle environments with {^U}",
   "cycle focus between panes with {Tab} / {Shift+Tab}",
@@ -55,6 +55,7 @@ const TIPS = [
   "export a collection as OpenAPI or Postman with {noodle export <collection> --format <format> --output <path>}",
   "run a tagged collection suite with {noodle collection run <path> --tag smoke}",
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
+  "add {--body}, {--headers}, or {--cookies} to {noodle request run} for redacted response details",
   "open the collection Runner with {F5} to select requests, filters, a delay, or a CSV/JSON data file",
   "repeat selected requests for each data row with {noodle collection run <path> --data <file>}",
   "open {^P}, choose Import Collection to bring a source into a new or current collection",

@@ -1,6 +1,6 @@
 {
   "name": "noodle",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "type": "module",
   "license": "Apache-2.0",
   "private": true,
@@ -24,14 +24,14 @@
   "dependencies": {
     "@faker-js/faker": "10.6.0",
     "@jitl/quickjs-singlefile-mjs-release-sync": "0.32.0",
-    "@opentui/core": "^0.5.12",
-    "@opentui/keymap": "^0.5.12",
-    "@opentui/react": "^0.5.12",
+    "@opentui/core": "^0.5.14",
+    "@opentui/keymap": "^0.5.14",
+    "@opentui/react": "^0.5.14",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "aws4": "^1.13.2",
     "citty": "^0.2.2",
-    "csv-parse": "7.0.2",
+    "csv-parse": "7.0.3",
     "httpsnippet": "^3.0.10",
     "jose": "^6.2.12",
     "js-yaml": "^5.4.2",
@@ -52,8 +52,8 @@
     "bun-types": "^1.4.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "oxfmt": "^0.70.0",
-    "oxlint": "^1.85.0",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
     "typescript": "^7.0.2"
   },
   "overrides": {

@@ -4,6 +4,35 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-10-02
+
+Noodle 0.9.7 adds Windows x64 beta binaries with a checksum-verified PowerShell installer and updates that apply after Noodle exits. Optional CLI response details make single-request runs easier to inspect, while the Send button now works from request script and test editors.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-7-windows-beta-and-cli-response-details/)
+
+### ✨ Features
+
+- Add Windows x64 beta release binaries and a PowerShell installer with SHA-256 verification, a per-user install directory, and user PATH setup. Windows updates stage a verified executable for replacement after Noodle exits, report restart requirements and a diagnostic log, and refresh an installed agent skill after replacement. Windows support includes native paths, filename validation, Unicode clipboard copying, batch editor launchers, and agent-skill junctions. Windows ARM64 is unsupported; executables are unsigned, and ordinary-account interactive terminal testing remains pending.
+- Add `--body`, `--headers`, and `--cookies` to `noodle request run` for optional human-readable response details. Known secrets and sensitive headers are redacted, cookie values are masked, and terminal control characters are escaped. JSON results include received-cookie metadata with masked values; binary bodies remain metadata-only and can be saved with `--output`.
+
+### 🐞 Fixes
+
+- Allow the Send button to commit the current request Pre Script, Post Script, or Tests draft and send while its editor has focus, preserving the active tab and request focus.
+- Coordinate first-time collection ID initialization across processes so concurrent requests use the same stored identity without overwriting collection settings.
+- Coordinate cookie encryption-key initialization across jars and preserve malformed stored keys instead of replacing them. Windows requires vault-backed encrypted cookie storage and rejects plaintext jars; resetting unavailable storage preserves a backup and leaves the original intact if replacement fails.
+- Reject imported paths that escape the destination through symlinks or Windows junctions before writing collection files.
+- Reject export destinations with a file in place of a parent directory before writing output.
+
+### 🔧 Refactors
+
+- Extend platform CI and release validation to Windows x64, including the applicable test suite, native Credential Manager checks, standalone scripting and download checks, independent native-addon rebuilds, and downloaded release-artifact verification. Release checksums and the post-publication update manifest include the Windows executable.
+
+### 📚 Documentation
+
+- Update `noodle-use` with optional CLI response details, received-cookie redaction, Windows filename rules, and encrypted-only Windows cookie storage.
+- Update `noodle-dev` with Windows distribution and update behavior, portable path handling, clipboard and editor safeguards, shared storage initialization, and native Windows test coverage.
+- Synchronize the README, agent instructions, in-app tips, installation and CLI guides, cookie troubleshooting, automation version example, and release article.
+
 ## [0.9.6] - 2026-09-29
 
 Noodle 0.9.6 preserves compatible Postman and Insomnia scripts during import without translating foreign APIs. Inherited post scripts now follow the same collection-to-request order as pre scripts and tests, while clearer import warnings help you review omitted behavior before sending requests.
