@@ -15,7 +15,8 @@ const CLIPBOARD_CMDS: Array<{ cmd: string[]; platform: string }> = [
 Import-Module "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1"
 $noodleClipboardInput = [IO.MemoryStream]::new()
 [Console]::OpenStandardInput().CopyTo($noodleClipboardInput)
-Set-Clipboard -Value ([Text.Encoding]::Unicode.GetString($noodleClipboardInput.ToArray()))`,
+$noodleClipboardText = [Text.Encoding]::Unicode.GetString($noodleClipboardInput.ToArray())
+if ($noodleClipboardText.Length -eq 0) { Set-Clipboard } else { Set-Clipboard -Value $noodleClipboardText }`,
     ],
     platform: "win32",
   },

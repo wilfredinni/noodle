@@ -122,7 +122,24 @@ describe("copyToClipboard", () => {
           "first\nsecond\r\nthird\n",
           "$(Write-Output 'injected') & %PATH% | > < ^ \" !",
         ]) {
-          expect(copyToClipboard(text, mockRenderer(false))).toBe(true)
+          let failure = ""
+          const copied = copyToClipboard(
+            text,
+            mockRenderer(false),
+            (command, options) => {
+              const result = Bun.spawnSync(command, options)
+              if (result.exitCode !== 0) {
+                failure = `exit ${result.exitCode}: ${result.stdout}${result.stderr}`
+              }
+              return result
+            },
+          )
+          if (!copied) {
+            throw new Error(
+              `Clipboard failed for ${JSON.stringify(text)}: ${failure}`,
+            )
+          }
+          expect(copied).toBe(true)
           expect(read()).toBe(text)
         }
       } finally {
