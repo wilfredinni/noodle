@@ -565,6 +565,7 @@ describe("ScriptEditor", () => {
   })
 
   it("keeps diagnostic space stable during refresh and reclaims it after correction", async () => {
+    let started = Promise.withResolvers<void>()
     let finish!: (result: ScriptDiagnostics) => void
     const source = Array.from({ length: 80 }, (_, row) =>
       row === 40 ? "JSON.p" : `// line ${row + 1}`,
@@ -585,6 +586,7 @@ describe("ScriptEditor", () => {
               }
             : new Promise((resolve) => {
                 finish = resolve
+                started.resolve()
               }),
         dispose() {},
       },
@@ -601,7 +603,9 @@ describe("ScriptEditor", () => {
     await act(async () => h.renderOnce())
     expect(h.editor().height).toBe(before)
     expect(h.editor().viewport.offsetY).toBe(offset)
-    await h.waitFor(() => !!finish)
+    await act(async () => {
+      await started.promise
+    })
     await act(async () =>
       finish({
         count: 1,
@@ -611,10 +615,12 @@ describe("ScriptEditor", () => {
     await h.settle()
     expect(h.editor().height).toBe(before)
     expect(h.editor().viewport.offsetY).toBe(offset)
-    const previous = finish
+    started = Promise.withResolvers<void>()
     h.beginDiagnostics()
     await act(async () => h.mockInput.typeText("rse"))
-    await h.waitFor(() => finish !== previous)
+    await act(async () => {
+      await started.promise
+    })
     await act(async () => finish({ count: 0 }))
     await h.settle()
     expect(h.editor().height).toBe(before + 2)
@@ -798,6 +804,7 @@ describe("ScriptEditor", () => {
   })
 
   it("discards old semantic replies after a newer edit and preserves syntax errors", async () => {
+    let started = Promise.withResolvers<void>()
     const requests: {
       resolve: (result: ScriptDiagnostics) => void
       signal?: AbortSignal
@@ -807,18 +814,26 @@ describe("ScriptEditor", () => {
       check: (source: string, _phase: ScriptPhase, signal?: AbortSignal) =>
         source.includes('"initial"')
           ? Promise.resolve({ count: 0 })
-          : new Promise<ScriptDiagnostics>((resolve) =>
-              requests.push({ resolve, signal }),
-            ),
+          : new Promise<ScriptDiagnostics>((resolve) => {
+              requests.push({ resolve, signal })
+              started.resolve()
+            }),
       dispose() {},
     }
     const h = await mountEditor('console.log("initial")', 90, true, undefined, {
       diagnostics,
     })
     await h.startReplace("oldValue")
-    await h.waitFor(() => requests.length === 1)
+    await act(async () => {
+      await started.promise
+    })
+    expect(requests).toHaveLength(1)
+    started = Promise.withResolvers<void>()
     await h.startReplace("newValue")
-    await h.waitFor(() => requests.length === 2)
+    await act(async () => {
+      await started.promise
+    })
+    expect(requests).toHaveLength(2)
     expect(requests[0]!.signal?.aborted).toBe(true)
     await act(async () => requests[1]!.resolve({ count: 0 }))
     await h.settle()
@@ -829,8 +844,12 @@ describe("ScriptEditor", () => {
       }),
     )
     expect(h.captureCharFrame()).not.toContain("stale diagnostic")
+    started = Promise.withResolvers<void>()
     await h.startReplace("anotherValue")
-    await h.waitFor(() => requests.length === 3)
+    await act(async () => {
+      await started.promise
+    })
+    expect(requests).toHaveLength(3)
     await h.replace("const broken = ;")
     await act(async () => requests[2]!.resolve({ count: 0 }))
     expect(h.captureCharFrame()).toContain("SyntaxError")
