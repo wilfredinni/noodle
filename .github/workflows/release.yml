@@ -347,8 +347,15 @@ jobs:
   recover-publication:
     needs: validate-release
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, ubuntu-24.04-arm, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -363,7 +370,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$TOOLING_SHA"
-          mkdir .release-tools
+          mkdir -p .release-tools
           git archive FETCH_HEAD scripts/release-artifacts.ts src/app/commands/updateManifest.ts src/app/commands/updateDetect.ts | tar -x -C .release-tools
       - name: Verify published release for recovery
         env:
@@ -428,7 +435,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$TOOLING_SHA"
-          mkdir .release-tools
+          mkdir -p .release-tools
           git archive FETCH_HEAD scripts/release-artifacts.ts src/app/commands/updateManifest.ts src/app/commands/updateDetect.ts | tar -x -C .release-tools
       - name: Download release SHA256SUMS
         env:
@@ -451,14 +458,20 @@ jobs:
           TAG: ${{ needs.validate-release.outputs.tag }}
         run: |
           set -euo pipefail
-          bun .release-tools/scripts/release-artifacts.ts update-manifest update.json noodle-site/public/update.json
           cd noodle-site
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- public/update.json; then echo "Manifest already synchronized"; exit 0; fi
-          git add public/update.json
-          git commit -m "chore: update manifest for Noodle ${TAG}"
-          git push origin HEAD:main
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            bun ../.release-tools/scripts/release-artifacts.ts update-manifest ../update.json public/update.json
+            git add public/update.json
+            if git diff --cached --quiet; then echo "Manifest already synchronized"; exit 0; fi
+            git commit -m "fix(release): synchronize manifest for Noodle ${TAG}"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo "Manifest push failed after three attempts" >&2
+          exit 1
 
   summary:
     needs: [validate-release, resolve-ci, quality, create-release, checksums, validate-release-artifact, undraft, recover-publication, publication-ready, publish-update-manifest, notify-homebrew]

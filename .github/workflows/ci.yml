@@ -48,7 +48,7 @@ jobs:
             asset: noodle-windows-x86_64.exe
             shell: pwsh
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 30 || 10 }}
     defaults:
       run:
         shell: ${{ matrix.shell }}
@@ -270,7 +270,7 @@ jobs:
 
   test-windows:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh

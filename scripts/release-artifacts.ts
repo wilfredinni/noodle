@@ -9,7 +9,7 @@ import {
   readdirSync,
   writeFileSync,
 } from "node:fs"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import {
   compareStableVersions,
   parseManifest,
@@ -45,6 +45,7 @@ export const releaseTargets = [
 const artifactNames: string[] = releaseTargets.map(
   ({ asset }) => `validated-${asset}`,
 )
+// Keep in sync with bun-version in .github/workflows/ci.yml and release.yml.
 const bunVersion = "1.4.2"
 
 function regularFile(path: string): Buffer {
@@ -78,7 +79,7 @@ export function recordArtifact(
     throw new Error("Invalid artifact producer")
   const binary = join(directory, entry.asset)
   const sha256 = hash(regularFile(binary))
-  mkdirSync(output)
+  mkdirSync(output, { recursive: true })
   copyFileSync(binary, join(output, entry.asset))
   writeFileSync(
     join(output, "metadata.json"),
@@ -141,7 +142,7 @@ export function verifyArtifacts(
       throw new Error(`Artifact ${entry.asset}: checksum mismatch`)
     return { ...entry, path }
   })
-  mkdirSync(output)
+  mkdirSync(output, { recursive: true })
   for (const entry of binaries) {
     const path = join(output, entry.asset)
     copyFileSync(entry.path, path)
@@ -231,6 +232,8 @@ export async function resolveCI(
       const artifacts = (page as { artifacts?: Artifact[] })?.artifacts
       if (!Array.isArray(artifacts))
         throw new Error("Invalid artifacts response")
+      if (artifacts.some((artifact) => typeof artifact?.name !== "string"))
+        throw new Error("Invalid artifacts response")
       return artifacts
     })
     .filter(({ name }) => name.startsWith("validated-"))
@@ -287,7 +290,14 @@ export function buildManifest(tag: string, checksums: string) {
 
 export function updateManifest(nextPath: string, currentPath: string) {
   const next = parseManifest(regularFile(nextPath).toString())
-  const current = parseManifest(regularFile(currentPath).toString())
+  let current
+  try {
+    current = parseManifest(regularFile(currentPath).toString())
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    copyFileSync(nextPath, currentPath)
+    return
+  }
   if (compareStableVersions(current.version, next.version) === -1)
     throw new Error(
       `Refusing manifest downgrade from ${current.version} to ${next.version}`,
@@ -329,30 +339,52 @@ export function verifyPublished(directory: string, tag: string) {
     )
       throw new Error(`Published checksum mismatch: ${asset}`)
   }
+  // Recovery runs on every native release runner, binding all five binaries to TAG.
+  const native = releaseTargets.find(
+    ({ target }) => target === `${process.platform}-${process.arch}`,
+  )
+  if (!native) throw new Error("Unsupported release verification platform")
+  const binary = resolve(directory, native.asset)
+  if (process.platform !== "win32") chmodSync(binary, 0o755)
+  const version = Bun.spawnSync([binary, "--version"], { timeout: 30_000 })
+  if (
+    version.exitCode !== 0 ||
+    version.stdout.toString().trim() !== tag.slice(1)
+  )
+    throw new Error(`Published binary ${native.asset} does not report ${tag}`)
 }
 
 if (import.meta.main) {
   const [command, ...args] = process.argv.slice(2)
+  function requireArgs(...names: string[]) {
+    if (args.length !== names.length || args.some((arg) => !arg.trim()))
+      throw new Error(
+        `Usage: release-artifacts.ts ${command} ${names.map((name) => `<${name}>`).join(" ")}`.trim(),
+      )
+  }
+  function env(name: string): string {
+    const value = process.env[name]
+    if (!value?.trim()) throw new Error(`Missing ${name} for ${command}`)
+    return value
+  }
   switch (command) {
     case "record": {
-      const sha = Bun.spawnSync(["git", "rev-parse", "HEAD"])
-        .stdout.toString()
-        .trim()
+      requireArgs("target")
+      const runId = env("GITHUB_RUN_ID")
+      const git = Bun.spawnSync(["git", "rev-parse", "HEAD"])
+      if (git.exitCode !== 0) throw new Error("Cannot read artifact commit")
+      const sha = git.stdout.toString().trim()
       const { version } = JSON.parse(readFileSync("package.json", "utf8"))
-      recordArtifact(
-        ".",
-        "validated-build",
-        args[0],
-        sha,
-        version,
-        process.env.GITHUB_RUN_ID!,
-      )
+      recordArtifact(".", "validated-build", args[0], sha, version, runId)
       break
     }
     case "resolve": {
+      requireArgs()
+      const output = env("GITHUB_OUTPUT")
+      const runId = env("GITHUB_RUN_ID")
       const result = await resolveCI(
-        process.env.GH_REPO!,
-        process.env.RELEASE_SHA!,
+        env("GH_REPO"),
+        env("RELEASE_SHA"),
         async (endpoint) => {
           const process = Bun.spawn(
             ["gh", "api", "--paginate", "--slurp", endpoint],
@@ -368,38 +400,44 @@ if (import.meta.main) {
         },
       )
       appendFileSync(
-        process.env.GITHUB_OUTPUT!,
-        `reuse=${result.reuse}\nrun-id=${result.runId ?? process.env.GITHUB_RUN_ID}\nartifact-ids=${result.artifactIds ?? ""}\nreason=${result.reason}\n`,
+        output,
+        `reuse=${result.reuse}\nrun-id=${result.runId ?? runId}\nartifact-ids=${result.artifactIds ?? ""}\nreason=${result.reason}\n`,
       )
       console.log(result.reason)
       break
     }
     case "verify":
+      requireArgs("directory", "output")
       verifyArtifacts(
         args[0],
         args[1],
-        process.env.RELEASE_SHA!,
-        process.env.RELEASE_VERSION!,
-        process.env.CI_RUN_ID!,
+        env("RELEASE_SHA"),
+        env("RELEASE_VERSION"),
+        env("CI_RUN_ID"),
       )
       break
     case "manifest":
+      requireArgs("checksums", "output")
       writeFileSync(
         args[1],
         JSON.stringify(
-          buildManifest(process.env.TAG!, regularFile(args[0]).toString()),
+          buildManifest(env("TAG"), regularFile(args[0]).toString()),
           null,
           2,
         ) + "\n",
       )
       break
     case "update-manifest":
+      requireArgs("next", "current")
       updateManifest(args[0], args[1])
       break
     case "verify-published":
-      verifyPublished(args[0], process.env.TAG!)
+      requireArgs("directory")
+      verifyPublished(args[0], env("TAG"))
       break
     default:
-      throw new Error(`Unknown release artifacts command: ${command}`)
+      throw new Error(
+        "Usage: release-artifacts.ts <record|resolve|verify|manifest|update-manifest|verify-published> ...",
+      )
   }
 }

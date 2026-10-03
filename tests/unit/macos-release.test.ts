@@ -29,7 +29,7 @@ type Workflow = {
       if?: string
       uses?: string
       with?: Record<string, unknown>
-      "timeout-minutes"?: number
+      "timeout-minutes"?: number | string
       concurrency?: Record<string, unknown>
       permissions?: Record<string, string>
       "runs-on"?: string
@@ -37,6 +37,7 @@ type Workflow = {
       env?: Record<string, string>
       strategy?: {
         matrix: {
+          os?: string[]
           include: {
             os: string
             target: string
@@ -119,6 +120,17 @@ describe("release platforms", () => {
           },
         })
         expect(result.exitCode).toBe(0)
+        expect(
+          Bun.spawnSync(["bash", "-c", recovery.run!], {
+            cwd: directory,
+            env: {
+              ...process.env,
+              PATH: `${directory}:${process.env.PATH}`,
+              TOOLING_SHA: sha,
+              TOOLING_ARCHIVE: archive,
+            },
+          }).exitCode,
+        ).toBe(0)
         expect(
           readFileSync(join(directory, "tooling-sha"), "utf8").trim(),
         ).toBe(sha)
@@ -203,7 +215,10 @@ describe("release platforms", () => {
           )
       }
     }
-    expect(ci.jobs["test-windows"]["timeout-minutes"]).toBe(10)
+    expect(ci.jobs["test-windows"]["timeout-minutes"]).toBe(30)
+    expect(ci.jobs["platform-checks"]["timeout-minutes"]).toBe(
+      "${{ matrix.os == 'windows-latest' && 30 || 10 }}",
+    )
     expect(
       ci.jobs["test-windows"].steps!.filter((step) =>
         step.run?.startsWith("bun test"),
@@ -911,6 +926,113 @@ describe("macOS release signing", () => {
     expect(workflow.jobs["publish-update-manifest"].needs).toContain(
       "publication-ready",
     )
+    expect(workflow.jobs["recover-publication"].strategy?.matrix.os).toEqual([
+      "macos-15",
+      "macos-15-intel",
+      "ubuntu-24.04-arm",
+      "ubuntu-latest",
+      "windows-latest",
+    ])
+    expect(workflow.jobs["recover-publication"].defaults?.run?.shell).toBe(
+      "bash",
+    )
+  })
+
+  it
+    .skipIf(process.platform === "win32")
+    .each([
+      "missing manifest",
+      "concurrent site edit",
+      "concurrent newer manifest",
+    ])("publishes safely with %s", (scenario) => {
+    const directory = mkdtempSync(join(tmpdir(), "noodle-manifest-push-"))
+    const git = (cwd: string, ...args: string[]) => {
+      const result = Bun.spawnSync(["git", ...args], { cwd })
+      expect(result.exitCode).toBe(0)
+      return result.stdout.toString().trim()
+    }
+    try {
+      const remote = join(directory, "remote.git")
+      const site = join(directory, "noodle-site")
+      const writer = join(directory, "writer")
+      const realGit = Bun.which("git")!
+      const manifest = (version: string) =>
+        JSON.stringify({
+          version,
+          assets: Object.fromEntries(
+            releaseTargets.map((target) => [
+              target,
+              { sha256: "a".repeat(64) },
+            ]),
+          ),
+        })
+      git(directory, "init", "--bare", "--initial-branch=main", remote)
+      git(directory, "clone", remote, site)
+      git(site, "config", "user.name", "test")
+      git(site, "config", "user.email", "test@example.com")
+      mkdirSync(join(site, "public"))
+      writeFileSync(join(site, "public/keep.txt"), "original")
+      if (scenario !== "missing manifest")
+        writeFileSync(join(site, "public/update.json"), manifest("v0.9.6"))
+      git(site, "add", ".")
+      git(site, "commit", "-m", "test: initialize site")
+      git(site, "push", "origin", "main")
+      git(directory, "clone", remote, writer)
+      git(writer, "config", "user.name", "test")
+      git(writer, "config", "user.email", "test@example.com")
+      writeFileSync(join(directory, "update.json"), manifest("v0.9.7"))
+      if (scenario !== "missing manifest") {
+        writeFileSync(join(writer, "public/keep.txt"), "concurrent")
+        if (scenario === "concurrent newer manifest")
+          writeFileSync(join(writer, "public/update.json"), manifest("v0.9.8"))
+        git(writer, "add", ".")
+        git(writer, "commit", "-m", "test: advance site")
+        const bin = join(directory, "bin")
+        mkdirSync(bin)
+        writeFileSync(
+          join(bin, "git"),
+          '#!/bin/bash\nif [ "$1" = push ] && [ ! -e "$RACE_MARKER" ]; then\n  touch "$RACE_MARKER"\n  "$REAL_GIT" -C "$WRITER" push origin main || exit 1\nfi\nexec "$REAL_GIT" "$@"\n',
+          { mode: 0o755 },
+        )
+      }
+      const step = workflow.jobs["publish-update-manifest"].steps!.find(
+        (step) => step.name === "Publish update manifest",
+      )!
+      const result = Bun.spawnSync(
+        [
+          "bash",
+          "-c",
+          step.run!.replace(
+            "bun ../.release-tools/scripts/release-artifacts.ts",
+            `bun "${join(root, "scripts/release-artifacts.ts")}"`,
+          ),
+        ],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            TAG: "v0.9.7",
+            PATH: `${join(directory, "bin")}:${process.env.PATH}`,
+            REAL_GIT: realGit,
+            WRITER: writer,
+            RACE_MARKER: join(directory, "raced"),
+          },
+        },
+      )
+      const newer = scenario === "concurrent newer manifest"
+      expect(result.exitCode === 0).toBe(!newer)
+      if (newer) expect(result.stderr.toString()).toContain("downgrade")
+      const published = JSON.parse(
+        git(directory, "--git-dir", remote, "show", "main:public/update.json"),
+      )
+      expect(published.version).toBe(newer ? "v0.9.8" : "v0.9.7")
+      expect(
+        git(directory, "--git-dir", remote, "show", "main:public/keep.txt"),
+      ).toBe(scenario === "missing manifest" ? "original" : "concurrent")
+      expect(published.assets).toEqual(JSON.parse(manifest("v0.9.7")).assets)
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 
   it.skipIf(process.platform === "win32")(

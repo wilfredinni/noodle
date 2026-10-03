@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { createHash } from "node:crypto"
 import {
   existsSync,
   mkdirSync,
@@ -142,6 +143,18 @@ describe("release CI selection", () => {
       ),
     ).rejects.toThrow("Invalid artifacts")
   })
+  it.each([null, {}, { name: 123 }])(
+    "rejects malformed artifact names: %j",
+    async (artifact) => {
+      await expect(
+        resolveCI(repo, sha, async (path) =>
+          path.includes("/artifacts?")
+            ? [{ artifacts: [artifact, ...artifacts] }]
+            : [{ workflow_runs: [run] }],
+        ),
+      ).rejects.toThrow("Invalid artifacts response")
+    },
+  )
   it.each(["missing", "expired", "extra", "duplicate", "empty"])(
     "handles %s artifact inventories",
     async (mode) => {
@@ -183,6 +196,26 @@ function fixture() {
 }
 
 describe("validated release artifacts", () => {
+  it("records and verifies artifacts again in existing output directories", () => {
+    const { root, directory, output } = fixture()
+    try {
+      const entry = releaseTargets[0]
+      recordArtifact(
+        root,
+        join(directory, `validated-${entry.asset}`),
+        entry.target,
+        sha,
+        "0.9.7",
+        "123",
+      )
+      verifyArtifacts(directory, output, sha, "0.9.7", "123")
+      writeFileSync(join(output, entry.asset), "stale")
+      verifyArtifacts(directory, output, sha, "0.9.7", "123")
+      expect(readFileSync(join(output, entry.asset), "utf8")).toBe(entry.asset)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
   it.each([
     "valid",
     "missing",
@@ -245,23 +278,46 @@ describe("release publication recovery", () => {
     const { root, directory, output } = fixture()
     try {
       verifyArtifacts(directory, output, sha, "0.9.7", "123")
+      const native = releaseTargets.find(
+        ({ target }) => target === `${process.platform}-${process.arch}`,
+      )!
+      const source = join(root, "version.ts")
+      writeFileSync(source, 'console.log("0.9.7")')
+      expect(
+        Bun.spawnSync(
+          [
+            process.execPath,
+            "build",
+            "--compile",
+            source,
+            "--outfile",
+            join(output, native.asset),
+          ],
+          { cwd: root },
+        ).exitCode,
+      ).toBe(0)
       const checksums = releaseTargets
         .map(({ asset }) => {
-          const metadata = JSON.parse(
-            readFileSync(
-              join(directory, `validated-${asset}`, "metadata.json"),
-              "utf8",
-            ),
-          )
-          return `${metadata.sha256}  ${asset}\n`
+          const hash = createHash("sha256")
+            .update(readFileSync(join(output, asset)))
+            .digest("hex")
+          return `${hash}  ${asset}\n`
         })
         .join("")
       writeFileSync(join(output, "SHA256SUMS"), checksums)
       verifyPublished(output, "v0.9.7")
+      expect(() => verifyPublished(output, "v0.9.8")).toThrow(
+        "does not report v0.9.8",
+      )
       const manifest = buildManifest("v0.9.7", checksums)
       const next = join(root, "update.json")
       const current = join(root, "current.json")
       writeFileSync(next, JSON.stringify(manifest))
+      updateManifest(next, current)
+      expect(JSON.parse(readFileSync(current, "utf8"))).toEqual(manifest)
+      writeFileSync(current, "invalid")
+      expect(() => updateManifest(next, current)).toThrow("Invalid JSON")
+      expect(readFileSync(current, "utf8")).toBe("invalid")
       writeFileSync(current, JSON.stringify({ ...manifest, version: "v0.9.6" }))
       updateManifest(next, current)
       updateManifest(next, current)
@@ -287,5 +343,44 @@ describe("release publication recovery", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+describe("release artifacts CLI validation", () => {
+  it.each([
+    { args: [] },
+    { args: ["unknown"] },
+    { args: ["record"] },
+    { args: ["resolve", "unexpected"] },
+    { args: ["verify", "assets"] },
+    { args: ["manifest", "SHA256SUMS"] },
+    { args: ["update-manifest", "next.json"] },
+    { args: ["verify-published"] },
+  ])("reports usage before accessing files: %j", ({ args }) => {
+    const result = Bun.spawnSync([
+      process.execPath,
+      join(import.meta.dir, "../../scripts/release-artifacts.ts"),
+      ...args,
+    ])
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain("Usage: release-artifacts.ts")
+  })
+  it.each([
+    { args: ["record", "linux-x64"], missing: "GITHUB_RUN_ID" },
+    { args: ["resolve"], missing: "GITHUB_OUTPUT" },
+    { args: ["verify", "assets", "output"], missing: "RELEASE_SHA" },
+    { args: ["manifest", "SHA256SUMS", "output"], missing: "TAG" },
+    { args: ["verify-published", "assets"], missing: "TAG" },
+  ])("reports missing $missing before accessing files", ({ args, missing }) => {
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        join(import.meta.dir, "../../scripts/release-artifacts.ts"),
+        ...args,
+      ],
+      { env: { ...process.env, [missing]: "" } },
+    )
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain(`Missing ${missing}`)
   })
 })
