@@ -9,7 +9,7 @@ import {
 } from "../../src/hooks/useCollectionCookieJar"
 import { setSecretBackendForTests } from "../../src/secrets"
 import { setCookieJarStorageForTests } from "../../src/cookies"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 
 const testRender = createTestRender()
 
@@ -71,16 +71,8 @@ describe("useCollectionCookieJar", () => {
       />,
       { width: 1, height: 1 },
     )
-    const waitForState = async (predicate: () => boolean) => {
-      for (let i = 0; i < 20; i++) {
-        await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 5))
-          await render.flush()
-        })
-        if (predicate()) return
-      }
-      throw new Error("Timed out waiting for cookie hook state")
-    }
+    const waitForState = (predicate: () => boolean) =>
+      waitForHookState(render, predicate)
     await waitForState(() => state?.status.state === "unavailable")
     return { getState: () => state!, waitForState }
   }
@@ -89,6 +81,19 @@ describe("useCollectionCookieJar", () => {
     await rm(collectionDir)
     await mkdir(collectionDir)
   }
+
+  it("ends state waits before timeout or renderer teardown can leak work", async () => {
+    const render = await act(async () =>
+      testRender(null, { width: 1, height: 1 }),
+    )
+    await expect(waitForHookState(render, () => false, 1)).rejects.toThrow(
+      "Timed out",
+    )
+    await act(async () => render.renderer.destroy())
+    await expect(waitForHookState(render, () => false)).rejects.toThrow(
+      "destroyed",
+    )
+  })
 
   it("retries initialization when no jar handle exists", async () => {
     const { getState, waitForState } = await renderHook()

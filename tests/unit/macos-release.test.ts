@@ -26,6 +26,11 @@ type Workflow = {
     string,
     {
       needs?: string[]
+      if?: string
+      uses?: string
+      with?: Record<string, unknown>
+      "timeout-minutes"?: number
+      concurrency?: Record<string, unknown>
       permissions?: Record<string, string>
       "runs-on"?: string
       defaults?: { run?: { shell?: string } }
@@ -69,13 +74,155 @@ function releaseAsset(target: string) {
 }
 
 describe("release platforms", () => {
+  it.skipIf(process.platform === "win32")(
+    "loads immutable workflow tools when the published tag predates them",
+    () => {
+      const directory = mkdtempSync(join(tmpdir(), "noodle-recovery-tools-"))
+      try {
+        const archive = join(directory, "tools.tar")
+        expect(
+          Bun.spawnSync([
+            "tar",
+            "-cf",
+            archive,
+            "-C",
+            root,
+            "scripts/release-artifacts.ts",
+            "src/app/commands/updateManifest.ts",
+            "src/app/commands/updateDetect.ts",
+          ]).exitCode,
+        ).toBe(0)
+        writeFileSync(
+          join(directory, "git"),
+          '#!/bin/sh\ncase "$1" in\nfetch) printf "%s\\n" "$4" > tooling-sha ;;\narchive) cat "$TOOLING_ARCHIVE" ;;\n*) exit 1 ;;\nesac\n',
+          { mode: 0o755 },
+        )
+        const recovery = workflow.jobs["recover-publication"].steps!.find(
+          (step) =>
+            step.name === "Load publication tools from the workflow commit",
+        )!
+        const manifest = workflow.jobs["publish-update-manifest"].steps!.find(
+          (step) => step.name === recovery.name,
+        )!
+        expect(manifest.run).toBe(recovery.run)
+        expect(
+          existsSync(join(directory, "scripts/release-artifacts.ts")),
+        ).toBe(false)
+        const sha = "a".repeat(40)
+        const result = Bun.spawnSync(["bash", "-c", recovery.run!], {
+          cwd: directory,
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            TOOLING_SHA: sha,
+            TOOLING_ARCHIVE: archive,
+          },
+        })
+        expect(result.exitCode).toBe(0)
+        expect(
+          readFileSync(join(directory, "tooling-sha"), "utf8").trim(),
+        ).toBe(sha)
+        writeFileSync(
+          join(directory, "SHA256SUMS"),
+          releaseTargets
+            .map((target) => `${"a".repeat(64)}  ${releaseAsset(target)}\n`)
+            .join(""),
+        )
+        const built = Bun.spawnSync(
+          [
+            process.execPath,
+            ".release-tools/scripts/release-artifacts.ts",
+            "manifest",
+            "SHA256SUMS",
+            "update.json",
+          ],
+          { cwd: directory, env: { ...process.env, TAG: "v0.9.7" } },
+        )
+        expect(built.exitCode).toBe(0)
+        expect(
+          JSON.parse(readFileSync(join(directory, "update.json"), "utf8"))
+            .version,
+        ).toBe("v0.9.7")
+      } finally {
+        rmSync(directory, { recursive: true, force: true })
+      }
+    },
+  )
+  it("reuses exact-commit CI once and limits manual runs to published-release recovery", () => {
+    expect(workflow.on.workflow_dispatch).toEqual({
+      inputs: {
+        tag: {
+          description:
+            "Published release to recover (site manifest and Homebrew only)",
+          required: true,
+          type: "string",
+        },
+      },
+    })
+    expect(workflow.jobs.quality.if).toBe(
+      "needs.resolve-ci.outputs.reuse == 'false'",
+    )
+    expect(workflow.jobs.quality.uses).toBe("./.github/workflows/ci.yml")
+    expect(workflow.jobs.quality.with?.ref).toBe(
+      "${{ needs.validate-release.outputs.sha }}",
+    )
+    expect(workflow.jobs["resolve-ci"].if).toBe("github.event_name == 'push'")
+    expect(workflow.jobs["recover-publication"].if).toBe(
+      "github.event_name == 'workflow_dispatch'",
+    )
+    const recovery = workflow.jobs["recover-publication"].steps!.find(
+      (step) => step.name === "Verify published release for recovery",
+    )!.run!
+    expect(recovery).toContain(".isDraft == false and .isPrerelease == false")
+    expect(recovery).toContain("verify-published published-assets")
+    expect(recovery).not.toContain("upload")
+    expect(recovery).not.toContain("bun build")
+    expect(workflow.jobs["publication-ready"].if).toContain(
+      "needs.undraft.result == 'success' || needs.recover-publication.result == 'success'",
+    )
+    expect(workflow.jobs["publish-update-manifest"].concurrency).toEqual({
+      group: "noodle-update-manifest",
+      "cancel-in-progress": false,
+      queue: "max",
+    })
+    for (const name of ["checksums", "undraft"])
+      expect(
+        workflow.jobs[name].steps!.some((step) =>
+          step.run?.includes("FETCH_HEAD^{commit}"),
+        ),
+      ).toBe(true)
+    for (const [name, job] of Object.entries(workflow.jobs)) {
+      if (name === "validate-release") continue
+      for (const step of job.steps ?? []) {
+        if (
+          step.uses?.startsWith("actions/checkout@") &&
+          !step.with?.repository
+        )
+          expect(step.with?.ref).toBe(
+            "${{ needs.validate-release.outputs.sha }}",
+          )
+      }
+    }
+    expect(ci.jobs["test-windows"]["timeout-minutes"]).toBe(10)
+    expect(
+      ci.jobs["test-windows"].steps!.filter((step) =>
+        step.run?.startsWith("bun test"),
+      ),
+    ).toHaveLength(1)
+    expect(
+      ci.jobs.test.steps!.filter((step) => step.run === "bun test"),
+    ).toHaveLength(1)
+    for (const job of Object.values(ci.jobs))
+      for (const step of job.steps ?? [])
+        expect(step.run ?? "").not.toMatch(/--rerun-each|--parallel/)
+  })
   it("tests response downloads against the exact release binary before upload", () => {
-    const steps = workflow.jobs.build.steps!
+    const steps = ci.jobs["platform-checks"].steps!
     const smoke = steps.findIndex(
-      (step) => step.name === "Smoke test compiled binary",
+      (step) => step.name === "Test Unix standalone executable",
     )
     const upload = steps.findIndex(
-      (step) => step.name === "Upload build artifact",
+      (step) => step.name === "Upload validated binary",
     )
     expect(smoke).toBeGreaterThanOrEqual(0)
     expect(smoke).toBeLessThan(upload)
@@ -83,10 +230,7 @@ describe("release platforms", () => {
       'NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts --timeout=30000',
     )
   })
-  it.each([
-    ["release", workflow.jobs.build],
-    ["CI", ci.jobs["platform-checks"]],
-  ] as const)(
+  it.each([["CI", ci.jobs["platform-checks"]]] as const)(
     "%s builds reject stale generated artifacts and avoid shared dependency caches",
     (_name, job) => {
       const steps = job.steps!
@@ -119,7 +263,11 @@ describe("release platforms", () => {
     expect(workflow.on.push).toEqual({ tags: ["v*"] })
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false)
     expect(workflow.permissions).toEqual({ contents: "read" })
-    expect(workflow.jobs.build.permissions).toEqual({ contents: "read" })
+    expect(workflow.jobs.build).toBeUndefined()
+    expect(workflow.jobs["resolve-ci"].permissions).toEqual({
+      contents: "read",
+      actions: "read",
+    })
     expect(workflow.jobs["validate-release-artifact"].permissions).toEqual({
       contents: "write",
     })
@@ -137,17 +285,18 @@ describe("release platforms", () => {
         }
       }
     }
-    const upload = workflow.jobs.build.steps!.find((step) =>
+    const upload = ci.jobs["platform-checks"].steps!.find((step) =>
       step.uses?.startsWith("actions/upload-artifact@"),
     )!
     expect(upload.with).toMatchObject({
-      name: "release-${{ matrix.target }}",
-      path: "${{ matrix.asset }}",
+      name: "validated-${{ matrix.asset }}",
+      path: "validated-build/*",
+      "retention-days": 7,
       "if-no-files-found": "error",
       overwrite: true,
     })
     expect(
-      workflow.jobs.build.steps!.some((step) =>
+      ci.jobs["platform-checks"].steps!.some((step) =>
         step.run?.includes("gh release"),
       ),
     ).toBe(false)
@@ -155,20 +304,32 @@ describe("release platforms", () => {
       step.uses?.startsWith("actions/download-artifact@"),
     )!
     expect(download.with).toEqual({
-      pattern: "release-*",
-      path: "release-assets",
-      "merge-multiple": true,
+      "github-token": "${{ github.token }}",
+      "run-id": "${{ needs.resolve-ci.outputs.run-id }}",
+      "artifact-ids": "${{ needs.resolve-ci.outputs.artifact-ids }}",
+      pattern: "validated-*",
+      path: "validated-assets",
+      "merge-multiple": false,
+      "digest-mismatch": "error",
     })
-    expect(workflow.jobs.checksums.needs).toContain("build")
+    expect(workflow.jobs.checksums.needs).toContain("quality")
   })
 
   it("tests and builds five platforms and validates macOS and Windows release artifacts", () => {
-    const builds = workflow.jobs.build.strategy!.matrix.include
+    const builds = ci.jobs["platform-checks"].strategy!.matrix.include.map(
+      (entry) => ({
+        ...entry,
+        target: entry.target
+          .replace(/^darwin-/, "macos-")
+          .replace(/^win32-/, "windows-")
+          .replace(/-x64$/, "-x86_64"),
+      }),
+    )
     expect(builds.map(({ os, target }) => ({ os, target }))).toEqual([
       { os: "macos-15", target: "macos-arm64" },
       { os: "macos-15-intel", target: "macos-x86_64" },
-      { os: "ubuntu-latest", target: "linux-x86_64" },
       { os: "ubuntu-24.04-arm", target: "linux-arm64" },
+      { os: "ubuntu-latest", target: "linux-x86_64" },
       { os: "windows-latest", target: "windows-x86_64" },
     ])
     expect(
@@ -192,11 +353,7 @@ describe("release platforms", () => {
           target.startsWith("macos-") || target.startsWith("windows-"),
       ),
     )
-    for (const job of [
-      ci.jobs["platform-checks"],
-      workflow.jobs.build,
-      validation,
-    ]) {
+    for (const job of [ci.jobs["platform-checks"], validation]) {
       expect(job["runs-on"]).toBe("${{ matrix.os }}")
     }
     expect(validation.env?.ASSET_NAME).toBe("${{ matrix.asset }}")
@@ -284,15 +441,25 @@ describe("release platforms", () => {
           const step = workflow.jobs[job].steps!.find(
             (step) => step.name === name,
           )!
-          return Bun.spawnSync(["bash", "-c", step.run!], {
-            cwd: directory,
-            env: {
-              ...process.env,
-              PATH: `${directory}:${process.env.PATH}`,
-              TAG: "v0.9.1",
-              DRAFT: draft,
+          return Bun.spawnSync(
+            [
+              "bash",
+              "-c",
+              step.run!.replace(
+                /bun (?:\.release-tools\/)?scripts\/release-artifacts\.ts/,
+                `bun "${join(root, "scripts/release-artifacts.ts")}"`,
+              ),
+            ],
+            {
+              cwd: directory,
+              env: {
+                ...process.env,
+                PATH: `${directory}:${process.env.PATH}`,
+                TAG: "v0.9.1",
+                DRAFT: draft,
+              },
             },
-          })
+          )
         }
         expect(
           runStep("checksums", "Generate checksums and upload").exitCode,
@@ -375,11 +542,15 @@ describe("manual CI builds", () => {
       shell: "pwsh",
     })
     expect(job.defaults?.run?.shell).toBe("${{ matrix.shell }}")
-    const suite = job.steps!.find(
+    const suite = ci.jobs["test-windows"].steps!.find(
       (step) => step.name === "Run complete applicable Windows suite",
     )!
     expect(suite.run).toBe("bun test --timeout=30000")
-    expect(suite.if).toBe("runner.os == 'Windows'")
+    expect(suite.if).toBeUndefined()
+    expect(
+      job.steps!.some((step) => step.run === "bun test --timeout=30000"),
+    ).toBe(false)
+    expect(ci.jobs["test-windows"]["runs-on"]).toBe("windows-latest")
     expect(job.steps!.some((step) => step.run?.includes("--rerun-each"))).toBe(
       false,
     )
@@ -405,7 +576,7 @@ describe("manual CI builds", () => {
     expect(packageStep.run).toContain("Get-FileHash")
     expect(packageStep.run).toContain("Compress-Archive")
     expect(packageStep.run).toContain("support=beta")
-    expect(workflow.jobs.build.strategy!.matrix.include).toHaveLength(5)
+    expect(job.strategy!.matrix.include).toHaveLength(5)
   })
 
   it("isolates PR cancellation and only uploads explicitly dispatched test builds", () => {
@@ -471,15 +642,25 @@ describe("manual CI builds", () => {
         const step = ci.jobs["platform-checks"].steps!.find(
           (step) => step.name === "Package Unix test build",
         )!
-        const packed = Bun.spawnSync(["bash", "-c", step.run!], {
-          cwd: directory,
-          env: {
-            ...process.env,
-            PATH: `${directory}:${process.env.PATH}`,
-            TARGET: "darwin-arm64",
-            ASSET_NAME: "noodle-macos-arm64",
+        const packed = Bun.spawnSync(
+          [
+            "bash",
+            "-c",
+            step.run!.replace(
+              /bun (?:\.release-tools\/)?scripts\/release-artifacts\.ts/,
+              `bun "${join(root, "scripts/release-artifacts.ts")}"`,
+            ),
+          ],
+          {
+            cwd: directory,
+            env: {
+              ...process.env,
+              PATH: `${directory}:${process.env.PATH}`,
+              TARGET: "darwin-arm64",
+              ASSET_NAME: "noodle-macos-arm64",
+            },
           },
-        })
+        )
         expect(packed.exitCode).toBe(0)
         const extracted = join(directory, "extracted")
         mkdirSync(extracted)
@@ -724,8 +905,12 @@ describe("macOS release signing", () => {
       "checksums",
     )
     expect(workflow.jobs.undraft.needs).toContain("validate-release-artifact")
-    expect(workflow.jobs["notify-homebrew"].needs).toContain("undraft")
-    expect(workflow.jobs["publish-update-manifest"].needs).toContain("undraft")
+    expect(workflow.jobs["notify-homebrew"].needs).toContain(
+      "publication-ready",
+    )
+    expect(workflow.jobs["publish-update-manifest"].needs).toContain(
+      "publication-ready",
+    )
   })
 
   it.skipIf(process.platform === "win32")(
@@ -742,14 +927,24 @@ describe("macOS release signing", () => {
         const step = workflow.jobs["create-release"].steps!.find(
           (step) => step.name === "Create draft release",
         )!
-        const result = Bun.spawnSync(["bash", "-c", step.run!], {
-          cwd: directory,
-          env: {
-            ...process.env,
-            PATH: `${directory}:${process.env.PATH}`,
-            TAG: "v0.9.1",
+        const result = Bun.spawnSync(
+          [
+            "bash",
+            "-c",
+            step.run!.replace(
+              /bun (?:\.release-tools\/)?scripts\/release-artifacts\.ts/,
+              `bun "${join(root, "scripts/release-artifacts.ts")}"`,
+            ),
+          ],
+          {
+            cwd: directory,
+            env: {
+              ...process.env,
+              PATH: `${directory}:${process.env.PATH}`,
+              TAG: "v0.9.1",
+            },
           },
-        })
+        )
         expect(result.exitCode).not.toBe(0)
         expect(result.stderr.toString()).toContain(
           "Refusing to replace assets of published release v0.9.1",

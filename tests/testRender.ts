@@ -1,3 +1,4 @@
+import { scheduler } from "node:timers/promises"
 import { afterEach } from "bun:test"
 import type {
   TestRendererOptions,
@@ -42,5 +43,25 @@ export function createTestRender() {
     }
     renderers.add(setup.renderer)
     return setup
+  }
+}
+
+// Hook state can arrive after native rendering becomes idle. Bound the operation
+// by elapsed time rather than native frames, and stop before test teardown.
+export async function waitForHookState(
+  render: TestRendererSetup,
+  predicate: () => boolean,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (render.renderer.isDestroyed)
+      throw new Error("Hook renderer was destroyed while waiting for state")
+    if (Date.now() >= deadline)
+      throw new Error("Timed out waiting for published hook state")
+    await act(async () => {
+      await scheduler.yield()
+      await render.renderOnce()
+    })
   }
 }

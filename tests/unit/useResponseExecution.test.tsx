@@ -3,7 +3,7 @@ import { act, useEffect, useState } from "react"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { useResponse } from "../../src/hooks/useResponse"
 import { executor } from "../../src/requests"
 import type { Environment, Request } from "../../src/schema"
@@ -29,9 +29,12 @@ function request(over: Partial<Request> = {}): Request {
 describe("useResponse execution results", () => {
   it("reports the environment snapshot captured when the request started", async () => {
     const originalSend = executor.send
+    const startedSend = Promise.withResolvers<void>()
+    const complete = Promise.withResolvers<void>()
     let finishSend: (() => void) | undefined
     executor.send = () =>
       new Promise((resolve) => {
+        startedSend.resolve()
         finishSend = () =>
           resolve({
             status: 200,
@@ -67,6 +70,7 @@ describe("useResponse execution results", () => {
         request({ url: "https://$HOST/$TOKEN" }),
         environment,
         (completedRequest, result, dispatchEnvironment) => {
+          complete.resolve()
           completedWith = dispatchEnvironment
           timelineEntry = buildTimelineEntry(
             completedRequest,
@@ -92,16 +96,12 @@ describe("useResponse execution results", () => {
         testRender(<Harness />, { width: 10, height: 3 }),
       )
       await act(async () => {
-        await render.renderOnce()
-        finishSend?.()
+        await startedSend.promise
+        finishSend!()
+        await complete.promise
         await render.flush()
       })
-      for (let i = 0; i < 5 && !completedWith; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!completedWith)
       expect(completedWith).toBe(first)
       expect(timelineEntry?.envName).toBe("a")
       expect(timelineEntry?.request.url).toBe("https://a.example/[REDACTED]")
@@ -159,12 +159,7 @@ describe("useResponse execution results", () => {
       const render = await act(async () =>
         testRender(<Harness />, { width: 10, height: 3 }),
       )
-      for (let i = 0; i < 10 && !states.final; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!states.final)
       expect(states.first?.status).toBe("done")
       if (states.first?.status !== "done") throw new Error("narrow")
       expect(states.first.execution?.captures?.results[0]).toMatchObject({
@@ -206,12 +201,7 @@ describe("useResponse execution results", () => {
       const render = await act(async () =>
         testRender(<Harness />, { width: 10, height: 3 }),
       )
-      for (let i = 0; i < 5 && !state.final; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!state.final)
       expect(state.final?.status).toBe("error")
       if (state.final?.status !== "error") throw new Error("narrow")
       expect(state.final.execution).toEqual({
@@ -260,12 +250,7 @@ describe("useResponse execution results", () => {
       const render = await act(async () =>
         testRender(<Harness />, { width: 10, height: 3 }),
       )
-      for (let i = 0; i < 5 && !timelineEntry; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!timelineEntry)
       expect(transportCalls).toBe(0)
       expect(timelineEntry?.request.url).toBe("https://example.com/$MISSING")
     } finally {
@@ -371,12 +356,7 @@ describe("useResponse execution results", () => {
       const render = await act(async () =>
         testRender(<Harness />, { width: 10, height: 3 }),
       )
-      for (let i = 0; i < 5 && !observed.state; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!observed.state)
       expect(observed.state?.status).toBe("error")
       if (observed.state?.status !== "error") throw new Error("narrow")
       expect(observed.state.error.name).toBe("ScriptRuntimeError")
@@ -435,23 +415,13 @@ describe("useResponse execution results", () => {
       const render = await act(async () =>
         testRender(<Harness />, { width: 10, height: 3 }),
       )
-      for (let i = 0; i < 5 && !observed.live; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!observed.live)
       expect(observed.live).toBe("GET https://example.com/[REDACTED]")
       await act(async () => {
         failTransport?.()
         await render.flush()
       })
-      for (let i = 0; i < 5 && !observed.final; i++) {
-        await act(async () => {
-          await render.renderOnce()
-          await render.flush()
-        })
-      }
+      await waitForHookState(render, () => !!observed.final)
       expect(observed.final?.status).toBe("error")
       if (observed.final?.status !== "error") throw new Error("narrow")
       expect(observed.final.error.message).toBe("offline [REDACTED]")

@@ -144,8 +144,12 @@ function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
 
 ## Windows regression coverage
 
-Windows x64 CI runs the applicable full suite, standalone scripting and downloads,
-and an independent native response-file addon rebuild. Keep Windows-only installer
+Windows x64 CI runs the applicable full suite once in `test-windows`, separately
+from the five-target platform matrix. Windows platform checks cover the shipped
+addon and diagnostics, native Credential Manager, standalone scripting and
+downloads, and an independent native response-file addon rebuild. Every test
+command remains sequential; validated binaries are uploaded only after all
+platform checks pass. Keep Windows-only installer
 and updater coverage in `tests/install-powershell.test.ts` and
 `tests/integration/windowsUpdate.test.ts`; these require native Windows execution.
 `tests/windowsPaths.test.ts`, `tests/unit/windows-update.test.ts`, clipboard, and
