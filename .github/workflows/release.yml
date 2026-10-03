@@ -4,55 +4,117 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release to recover (site manifest and Homebrew only)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  quality:
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ github.sha }}
-
   validate-release:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.ref.outputs.sha }}
+      tag: ${{ steps.ref.outputs.tag }}
     steps:
+      - name: Resolve release commit
+        id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "Invalid release tag" >&2; exit 1; }
+          object=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq '.object')
+          for depth in 1 2 3 4 5; do
+            type=$(jq -r .type <<< "$object")
+            sha=$(jq -r .sha <<< "$object")
+            if [ "$type" = commit ]; then break; fi
+            test "$type" = tag
+            object=$(gh api "repos/$GH_REPO/git/tags/$sha" --jq '.object')
+          done
+          test "$type" = commit
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+          if [ "$EVENT" = push ]; then test "$sha" = "$EVENT_SHA"; fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          ref: ${{ steps.ref.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.2
       - name: Validate tag and package version
-        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.ref.outputs.tag }}
+          RELEASE_SHA: ${{ steps.ref.outputs.sha }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $tag (expected vX.Y.Z)" >&2
-            exit 1
-          fi
-          package_version="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
-          if [[ "v$package_version" != "$tag" ]]; then
-            echo "Tag $tag does not match package.json version $package_version" >&2
-            exit 1
-          fi
+          package_version="$(bun -e 'console.log((await Bun.file("package.json").json()).version)')"
+          test "v$package_version" = "$TAG" || { echo "Tag does not match package.json version" >&2; exit 1; }
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git fetch origin main
-          tag_commit="$(git rev-list -n 1 "$tag")"
-          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
-            echo "Tag $tag must point to a commit already integrated into main" >&2
-            exit 1
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main || { echo "Release commit must be integrated into main" >&2; exit 1; }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            gh release view "$TAG" --json isDraft,isPrerelease,tagName --jq 'select(.isDraft == false and .isPrerelease == false).tagName' | grep -Fx "$TAG"
           fi
 
+  resolve-ci:
+    needs: validate-release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      reuse: ${{ steps.ci.outputs.reuse }}
+      run-id: ${{ steps.ci.outputs.run-id }}
+      artifact-ids: ${{ steps.ci.outputs.artifact-ids }}
+      reason: ${{ steps.ci.outputs.reason }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate-release.outputs.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - name: Select successful CI for the exact commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ needs.validate-release.outputs.sha }}
+        run: bun scripts/release-artifacts.ts resolve
+
+  quality:
+    needs: [validate-release, resolve-ci]
+    if: needs.resolve-ci.outputs.reuse == 'false'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.validate-release.outputs.sha }}
+
   create-release:
-    needs: [quality, validate-release]
+    needs: [validate-release, resolve-ci, quality]
+    if: ${{ always() && !cancelled() && needs.validate-release.result == 'success' && needs.resolve-ci.result == 'success' && (needs.resolve-ci.outputs.reuse == 'true' || needs.quality.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
@@ -62,13 +124,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.validate-release.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.2
       - id: tag
-        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ needs.validate-release.outputs.tag }}
+        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - name: Create draft release
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -91,102 +155,52 @@ jobs:
             gh release create "$TAG" --draft --title "$TAG" --notes-file release-notes.md
           fi
 
-  build:
-    needs: create-release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: macos-arm64
-            asset: noodle-macos-arm64
-            shell: bash
-          - os: macos-15-intel
-            target: macos-x86_64
-            asset: noodle-macos-x86_64
-            shell: bash
-          - os: ubuntu-latest
-            target: linux-x86_64
-            asset: noodle-linux-x86_64
-            shell: bash
-          - os: ubuntu-24.04-arm
-            target: linux-arm64
-            asset: noodle-linux-arm64
-            shell: bash
-          - os: windows-latest
-            target: windows-x86_64
-            asset: noodle-windows-x86_64.exe
-            shell: pwsh
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
-    env:
-      ASSET_NAME: ${{ matrix.asset }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.4.2
-      - run: bun install --frozen-lockfile
-      - run: bun run script:check
-      - run: bun scripts/build-schema-validator.ts --check
-      - run: bun scripts/build-script-type-libraries.ts --check
-      - run: bun test tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
-      - run: bun build --compile --entry-naming '[name].[ext]' src/app/cli.ts src/ui/editor/scriptDiagnostics.worker.ts --outfile "${{ matrix.asset }}"
-      - name: Sign and verify macOS binary
-        if: runner.os == 'macOS'
-        run: bun scripts/sign-macos-binary.ts "./${{ matrix.asset }}"
-      - name: Smoke test compiled binary
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          bun scripts/compiled-script-smoke.ts "./$ASSET_NAME"
-          expected="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
-          actual="$(./$ASSET_NAME --version)"
-          test "$actual" = "$expected" || {
-            echo "Compiled binary reported $actual, expected $expected" >&2
-            exit 1
-          }
-          NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts --timeout=30000
-      - name: Smoke test Windows compiled binary
-        if: runner.os == 'Windows'
-        run: |
-          $expected = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $actual = & ".\$env:ASSET_NAME" --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($actual -ne $expected) { throw "Compiled binary reported $actual, expected $expected" }
-          bun scripts/compiled-script-smoke.ts "./$env:ASSET_NAME"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:NOODLE_TEST_BINARY = Join-Path $PWD $env:ASSET_NAME
-          bun test tests/integration/binaryResponse.test.ts tests/integration/postResponseCli.test.ts tests/integration/inlineTestsCli.test.ts --timeout=30000
-      - name: Upload build artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-${{ matrix.target }}
-          path: ${{ matrix.asset }}
-          if-no-files-found: error
-          overwrite: true
-
   checksums:
-    needs: [create-release, build]
+    needs: [validate-release, create-release, resolve-ci, quality]
+    if: ${{ always() && !cancelled() && needs.create-release.result == 'success' && (needs.resolve-ci.outputs.reuse == 'true' || needs.quality.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
+      actions: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate-release.outputs.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
       - name: Download release binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          pattern: release-*
-          path: release-assets
-          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.resolve-ci.outputs.run-id }}
+          artifact-ids: ${{ needs.resolve-ci.outputs.artifact-ids }}
+          pattern: validated-*
+          path: validated-assets
+          merge-multiple: false
+          digest-mismatch: error
+      - name: Validate all binary metadata and hashes
+        env:
+          RELEASE_SHA: ${{ needs.validate-release.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.validate-release.outputs.tag }}
+          CI_RUN_ID: ${{ needs.resolve-ci.outputs.run-id }}
+        run: |
+          set -euo pipefail
+          export RELEASE_VERSION="${RELEASE_VERSION#v}"
+          bun scripts/release-artifacts.ts verify validated-assets release-assets
+      - name: Check release tag still points to validated commit
+        env:
+          TAG: ${{ needs.validate-release.outputs.tag }}
+          RELEASE_SHA: ${{ needs.validate-release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/tags/$TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA" || {
+            echo "Release tag moved after validation" >&2
+            exit 1
+          }
       - name: Generate checksums and upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -213,7 +227,8 @@ jobs:
           gh release upload "$TAG" release-assets/noodle-* release-assets/SHA256SUMS --clobber
 
   validate-release-artifact:
-    needs: [create-release, checksums]
+    needs: [validate-release, create-release, checksums]
+    if: ${{ !cancelled() && needs.validate-release.result == 'success' && needs.create-release.result == 'success' && needs.checksums.result == 'success' }}
     permissions:
       contents: write # Draft release downloads require push access.
     strategy:
@@ -242,7 +257,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.validate-release.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -299,15 +314,93 @@ jobs:
           $env:NOODLE_TEST_BINARY = $binary
           bun test tests/integration/binaryResponse.test.ts --timeout=30000
 
+  undraft:
+    needs: [validate-release, create-release, checksums, validate-release-artifact]
+    if: ${{ !cancelled() && needs.validate-release.result == 'success' && needs.create-release.result == 'success' && needs.checksums.result == 'success' && needs.validate-release-artifact.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate-release.outputs.sha }}
+          persist-credentials: false
+      - name: Check release tag still points to validated commit
+        env:
+          TAG: ${{ needs.validate-release.outputs.tag }}
+          RELEASE_SHA: ${{ needs.validate-release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/tags/$TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA" || {
+            echo "Release tag moved after validation" >&2
+            exit 1
+          }
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false
+
+  recover-publication:
+    needs: validate-release
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, ubuntu-24.04-arm, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate-release.outputs.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - name: Load publication tools from the workflow commit
+        env:
+          TOOLING_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$TOOLING_SHA"
+          mkdir -p .release-tools
+          git archive FETCH_HEAD scripts/release-artifacts.ts src/app/commands/updateManifest.ts src/app/commands/updateDetect.ts | tar -x -C .release-tools
+      - name: Verify published release for recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json isDraft,isPrerelease,tagName --jq 'select(.isDraft == false and .isPrerelease == false).tagName' | grep -Fx "$TAG"
+          gh release download "$TAG" --pattern 'noodle-*' --pattern SHA256SUMS --dir published-assets
+          bun .release-tools/scripts/release-artifacts.ts verify-published published-assets
+
+  publication-ready:
+    needs: [validate-release, undraft, recover-publication]
+    if: ${{ always() && !cancelled() && needs.validate-release.result == 'success' && (needs.undraft.result == 'success' || needs.recover-publication.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo "Published release validated; site and Homebrew may be synchronized."
+
   notify-homebrew:
-    needs: [create-release, checksums, undraft]
+    needs: [validate-release, publication-ready]
+    if: ${{ always() && !cancelled() && needs.publication-ready.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Notify Homebrew tap
         env:
           TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ needs.create-release.outputs.tag }}
+          VERSION: ${{ needs.validate-release.outputs.tag }}
         run: |
           set -euo pipefail
           test -n "$TOKEN" || { echo "HOMEBREW_TAP_TOKEN is not configured" >&2; exit 1; }
@@ -317,86 +410,94 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
-
-  undraft:
-    needs: [create-release, checksums, validate-release-artifact]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      contents: write
-    steps:
-      - name: Publish release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false
+          echo "Homebrew notification accepted; completion is tracked in the tap's Update Formula workflow." >> "$GITHUB_STEP_SUMMARY"
 
   publish-update-manifest:
-    needs: [create-release, checksums, undraft]
+    needs: [validate-release, publication-ready]
+    if: ${{ always() && !cancelled() && needs.publication-ready.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
+    concurrency:
+      group: noodle-update-manifest
+      cancel-in-progress: false
+      queue: max
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate-release.outputs.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - name: Load publication tools from the workflow commit
+        env:
+          TOOLING_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$TOOLING_SHA"
+          mkdir -p .release-tools
+          git archive FETCH_HEAD scripts/release-artifacts.ts src/app/commands/updateManifest.ts src/app/commands/updateDetect.ts | tar -x -C .release-tools
       - name: Download release SHA256SUMS
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          gh release download "$TAG" --pattern 'SHA256SUMS' --dir .
-
+          TAG: ${{ needs.validate-release.outputs.tag }}
+        run: gh release download "$TAG" --pattern SHA256SUMS --dir .
       - name: Build update manifest
         env:
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          macos_hash=$(awk '$2 == "noodle-macos-arm64" { print $1 }' SHA256SUMS)
-          macos_x86_hash=$(awk '$2 == "noodle-macos-x86_64" { print $1 }' SHA256SUMS)
-          linux_x86_hash=$(awk '$2 == "noodle-linux-x86_64" { print $1 }' SHA256SUMS)
-          linux_arm_hash=$(awk '$2 == "noodle-linux-arm64" { print $1 }' SHA256SUMS)
-          windows_x86_hash=$(awk '$2 == "noodle-windows-x86_64.exe" { print $1 }' SHA256SUMS)
-
-          test -n "$macos_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
-          test -n "$macos_x86_hash" || { echo "Missing macos-x86_64 checksum" >&2; exit 1; }
-          test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
-          test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
-          test -n "$windows_x86_hash" || { echo "Missing windows-x86_64 checksum" >&2; exit 1; }
-
-          echo "{" > update.json
-          echo "  \"version\": \"${TAG}\"," >> update.json
-          echo "  \"assets\": {" >> update.json
-          echo "    \"macos-arm64\": { \"sha256\": \"${macos_hash}\" }," >> update.json
-          echo "    \"macos-x86_64\": { \"sha256\": \"${macos_x86_hash}\" }," >> update.json
-          echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
-          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }," >> update.json
-          echo "    \"windows-x86_64\": { \"sha256\": \"$windows_x86_hash\" }" >> update.json
-          echo "  }" >> update.json
-          echo "}" >> update.json
-
+          TAG: ${{ needs.validate-release.outputs.tag }}
+        run: bun .release-tools/scripts/release-artifacts.ts manifest SHA256SUMS update.json
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: wilfredinni/noodle-site
+          ref: main
           token: ${{ secrets.NOODLE_SITE_TOKEN }}
           path: noodle-site
-
       - name: Publish update manifest
         env:
-          TAG: ${{ needs.create-release.outputs.tag }}
-        working-directory: noodle-site
+          TAG: ${{ needs.validate-release.outputs.tag }}
         run: |
           set -euo pipefail
+          cd noodle-site
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            bun ../.release-tools/scripts/release-artifacts.ts update-manifest ../update.json public/update.json
+            git add public/update.json
+            if git diff --cached --quiet; then echo "Manifest already synchronized"; exit 0; fi
+            git commit -m "fix(release): synchronize manifest for Noodle ${TAG}"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo "Manifest push failed after three attempts" >&2
+          exit 1
 
-          cp ../update.json public/update.json
-
-          if git diff --quiet; then
-            echo "No changes to update.json"
-            exit 0
-          fi
-
-          git add public/update.json
-          git commit -m "Update manifests for Noodle ${TAG}"
-          git push origin main
+  summary:
+    needs: [validate-release, resolve-ci, quality, create-release, checksums, validate-release-artifact, undraft, recover-publication, publication-ready, publish-update-manifest, notify-homebrew]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Summarize release stages
+        env:
+          STAGES: ${{ toJSON(needs) }}
+          TAG: ${{ needs.validate-release.outputs.tag }}
+          SHA: ${{ needs.validate-release.outputs.sha }}
+          CI_RUN: ${{ needs.resolve-ci.outputs.run-id }}
+          REUSE: ${{ needs.resolve-ci.outputs.reuse }}
+          REASON: ${{ needs.resolve-ci.outputs.reason }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          {
+            echo "Release $TAG, commit $SHA"
+            if [ "$EVENT" = workflow_dispatch ]; then
+              echo "Binary source: existing published release (recovery only)"
+            else
+              echo "Binary source: CI run $CI_RUN; reused=$REUSE; $REASON"
+            fi
+            echo
+            jq -r 'to_entries[] | "- \(.key): \(.value.result)"' <<< "$STAGES"
+            echo
+            echo "Homebrew success means dispatch accepted. Confirm formula completion in https://github.com/wilfredinni/homebrew-noodle/actions/workflows/update-formula.yml"
+          } >> "$GITHUB_STEP_SUMMARY"

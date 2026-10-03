@@ -40,3 +40,11 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 - Use a separate release-note bullet for each unrelated change within a section. Keep a single bullet when multiple details form one cohesive user-facing capability; do not split merely to mirror individual commits.
 - When an agent skill changes, add a separate `### 📚 Documentation` bullet for each changed skill; do not combine multiple skill updates into one entry.
 - Preserve the exact emoji headings in the release body; GitHub supports the Unicode emojis from `CHANGELOG.md`.
+
+## CI artifacts and publication recovery
+
+- Release reuses all five validated binaries from a successful `ci.yml` push to `main` at the exact release commit. CI artifacts contain the binary plus format version, commit, Noodle version, native target, asset name, Bun version, run ID, and SHA-256 metadata, and expire after seven days.
+- Pending CI is allowed fifteen minutes to finish. Failed or cancelled CI and API failures block Release. Only absent CI or missing/expired artifacts run the reusable workflow once; invalid metadata or hashes block publication.
+- Ubuntu and Windows each run the full applicable suite once in their own job. Windows native platform checks still cover the shipped addon, diagnostics, Credential Manager, compiled executable, and independent Zig rebuild. Tests remain sequential within every job.
+- For a published release whose site or Homebrew synchronization failed, the maintainer may manually run Release with its required `tag`. Recovery verifies published checksums and only repeats the manifest synchronization and Homebrew notification. It does not rebuild or replace release binaries. Preparation itself still stops before any remote mutation.
+- Manifest updates and Homebrew formula updates are serialized and reject version downgrades. Homebrew receives the exact requested version; a successful notification means dispatch accepted, while formula completion is reported by the tap's Update Formula workflow.
