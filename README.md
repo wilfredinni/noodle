@@ -37,7 +37,7 @@ for Homebrew and source builds.
 Windows x64 binaries are included from v0.9.7. Install from PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.ps1 | iex
+irm https://noodlerest.dev/install.ps1 | iex
 ```
 
 The installer verifies the release checksum, installs to
