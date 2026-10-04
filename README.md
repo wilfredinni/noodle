@@ -1,6 +1,6 @@
 <h1 align="center">Noodle</h1>
 
-<p align="center"><strong>API workflows, <em>untangled.</em></strong></p>
+<p align="center"><strong>The repository is the workspace</strong></p>
 
 <p align="center">Open-source terminal REST client</p>
 
