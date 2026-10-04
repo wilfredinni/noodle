@@ -4,8 +4,8 @@ url: $base_url/auth/basic
 timeout: 5000
 auth:
   type: basic
-  user: User
-  pass: Password
+  user: $auth_user
+  pass: $auth_password
 assert:
   - expression: status
     operator: equals

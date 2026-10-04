@@ -1,5 +1,6 @@
 import { join } from "node:path"
 import { startDevServer, collectionDir, defaultPorts } from "./server"
+import { developmentSecrets } from "./auth"
 
 export async function runDevelopment(
   supplied: string[],
@@ -43,6 +44,7 @@ export async function runDevelopment(
       ],
       {
         cwd: join(import.meta.dir, ".."),
+        env: { ...process.env, ...(!hasCollection ? developmentSecrets : {}) },
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

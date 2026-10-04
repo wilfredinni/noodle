@@ -9,6 +9,8 @@ import {
   parseType2Message,
 } from "../src/requests/ntlm"
 import { lang } from "../src/lang"
+import { loadEnvironment } from "../src/env/load"
+import { substitute } from "../src/requests/substitute"
 import { send } from "../src/requests/send"
 import { resolveOAuth2Token } from "../src/requests/oauth2"
 import { runLoopbackAuthorization } from "../src/requests/oauth2Browser"
@@ -35,8 +37,17 @@ export async function checkProtocols(
     auth: { type: "none" },
     ...overrides,
   })
-  const parsed = async (id: string) =>
-    lang.parseRequest(id, await readFile(join(root, `${id}.yml`), "utf8"))
+  const environment = await loadEnvironment(
+    join(root, ".environments"),
+    "development",
+  )
+  const parsed = async (id: string) => {
+    const example = lang.parseRequest(
+      id,
+      await readFile(join(root, `${id}.yml`), "utf8"),
+    )
+    return { ...example, auth: substitute(example, environment).auth }
+  }
   const proxyPolicy = {
     kind: "custom" as const,
     source: "collection" as const,

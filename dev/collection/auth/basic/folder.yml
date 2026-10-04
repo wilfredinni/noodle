@@ -4,5 +4,5 @@ tags:
   - smoke
 auth:
   type: basic
-  user: User
-  pass: Password
+  user: $auth_user
+  pass: $auth_password

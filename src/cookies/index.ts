@@ -135,6 +135,7 @@ const DEFAULT_TIMING: CookieJarTiming = {
 let timing = { ...DEFAULT_TIMING }
 let storagePlatform = process.platform
 let keyLockFileForTests: string | undefined
+let configDirForTests: string | undefined
 
 export function setCookieJarTimingForTests(
   overrides?: Partial<CookieJarTiming>,
@@ -147,9 +148,11 @@ export function setCookieJarTimingForTests(
 export function setCookieJarStorageForTests(overrides?: {
   platform?: NodeJS.Platform
   keyLockFile?: string
+  configDir?: string
 }): void {
   storagePlatform = overrides?.platform ?? process.platform
   keyLockFileForTests = overrides?.keyLockFile
+  configDirForTests = overrides?.configDir
 }
 
 type CookieMutation =
@@ -213,7 +216,7 @@ export class CollectionCookieJar {
     collectionId: string,
   ): Promise<CollectionCookieJar> {
     const handle = new CollectionCookieJar(
-      join(configDir, "cookies", `${collectionId}.json`),
+      join(configDirForTests ?? configDir, "cookies", `${collectionId}.json`),
     )
     let lock: LockHandle | null = null
     let loadSucceeded = false

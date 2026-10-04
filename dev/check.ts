@@ -8,12 +8,12 @@ import {
   requestRun,
   type RunFailureCategory,
 } from "../src/app/services"
-import { setSecretBackendForTests } from "../src/secrets"
+import { setSecretBackendForTests, setStoredSecret } from "../src/secrets"
 import { setCookieJarStorageForTests } from "../src/cookies"
 import { startDevServer, collectionDir } from "./server"
 import { checkProtocols } from "./protocols"
 import { checkExecution } from "./execution"
-import { getNoodleConfigDir } from "../src/userPath"
+import { developmentSecrets } from "./auth"
 
 export async function checkCollection(
   services: Awaited<ReturnType<typeof startDevServer>>,
@@ -21,6 +21,9 @@ export async function checkCollection(
   const workspace = await mkdtemp(join(tmpdir(), "noodle-development-"))
   const root = join(workspace, "collection")
   const secrets = new Map<string, string>()
+  const processSecrets = Object.fromEntries(
+    Object.keys(developmentSecrets).map((key) => [key, process.env[key]]),
+  )
   const collectionId = crypto.randomUUID()
   setSecretBackendForTests({
     get: async ({ service, name }) => secrets.get(`${service}:${name}`) ?? null,
@@ -29,8 +32,12 @@ export async function checkCollection(
     },
     delete: async ({ service, name }) => secrets.delete(`${service}:${name}`),
   })
-  setCookieJarStorageForTests({ keyLockFile: join(workspace, "cookie-key") })
+  setCookieJarStorageForTests({
+    configDir: workspace,
+    keyLockFile: join(workspace, "cookie-key"),
+  })
   try {
+    for (const key of Object.keys(developmentSecrets)) delete process.env[key]
     await cp(collectionDir, root, {
       recursive: true,
       filter: (path) =>
@@ -44,8 +51,9 @@ export async function checkCollection(
           ([key, value]) => `${key}=${value}`,
         ),
         `fixture_dir=${join(root, "fixtures")}`,
-        "api_token=noodle-dev-token",
-        "api_key=noodle-dev-api-key",
+        ...Object.keys(developmentSecrets).map(
+          (key) => `# @secret ${key}\n${key}=`,
+        ),
         "message=local development",
         "user_id=1",
         "post_id=1",
@@ -60,6 +68,9 @@ export async function checkCollection(
       new URL(services.urls.https_url).port,
     )
     await writeFile(join(root, "settings.yml"), dump(settings))
+    for (const [key, value] of Object.entries(developmentSecrets)) {
+      await setStoredSecret(root, "development", key, value)
+    }
     const audit = await collectionAudit(root, false)
     if (!audit.valid)
       throw Error(
@@ -124,11 +135,12 @@ export async function checkCollection(
       execution,
     }
   } finally {
+    for (const [key, value] of Object.entries(processSecrets)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
     setSecretBackendForTests(undefined)
     setCookieJarStorageForTests()
-    await rm(join(getNoodleConfigDir(), "cookies", `${collectionId}.json`), {
-      force: true,
-    })
     await rm(workspace, { recursive: true, force: true })
   }
 }

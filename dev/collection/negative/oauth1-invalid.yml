@@ -4,9 +4,9 @@ url: $base_url/auth/oauth1
 timeout: 5000
 auth:
   type: oauth1
-  consumer_key: noodle-consumer
-  consumer_secret: wrong
-  access_token: noodle-oauth-token
-  access_token_secret: noodle-oauth-secret
+  consumer_key: $oauth_consumer_key
+  consumer_secret: $invalid_credential
+  access_token: $oauth_token
+  access_token_secret: $oauth_token_secret
   signature_method: HMAC-SHA256
   placement: header

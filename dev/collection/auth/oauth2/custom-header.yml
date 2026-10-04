@@ -7,8 +7,8 @@ auth:
   grant_type: client_credentials
   access_token_url: $base_url/oauth/token
   refresh_token_url: $base_url/oauth/token
-  client_id: noodle-client
-  client_secret: noodle-client-secret
+  client_id: $oauth_client_id
+  client_secret: $oauth_client_secret
   scope: openid profile
   credentials_id: noodle-local-header
   auto_fetch_token: true

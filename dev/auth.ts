@@ -30,6 +30,23 @@ export const credentials = {
   proxyUser: "proxy-user",
   proxyPassword: "proxy-pass",
 }
+
+export const developmentSecrets = {
+  auth_user: credentials.user,
+  auth_password: credentials.password,
+  api_token: credentials.bearer,
+  api_key: credentials.apiKey,
+  oauth_consumer_key: credentials.consumer,
+  oauth_consumer_secret: credentials.consumerSecret,
+  oauth_token: credentials.oauthToken,
+  oauth_token_secret: credentials.oauthSecret,
+  oauth_client_id: credentials.client,
+  oauth_client_secret: credentials.clientSecret,
+  aws_access_key: credentials.awsKey,
+  aws_secret_key: credentials.awsSecret,
+  aws_session_token: credentials.awsSession,
+  invalid_credential: "wrong",
+}
 const fixtureDir = join(import.meta.dir, "collection", "fixtures")
 const rsaPublic = createPublicKey(readFileSync(join(fixtureDir, "rsa.pem")))
 const equal = (a: string, b: string) => {

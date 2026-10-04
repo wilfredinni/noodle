@@ -4,8 +4,8 @@ url: $base_url/auth/ntlm
 timeout: 5000
 auth:
   type: ntlm
-  username: User
-  password: Password
+  username: $auth_user
+  password: $auth_password
   domain: Domain
   workstation: NOODLE
 assert:

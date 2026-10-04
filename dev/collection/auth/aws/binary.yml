@@ -6,8 +6,8 @@ body_type: binary
 file_path: $fixture_dir/binary.bin
 auth:
   type: aws_sigv4
-  access_key: NOODLEDEVACCESS
-  secret_key: noodle-development-secret
+  access_key: $aws_access_key
+  secret_key: $aws_secret_key
   region: us-east-1
   service: execute-api
 assert:

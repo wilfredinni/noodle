@@ -5,5 +5,5 @@ timeout: 5000
 auth:
   type: api_key
   key: x-api-key
-  value: wrong
+  value: $invalid_credential
   placement: header

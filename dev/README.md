@@ -11,6 +11,7 @@ bun run dev:check
 `dev` starts the services and opens the local collection with the watched TUI.
 `dev:server` runs only the services. `dev:check` uses a temporary collection and
 an in-memory credential backend to run positive, negative, and dataset suites.
+Cookie data and locks also stay inside the check's temporary workspace.
 The original fixture files are never rewritten by the check.
 
 Services bind to loopback: HTTP 4400, HTTPS 4401, second HTTP origin 4402,
@@ -23,6 +24,13 @@ and credentials are public test fixtures. They are not suitable for deployment.
 Credentials are `User` / `Password`, bearer `noodle-dev-token`, API key
 `noodle-dev-api-key`, OAuth client `noodle-client` / `noodle-client-secret`,
 and proxy `proxy-user` / `proxy-pass`. NTLM uses domain `Domain`.
+
+Request and folder YAML reference secret-marked variables in the development
+environment. `bun run dev` supplies the public fixture values only to its default
+collection's child process; `dev:check` seeds its in-memory credential backend.
+When opening the collection directly with Noodle alongside `dev:server`, set
+those variables to the fixture values in [auth.ts](auth.ts) through the
+environment editor or `noodle secret set` first.
 
 In F5, select suites by folder or tags. `smoke` runs positive automated cases,
 `negative` contains intentional failures, `interactive` contains browser auth,

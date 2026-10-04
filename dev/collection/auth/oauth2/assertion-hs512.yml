@@ -7,15 +7,15 @@ auth:
   grant_type: client_credentials
   access_token_url: $base_url/oauth/token
   refresh_token_url: $base_url/oauth/token
-  client_id: noodle-client
-  client_secret: noodle-client-secret
+  client_id: $oauth_client_id
+  client_secret: $oauth_client_secret
   scope: openid profile
   credentials_id: noodle-local-HS512
   auto_fetch_token: true
   auto_refresh_token: true
   client_authentication: client_assertion
   client_assertion_algorithm: HS512
-  client_assertion_key: noodle-client-secret
+  client_assertion_key: $oauth_client_secret
   client_assertion_key_type: text
 assert:
   - expression: status

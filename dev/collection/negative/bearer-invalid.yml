@@ -4,4 +4,4 @@ url: $base_url/auth/bearer
 timeout: 5000
 auth:
   type: bearer
-  token: wrong
+  token: $invalid_credential

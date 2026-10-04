@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import { createServer, request } from "node:http"
 import type { AddressInfo } from "node:net"
 import { join } from "node:path"
@@ -6,10 +6,13 @@ import { createHash } from "node:crypto"
 import { mkdtemp, writeFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import aws4 from "aws4"
+import { load } from "js-yaml"
 import { credentials, verifyAws } from "../../dev/auth"
 import { signAwsRequest } from "../../src/requests/awsSigV4"
-import { startDevServer } from "../../dev/server"
+import { startDevServer, collectionDir } from "../../dev/server"
 import { checkCollection } from "../../dev/check"
+import { loadEnvironment } from "../../src/env/load"
+import { CollectionCookieJar } from "../../src/cookies"
 
 const running: Awaited<ReturnType<typeof startDevServer>>[] = []
 const ephemeral = { http: 0, https: 0, alternate: 0, proxy: 0 }
@@ -23,9 +26,81 @@ const start = async () => {
 }
 
 describe("local development environment", () => {
+  it("declares every example auth credential as a secret environment reference", async () => {
+    const environment = await loadEnvironment(
+      join(collectionDir, ".environments"),
+      "development",
+      { resolveSecrets: false },
+    )
+    const fields = new Set([
+      "user",
+      "pass",
+      "username",
+      "password",
+      "token",
+      "access_key",
+      "secret_key",
+      "session_token",
+      "consumer_key",
+      "consumer_secret",
+      "access_token",
+      "access_token_secret",
+      "client_id",
+      "client_secret",
+      "client_assertion_key",
+    ])
+    for await (const file of new Bun.Glob("**/*.yml").scan(collectionDir)) {
+      const document = load(
+        await Bun.file(join(collectionDir, file)).text(),
+      ) as { auth?: Record<string, unknown> }
+      const auth = document?.auth
+      if (!auth) continue
+      for (const [key, value] of Object.entries(auth)) {
+        if (!fields.has(key) && !(auth.type === "api_key" && key === "value"))
+          continue
+        if (
+          key === "client_assertion_key" &&
+          auth.client_assertion_key_type === "file"
+        )
+          continue
+        if (!value) continue
+        expect({ file, key, value }).toMatchObject({
+          value: expect.stringMatching(/^\$\w+$/),
+        })
+        const name = (value as string).slice(1)
+        expect(environment.secretVars?.[name]).toBe("missing")
+        expect(environment.vars[name]).toBeUndefined()
+      }
+    }
+  })
+
   it("runs the complete maintained collection, protocols and isolation checks", async () => {
     const server = await start()
-    const checked = await checkCollection(server)
+    const jars: CollectionCookieJar[] = []
+    const open = CollectionCookieJar.open
+    const opened = spyOn(CollectionCookieJar, "open").mockImplementation(
+      async (...args) => {
+        const jar = await open(...args)
+        jars.push(jar)
+        return jar
+      },
+    )
+    const priorPassword = process.env.auth_password
+    process.env.auth_password = "ambient-password"
+    const checked = await checkCollection(server).finally(() => {
+      opened.mockRestore()
+      const restoredPassword = process.env.auth_password
+      if (priorPassword === undefined) delete process.env.auth_password
+      else process.env.auth_password = priorPassword
+      expect(restoredPassword).toBe("ambient-password")
+    })
+    expect(jars.length).toBeGreaterThan(0)
+    for (const jar of jars) {
+      expect(jar.file.startsWith(join(tmpdir(), "noodle-development-"))).toBe(
+        true,
+      )
+      expect(await Bun.file(jar.file).exists()).toBe(false)
+    }
     expect(checked.smoke.requestSuccesses).toBeGreaterThan(100)
     expect(checked.smoke.requestFailures).toBe(0)
     expect(checked.negative).toBeGreaterThan(25)
