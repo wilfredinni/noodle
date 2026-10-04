@@ -30,7 +30,7 @@ export const credentials = {
   proxyUser: "proxy-user",
   proxyPassword: "proxy-pass",
 }
-const fixtureDir = join(import.meta.dir, "collections", "fixtures")
+const fixtureDir = join(import.meta.dir, "collection", "fixtures")
 const rsaPublic = createPublicKey(readFileSync(join(fixtureDir, "rsa.pem")))
 const equal = (a: string, b: string) => {
   const x = Buffer.from(a),

@@ -77,7 +77,7 @@ it("runs the shipped external examples individually and as a folder using loopba
   })
   const folder = join(dir, "external-scripts")
   await fs.cp(
-    new URL("../../dev/collections/external-scripts", import.meta.url),
+    new URL("../../dev/collection/external-scripts", import.meta.url),
     folder,
     { recursive: true },
   )

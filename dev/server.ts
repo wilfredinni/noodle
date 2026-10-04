@@ -13,7 +13,7 @@ import { join } from "node:path"
 import { createAuthService, credentials } from "./auth"
 import { createNtlmHandler } from "./ntlm"
 
-export const collectionDir = join(import.meta.dir, "collections")
+export const collectionDir = join(import.meta.dir, "collection")
 export const defaultPorts = {
   http: 4400,
   https: 4401,

@@ -1,4 +1,4 @@
-# Open dev/collections/ as the collection root; all ./ paths start there.
+# Open dev/collection/ as the collection root; all ./ paths start there.
 # https://noodlerest.dev/docs/guides/pre-request-scripting/#external-javascript-files
 meta:
   name: External JavaScript

@@ -7,5 +7,5 @@ The suite runs two requests for each row, exercising inherited pre/post/tests, J
 From the repo root:
 
 ```bash
-bun src/app/cli.ts collection run dev/collections scripting-data/ --data dev/collections/scripting-data/users.csv --json
+bun src/app/cli.ts collection run dev/collection scripting-data/ --data dev/collection/scripting-data/users.csv --json
 ```

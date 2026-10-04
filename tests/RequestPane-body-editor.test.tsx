@@ -933,7 +933,7 @@ describe("BodySection — edit mode", () => {
     const { keymap, cleanup } = setupKeymap()
     const request = lang.parseRequest(
       "bodies/large-json",
-      await readFile("dev/collections/bodies/large-json.yml", "utf8"),
+      await readFile("dev/collection/bodies/large-json.yml", "utf8"),
     )
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <KeymapProvider keymap={keymap}>

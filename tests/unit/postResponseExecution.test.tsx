@@ -53,7 +53,7 @@ describe("rendered post-response parity", () => {
       for (const name of ["folder", "get-post", "use-post"]) {
         const source = await readFile(
           new URL(
-            `../../dev/collections/async-scripting/${name}.yml`,
+            `../../dev/collection/async-scripting/${name}.yml`,
             import.meta.url,
           ),
           "utf8",

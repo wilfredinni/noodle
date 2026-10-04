@@ -92,7 +92,7 @@ to create a collection, send your first request, and inspect the response.
   Generate test data and timestamps with `$random` and `$time` placeholders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
-  iteration data, and JSON results. Try the [local data-run example](dev/collections/scripting-data).
+  iteration data, and JSON results. Try the [local data-run example](dev/collection/scripting-data).
 - 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
   [cookies](https://noodlerest.dev/docs/guides/settings/#general):**
   Revisit past responses and manage a cookie jar for each collection.
@@ -129,7 +129,7 @@ bun run dev
 ```
 
 This starts the local HTTP, HTTPS, authentication, and proxy services and opens
-the development collection in `dev/collections/`. Run `bun run dev:server` for
+the development collection in `dev/collection/`. Run `bun run dev:server` for
 services alone, or `bun run dev:check` to validate the local scenarios. See the
 [development guide](dev/README.md) for suites and fixture credentials.
 

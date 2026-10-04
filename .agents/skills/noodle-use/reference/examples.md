@@ -548,12 +548,12 @@ scripts:
 Create `auth/login.yml` with the API's login request first. Its captures and
 successful script writes are also available through `noodle.run.get` when the
 call resolves. For runnable local examples, use the repository's
-`dev/collections/scripts/` folder. See the
+`dev/collection/scripts/` folder. See the
 [request chaining contract](../schema.md#async-scripts-and-request-chaining).
 
 ## Inheritance and data runs
 
-See the runnable local collection at `dev/collections/scripting-data` in the Noodle
+See the runnable local collection at `dev/collection/scripting-data` in the Noodle
 repository. It includes collection and folder blocks, CSV and JSON data files,
 JSON Schema validation, and the property, length, type, and subset matchers.
 Use the collection command with `--data`, or load either dataset in F5.
