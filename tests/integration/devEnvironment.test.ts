@@ -250,8 +250,13 @@ describe("local development environment", () => {
           errors,
           child.exited,
         ])
-        expect({ status, stderr }).toEqual({ status: 0, stderr: "" })
-        expect(stdout).toContain("\x1b[?1049l")
+        // Windows SIGTERM force-terminates the process without cleanup hooks.
+        const forced = process.platform === "win32" && exit === "sigterm"
+        expect({ status, stderr }).toEqual({
+          status: forced ? 143 : 0,
+          stderr: "",
+        })
+        if (!forced) expect(stdout).toContain("\x1b[?1049l")
       } finally {
         clearTimeout(deadline)
         child.kill("SIGKILL")
