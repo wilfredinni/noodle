@@ -1,0 +1,24 @@
+name: multipart
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: multipart
+form_data:
+  - name: message
+    value: $message
+    enabled: true
+    type: text
+  - name: upload
+    value: $fixture_dir/upload.txt
+    enabled: true
+    type: file
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.form.upload.text
+    operator: equals
+    value: |
+      Noodle local upload fixture

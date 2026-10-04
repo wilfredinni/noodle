@@ -1,0 +1,14 @@
+name: valid
+method: GET
+url: $base_url/auth/ntlm
+timeout: 5000
+auth:
+  type: ntlm
+  username: User
+  password: Password
+  domain: Domain
+  workstation: NOODLE
+assert:
+  - expression: status
+    operator: equals
+    value: 200

@@ -1,0 +1,15 @@
+name: json
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: json
+body: '{"message":"$message","number":42}'
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.json.number
+    operator: equals
+    value: 42

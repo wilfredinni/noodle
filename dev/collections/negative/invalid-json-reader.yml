@@ -1,0 +1,8 @@
+name: invalid json reader
+method: GET
+url: $base_url/response/invalid-json
+timeout: 5000
+auth:
+  type: none
+scripts:
+  post: noodle.response.json()

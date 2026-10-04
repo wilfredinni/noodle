@@ -1,0 +1,13 @@
+name: mutual
+method: GET
+url: $https_url/mtls
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.mutual
+    operator: equals
+    value: true

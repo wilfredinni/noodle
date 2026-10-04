@@ -1,0 +1,13 @@
+name: api key header
+method: GET
+url: $base_url/auth/api-key
+timeout: 5000
+auth:
+  type: api_key
+  key: x-api-key
+  value: $api_key
+  placement: header
+assert:
+  - expression: status
+    operator: equals
+    value: 200

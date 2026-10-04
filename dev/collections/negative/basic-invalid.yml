@@ -1,0 +1,8 @@
+name: basic invalid
+method: GET
+url: $base_url/auth/basic
+timeout: 5000
+auth:
+  type: basic
+  user: User
+  pass: wrong

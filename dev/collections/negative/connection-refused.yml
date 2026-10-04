@@ -1,0 +1,6 @@
+name: connection refused
+method: GET
+url: http://127.0.0.1:1/echo
+timeout: 100
+auth:
+  type: none

@@ -1,0 +1,11 @@
+name: disabled
+method: GET
+url: $base_url/redirect/relative
+timeout: 5000
+auth:
+  type: none
+followRedirects: false
+assert:
+  - expression: status
+    operator: equals
+    value: 302

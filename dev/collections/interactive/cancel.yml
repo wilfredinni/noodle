@@ -1,0 +1,6 @@
+name: cancel
+method: GET
+url: $base_url/delay/10000
+timeout: 5000
+auth:
+  type: none

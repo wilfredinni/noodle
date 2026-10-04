@@ -1,7 +1,0 @@
-name: Get Todos
-method: GET
-url: $base_url/todos
-timeout: 0
-followRedirects: true
-maxRedirects: 5
-body_type: none

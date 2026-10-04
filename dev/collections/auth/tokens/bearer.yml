@@ -1,0 +1,11 @@
+name: bearer
+method: GET
+url: $base_url/auth/bearer
+timeout: 5000
+auth:
+  type: bearer
+  token: $api_token
+assert:
+  - expression: status
+    operator: equals
+    value: 200

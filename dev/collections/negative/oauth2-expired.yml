@@ -1,0 +1,19 @@
+name: Expired OAuth token
+method: GET
+url: $base_url/oauth/profile
+timeout: 5000
+scripts:
+  pre: |-
+    const base = noodle.env.get("base_url");
+    const issued = await noodle.sendRequest({
+      url: base + "/oauth/token", method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=client_credentials&client_id=noodle-client&client_secret=noodle-client-secret",
+    });
+    const token = issued.json().access_token;
+    await noodle.sendRequest({
+      url: base + "/oauth/expire", method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "token=" + token,
+    });
+    noodle.request.headers.set("Authorization", "Bearer " + token);

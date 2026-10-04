@@ -1,0 +1,13 @@
+name: delay
+method: GET
+url: $base_url/delay/30
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: response.time
+    operator: gte
+    value: 20

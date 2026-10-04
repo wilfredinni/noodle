@@ -1,0 +1,15 @@
+name: 04-inspect
+method: GET
+url: $base_url/cookies/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+tests: >-
+  test("failed scripts preserve earlier values", () =>
+  expect(noodle.run.get("transactionValue")).toBe("baseline")); test("failed
+  post cookie is discarded", () =>
+  expect(noodle.response.json().cookie).not.toContain("rollback="))

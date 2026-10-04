@@ -1,0 +1,8 @@
+name: post script
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+scripts:
+  post: noodle.run.set("rolledBack", true); throw Error("intentional post failure")

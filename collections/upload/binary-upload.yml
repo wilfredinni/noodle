@@ -1,8 +1,0 @@
-name: Binary Upload
-method: POST
-url: https://httpbin.org/anything/binary-upload
-timeout: 0
-followRedirects: true
-maxRedirects: 5
-body_type: binary
-file_path: '@/Projects/noodle/README.md'

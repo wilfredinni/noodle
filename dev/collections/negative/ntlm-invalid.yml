@@ -1,0 +1,10 @@
+name: ntlm invalid
+method: GET
+url: $base_url/auth/ntlm
+timeout: 5000
+auth:
+  type: ntlm
+  username: User
+  password: wrong
+  domain: Domain
+  workstation: NOODLE

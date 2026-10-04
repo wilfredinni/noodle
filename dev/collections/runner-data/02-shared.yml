@@ -1,0 +1,15 @@
+name: 02-shared
+method: GET
+url: $base_url/cookies/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+tests: >-
+  test("requests in a row share scope and cookies", () => {
+  expect(noodle.run.get("rowTransient")).toBe(noodle.iteration.index);
+  expect(noodle.response.json().cookie).toContain("rowCookie=" +
+  noodle.iteration.index) })

@@ -1,0 +1,14 @@
+name: suppressed
+method: GET
+url: $base_url/cookies/echo
+timeout: 5000
+auth:
+  type: none
+sendCookies: false
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.cookie
+    operator: equals
+    value: ""

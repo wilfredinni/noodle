@@ -1,7 +1,0 @@
-name: Status 404 Test
-method: GET
-url: https://httpbin.org/status/404
-timeout: 0
-followRedirects: true
-maxRedirects: 5
-body_type: none

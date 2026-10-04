@@ -1,0 +1,22 @@
+name: types and redaction
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: json
+body: '{"id":"$random.uuid","password":"$random.password","number":$random.number({"min":1,"max":10}),"boolean":$random.boolean,"time":$time.now,"iso":$time.iso}'
+scripts:
+  pre: >-
+    const body = noodle.request.body.json(); if (typeof body.number !== "number"
+    || typeof body.boolean !== "boolean" || body.id.startsWith("$")) throw
+    Error("templates not prepared"); console.log(body.password)
+tests: >-
+  test("JSON template types", () => { const body = noodle.response.json().json;
+  expect(body.number).toBeTypeOf("number");
+  expect(body.boolean).toBeTypeOf("boolean");
+  expect(body.time).toBeTypeOf("number") })
+assert:
+  - expression: status
+    operator: equals
+    value: 200

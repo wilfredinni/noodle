@@ -1,0 +1,13 @@
+name: api key query
+method: GET
+url: $base_url/auth/api-key
+timeout: 5000
+auth:
+  type: api_key
+  key: api_key
+  value: $api_key
+  placement: query
+assert:
+  - expression: status
+    operator: equals
+    value: 200

@@ -1,0 +1,16 @@
+name: binary
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: binary
+file_path: $fixture_dir/upload.txt
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.data
+    operator: equals
+    value: |
+      Noodle local upload fixture

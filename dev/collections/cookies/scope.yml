@@ -1,0 +1,13 @@
+name: Cookie path scope
+method: GET
+url: $base_url/echo
+timeout: 5000
+scripts:
+  pre: |-
+    await noodle.sendRequest({ url: noodle.env.get("base_url") + "/cookies/set" });
+tests: |-
+  test("cookie outside its path is omitted", () => {
+    expect(noodle.response.json().headers.cookie).not.toContain("scoped=");
+    expect(noodle.response.json().headers.cookie).not.toContain("expired=");
+    expect(noodle.response.json().headers.cookie).toContain("session=noodle-session");
+  });

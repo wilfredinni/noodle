@@ -1,0 +1,6 @@
+name: api-key without credentials
+method: GET
+url: $base_url/auth/api-key
+timeout: 5000
+auth:
+  type: none

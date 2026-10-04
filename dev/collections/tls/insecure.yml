@@ -1,0 +1,12 @@
+name: insecure
+method: GET
+url: $https_url/echo
+timeout: 5000
+auth:
+  type: none
+tls:
+  verify: false
+assert:
+  - expression: status
+    operator: equals
+    value: 200

@@ -1,0 +1,14 @@
+name: persistent capture
+method: GET
+url: $base_url/users/1
+timeout: 5000
+auth:
+  type: none
+capture:
+  saved_user:
+    value: body.username
+    persist: environment
+assert:
+  - expression: status
+    operator: equals
+    value: 200

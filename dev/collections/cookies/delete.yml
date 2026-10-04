@@ -1,0 +1,12 @@
+name: delete
+method: GET
+url: $base_url/cookies/delete
+timeout: 5000
+tests: |-
+  test("deleted cookie is unavailable", () => expect(noodle.cookies.get("session")).toBeNull());
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

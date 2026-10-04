@@ -1,0 +1,24 @@
+name: hmac sha256 body
+method: POST
+url: $base_url/auth/oauth1
+timeout: 5000
+auth:
+  type: oauth1
+  consumer_key: noodle-consumer
+  consumer_secret: noodle-consumer-secret
+  access_token: noodle-oauth-token
+  access_token_secret: noodle-oauth-secret
+  signature_method: HMAC-SHA256
+  placement: body
+  private_key: ./fixtures/rsa.pem
+  private_key_type: file
+body_type: urlencoded
+form_data:
+  - name: message
+    value: local
+    enabled: true
+    type: text
+assert:
+  - expression: status
+    operator: equals
+    value: 200

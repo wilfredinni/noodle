@@ -1,0 +1,4 @@
+meta:
+  name: AWS SigV4
+tags:
+  - smoke

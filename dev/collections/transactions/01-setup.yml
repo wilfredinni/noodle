@@ -1,0 +1,12 @@
+name: 01-setup
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: noodle.run.set("transactionValue", "baseline")

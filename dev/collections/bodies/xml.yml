@@ -1,0 +1,15 @@
+name: xml
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: xml
+body: <message>$message</message>
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.data
+    operator: equals
+    value: <message>$message</message>

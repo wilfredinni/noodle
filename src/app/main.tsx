@@ -13,6 +13,7 @@ import { showToast } from "../ui/Toast"
 import { join, resolve } from "node:path"
 import * as yaml from "../yaml"
 import { readFileSync } from "node:fs"
+import { constants } from "node:os"
 import { loadConfig } from "../hooks/useConfig"
 import { takeSystemProxyFromEnv, type SystemProxySettings } from "../proxy"
 import type { CollectionSettings, ProxyCredentials } from "../schema"
@@ -185,7 +186,11 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   const keybinds = parseOverrides(keybindsConfig)
 
-  const renderer = await createCliRenderer({ exitOnCtrlC: false })
+  const renderer = await createCliRenderer({
+    exitOnCtrlC: false,
+    exitSignals: [],
+    onDestroy: () => process.exit(process.exitCode ?? 0),
+  })
   const keymap = createNoodleKeymap(renderer)
   let shuttingDown = false
   const shutdown = () => {
@@ -193,8 +198,18 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     shuttingDown = true
     void flushCookieJarsForShutdown().finally(() => renderer.destroy())
   }
-  process.once("SIGTERM", shutdown)
-  process.once("SIGHUP", shutdown)
+  for (const signal of [
+    "SIGINT",
+    "SIGTERM",
+    "SIGQUIT",
+    "SIGABRT",
+    "SIGHUP",
+    "SIGPIPE",
+    "SIGBREAK",
+    "SIGBUS",
+  ] as const) {
+    if (signal in constants.signals) process.once(signal, shutdown)
+  }
 
   renderer.on("selection", (selection) => {
     const text = selection.getSelectedText()

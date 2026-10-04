@@ -929,11 +929,11 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("scrolls Create Post to the end while unfocused", async () => {
+  it("scrolls the development JSON body to the end while unfocused", async () => {
     const { keymap, cleanup } = setupKeymap()
     const request = lang.parseRequest(
-      "posts/create-post",
-      await readFile("collections/posts/create-post.yml", "utf8"),
+      "bodies/large-json",
+      await readFile("dev/collections/bodies/large-json.yml", "utf8"),
     )
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <KeymapProvider keymap={keymap}>

@@ -1,0 +1,7 @@
+name: bearer invalid
+method: GET
+url: $base_url/auth/bearer
+timeout: 5000
+auth:
+  type: bearer
+  token: wrong

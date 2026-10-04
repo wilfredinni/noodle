@@ -1,0 +1,12 @@
+name: oauth1 invalid
+method: GET
+url: $base_url/auth/oauth1
+timeout: 5000
+auth:
+  type: oauth1
+  consumer_key: noodle-consumer
+  consumer_secret: wrong
+  access_token: noodle-oauth-token
+  access_token_secret: noodle-oauth-secret
+  signature_method: HMAC-SHA256
+  placement: header

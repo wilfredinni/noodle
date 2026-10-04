@@ -1,0 +1,4 @@
+name: Reject untrusted self-signed certificate
+method: GET
+url: $selfsigned_url/echo
+timeout: 5000

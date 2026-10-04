@@ -1,0 +1,9 @@
+name: capture
+method: GET
+url: $base_url/response/json
+timeout: 5000
+auth:
+  type: none
+capture:
+  missing:
+    value: body.missing

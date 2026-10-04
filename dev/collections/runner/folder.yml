@@ -1,0 +1,5 @@
+meta:
+  name: Runner selection and inherited tags
+tags:
+  - smoke
+  - runner

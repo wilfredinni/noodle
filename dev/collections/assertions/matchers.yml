@@ -1,0 +1,30 @@
+name: All scripted matchers
+method: GET
+url: $base_url/response/json
+timeout: 5000
+tests: |-
+  test("all matchers", () => {
+    const body = noodle.response.json();
+    expect(body.string).toBe("Noodle");
+    expect(body.array).toEqual([1, 2]);
+    expect(body.boolean).toBeTruthy();
+    expect(body.null).toBeFalsy();
+    expect(body.object).toBeDefined();
+    expect(body.null).toBeNull();
+    expect(body.array).toContain(2);
+    expect(body.string).toMatch(/^Noodle$/);
+    expect(body.number).toBeGreaterThan(41);
+    expect(body.number).toBeGreaterThanOrEqual(42);
+    expect(body.number).toBeLessThan(43);
+    expect(body.number).toBeLessThanOrEqual(42);
+    expect(body).toMatchSchema({ type: "object", required: ["number"], properties: { number: { type: "number" } } });
+    expect(body.object).toHaveProperty("nested", "value");
+    expect(body.array).toHaveLength(2);
+    expect(body.number).toBeTypeOf("number");
+    expect(body).toMatchObject({ object: { nested: "value" } });
+    expect(body.number).not.toBe(0);
+  });
+  test("async matchers", async () => {
+    const body = await Promise.resolve(noodle.response.json());
+    expect(body.number).toBe(42);
+  });

@@ -1,0 +1,24 @@
+name: parameters
+method: GET
+url: $base_url/echo/:segment
+timeout: 5000
+auth:
+  type: none
+path_params:
+  - name: segment
+    value: local
+params:
+  - name: query
+    value: $message
+headers:
+  X-Development: $message
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.path
+    operator: equals
+    value: /echo/local
+  - expression: body.args.query
+    operator: equals
+    value: $message

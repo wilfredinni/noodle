@@ -1,0 +1,13 @@
+name: persistent-unset
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: noodle.run.unset("saved_script",{persist:"environment"})
+  post: noodle.run.unset("saved_secret",{persist:"secret"})

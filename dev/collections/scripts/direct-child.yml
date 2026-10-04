@@ -1,0 +1,18 @@
+name: direct child
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+scripts:
+  post: >-
+    const result = await
+    noodle.sendRequest({url:noodle.env.get("base_url")+"/users/1"});
+    noodle.run.set("childUser", result.json().username)
+tests: >-
+  test("child value is committed", () =>
+  expect(noodle.run.get("childUser")).toBe("Bret"))
+assert:
+  - expression: status
+    operator: equals
+    value: 200

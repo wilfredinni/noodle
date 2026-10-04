@@ -1,0 +1,59 @@
+name: operators
+method: GET
+url: $base_url/response/json
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: status
+    operator: notEquals
+    value: 500
+  - expression: body.number
+    operator: gt
+    value: 1
+  - expression: body.number
+    operator: gte
+    value: 42
+  - expression: body.number
+    operator: lt
+    value: 100
+  - expression: body.number
+    operator: lte
+    value: 42
+  - expression: body.string
+    operator: contains
+    value: Nood
+  - expression: body.string
+    operator: notContains
+    value: Remote
+  - expression: body.string
+    operator: matches
+    value: ^Noodle$
+  - expression: body.object
+    operator: exists
+  - expression: body.missing
+    operator: notExists
+  - expression: body.string
+    operator: isString
+  - expression: body.number
+    operator: isNumber
+  - expression: body.boolean
+    operator: isBoolean
+  - expression: body.array
+    operator: isArray
+  - expression: body.object
+    operator: isObject
+  - expression: body.null
+    operator: isNull
+  - expression: body.string
+    operator: notNull
+tests: >-
+  test("async test", async () => { await Promise.resolve();
+  expect(noodle.response.json()).toMatchSchema({type:"object",required:["string","number"],properties:{number:{type:"number"}}})
+  }); test("matcher coverage", () => { const body=noodle.response.json();
+  expect(body).toHaveProperty("string","Noodle");
+  expect(body.array).toHaveLength(2);
+  expect(body).toMatchObject({boolean:true}); expect(body.number).not.toBe(0) })

@@ -1,0 +1,21 @@
+collection_id: e1c7c272-e035-4c1a-b82a-2bdebdc73a96
+name: Noodle local development
+description: Local fixtures for every request and execution capability.
+environment: development
+proxy:
+  mode: "off"
+tls:
+  verify: true
+  ca_bundle: ./fixtures/tls/ca.pem
+  client_certificates:
+    - host: localhost
+      port: 4401
+      cert_file: ./fixtures/tls/client.pem
+      key_file: ./fixtures/tls/client-key.pem
+cookies:
+  enabled: true
+scripts:
+  pre: noodle.run.set("collectionReady", true)
+tests: >-
+  test("collection hook ran", () =>
+  expect(noodle.run.get("collectionReady")).toBe(true))

@@ -1,0 +1,14 @@
+name: standard
+method: GET
+url: $base_url/auth/aws
+timeout: 5000
+auth:
+  type: aws_sigv4
+  access_key: NOODLEDEVACCESS
+  secret_key: noodle-development-secret
+  region: us-east-1
+  service: execute-api
+assert:
+  - expression: status
+    operator: equals
+    value: 200

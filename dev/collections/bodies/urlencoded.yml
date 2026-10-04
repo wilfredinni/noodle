@@ -1,0 +1,19 @@
+name: urlencoded
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: urlencoded
+form_data:
+  - name: message
+    value: $message
+    enabled: true
+    type: text
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.form.message
+    operator: equals
+    value: $message

@@ -1,0 +1,9 @@
+name: api key invalid
+method: GET
+url: $base_url/auth/api-key
+timeout: 5000
+auth:
+  type: api_key
+  key: x-api-key
+  value: wrong
+  placement: header

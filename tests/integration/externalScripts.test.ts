@@ -77,21 +77,19 @@ it("runs the shipped external examples individually and as a folder using loopba
   })
   const folder = join(dir, "external-scripts")
   await fs.cp(
-    new URL("../../collections/external-scripts", import.meta.url),
+    new URL("../../dev/collections/external-scripts", import.meta.url),
     folder,
     { recursive: true },
   )
-  for (const name of await fs.readdir(folder)) {
-    const path = join(folder, name)
-    const source = await fs.readFile(path, "utf8")
-    await fs.writeFile(
-      path,
-      source.replaceAll(
-        "https://jsonplaceholder.typicode.com",
-        `http://127.0.0.1:${server.port}`,
-      ),
-    )
-  }
+  await fs.mkdir(join(dir, ".environments"))
+  await fs.writeFile(
+    join(dir, ".environments/development.env"),
+    `base_url=http://127.0.0.1:${server.port}\n`,
+  )
+  await saveSettings(dir, {
+    cookies: { enabled: false },
+    environment: "development",
+  })
   for (const id of ["get-post", "get-post-with-user"]) {
     const run = await requestRun(
       `external-scripts/${id}`,
