@@ -1,0 +1,8 @@
+meta:
+  name: Basic and inherited auth
+tags:
+  - smoke
+auth:
+  type: basic
+  user: $auth_user
+  pass: $auth_password

@@ -1,0 +1,10 @@
+name: download
+method: GET
+url: $base_url/download
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

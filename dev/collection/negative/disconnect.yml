@@ -1,0 +1,6 @@
+name: disconnect
+method: GET
+url: $base_url/disconnect
+timeout: 5000
+auth:
+  type: none

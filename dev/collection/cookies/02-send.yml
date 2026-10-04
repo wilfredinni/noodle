@@ -1,0 +1,19 @@
+name: 02 send
+method: GET
+url: $base_url/cookies/echo
+timeout: 5000
+auth:
+  type: none
+scripts:
+  pre: >-
+    const response = await noodle.sendRequest({ url: noodle.env.get("base_url")
+    + "/cookies/set" }); if (response.status !== 200) throw Error("cookie setup
+    failed")
+  post: noodle.cookies.delete("post_cookie")
+tests: >-
+  test("received cookie is sent", () =>
+  expect(noodle.response.json().cookie).toContain("session=noodle-session"))
+assert:
+  - expression: status
+    operator: equals
+    value: 200

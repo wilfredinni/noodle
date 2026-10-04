@@ -1,0 +1,21 @@
+name: 01-isolation
+method: GET
+url: $base_url/users/$user_id
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: >-
+    if (noodle.run.get("rowTransient") !== undefined) throw Error("row scope
+    leaked"); noodle.run.set("rowTransient", noodle.iteration.index)
+  post: >-
+    if (noodle.cookies.get("rowCookie") !== null) throw Error("row cookie
+    leaked");
+    noodle.cookies.set({name:"rowCookie",value:String(noodle.iteration.index),path:"/"})
+tests: >-
+  test("iteration exposes original data", () =>
+  expect(noodle.response.json().id).toBe(Number(noodle.iteration.data.user_id)))

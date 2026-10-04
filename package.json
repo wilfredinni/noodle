@@ -8,7 +8,9 @@
     "noodle": "src/app/cli.ts"
   },
   "scripts": {
-    "dev": "bun --watch src/app/cli.ts",
+    "dev": "bun dev/run.ts",
+    "dev:server": "bun dev/server.ts",
+    "dev:check": "bun dev/check.ts",
     "test": "bun test",
     "script:generate": "bun scripts/generate-script-api.ts",
     "script:check": "bun scripts/generate-script-api.ts --check",

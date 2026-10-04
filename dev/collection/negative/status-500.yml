@@ -1,0 +1,6 @@
+name: status 500
+method: GET
+url: $base_url/status/500
+timeout: 5000
+auth:
+  type: none

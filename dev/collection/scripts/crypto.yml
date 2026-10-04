@@ -1,0 +1,21 @@
+name: crypto
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: >-
+    noodle.request.headers.set("X-Digest", noodle.crypto.sha256("Noodle",
+    "hex")); noodle.run.set("randomBytes", noodle.crypto.randomBytes(16,
+    "hex")); noodle.run.set("hmac", noodle.crypto.hmacSha256("local", "Noodle",
+    "hex"))
+tests: >-
+  test("crypto helpers return bounded values", () => {
+  expect(noodle.request.headers.get("X-Digest")).toHaveLength(64);
+  expect(noodle.run.get("randomBytes")).toHaveLength(32);
+  expect(noodle.run.get("hmac")).toHaveLength(64) })

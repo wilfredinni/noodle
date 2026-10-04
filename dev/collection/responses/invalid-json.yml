@@ -1,0 +1,10 @@
+name: invalid json
+method: GET
+url: $base_url/response/invalid-json
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

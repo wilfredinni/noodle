@@ -1,0 +1,6 @@
+name: bearer without credentials
+method: GET
+url: $base_url/auth/bearer
+timeout: 5000
+auth:
+  type: none

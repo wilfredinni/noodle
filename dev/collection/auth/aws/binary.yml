@@ -1,0 +1,16 @@
+name: Signed binary payload
+method: POST
+url: $base_url/auth/aws
+timeout: 5000
+body_type: binary
+file_path: $fixture_dir/binary.bin
+auth:
+  type: aws_sigv4
+  access_key: $aws_access_key
+  secret_key: $aws_secret_key
+  region: us-east-1
+  service: execute-api
+assert:
+  - expression: status
+    operator: equals
+    value: 200

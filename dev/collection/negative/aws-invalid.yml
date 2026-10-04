@@ -1,0 +1,10 @@
+name: aws invalid
+method: GET
+url: $base_url/auth/aws
+timeout: 5000
+auth:
+  type: aws_sigv4
+  access_key: $aws_access_key
+  secret_key: $invalid_credential
+  region: us-east-1
+  service: execute-api

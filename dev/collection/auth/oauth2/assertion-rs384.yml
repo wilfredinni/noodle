@@ -1,0 +1,23 @@
+name: assertion rs384
+method: GET
+url: $base_url/oauth/profile
+timeout: 5000
+auth:
+  type: oauth2
+  grant_type: client_credentials
+  access_token_url: $base_url/oauth/token
+  refresh_token_url: $base_url/oauth/token
+  client_id: $oauth_client_id
+  client_secret: $oauth_client_secret
+  scope: openid profile
+  credentials_id: noodle-local-RS384
+  auto_fetch_token: true
+  auto_refresh_token: true
+  client_authentication: client_assertion
+  client_assertion_algorithm: RS384
+  client_assertion_key: ./fixtures/rsa.pem
+  client_assertion_key_type: file
+assert:
+  - expression: status
+    operator: equals
+    value: 200

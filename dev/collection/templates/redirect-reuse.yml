@@ -1,0 +1,17 @@
+name: redirect reuse
+method: POST
+url: $base_url/redirect/preserve
+timeout: 5000
+auth:
+  type: none
+body_type: json
+body: '{"id":"$random.uuid","time":$time.iso}'
+scripts:
+  pre: noodle.run.set("templateId", noodle.request.body.json().id)
+tests: >-
+  test("redirect preserves prepared template", () =>
+  expect(noodle.response.json().json.id).toBe(noodle.run.get("templateId")))
+assert:
+  - expression: status
+    operator: equals
+    value: 200

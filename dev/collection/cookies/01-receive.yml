@@ -1,0 +1,15 @@
+name: 01 receive
+method: GET
+url: $base_url/cookies/set
+timeout: 5000
+auth:
+  type: none
+scripts:
+  post: >-
+    noodle.cookies.set({name:"post_cookie",value:"local",path:"/"}); if
+    (noodle.cookies.get("post_cookie") !== "local") throw Error("cookie was not
+    staged")
+assert:
+  - expression: status
+    operator: equals
+    value: 200

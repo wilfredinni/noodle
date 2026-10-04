@@ -1,0 +1,23 @@
+name: pre post
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+scripts:
+  pre: >-
+    noodle.request.headers.set("X-Script", "prepared");
+    noodle.run.set("preValue", 42)
+  post: noodle.run.set("postValue", noodle.response.json().headers["x-script"])
+capture:
+  prepared_header:
+    value: body.headers.x-script
+tests: >-
+  test("capture precedes post", () => {
+  expect(noodle.run.get("prepared_header")).toBe("prepared");
+  expect(noodle.run.get("postValue")).toBe("prepared");
+  expect(noodle.run.get("preValue")).toBe(42) })
+assert:
+  - expression: status
+    operator: equals
+    value: 200

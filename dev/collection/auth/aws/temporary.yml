@@ -1,0 +1,15 @@
+name: temporary
+method: GET
+url: $base_url/auth/aws
+timeout: 5000
+auth:
+  type: aws_sigv4
+  access_key: $aws_access_key
+  secret_key: $aws_secret_key
+  region: us-east-1
+  service: execute-api
+  session_token: $aws_session_token
+assert:
+  - expression: status
+    operator: equals
+    value: 200

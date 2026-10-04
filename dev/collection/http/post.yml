@@ -1,0 +1,10 @@
+name: post
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

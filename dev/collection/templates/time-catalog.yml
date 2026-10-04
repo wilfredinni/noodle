@@ -1,0 +1,28 @@
+name: time-catalog
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+body_type: json
+body: |-
+  {
+      "now": $time.now,
+      "unix": $time.unix,
+      "fromUnix": $time.fromUnix(1767225600),
+      "parse": $time.parse("2026-01-01"),
+      "iso": $time.iso,
+      "format": $time.format("2026-01-01", "YYYY-MM-DD"),
+      "add": $time.add("2026-01-01", 1, "days"),
+      "subtract": $time.subtract("2026-01-01", 1, "days"),
+      "diff": $time.diff("2026-01-02", "2026-01-01", "days")
+  }
+tests: >-
+  test("time helpers expanded", () => { const body=noodle.response.json().json;
+  expect(body.fromUnix).toBe(1767225600000);
+  expect(body.parse).toBe(1767225600000); expect(body.format).toBe("2026-01-01")
+  })

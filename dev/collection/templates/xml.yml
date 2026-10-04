@@ -1,0 +1,12 @@
+name: xml
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: xml
+body: <request><id>$random.uuid</id><time>$time.iso</time></request>
+assert:
+  - expression: status
+    operator: equals
+    value: 200

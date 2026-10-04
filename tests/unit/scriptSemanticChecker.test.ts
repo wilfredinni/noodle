@@ -143,7 +143,9 @@ describe("script semantic diagnostics", () => {
   })
 
   it("accepts the maintained collection examples", async () => {
-    const root = fileURLToPath(new URL("../../collections/", import.meta.url))
+    const root = fileURLToPath(
+      new URL("../../dev/collection/", import.meta.url),
+    )
     for await (const path of new Bun.Glob("**/*.yml").scan(root)) {
       const data = load(await Bun.file(join(root, path)).text()) as {
         scripts?: { pre?: string; post?: string }

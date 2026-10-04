@@ -1,0 +1,10 @@
+name: cookie rollback
+method: GET
+url: $base_url/cookies/echo
+timeout: 5000
+auth:
+  type: none
+scripts:
+  post: >-
+    noodle.cookies.set({name:"rollback",value:"never-committed"}); throw
+    Error("intentional rollback")

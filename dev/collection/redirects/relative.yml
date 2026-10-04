@@ -1,0 +1,10 @@
+name: relative
+method: GET
+url: $base_url/redirect/relative
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

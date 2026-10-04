@@ -1,0 +1,6 @@
+name: missing variable
+method: GET
+url: $base_url/echo/$missing_development_variable
+timeout: 5000
+auth:
+  type: none

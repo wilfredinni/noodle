@@ -1,0 +1,14 @@
+name: 02-pre-fail
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: >-
+    noodle.run.set("transactionValue", "changed"); throw Error("intentional pre
+    rollback")

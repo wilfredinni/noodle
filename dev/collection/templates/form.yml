@@ -1,0 +1,23 @@
+name: form
+method: POST
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+body_type: urlencoded
+form_data:
+  - name: uuid
+    value: $random.uuid
+    enabled: true
+    type: text
+  - name: time
+    value: $time.iso
+    enabled: true
+    type: text
+tests: >-
+  test("form templates expanded", () =>
+  expect(noodle.response.json().form.uuid).toMatch(/^[0-9a-f-]{36}$/))
+assert:
+  - expression: status
+    operator: equals
+    value: 200

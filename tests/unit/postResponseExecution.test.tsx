@@ -21,6 +21,7 @@ import { filestore } from "../../src/filestore"
 import type { Request } from "../../src/schema"
 import { findRequestById } from "../../src/ui/tree"
 import { buildTimelineEntry } from "../../src/timelineEntry"
+import { loadEnvironment } from "../../src/env/load"
 
 const testRender = createTestRender()
 
@@ -40,24 +41,30 @@ describe("rendered post-response parity", () => {
     })
     try {
       await mkdir(join(dir, "async-scripting"))
-      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await mkdir(join(dir, ".environments"))
+      await writeFile(
+        join(dir, ".environments/development.env"),
+        `base_url=http://127.0.0.1:${server.port}\n`,
+      )
+      await writeFile(
+        join(dir, "settings.yml"),
+        "environment: development\ncookies:\n  enabled: false\n",
+      )
       for (const name of ["folder", "get-post", "use-post"]) {
         const source = await readFile(
           new URL(
-            `../../collections/async-scripting/${name}.yml`,
+            `../../dev/collection/async-scripting/${name}.yml`,
             import.meta.url,
           ),
           "utf8",
         )
-        await writeFile(
-          join(dir, "async-scripting", `${name}.yml`),
-          source.replaceAll(
-            "https://jsonplaceholder.typicode.com",
-            `http://127.0.0.1:${server.port}`,
-          ),
-        )
+        await writeFile(join(dir, "async-scripting", `${name}.yml`), source)
       }
       const collection = await filestore.loadCollection(dir)
+      const environment = await loadEnvironment(
+        join(dir, ".environments"),
+        "development",
+      )
       const request = findRequestById(
         collection.items,
         "async-scripting/use-post",
@@ -70,7 +77,7 @@ describe("rendered post-response parity", () => {
       function Harness() {
         manual = useResponse(
           request,
-          undefined,
+          environment,
           (req, result, env, secrets, prepared) => {
             completed++
             history = buildTimelineEntry(
@@ -91,8 +98,8 @@ describe("rendered post-response parity", () => {
           collection,
           collectionDir: dir,
           folderPath: null,
-          activeEnvironment: null,
-          environmentNames: [],
+          activeEnvironment: "development",
+          environmentNames: ["development"],
           hasUnsavedChanges: false,
           noProxy: true,
           systemProxy: { bypass: [] },

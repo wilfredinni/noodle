@@ -1,0 +1,45 @@
+name: lifecycle
+method: GET
+url: $base_url/echo
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+scripts:
+  pre: >-
+    const base=noodle.env.get("base_url");
+
+    const created=await
+    noodle.sendRequest({url:base+"/posts",method:"POST",headers:{"Content-Type":"application/json"},body:'{"title":"Created
+    locally","userId":1}'});
+
+    if (created.status !== 201) throw Error("create failed");
+
+    const id=created.json().id;
+
+    const put=await
+    noodle.sendRequest({url:base+"/posts/"+id,method:"PUT",headers:{"Content-Type":"application/json"},body:'{"title":"Replaced","userId":1}'});
+
+    if (put.json().title !== "Replaced") throw Error("put failed");
+
+    const patch=await
+    noodle.sendRequest({url:base+"/posts/"+id,method:"PATCH",headers:{"Content-Type":"application/json"},body:'{"title":"Updated"}'});
+
+    if (patch.json().userId !== 1) throw Error("patch failed");
+
+    const read=await noodle.sendRequest({url:base+"/posts/"+id});
+
+    if(read.json().title !== "Updated") throw Error("get failed");
+
+    const removed=await
+    noodle.sendRequest({url:base+"/posts/"+id,method:"DELETE"});
+
+    if(removed.status !== 204) throw Error("delete failed");
+
+    noodle.run.set("crudComplete",true);
+tests: >-
+  test("CRUD operations completed", () =>
+  expect(noodle.run.get("crudComplete")).toBe(true))

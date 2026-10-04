@@ -1,0 +1,10 @@
+name: empty
+method: GET
+url: $base_url/response/empty
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 204

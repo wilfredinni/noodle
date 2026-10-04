@@ -1,0 +1,12 @@
+name: explicit
+method: GET
+url: $base_url/auth/basic
+timeout: 5000
+auth:
+  type: basic
+  user: $auth_user
+  pass: $auth_password
+assert:
+  - expression: status
+    operator: equals
+    value: 200

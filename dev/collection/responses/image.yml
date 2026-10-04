@@ -1,0 +1,10 @@
+name: image
+method: GET
+url: $base_url/image/png
+timeout: 5000
+auth:
+  type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200

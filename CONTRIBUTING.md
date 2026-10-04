@@ -38,7 +38,7 @@ Keep it short. Write in your own voice. Do not paste AI-generated implementation
 git clone https://github.com/wilfredinni/noodle
 cd noodle
 bun install
-bun run dev -- --collection ./collections --env development
+bun run dev
 ```
 
 ### Run checks before submitting

@@ -1,0 +1,6 @@
+name: timeout
+method: GET
+url: $base_url/delay/10000
+timeout: 25
+auth:
+  type: none

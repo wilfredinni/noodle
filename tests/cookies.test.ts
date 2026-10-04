@@ -116,6 +116,28 @@ describe("CollectionCookieJar", () => {
     )
   })
 
+  it("isolates cookie data with the test storage override and resets it", async () => {
+    const isolated = join(configDir, "isolated")
+    setCookieJarStorageForTests({
+      configDir: isolated,
+      keyLockFile: join(isolated, "cookie-jar-key"),
+    })
+    const jar = await CollectionCookieJar.open(configDir, "isolated")
+    expect(jar.file).toBe(join(isolated, "cookies", "isolated.json"))
+    jar.put({ name: "session", value: "secret", domain: "example.com" })
+    await jar.close()
+    expect(await readFile(jar.file, "utf8")).toContain("enc:v1:")
+    expect(
+      await Bun.file(join(configDir, "cookies", "isolated.json")).exists(),
+    ).toBe(false)
+    setCookieJarStorageForTests({
+      keyLockFile: join(configDir, "cookie-jar-key"),
+    })
+    const restored = await CollectionCookieJar.open(configDir, "restored")
+    expect(restored.file).toBe(join(configDir, "cookies", "restored.json"))
+    await restored.close()
+  })
+
   it("does not replace an encrypted jar when its vault key is unavailable", async () => {
     const jar = await CollectionCookieJar.open(configDir, "col-1")
     jar.put({ name: "session", value: "secret", domain: "example.com" })
