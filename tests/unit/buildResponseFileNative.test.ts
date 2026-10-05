@@ -39,3 +39,42 @@ it("builds the Homebrew glibc addon when the Linux runtime report lacks libc", a
     await rm(work, { recursive: true, force: true })
   }
 })
+
+it.each(["arm64", "x64"])(
+  "bundles only the source-built glibc addon for Homebrew Linux %s",
+  async (arch) => {
+    const root = resolve(import.meta.dir, "../..")
+    const work = await mkdtemp(join(tmpdir(), "noodle-glibc-bundle-"))
+    try {
+      const metafile = join(work, "bundle.json")
+      const result = Bun.spawnSync([
+        process.execPath,
+        "build",
+        join(root, "src/responseFileNative.ts"),
+        "--target=bun",
+        "--define",
+        'process.platform="linux"',
+        "--define",
+        `process.arch=${JSON.stringify(arch)}`,
+        "--define",
+        'process.env.NOODLE_LIBC="glibc"',
+        `--metafile=${metafile}`,
+        "--outdir",
+        work,
+      ])
+      expect({
+        exitCode: result.exitCode,
+        stderr: result.stderr.toString(),
+      }).toMatchObject({ exitCode: 0 })
+      const meta = await Bun.file(metafile).json()
+      const addons = Object.keys(meta.inputs).filter((path) =>
+        path.endsWith(".node"),
+      )
+      expect(addons).toEqual([
+        `native/response-file/prebuilds/linux-${arch}.node`,
+      ])
+    } finally {
+      await rm(work, { recursive: true, force: true })
+    }
+  },
+)

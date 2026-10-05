@@ -8,11 +8,12 @@ const { values } = parseArgs({
     zig: { type: "string", default: "zig" },
     cc: { type: "string", default: process.env.CC ?? "cc" },
     outfile: { type: "string", default: "noodle" },
+    offline: { type: "boolean", default: false },
   },
 })
 if (!values["opentui-source"])
   throw new Error(
-    "Usage: bun run build:homebrew --opentui-source <directory> [--zig <path>] [--cc <path>] [--outfile <path>]",
+    "Usage: bun run build:homebrew --opentui-source <directory> [--zig <path>] [--cc <path>] [--outfile <path>] [--offline]",
   )
 if (
   !["darwin", "linux"].includes(process.platform) ||
@@ -45,6 +46,7 @@ await run([
   "install",
   "--frozen-lockfile",
   "--ignore-scripts",
+  ...(values.offline ? ["--offline"] : []),
 ])
 const installed = await Bun.file(
   join(root, "node_modules/@opentui/core/package.json"),
