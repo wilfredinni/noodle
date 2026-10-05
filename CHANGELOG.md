@@ -4,6 +4,31 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-10-05
+
+Noodle 0.9.8 keeps Homebrew installations under Homebrew's control: update checks report available versions, and `noodle update` prints the upgrade command. A reproducible native source build prepares Noodle for a core formula, while release publication now reuses the binaries validated by CI. The current tap remains active; acceptance into Homebrew core is pending.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-8-homebrew-source-builds/)
+
+### 🐞 Fixes
+
+- Prevent CLI and TUI updates from upgrading Homebrew-managed installations or replacing their executable. `noodle update --json` returns successful `homebrew_managed` guidance, including with `--force`; the TUI displays the available version and `brew upgrade noodle` in About. Refresh installed agent skills explicitly with `noodle agent install` after a brew upgrade.
+- Harden publication recovery across platforms: verify immutable published binaries and checksums before retrying site and tap synchronization, and preserve failed or invalid CI as a publication blocker.
+- Flush pending cookie writes before destroying the terminal renderer on supported exit signals, keeping shutdown coordinated with the local development services.
+
+### 🔧 Refactors
+
+- Add `build:homebrew` to rebuild OpenTUI and the response-file C addon from source, compile only the host's native assets, verify the embedded asset set, and reuse signing and compiled scripting checks. Add archived-source validation on the Unix CI targets and a core formula preparation template.
+- Reuse all five validated CI binaries at the exact release commit, with version, platform, build-run, and SHA-256 metadata; rebuild only when eligible artifacts are absent or expired.
+- Replace the contributor sample collection with local HTTP, TLS, and authentication services and a development collection. `bun run dev` starts the services and TUI together; `bun run dev:check` validates the collection against local fixtures without relying on public endpoints.
+
+### 📚 Documentation
+
+- Update the `noodle-dev` skill and architecture reference for command-only Homebrew updates and explicit skill refresh; retain the async test guidance updated since v0.9.7.
+- Update the `noodle-use` skill's import workflow to use current installation instructions while Homebrew core acceptance is pending; retain the local development examples committed since v0.9.7.
+- Update the `noodle-release` skill for validated CI artifact reuse and publication recovery, as committed since v0.9.7.
+- Clarify installation and update instructions while keeping the tap active until core acceptance.
+
 ## [0.9.7] - 2026-10-02
 
 Noodle 0.9.7 adds Windows x64 beta binaries with a checksum-verified PowerShell installer and updates that apply after Noodle exits. Optional CLI response details make single-request runs easier to inspect, while the Send button now works from request script and test editors.

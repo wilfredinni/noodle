@@ -36,3 +36,13 @@ macOS), tested executable with commit, version, target, Bun version, and SHA-256
 metadata for seven days. Release reuses these binaries from a successful push
 CI on the exact main commit; missing or expired artifacts trigger one CI run. All eight prebuilds remain available and
 their hashes are verified by `--check`.
+
+## Homebrew source builds
+
+`bun scripts/build-response-file-native.ts --host-compiler` builds only the
+macOS or Linux host addon with `CC` (default: `cc`), using the bundled N-API
+headers. It does not change the release prebuild manifest and cannot be combined
+with cross-build or manifest flags. `build:homebrew` uses this mode, rebuilds
+OpenTUI from its matching tagged source, and verifies that the executable embeds
+only those two source-built native assets. Run it in an extracted source tree;
+it replaces that tree's host addon and installed OpenTUI native library.

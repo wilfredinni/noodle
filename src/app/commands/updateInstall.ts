@@ -7,11 +7,11 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { dirname, join, posix } from "node:path"
+import { dirname, join } from "node:path"
 import windowsUpdateHelper from "../../../scripts/complete-windows-update.ps1" with { type: "text" }
 import { isNoodleSkillInstalled } from "../../agentSkill"
 import {
-  getHomebrewExecutable,
+  isHomebrewInstall,
   isBunRuntime,
   getPlatformString,
 } from "./updateDetect"
@@ -74,57 +74,6 @@ async function hasInstalledSkill(deps: UpdateDependencies): Promise<boolean> {
   return isNoodleSkillInstalled(home)
 }
 
-async function runHomebrewUpdate(
-  silent: boolean,
-  deps: UpdateDependencies,
-): Promise<{ data: Record<string, string>; failed?: boolean }> {
-  const output = (message: string) => {
-    if (!silent) console.log(message)
-  }
-  output("Updating noodle via Homebrew...")
-  const skillInstalled = await hasInstalledSkill(deps)
-  try {
-    const result = await deps.runProcess(
-      [getHomebrewExecutable(deps.execPath), "upgrade", "noodle"],
-      silent,
-      {
-        env: deps.env,
-      },
-    )
-    if (result.exitCode !== 0) {
-      output(`Homebrew upgrade failed (exit code ${result.exitCode}).`)
-      return {
-        data: {
-          status: "homebrew_failed",
-          command: "brew upgrade noodle",
-          exit_code: String(result.exitCode),
-        },
-        failed: true,
-      }
-    }
-    output("Homebrew upgrade completed.")
-    const skill = await refreshInstalledSkill(
-      skillInstalled,
-      posix.join(posix.dirname(getHomebrewExecutable(deps.execPath)), "noodle"),
-      deps,
-      output,
-    )
-    return {
-      data: {
-        status: "homebrew_updated",
-        command: "brew upgrade noodle",
-        ...skill,
-      },
-    }
-  } catch {
-    output("Unable to run Homebrew. Is `brew` installed and available on PATH?")
-    return {
-      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
-      failed: true,
-    }
-  }
-}
-
 export async function installBinaryUpdate(
   tag: string,
   downloadUrl: string,
@@ -146,19 +95,6 @@ export async function installBinaryUpdate(
   )
 }
 
-export async function installBrewUpdate(
-  dependencyOverrides: Partial<UpdateDependencies> = {},
-): Promise<{ data: Record<string, string>; failed?: boolean }> {
-  const deps = getUpdateDeps(dependencyOverrides)
-  if (isBunRuntime(deps.execPath)) {
-    return {
-      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
-      failed: true,
-    }
-  }
-  return runHomebrewUpdate(true, deps)
-}
-
 async function downloadAndInstall(
   tag: string,
   binaryUrl: string,
@@ -167,6 +103,13 @@ async function downloadAndInstall(
   output: (message: string) => void,
   onPhase?: (phase: "downloading" | "installing") => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  if (isHomebrewInstall(deps.execPath)) {
+    output("Run: brew upgrade noodle")
+    return {
+      data: { status: "homebrew_managed", command: "brew upgrade noodle" },
+      failed: true,
+    }
+  }
   const assetName = getAssetName(deps.platform, deps.arch)
   const platform = getPlatformString(deps.platform, deps.arch)
   const skillInstalled = await hasInstalledSkill(deps)
@@ -274,4 +217,4 @@ async function downloadAndInstall(
   }
 }
 
-export { runHomebrewUpdate, downloadAndInstall }
+export { downloadAndInstall }

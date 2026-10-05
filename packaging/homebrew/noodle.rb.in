@@ -1,0 +1,57 @@
+class Noodle < Formula
+  desc "Terminal REST client with file-based collections"
+  homepage "https://noodlerest.dev"
+  url "__NOODLE_SOURCE_URL__"
+  sha256 "__NOODLE_SOURCE_SHA256__"
+  license "Apache-2.0"
+
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
+  depends_on "bun" => :build
+  depends_on "zig@0.16" => :build
+
+  resource "opentui" do
+    url "https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.14.tar.gz"
+    sha256 "0e092b7405934c3a30f6eca2cb6e35eb00d9d8948d15daa69af2371e1e641a6e"
+  end
+
+  deny_network_access! :test
+
+  def install
+    resource("opentui").stage(buildpath/"opentui")
+    system "bun", "run", "build:homebrew",
+           "--opentui-source", buildpath/"opentui",
+           "--zig", formula_opt_bin("zig@0.16")/"zig",
+           "--cc", ENV.cc
+    bin.install "noodle"
+    pkgshare.install "LICENSE"
+    pkgshare.install "opentui/LICENSE" => "LICENSE.opentui"
+  end
+
+  test do
+    ENV["HOME"] = testpath.to_s
+    assert_match version.to_s, shell_output("#{bin}/noodle --version")
+    system bin/"noodle", "collection", "create", "brew-test", "--output", testpath, "--json"
+    collection = testpath/"brew-test"
+    (collection/"probe.yml").write <<~YAML
+      name: Probe
+      method: GET
+      url: http://127.0.0.1:1
+      scripts:
+        pre: |-
+          await Promise.resolve();
+          if (noodle.crypto.randomBytes(4, "hex").length !== 8)
+            throw new Error("homebrew-crypto-failed");
+          throw new Error("homebrew-quickjs-ok");
+    YAML
+    inspected = JSON.parse(shell_output("#{bin}/noodle collection inspect #{collection} --json"))
+    assert_equal 2, inspected.fetch("data").fetch("requestCount")
+    output = shell_output("#{bin}/noodle request run probe --collection #{collection} --noproxy --json", 1)
+    result = JSON.parse(output).fetch("data").fetch("result")
+    assert_equal ["script"], result.fetch("failureCategories")
+    assert_equal "homebrew-quickjs-ok", result.fetch("scripts").fetch("results").first.fetch("error").fetch("message")
+  end
+end

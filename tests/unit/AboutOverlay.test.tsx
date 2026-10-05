@@ -64,10 +64,16 @@ describe("AboutOverlay", () => {
         flow: {
           phase: "installing",
           version: "v0.7.5",
-          installType: "brew",
+          installType: "binary",
         },
         line: `Noodle v${pkg.version} ⚙ Installing v0.7.5…`,
         status: "Installing v0.7.5",
+        color: THEMES[0]!.warning,
+      },
+      {
+        flow: { phase: "available", version: "v0.9.8", installType: "brew" },
+        line: `Noodle v${pkg.version} ↑ v0.9.8 available`,
+        status: "v0.9.8 available",
         color: THEMES[0]!.warning,
       },
       {
@@ -97,6 +103,8 @@ describe("AboutOverlay", () => {
         .split("\n")
         .find((line) => line.includes(`Noodle v${pkg.version}`))
       expect(versionLine?.trim()).toBe(testCase.line)
+      if (testCase.flow.phase === "available")
+        expect(captureCharFrame()).toContain("Run: brew upgrade noodle")
       if (testCase.status && testCase.color) {
         const spans = captureSpans().lines.flatMap((line) => line.spans)
         const statusSpan = spans.find((span) =>

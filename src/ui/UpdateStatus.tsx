@@ -24,6 +24,8 @@ export function getUpdateStatusSegments(
       return [{ text: " ✓", color: "success" }]
     case "checking":
       return [{ text: " ⟳ Checking for updates…", color: "secondary" }]
+    case "available":
+      return [{ text: ` ↑ ${updateFlow.version} available`, color: "warning" }]
     case "downloading":
       return [
         {

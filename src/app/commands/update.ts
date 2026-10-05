@@ -20,7 +20,7 @@ import {
   type UpdateDependencies,
   type UpdateCache,
 } from "./updateMetadata"
-import { runHomebrewUpdate, downloadAndInstall } from "./updateInstall"
+import { downloadAndInstall } from "./updateInstall"
 
 export type {
   UpdateStatus,
@@ -57,7 +57,6 @@ export {
   sha256,
   parseChecksumManifest,
   installBinaryUpdate,
-  installBrewUpdate,
 } from "./updateInstall"
 
 export async function runUpdate(
@@ -75,7 +74,10 @@ export async function runUpdate(
     return { data: { status: "dev_mode" }, failed: true }
   }
   if (isHomebrewInstall(deps.execPath)) {
-    return runHomebrewUpdate(silent, deps)
+    output("Run: brew upgrade noodle")
+    return {
+      data: { status: "homebrew_managed", command: "brew upgrade noodle" },
+    }
   }
 
   let platform: string

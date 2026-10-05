@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdir, mkdtemp, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, useEffect } from "react"
@@ -32,15 +32,16 @@ describe("useUpdateFlow skill refresh", () => {
     home = undefined
   })
 
-  it("finishes with a warning when skill refresh fails", async () => {
+  it("leaves managed Homebrew skills untouched and reports the upgrade command", async () => {
     home = await mkdtemp(join(tmpdir(), "noodle-update-skill-flow-"))
     await mkdir(join(home, ".agents", "skills", "noodle-use"), {
       recursive: true,
     })
+    const skillPath = join(home, ".agents", "skills", "noodle-use", "SKILL.md")
+    await writeFile(skillPath, "existing skill")
     const commands: string[][] = []
     const phases: string[] = []
-    const skillRefreshStarted = Promise.withResolvers<void>()
-    const skillRefreshFinished = Promise.withResolvers<void>()
+    const available = Promise.withResolvers<void>()
     const dependencies: Partial<UpdateDependencies> = {
       execPath: "/opt/homebrew/Cellar/noodle/0.7.5/bin/noodle",
       platform: "darwin",
@@ -48,8 +49,6 @@ describe("useUpdateFlow skill refresh", () => {
       env: { HOME: home },
       runProcess: async (args) => {
         commands.push(args)
-        const skillRefresh = args[0].endsWith("/noodle")
-        if (skillRefresh) skillRefreshStarted.resolve()
         if (args[1] === "info")
           return {
             exitCode: 0,
@@ -57,9 +56,7 @@ describe("useUpdateFlow skill refresh", () => {
               formulae: [{ versions: { stable: "99.0.0" } }],
             }),
           }
-        const result = { exitCode: skillRefresh ? 1 : 0 }
-        if (skillRefresh) skillRefreshFinished.resolve()
-        return result
+        return { exitCode: 0 }
       },
     }
 
@@ -72,6 +69,7 @@ describe("useUpdateFlow skill refresh", () => {
             dependencies={dependencies}
             onFlow={(flow) => {
               if (phases.at(-1) !== flow.phase) phases.push(flow.phase)
+              if (flow.phase === "available") available.resolve()
             }}
           />
         </ThemeProvider>,
@@ -81,22 +79,18 @@ describe("useUpdateFlow skill refresh", () => {
     try {
       await act(async () => render.renderOnce())
       await act(async () => {
-        await skillRefreshStarted.promise
-        await skillRefreshFinished.promise
+        await available.promise
         await render.renderOnce()
       })
       await act(async () => render.renderOnce())
 
-      expect(phases).toContain("installing")
-      expect(phases.at(-1)).toBe("done")
+      expect(phases).not.toContain("installing")
+      expect(phases.at(-1)).toBe("available")
       expect(commands).toEqual([
         ["/opt/homebrew/bin/brew", "info", "--json=v2", "noodle"],
-        ["/opt/homebrew/bin/brew", "upgrade", "noodle"],
-        ["/opt/homebrew/bin/noodle", "agent", "install", "--json"],
       ])
-      expect(render.captureCharFrame()).toContain(
-        "Noodle updated; skill update failed",
-      )
+      expect(await readFile(skillPath, "utf8")).toBe("existing skill")
+      expect(render.captureCharFrame()).toContain("Run: brew upgrade noodle")
     } finally {
       await act(async () => {
         if (!render.renderer.isDestroyed) render.renderer.destroy()

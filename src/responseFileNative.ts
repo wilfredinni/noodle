@@ -29,7 +29,10 @@ export function responseFileNative(): ResponseFileNative {
     const report = process.report.getReport() as {
       header?: { glibcVersionRuntime?: string }
     }
-    const musl = !report.header?.glibcVersionRuntime
+    const musl =
+      process.env.NOODLE_LIBC === "glibc"
+        ? false
+        : !report.header?.glibcVersionRuntime
     native =
       process.arch === "arm64"
         ? musl
