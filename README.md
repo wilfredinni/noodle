@@ -32,6 +32,11 @@ in beta.
 See [installation options](https://noodlerest.dev/docs/getting-started/installation/)
 for Homebrew and source builds.
 
+Homebrew controls upgrades: `noodle update` prints `brew upgrade noodle`, and the
+TUI reports available versions without installing them. Run `noodle agent install`
+after a brew upgrade to refresh an installed skill. The current tap remains active
+while a source-built Homebrew core formula is prepared; core acceptance is pending.
+
 ### Windows x64 (beta)
 
 Windows x64 binaries are included from v0.9.7. Install from PowerShell:

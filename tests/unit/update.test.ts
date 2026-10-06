@@ -20,8 +20,8 @@ import {
   UPDATE_CACHE_TTL_MS,
   UPDATE_CACHE_STALE_MS,
   checkForUpdates,
+  getUpdateDeps,
   installBinaryUpdate,
-  installBrewUpdate,
   parseManifest,
 } from "../../src/app/commands/update"
 
@@ -594,81 +594,62 @@ describe("update release discovery via manifest", () => {
 })
 
 describe("Homebrew updates", () => {
-  const brewDeps = (
-    runProcess: (
-      args: string[],
-      captureOutput: boolean,
-    ) => Promise<{ exitCode: number }>,
-  ) => ({
-    cachePath: "/tmp/noodle-homebrew-cache.json",
-    now: () => 1000,
-    execPath: homebrewExecPath,
-    platform: "darwin",
-    arch: "arm64",
-    env: {},
-    runProcess,
-  })
-
-  it("runs brew upgrade noodle and captures output in JSON mode", async () => {
-    let receivedArgs: string[] | undefined
-    let captured: boolean | undefined
-    let fetchCalled = false
-    const result = await runUpdate(true, false, {
-      ...brewDeps(async (args, captureOutput) => {
-        receivedArgs = args
-        captured = captureOutput
-        return { exitCode: 0 }
-      }),
-      fetcher: async () => {
-        fetchCalled = true
-        return new Response()
-      },
-    })
-    expect(result).toEqual({
-      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
-    })
-    expect(receivedArgs).toEqual([
-      "/opt/homebrew/bin/brew",
-      "upgrade",
-      "noodle",
+  it("emits one successful JSON envelope from the CLI, including with force", () => {
+    const run = Bun.spawnSync([
+      process.execPath,
+      "-e",
+      `import { runCommand } from "citty";
+       import update from "./src/app/commands/update.ts";
+       Object.defineProperty(process, "execPath", { value: "${homebrewExecPath}" });
+       await runCommand(update, { rawArgs: ["--json", "--force"] });`,
     ])
-    expect(captured).toBe(true)
-    expect(fetchCalled).toBe(false)
+    expect(run.exitCode).toBe(0)
+    expect(run.stderr.toString()).toBe("")
+    expect(JSON.parse(run.stdout.toString())).toEqual({
+      status: "success",
+      data: { status: "homebrew_managed", command: "brew upgrade noodle" },
+      errors: [],
+    })
   })
 
-  it("lets human mode stream Brew output", async () => {
-    let captured: boolean | undefined
-    const result = await runUpdate(false, false, {
-      ...brewDeps(async (_args, captureOutput) => {
-        captured = captureOutput
-        return { exitCode: 0 }
-      }),
-    })
-    expect(result.data.status).toBe("homebrew_updated")
-    expect(captured).toBe(false)
+  it("returns command-only guidance, including with force, without downloads or subprocesses", async () => {
+    for (const force of [false, true]) {
+      const commands: string[][] = []
+      let downloads = 0
+      const result = await runUpdate(true, force, {
+        execPath: homebrewExecPath,
+        env: {},
+        runProcess: async (args) => {
+          commands.push(args)
+          return { exitCode: 0 }
+        },
+        fetcher: async () => {
+          downloads++
+          return new Response()
+        },
+      })
+      expect(result).toEqual({
+        data: { status: "homebrew_managed", command: "brew upgrade noodle" },
+      })
+      expect(commands).toEqual([])
+      expect(downloads).toBe(0)
+    }
   })
 
-  it("reports Brew failures and unavailable Brew", async () => {
-    const failed = await runUpdate(true, false, {
-      ...brewDeps(async () => ({ exitCode: 1 })),
-    })
-    const unavailable = await runUpdate(true, false, {
-      ...brewDeps(async () => {
-        throw new Error("spawn failed")
-      }),
-    })
-    expect(failed).toEqual({
-      data: {
-        status: "homebrew_failed",
-        command: "brew upgrade noodle",
-        exit_code: "1",
-      },
-      failed: true,
-    })
-    expect(unavailable).toEqual({
-      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
-      failed: true,
-    })
+  it("prints the brew command in human mode", async () => {
+    const messages: string[] = []
+    const original = console.log
+    console.log = (message) => messages.push(String(message))
+    try {
+      const result = await runUpdate(false, false, {
+        execPath: homebrewExecPath,
+        env: {},
+      })
+      expect(result.failed).toBeUndefined()
+      expect(messages).toEqual(["Run: brew upgrade noodle"])
+    } finally {
+      console.log = original
+    }
   })
 })
 
@@ -1284,129 +1265,54 @@ describe("installBinaryUpdate", () => {
   })
 })
 
-describe("installBrewUpdate", () => {
-  it("runs brew upgrade and returns success", async () => {
-    let receivedArgs: string[] | undefined
-    let receivedEnv: Record<string, string | undefined> | undefined
-    const env = { HTTPS_PROXY: "http://proxy.test:8080" }
-    const result = await installBrewUpdate({
-      execPath: homebrewExecPath,
-      platform: "darwin",
-      arch: "arm64",
-      env,
-      runProcess: async (args, capture, options) => {
-        receivedArgs = args
-        receivedEnv = options?.env
-        void capture
-        return { exitCode: 0 }
-      },
-    })
-    expect(result).toEqual({
-      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
-    })
-    expect(receivedArgs).toEqual([
-      "/opt/homebrew/bin/brew",
-      "upgrade",
-      "noodle",
-    ])
-    expect(receivedEnv).toBe(env)
-  })
-
-  it("refreshes an installed skill from Homebrew's stable bin path", async () => {
-    const home = await mkdtemp(join(tmpdir(), "noodle-brew-skill-"))
-    const commands: string[][] = []
-    try {
-      await mkdir(join(home, ".agents", "skills", "noodle-use"), {
-        recursive: true,
-      })
-      const result = await installBrewUpdate({
-        execPath: homebrewExecPath,
-        platform: "darwin",
-        arch: "arm64",
-        env: { HOME: home },
-        runProcess: async (args) => {
-          commands.push(args)
+describe("Homebrew binary replacement guard", () => {
+  it("blocks all shared binary installation entry points before side effects", async () => {
+    const { downloadAndInstall } =
+      await import("../../src/app/commands/updateInstall")
+    for (const path of [
+      homebrewExecPath,
+      "/usr/local/Cellar/noodle/0.9.7/bin/noodle",
+      "/home/linuxbrew/.linuxbrew/Cellar/noodle/0.9.7/bin/noodle",
+    ]) {
+      let effects = 0
+      const deps = getUpdateDeps({
+        execPath: path,
+        env: {},
+        fetcher: async () => {
+          effects++
+          return new Response()
+        },
+        runProcess: async () => {
+          effects++
           return { exitCode: 0 }
         },
       })
-
-      expect(result).toEqual({
-        data: {
-          status: "homebrew_updated",
-          command: "brew upgrade noodle",
-          skill_status: "updated",
-        },
-      })
-      expect(commands).toEqual([
-        ["/opt/homebrew/bin/brew", "upgrade", "noodle"],
-        ["/opt/homebrew/bin/noodle", "agent", "install", "--json"],
-      ])
-    } finally {
-      await rm(home, { recursive: true, force: true })
+      const phase = () => {
+        effects++
+      }
+      const result = await installBinaryUpdate(
+        "v99.0.0",
+        "https://example.com/noodle",
+        "a".repeat(64),
+        deps,
+        phase,
+      )
+      const shared = await downloadAndInstall(
+        "v99.0.0",
+        "https://example.com/noodle",
+        "a".repeat(64),
+        deps,
+        () => {},
+        phase,
+      )
+      for (const blocked of [result, shared]) {
+        expect(blocked).toEqual({
+          data: { status: "homebrew_managed", command: "brew upgrade noodle" },
+          failed: true,
+        })
+      }
+      expect(effects).toBe(0)
     }
-  })
-
-  it("keeps a Homebrew update successful when skill refresh fails", async () => {
-    const home = await mkdtemp(join(tmpdir(), "noodle-brew-skill-fail-"))
-    try {
-      await mkdir(join(home, ".cursor", "skills", "noodle-use"), {
-        recursive: true,
-      })
-      const result = await installBrewUpdate({
-        execPath: homebrewExecPath,
-        platform: "darwin",
-        arch: "arm64",
-        env: { HOME: home },
-        runProcess: async (args) => ({
-          exitCode: args[0].endsWith("/noodle") ? 1 : 0,
-        }),
-      })
-
-      expect(result.failed).toBeUndefined()
-      expect(result.data).toEqual({
-        status: "homebrew_updated",
-        command: "brew upgrade noodle",
-        skill_status: "failed",
-        skill_retry: "noodle agent install",
-      })
-    } finally {
-      await rm(home, { recursive: true, force: true })
-    }
-  })
-
-  it("reports brew upgrade failure", async () => {
-    const result = await installBrewUpdate({
-      execPath: homebrewExecPath,
-      platform: "darwin",
-      arch: "arm64",
-      env: {},
-      runProcess: async () => ({ exitCode: 1 }),
-    })
-    expect(result).toEqual({
-      data: {
-        status: "homebrew_failed",
-        command: "brew upgrade noodle",
-        exit_code: "1",
-      },
-      failed: true,
-    })
-  })
-
-  it("returns failure when running via bun runtime (dev mode)", async () => {
-    let processCalled = false
-    const result = await installBrewUpdate({
-      execPath: "/opt/homebrew/bin/bun",
-      platform: "darwin",
-      arch: "arm64",
-      env: {},
-      runProcess: async () => {
-        processCalled = true
-        return { exitCode: 0 }
-      },
-    })
-    expect(result.data.status).toBe("homebrew_failed")
-    expect(result.failed).toBe(true)
-    expect(processCalled).toBe(false)
   })
 })
 

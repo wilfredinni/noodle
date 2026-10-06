@@ -32,10 +32,10 @@ export function responseFileNative(): ResponseFileNative {
     const musl = !report.header?.glibcVersionRuntime
     native =
       process.arch === "arm64"
-        ? musl
+        ? process.env.NOODLE_LIBC !== "glibc" && musl
           ? require("../native/response-file/prebuilds/linux-arm64-musl.node")
           : require("../native/response-file/prebuilds/linux-arm64.node")
-        : musl
+        : process.env.NOODLE_LIBC !== "glibc" && musl
           ? require("../native/response-file/prebuilds/linux-x64-musl.node")
           : require("../native/response-file/prebuilds/linux-x64.node")
   } else {

@@ -5,7 +5,6 @@ import {
   checkForUpdates,
   getUpdateDeps,
   installBinaryUpdate,
-  installBrewUpdate,
   type UpdateAvailableInfo,
   type UpdateDependencies,
 } from "../app/commands/update"
@@ -31,6 +30,8 @@ function getPreviewFlow(value: string | undefined): UpdateFlowState | null {
       return { phase: "checking" }
     case "up_to_date":
       return { phase: "up_to_date" }
+    case "available":
+      return { phase: "available", version: "v0.9.8", installType: "brew" }
     case "downloading":
       return {
         phase: "downloading",
@@ -151,6 +152,19 @@ export function useUpdateFlow(
           return
         }
 
+        if (status.installType === "brew") {
+          setUpdateFlow({
+            phase: "available",
+            version: status.latestVersion,
+            installType: "brew",
+          })
+          showToast(
+            `Noodle ${status.latestVersion} available. Run: brew upgrade noodle`,
+            "info",
+          )
+          return
+        }
+
         const update: UpdateAvailableInfo = {
           version: status.latestVersion || "latest",
           installType: status.installType,
@@ -160,7 +174,7 @@ export function useUpdateFlow(
             status.installType === "binary" ? status.expectedSha256 : undefined,
         }
         setUpdateFlow({
-          phase: update.installType === "binary" ? "downloading" : "installing",
+          phase: "downloading",
           ...update,
         })
       })
@@ -177,34 +191,6 @@ export function useUpdateFlow(
   }, [checkToken])
 
   useEffect(() => {
-    if (
-      updateFlow.phase === "installing" &&
-      updateFlow.installType === "brew"
-    ) {
-      const update = updateFlow
-      const token = ++installTokenRef.current
-      installBrewUpdate(dependenciesRef.current)
-        .then((result) => {
-          if (token !== installTokenRef.current) return
-          if (result.data.status === "homebrew_updated") {
-            showUpdateCompleted(result.data.skill_status)
-            setUpdateFlow({ phase: "done", version: update.version })
-          } else {
-            const message = result.data.exit_code
-              ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
-              : "Homebrew upgrade failed"
-            showToast("Update failed", "error")
-            setUpdateFlow({ phase: "failed", message })
-          }
-        })
-        .catch((error: unknown) => {
-          if (token !== installTokenRef.current) return
-          showToast("Update failed", "error")
-          setUpdateFlow({ phase: "failed", message: getErrorMessage(error) })
-        })
-      return
-    }
-
     if (
       updateFlow.phase !== "downloading" ||
       updateFlow.installType !== "binary" ||

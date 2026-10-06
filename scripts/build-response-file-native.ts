@@ -33,6 +33,17 @@ for (const name of [
 const sourceHash = source.digest("hex")
 const manifestPath = join(prebuilds, "manifest.json")
 const args = process.argv.slice(2)
+const hostCompiler = args.includes("--host-compiler")
+if (
+  hostCompiler &&
+  (args.some((arg) => arg.startsWith("--target=")) ||
+    args.includes("--all") ||
+    args.includes("--manifest") ||
+    args.includes("--check"))
+)
+  throw new Error(
+    "--host-compiler cannot be combined with cross-build or manifest flags",
+  )
 if (args.includes("--check")) {
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
     sourceHash: string
@@ -54,7 +65,7 @@ if (args.includes("--check")) {
 
 if (!args.includes("--manifest")) {
   let host = `${process.platform}-${process.arch}`
-  if (process.platform === "linux") {
+  if (process.platform === "linux" && !hostCompiler) {
     const report = process.report.getReport() as {
       header?: { glibcVersionRuntime?: string }
     }
@@ -65,11 +76,15 @@ if (!args.includes("--manifest")) {
     ? Object.keys(targets)
     : [requested ?? host]
   const zig = process.env.NOODLE_ZIG ?? "zig"
-  const version = Bun.spawnSync([zig, "version"])
-  if (version.exitCode !== 0 || version.stdout.toString().trim() !== "0.15.2")
-    throw new Error(
-      "Native response builds require Zig 0.15.2 (maintainer build only)",
-    )
+  if (hostCompiler && !["darwin", "linux"].includes(process.platform))
+    throw new Error("Host compiler builds support macOS and Linux only")
+  if (!hostCompiler) {
+    const version = Bun.spawnSync([zig, "version"])
+    if (version.exitCode !== 0 || version.stdout.toString().trim() !== "0.15.2")
+      throw new Error(
+        "Native response builds require Zig 0.15.2 (maintainer build only)",
+      )
+  }
   await mkdir(prebuilds, { recursive: true })
   const cache =
     process.env.NOODLE_NATIVE_BUILD_DIR ??
@@ -79,15 +94,13 @@ if (!args.includes("--manifest")) {
     const target = targets[name]
     if (!target) throw new Error(`Unknown response native target: ${name}`)
     const flags = [
-      "cc",
-      "-target",
-      target,
+      ...(hostCompiler ? [] : ["cc", "-target", target]),
       "-std=c11",
       "-O2",
       "-Wall",
       "-Wextra",
       "-Werror",
-      "-s",
+      ...(!hostCompiler ? ["-s"] : []),
       "-shared",
       `-I${join(root, "include")}`,
     ]
@@ -101,15 +114,18 @@ if (!args.includes("--manifest")) {
       "-o",
       join(prebuilds, `${name}.node`),
     )
-    const child = Bun.spawn([zig, ...flags], {
-      stdout: "inherit",
-      stderr: "inherit",
-      env: {
-        ...process.env,
-        ZIG_GLOBAL_CACHE_DIR: join(cache, "global"),
-        ZIG_LOCAL_CACHE_DIR: join(cache, "local"),
+    const child = Bun.spawn(
+      [hostCompiler ? (process.env.CC ?? "cc") : zig, ...flags],
+      {
+        stdout: "inherit",
+        stderr: "inherit",
+        env: {
+          ...process.env,
+          ZIG_GLOBAL_CACHE_DIR: join(cache, "global"),
+          ZIG_LOCAL_CACHE_DIR: join(cache, "local"),
+        },
       },
-    })
+    )
     if ((await child.exited) !== 0)
       throw new Error(`Native response build failed: ${name}`)
     await rm(join(prebuilds, `${name}.pdb`), { force: true })

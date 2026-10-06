@@ -17,6 +17,13 @@ import {
 } from "./commands/automation"
 
 const rawArgs = process.argv.slice(2)
+if (process.env.NOODLE_TEST_SCRIPT_DIAGNOSTICS === "1") {
+  const { verifyBundledScriptDiagnostics } =
+    await import("../ui/editor/scriptDiagnosticsSmoke")
+  await verifyBundledScriptDiagnostics()
+  console.log("bundled semantic diagnostics passed")
+  process.exit(0)
+}
 if (rawArgs.length === 1 && ["-v", "--version"].includes(rawArgs[0])) {
   console.log(pkg.version)
   process.exit(0)

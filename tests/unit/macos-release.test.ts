@@ -217,7 +217,7 @@ describe("release platforms", () => {
     }
     expect(ci.jobs["test-windows"]["timeout-minutes"]).toBe(30)
     expect(ci.jobs["platform-checks"]["timeout-minutes"]).toBe(
-      "${{ matrix.os == 'windows-latest' && 30 || 10 }}",
+      "${{ matrix.os == 'windows-latest' && 30 || 20 }}",
     )
     expect(
       ci.jobs["test-windows"].steps!.filter((step) =>

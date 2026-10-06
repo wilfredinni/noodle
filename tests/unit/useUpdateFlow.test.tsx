@@ -300,7 +300,7 @@ describe("useUpdateFlow", () => {
     expect(checks).toBe(2)
   })
 
-  it("auto-installs Homebrew updates without confirmation", async () => {
+  it("reports Homebrew updates without installation", async () => {
     const commands: string[] = []
     const { getState, phases, waitFor } = await renderHook({
       execPath: "/opt/homebrew/Cellar/noodle/0.7.4/bin/noodle",
@@ -325,14 +325,17 @@ describe("useUpdateFlow", () => {
         return { exitCode: 0 }
       },
     })
-    await waitFor(() => getState().updateFlow.phase === "done")
+    await waitFor(() => getState().updateFlow.phase === "available")
 
-    expect(phases).toContain("installing")
+    expect(phases).not.toContain("installing")
+    expect(phases).not.toContain("downloading")
+    expect(getState().updateFlow).toEqual({
+      phase: "available",
+      version: "v99.0.0",
+      installType: "brew",
+    })
     expect(phases).not.toContain("confirm")
-    expect(commands).toEqual([
-      "/opt/homebrew/bin/brew info --json=v2 noodle",
-      "/opt/homebrew/bin/brew upgrade noodle",
-    ])
+    expect(commands).toEqual(["/opt/homebrew/bin/brew info --json=v2 noodle"])
   })
 
   it("maps unsupported runtimes back to the version-only idle state", async () => {

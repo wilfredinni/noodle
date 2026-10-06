@@ -104,6 +104,9 @@ export function AboutOverlay({
           selectable={false}
         />
         <AboutVersion updateFlow={updateFlow} />
+        {updateFlow.phase === "available" && (
+          <text fg={theme.primary}>Run: brew upgrade noodle</text>
+        )}
         <text fg={theme.textMuted}>
           Free, open-source REST client that runs entirely in your terminal.
         </text>
