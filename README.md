@@ -1,8 +1,6 @@
 <h1 align="center">Noodle</h1>
 
-<p align="center"><strong>The repository is the workspace</strong></p>
-
-<p align="center">Open-source terminal REST client</p>
+<p align="center"><strong>The Open-source terminal REST client where the repository is the workspace</strong></p>
 
 <p align="center">
   Write, send, inspect, and automate HTTP requests from readable files without
