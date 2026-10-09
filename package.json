@@ -39,7 +39,7 @@
     "jose": "^6.2.12",
     "js-yaml": "^5.4.2",
     "jsonc-parser": "^3.3.1",
-    "jsonpath-plus": "^10.4.0",
+    "jsonpath-plus": "^11.1.1",
     "oauth-1.0a": "^2.2.6",
     "postman-collection": "^5.3.1",
     "quickjs-emscripten-core": "0.32.0",
