@@ -12,8 +12,8 @@ extracted Noodle source tree: it replaces the host addon and installed OpenTUI
 library in that tree. Linux builds target glibc. The normal cross-platform
 release builder remains separate.
 
-The formula and Unix CI pin OpenTUI v0.5.14 with SHA-256
-`0e092b7405934c3a30f6eca2cb6e35eb00d9d8948d15daa69af2371e1e641a6e`.
+The formula template and Unix CI pin OpenTUI v0.5.17 with SHA-256
+`f272f54f96ff230a188c9cf9f593105c6e784f0a14fdbcb7169e523d9c9b7a96`.
 When changing the locked OpenTUI version, update both pins and verify its native
 toolchain requirements. Portable JavaScript/WASM dependencies stay locked;
 platform-specific native output is rebuilt.

@@ -123,15 +123,15 @@ jobs:
           set -euo pipefail
           source_dir="$RUNNER_TEMP/noodle-homebrew"
           mkdir -p "$source_dir/noodle"
-          curl --fail --location --silent --show-error https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.14.tar.gz -o "$source_dir/opentui.tar.gz"
-          printf '%s  %s\n' 0e092b7405934c3a30f6eca2cb6e35eb00d9d8948d15daa69af2371e1e641a6e "$source_dir/opentui.tar.gz" | shasum -a 256 -c -
+          curl --fail --location --silent --show-error https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.17.tar.gz -o "$source_dir/opentui.tar.gz"
+          printf '%s  %s\n' f272f54f96ff230a188c9cf9f593105c6e784f0a14fdbcb7169e523d9c9b7a96 "$source_dir/opentui.tar.gz" | shasum -a 256 -c -
           tar -xzf "$source_dir/opentui.tar.gz" -C "$source_dir"
           git archive HEAD | tar -x -C "$source_dir/noodle"
           cd "$source_dir/noodle"
           export BUN_INSTALL_CACHE_DIR="$source_dir/bun-cache"
           bun install --frozen-lockfile --ignore-scripts
           rm -rf node_modules
-          bun run build:homebrew --offline --opentui-source "$source_dir/opentui-0.5.14" --zig "$(command -v zig)" --outfile "$source_dir/noodle-source"
+          bun run build:homebrew --offline --opentui-source "$source_dir/opentui-0.5.17" --zig "$(command -v zig)" --outfile "$source_dir/noodle-source"
           NOODLE_TEST_BINARY="$source_dir/noodle-source" bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
       - name: Record validated binary metadata
         run: bun scripts/release-artifacts.ts record "${{ matrix.target }}"

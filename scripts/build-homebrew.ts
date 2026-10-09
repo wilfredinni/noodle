@@ -40,7 +40,7 @@ if (
   zigVersion.exitCode !== 0 ||
   zigVersion.stdout.toString().trim() !== "0.16.0"
 )
-  throw new Error("OpenTUI v0.5.14 requires Zig 0.16.0")
+  throw new Error("The Homebrew source build requires Zig 0.16.0")
 await run([
   process.execPath,
   "install",

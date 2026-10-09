@@ -14,8 +14,8 @@ class Noodle < Formula
   depends_on "zig@0.16" => :build
 
   resource "opentui" do
-    url "https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.14.tar.gz"
-    sha256 "0e092b7405934c3a30f6eca2cb6e35eb00d9d8948d15daa69af2371e1e641a6e"
+    url "https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.17.tar.gz"
+    sha256 "f272f54f96ff230a188c9cf9f593105c6e784f0a14fdbcb7169e523d9c9b7a96"
   end
 
   deny_network_access! :test
