@@ -37,7 +37,7 @@
     "csv-parse": "7.0.3",
     "httpsnippet": "^3.0.10",
     "jose": "^6.2.12",
-    "js-yaml": "^5.4.2",
+    "js-yaml": "^5.4.3",
     "jsonc-parser": "^3.3.1",
     "jsonpath-plus": "^10.4.0",
     "oauth-1.0a": "^2.2.6",
