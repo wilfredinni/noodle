@@ -264,13 +264,13 @@ Text history remains compatible. Add no request YAML fields for response handlin
 | Method | Command |
 |--------|---------|
 | **curl** | `curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh \| sh` |
-| **Homebrew** | `brew tap wilfredinni/noodle && brew trust wilfredinni/noodle && brew install noodle` |
+| **Homebrew** | `brew install noodle` |
 | **PowerShell (Windows x64 beta)** | `irm https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.ps1 \| iex` |
 | **Source** | `bun install && bun run build:bin` |
 
 - Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases
-- Homebrew tap at `github.com/wilfredinni/homebrew-noodle` — formula auto-updates SHA256 on release
-- Release workflow at `.github/workflows/release.yml`: triggered by `git tag v*` or manual recovery, reuses validated CI binaries at the exact release commit for macos-arm64, macos-x86_64, linux-x86_64, linux-arm64, and windows-x86_64 (unsigned beta `.exe`). Only absent or expired eligible artifacts trigger a rebuild; failed CI or invalid metadata blocks publication. It publishes `SHA256SUMS`, validates downloaded macOS and Windows artifacts before publication, updates noodle-site's `update.json` after release publication, and notifies the current Homebrew tap.
+- Homebrew core formula is the source of truth (`https://formulae.brew.sh/formula/noodle`); old `wilfredinni/noodle` tap is retired with `tap_migrations.json` → `homebrew/core`. See `packaging/homebrew/README.md` for migration (`brew reinstall` + `brew untap wilfredinni/noodle`).
+- Release workflow at `.github/workflows/release.yml`: triggered by `git tag v*` or manual recovery, reuses validated CI binaries at the exact release commit for macos-arm64, macos-x86_64, linux-x86_64, linux-arm64, and windows-x86_64 (unsigned beta `.exe`). Only absent or expired eligible artifacts trigger a rebuild; failed CI or invalid metadata blocks publication. It publishes `SHA256SUMS`, validates downloaded macOS and Windows artifacts before publication, and updates noodle-site's `update.json` after release publication. Homebrew core updates independently; no tap dispatch (manual bump via `brew bump-formula-pr`, see `packaging/homebrew/README.md`).
 - Windows PowerShell 5.1+ installation uses `%LOCALAPPDATA%\Programs\Noodle\noodle.exe` and user PATH by default; `NOODLE_VERSION`, `NOODLE_INSTALL_DIR`, and `NOODLE_SKIP_PATH_UPDATE=1` override those choices. Windows updates return `restart_required` and `log_path`; the detached helper applies the verified binary after Noodle exits, verifies its version, and refreshes an installed skill. Windows ARM64 release binaries are unsupported; ordinary-account interactive terminal testing remains pending.
 - macOS standalone builds run `scripts/sign-macos-binary.ts` immediately after compilation, before smoke tests and checksums. Release publication requires verifying the downloaded draft macOS artifact's checksum, signature, version, and scripting sandbox without re-signing it; published release assets cannot be replaced by rerunning the workflow.
 
