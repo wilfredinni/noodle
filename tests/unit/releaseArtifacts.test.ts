@@ -14,6 +14,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   buildManifest,
+  bunVersion,
   recordArtifact,
   releaseTargets,
   resolveCI,
@@ -190,12 +191,33 @@ function fixture() {
       sha,
       "0.9.7",
       "123",
+      bunVersion,
     )
   }
   return { root, directory, output: join(root, "release-assets") }
 }
 
 describe("validated release artifacts", () => {
+  it("rejects a mismatched producer Bun version before writing", () => {
+    const root = mkdtempSync(join(tmpdir(), "noodle-producer-"))
+    const output = join(root, "validated-build")
+    try {
+      expect(() =>
+        recordArtifact(
+          root,
+          output,
+          releaseTargets[0].target,
+          sha,
+          "0.9.7",
+          "123",
+          "0.0.0",
+        ),
+      ).toThrow("Invalid artifact producer")
+      expect(existsSync(output)).toBe(false)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
   it("records and verifies artifacts again in existing output directories", () => {
     const { root, directory, output } = fixture()
     try {
@@ -207,6 +229,7 @@ describe("validated release artifacts", () => {
         sha,
         "0.9.7",
         "123",
+        bunVersion,
       )
       verifyArtifacts(directory, output, sha, "0.9.7", "123")
       writeFileSync(join(output, entry.asset), "stale")
