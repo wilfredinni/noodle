@@ -164,8 +164,7 @@ describe("release platforms", () => {
     expect(workflow.on.workflow_dispatch).toEqual({
       inputs: {
         tag: {
-          description:
-            "Published release to recover (site manifest and Homebrew only)",
+          description: "Published release to recover (site manifest only)",
           required: true,
           type: "string",
         },
@@ -920,9 +919,12 @@ describe("macOS release signing", () => {
       "checksums",
     )
     expect(workflow.jobs.undraft.needs).toContain("validate-release-artifact")
-    expect(workflow.jobs["notify-homebrew"].needs).toContain(
-      "publication-ready",
-    )
+    expect(workflow.jobs["notify-homebrew"]).toBeUndefined()
+    expect(JSON.stringify(workflow)).not.toContain("HOMEBREW_TAP_TOKEN")
+    expect(JSON.stringify(workflow)).not.toContain("homebrew-noodle")
+    for (const dependency of workflow.jobs.summary.needs!) {
+      expect(workflow.jobs[dependency]).toBeDefined()
+    }
     expect(workflow.jobs["publish-update-manifest"].needs).toContain(
       "publication-ready",
     )

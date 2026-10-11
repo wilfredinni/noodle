@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Published release to recover (site manifest and Homebrew only)
+        description: Published release to recover (site manifest only)
         required: true
         type: string
 
@@ -389,28 +389,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - run: echo "Published release validated; site and Homebrew may be synchronized."
-
-  notify-homebrew:
-    needs: [validate-release, publication-ready]
-    if: ${{ always() && !cancelled() && needs.publication-ready.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Notify Homebrew tap
-        env:
-          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ needs.validate-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          test -n "$TOKEN" || { echo "HOMEBREW_TAP_TOKEN is not configured" >&2; exit 1; }
-          curl --fail-with-body -sS -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $TOKEN" \
-            "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
-            -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
-          echo "Homebrew notification accepted; completion is tracked in the tap's Update Formula workflow." >> "$GITHUB_STEP_SUMMARY"
+      - run: echo "Published release validated; site manifest may be synchronized."
 
   publish-update-manifest:
     needs: [validate-release, publication-ready]
@@ -474,7 +453,7 @@ jobs:
           exit 1
 
   summary:
-    needs: [validate-release, resolve-ci, quality, create-release, checksums, validate-release-artifact, undraft, recover-publication, publication-ready, publish-update-manifest, notify-homebrew]
+    needs: [validate-release, resolve-ci, quality, create-release, checksums, validate-release-artifact, undraft, recover-publication, publication-ready, publish-update-manifest]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 1
@@ -498,6 +477,4 @@ jobs:
             fi
             echo
             jq -r 'to_entries[] | "- \(.key): \(.value.result)"' <<< "$STAGES"
-            echo
-            echo "Homebrew success means dispatch accepted. Confirm formula completion in https://github.com/wilfredinni/homebrew-noodle/actions/workflows/update-formula.yml"
           } >> "$GITHUB_STEP_SUMMARY"

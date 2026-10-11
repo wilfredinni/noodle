@@ -10,7 +10,7 @@ Import OpenAPI 3.0, Swagger 2.0, Postman, and Insomnia collections into noodle f
 noodle import --help
 ```
 
-If `noodle` is not found, guide the user to [installation instructions](https://noodlerest.dev/docs/getting-started/installation/) for the current Homebrew tap setup or the checksum-verified install script. Homebrew core acceptance is pending; do not assume a fresh `brew install noodle` works without the tap.
+If `noodle` is not found, guide the user to [installation instructions](https://noodlerest.dev/docs/getting-started/installation/): use `brew install noodle` from Homebrew core or the checksum-verified install script. Existing `wilfredinni/noodle` users should follow the tap migration instructions on that page.
 
 ## Import workflow
 

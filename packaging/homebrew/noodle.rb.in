@@ -5,20 +5,21 @@ class Noodle < Formula
   sha256 "__NOODLE_SOURCE_SHA256__"
   license "Apache-2.0"
 
-  livecheck do
-    url :stable
-    strategy :github_latest
-  end
-
   depends_on "bun" => :build
+  # TODO: Use zig when Noodle's OpenTUI build supports Zig 0.17.
+  # https://github.com/anomalyco/opentui/pull/1586
   depends_on "zig@0.16" => :build
+
+  on_linux do
+    depends_on "icu4c@78"
+  end
 
   resource "opentui" do
     url "https://github.com/anomalyco/opentui/archive/refs/tags/v0.5.17.tar.gz"
     sha256 "f272f54f96ff230a188c9cf9f593105c6e784f0a14fdbcb7169e523d9c9b7a96"
   end
 
-  deny_network_access! :test
+  deny_network_access!
 
   def fetch
     ENV["BUN_INSTALL_CACHE_DIR"] = buildpath/"bun-cache"
@@ -39,7 +40,6 @@ class Noodle < Formula
   end
 
   test do
-    ENV["HOME"] = testpath.to_s
     assert_match version.to_s, shell_output("#{bin}/noodle --version")
     system bin/"noodle", "collection", "create", "brew-test", "--output", testpath, "--json"
     collection = testpath/"brew-test"

@@ -4,6 +4,17 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### 🔧 Refactors
+
+- Retire the old Homebrew tap's release dispatch after acceptance into Homebrew core. Published-release recovery now synchronizes only the website update manifest.
+- Align the local formula template with the accepted core formula, including Linux ICU dependencies and offline build enforcement.
+
+### 📚 Documentation
+
+- Document official `brew install noodle` installation and migration from the old tap, including explicit agent skill refresh after upgrades.
+- Update the `noodle-release` skill for Homebrew core maintenance and site-only publication recovery.
+- Update the `noodle-use` skill's import prerequisites to use the official Homebrew formula.
+
 ## [0.9.8] - 2026-10-05
 
 Noodle 0.9.8 keeps Homebrew installations under Homebrew's control: update checks report available versions, and `noodle update` prints the upgrade command. A reproducible native source build prepares Noodle for a core formula, while release publication now reuses the binaries validated by CI. The current tap remains active; acceptance into Homebrew core is pending.

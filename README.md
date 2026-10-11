@@ -23,6 +23,14 @@
 
 ## Install
 
+Install from [Homebrew core](https://formulae.brew.sh/formula/noodle):
+
+```bash
+brew install noodle
+```
+
+Or use the standalone installer:
+
 ```bash
 curl -LsSf https://noodlerest.dev/install.sh | sh
 ```
@@ -34,8 +42,8 @@ for Homebrew and source builds.
 
 Homebrew controls upgrades: `noodle update` prints `brew upgrade noodle`, and the
 TUI reports available versions without installing them. Run `noodle agent install`
-after a brew upgrade to refresh an installed skill. The current tap remains active
-while a source-built Homebrew core formula is prepared; core acceptance is pending.
+after a brew upgrade to refresh an installed skill. If you used `wilfredinni/noodle`,
+follow the [tap migration instructions](https://noodlerest.dev/docs/getting-started/installation/#migrate-from-the-old-tap).
 
 ### Windows x64 (beta)
 
