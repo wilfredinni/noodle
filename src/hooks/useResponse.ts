@@ -11,12 +11,7 @@ import type {
 import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
 import type { CollectionCookieJar } from "../cookies"
-import {
-  startSend,
-  finishSend,
-  failSend,
-  type SendState,
-} from "../ui/sendState"
+import { startSend, type SendState } from "../ui/sendState"
 import type { ResponseExecutionResults } from "../executionResults"
 import { RunScope } from "../runScope"
 import { persistResponseCaptures, persistScriptChanges } from "../app/services"
@@ -77,6 +72,7 @@ export function useResponse(
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
+  const latestSignalsRef = useRef<Map<string, AbortSignal>>(new Map())
   const selectedRequestIdRef = useRef(selectedRequest?.id)
 
   useEffect(() => {
@@ -109,6 +105,7 @@ export function useResponse(
       if (prev.status === "sending") return prev
       const controller = new AbortController()
       abortRef.current = controller
+      latestSignalsRef.current.set(req.id, controller.signal)
       void runSend(
         req,
         env ?? undefined,
@@ -116,6 +113,7 @@ export function useResponse(
         setState,
         cacheRef,
         abortRef,
+        latestSignalsRef,
         selectedRequestIdRef,
         onCompleteRef,
         collection,
@@ -154,6 +152,7 @@ async function runSend(
   setState: Dispatch<SetStateAction<SendState>>,
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
+  latestSignalsRef: React.RefObject<Map<string, AbortSignal>>,
   selectedRequestIdRef: React.RefObject<string | undefined>,
   onCompleteRef: React.RefObject<
     | ((
@@ -174,6 +173,27 @@ async function runSend(
   onEnvironmentPersisted?: () => Promise<void>,
 ): Promise<void> {
   const runScope = new RunScope()
+  const publishResult = (result: CachedResult) => {
+    if (latestSignalsRef.current.get(req.id) !== signal) return
+    cacheRef.current.set(req.id, result)
+    setState((prev) =>
+      latestSignalsRef.current.get(req.id) === signal &&
+      selectedRequestIdRef.current === req.id
+        ? result
+        : prev,
+    )
+  }
+  const resetCancelled = () => {
+    if (latestSignalsRef.current.get(req.id) !== signal) return
+    setState((prev) =>
+      latestSignalsRef.current.get(req.id) === signal &&
+      selectedRequestIdRef.current === req.id &&
+      prev.status === "sending" &&
+      prev.request.id === req.id
+        ? { status: "idle" }
+        : prev,
+    )
+  }
   try {
     const lifecycle = await executeRequestLifecycle({
       scriptSources: createScriptSourceResolver(collectionDir, true),
@@ -197,9 +217,12 @@ async function runSend(
       transport: {
         signal,
         onNetworkEvent: (network: NetworkEvent[]) => {
-          if (abortRef.current?.signal !== signal) return
+          if (latestSignalsRef.current.get(req.id) !== signal) return
           setState((prev) =>
-            prev.status === "sending" && prev.request.id === req.id
+            latestSignalsRef.current.get(req.id) === signal &&
+            selectedRequestIdRef.current === req.id &&
+            prev.status === "sending" &&
+            prev.request.id === req.id
               ? { ...prev, network }
               : prev,
           )
@@ -212,8 +235,6 @@ async function runSend(
       },
     })
 
-    if (lifecycle.status === "cancelled" && abortRef.current?.signal !== signal)
-      return
     if (lifecycle.status === "error") {
       const result = {
         status: "error" as const,
@@ -221,10 +242,7 @@ async function runSend(
         error: lifecycle.error,
         execution: lifecycle.execution,
       }
-      cacheRef.current.set(req.id, result)
-      setState((prev) =>
-        failSend(prev, lifecycle.request, lifecycle.error, lifecycle.execution),
-      )
+      publishResult(result)
       onCompleteRef.current?.(
         lifecycle.request,
         result,
@@ -237,11 +255,7 @@ async function runSend(
 
     const response = lifecycle.response
     if (!response) {
-      setState((prev) =>
-        prev.status === "sending" && prev.request.id === req.id
-          ? { status: "idle" }
-          : prev,
-      )
+      resetCancelled()
       return
     }
     const execution = lifecycle.execution
@@ -250,13 +264,7 @@ async function runSend(
       response,
       execution,
     }
-    cacheRef.current.set(req.id, { ...result, requestId: req.id })
-    if (abortRef.current?.signal === signal)
-      setState((prev) =>
-        selectedRequestIdRef.current === req.id
-          ? finishSend(prev, req, response, execution)
-          : prev,
-      )
+    publishResult({ ...result, requestId: req.id })
     onCompleteRef.current?.(
       lifecycle.request,
       result,
@@ -266,12 +274,7 @@ async function runSend(
     )
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
-      if (abortRef.current?.signal === signal)
-        setState((prev) =>
-          prev.status === "sending" && prev.request.id === req.id
-            ? { status: "idle" }
-            : prev,
-        )
+      resetCancelled()
       return
     }
     const err = e instanceof Error ? e : new Error(String(e), { cause: e })
@@ -280,8 +283,7 @@ async function runSend(
       request: req,
       error: err,
     }
-    cacheRef.current.set(req.id, result)
-    setState((prev) => failSend(prev, req, err))
+    publishResult(result)
     onCompleteRef.current?.(req, result, env, undefined, false)
   } finally {
     if (abortRef.current?.signal === signal) abortRef.current = null

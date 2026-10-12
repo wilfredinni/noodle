@@ -31,6 +31,201 @@ function request(over: Partial<Request> = {}): Request {
 }
 
 describe("useResponse execution results", () => {
+  for (const newerFirst of [false, true]) {
+    for (const oldOutcome of ["done", "error"] as const) {
+      for (const sameRequest of [false, true]) {
+        it(`keeps overlapping ${sameRequest ? "same-request" : "different-request"} results ordered when the older send ${oldOutcome === "done" ? "succeeds" : "fails"} ${newerFirst ? "last" : "first"}`, async () => {
+          const originalSend = executor.send
+          const pending = [
+            Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+            Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+          ]
+          const started = [
+            Promise.withResolvers<void>(),
+            Promise.withResolvers<void>(),
+          ]
+          let calls = 0
+          executor.send = () => {
+            const index = calls++
+            started[index]!.resolve()
+            return pending[index]!.promise
+          }
+          const first = request()
+          const second = sameRequest ? first : request({ id: "second" })
+          let manual!: UseResponseResult
+          let select!: (req: Request | null) => void
+          const completed: {
+            id: string
+            status: SendCompleteResult["status"]
+          }[] = []
+          function Harness() {
+            const [selected, setSelected] = useState<Request | null>(first)
+            select = setSelected
+            manual = useResponse(selected, undefined, (req, result) => {
+              completed.push({ id: req.id, status: result.status })
+            })
+            return null
+          }
+          try {
+            const render = await act(async () =>
+              testRender(<Harness />, { width: 10, height: 3 }),
+            )
+            await act(async () => manual.trySend())
+            await act(async () => started[0]!.promise)
+            await act(async () => select(null))
+            await act(async () => select(second))
+            await act(async () => manual.trySend())
+            await act(async () => started[1]!.promise)
+            const finish = async (index: number) => {
+              await act(async () => {
+                if (index === 0 && oldOutcome === "error")
+                  pending[0]!.reject(new Error("older offline"))
+                else
+                  pending[index]!.resolve({
+                    status: 200,
+                    statusText: "OK",
+                    headers: {},
+                    body: index === 0 ? "older" : "newer",
+                    timeMs: 1,
+                  })
+                await pending[index]!.promise.catch(() => {})
+                await render.flush()
+              })
+              await waitForHookState(
+                render,
+                () =>
+                  completed.length === (index === (newerFirst ? 1 : 0) ? 1 : 2),
+              )
+            }
+            await finish(newerFirst ? 1 : 0)
+            expect(manual.state).toMatchObject(
+              newerFirst
+                ? { status: "done", response: { body: "newer" } }
+                : { status: "sending", request: { id: second.id } },
+            )
+            await finish(newerFirst ? 0 : 1)
+            expect(manual.state).toMatchObject({
+              status: "done",
+              response: { body: "newer" },
+            })
+            await act(async () => select(null))
+            await act(async () => select(second))
+            expect(manual.state).toMatchObject({
+              status: "done",
+              response: { body: "newer" },
+            })
+            expect(completed).toHaveLength(2)
+            if (!sameRequest) {
+              await act(async () => select(first))
+              expect(manual.state).toMatchObject(
+                oldOutcome === "done"
+                  ? { status: "done", response: { body: "older" } }
+                  : { status: "error", error: { message: "older offline" } },
+              )
+            }
+          } finally {
+            await act(async () => {
+              manual?.cancelSend()
+              for (const deferred of pending)
+                deferred.resolve({
+                  status: 200,
+                  statusText: "OK",
+                  headers: {},
+                  body: "cleanup",
+                  timeMs: 1,
+                })
+              await Promise.allSettled(pending.map(({ promise }) => promise))
+            })
+            executor.send = originalSend
+          }
+        })
+      }
+    }
+  }
+
+  for (const secondFinishesFirst of [false, true]) {
+    it(`shows the selected first request while another send owns cancellation and finishes ${secondFinishesFirst ? "first" : "last"}`, async () => {
+      const originalSend = executor.send
+      const pending = [
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+      ]
+      const started = [
+        Promise.withResolvers<void>(),
+        Promise.withResolvers<void>(),
+      ]
+      let calls = 0
+      executor.send = () => {
+        const index = calls++
+        started[index]!.resolve()
+        return pending[index]!.promise
+      }
+      const first = request()
+      let manual!: UseResponseResult
+      let select!: (req: Request | null) => void
+      const completed: string[] = []
+      function Harness() {
+        const [selected, setSelected] = useState<Request | null>(first)
+        select = setSelected
+        manual = useResponse(selected, undefined, (req) => {
+          completed.push(req.id)
+        })
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(<Harness />, { width: 10, height: 3 }),
+        )
+        await act(async () => manual.trySend())
+        await act(async () => started[0]!.promise)
+        await act(async () => select(request({ id: "second" })))
+        await act(async () => manual.trySend())
+        await act(async () => started[1]!.promise)
+        await act(async () => select(first))
+        for (const index of secondFinishesFirst ? [1, 0] : [0, 1]) {
+          await act(async () => {
+            pending[index]!.resolve({
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: index === 0 ? "first response" : "second response",
+              timeMs: 1,
+            })
+            await pending[index]!.promise
+            await render.flush()
+          })
+          await waitForHookState(
+            render,
+            () =>
+              completed.length ===
+              (index === (secondFinishesFirst ? 1 : 0) ? 1 : 2),
+          )
+          if (index === 0 || completed.length === 2)
+            expect(manual.state).toMatchObject({
+              status: "done",
+              requestId: "first",
+              response: { body: "first response" },
+            })
+          else expect(manual.state.status).toBe("idle")
+        }
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          for (const deferred of pending)
+            deferred.resolve({
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "cleanup",
+              timeMs: 1,
+            })
+          await Promise.allSettled(pending.map(({ promise }) => promise))
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
   for (const returnBeforeCompletion of [true, false]) {
     it(`shows the active response only for the selected request ${returnBeforeCompletion ? "after returning before completion" : "after returning to its cache"}`, async () => {
       const originalSend = executor.send
