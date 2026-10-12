@@ -1575,42 +1575,68 @@ describe("send — network trace", () => {
     })
   }
 
-  it("preserves OAuth cancellation after the resource request timer expires", async () => {
-    const originalFetch = globalThis.fetch
-    const caller = new AbortController()
-    const resourceTimeout = new AbortController()
-    const timeout = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
-      ms === 25 ? resourceTimeout.signal : new AbortController().signal,
-    )
-    globalThis.fetch = mock(async () => {
-      resourceTimeout.abort(new DOMException("timed out", "TimeoutError"))
-      caller.abort(new Error("private caller reason"))
-      throw new DOMException("aborted", "AbortError")
-    }) as unknown as typeof globalThis.fetch
-    try {
-      const result = await executeRequestLifecycle({
-        request: makeReq({
-          timeout: 25,
-          auth: {
-            ...defaultOAuth2Auth(),
-            grant_type: "client_credentials",
-            client_id: "trace-client",
-            access_token_url: "https://example.com/token",
+  for (const expired of ["resource", "token", "caller"] as const) {
+    it(`preserves the OAuth ${expired === "token" ? "timeout" : "cancellation"} after the ${expired} timer expires`, async () => {
+      const originalFetch = globalThis.fetch
+      const caller = new AbortController()
+      const resourceTimeout = new AbortController()
+      const tokenTimeout = new AbortController()
+      const timeout = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+        ms === 25 ? resourceTimeout.signal : tokenTimeout.signal,
+      )
+      globalThis.fetch = mock(async (_url, init) => {
+        const expiredTimer =
+          expired === "resource" ? resourceTimeout : tokenTimeout
+        expiredTimer.abort(new DOMException("timed out", "TimeoutError"))
+        caller.abort(new Error("private caller reason"))
+        throw expired === "resource"
+          ? new DOMException("aborted", "AbortError")
+          : init!.signal!.reason
+      }) as unknown as typeof globalThis.fetch
+      try {
+        const result = await executeRequestLifecycle({
+          request: makeReq({
+            timeout: 25,
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              client_id: "trace-client",
+              access_token_url: "https://example.com/token",
+            },
+          }),
+          runScope: new RunScope(),
+          transport: {
+            signal: caller.signal,
+            onNetworkEvent: (events) => {
+              if (
+                expired === "caller" &&
+                events.at(-1)?.message === "Fetching OAuth 2 token"
+              )
+                caller.abort(
+                  new DOMException("private caller reason", "TimeoutError"),
+                )
+            },
           },
-        }),
-        runScope: new RunScope(),
-        transport: { signal: caller.signal },
-      })
-      expect(result).toMatchObject({
-        status: "cancelled",
-        error: { name: "AbortError", message: "Request cancelled" },
-      })
-      expect(JSON.stringify(result)).not.toContain("private caller reason")
-    } finally {
-      globalThis.fetch = originalFetch
-      timeout.mockRestore()
-    }
-  })
+        })
+        expect(result).toMatchObject(
+          expired !== "token"
+            ? {
+                status: "cancelled",
+                error: { name: "AbortError", message: "Request cancelled" },
+              }
+            : {
+                status: "error",
+                failureCategory: "transport",
+                error: { name: "TimeoutError", message: "Request timed out" },
+              },
+        )
+        expect(JSON.stringify(result)).not.toContain("private caller reason")
+      } finally {
+        globalThis.fetch = originalFetch
+        timeout.mockRestore()
+      }
+    })
+  }
 
   it("redacts request credentials and query values from fetch errors", async () => {
     const originalFetch = globalThis.fetch

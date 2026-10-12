@@ -345,7 +345,8 @@ export async function sendPrepared(
         })
       ).token
     } catch (e) {
-      checkAbort(e, signal)
+      // The token transport already classifies its own timeout errors.
+      checkAbort(e, e === signal?.reason ? signal : undefined)
       throw networkFailure(
         `requests.send: ${e instanceof Error ? e.message : String(e)}`,
         e,
