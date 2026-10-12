@@ -268,7 +268,7 @@ export async function sendPrepared(
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal
   }
-  const checkAbort = (cause: unknown) => {
+  const checkAbort = (cause: unknown, abortSignal: AbortSignal | undefined) => {
     if (
       !(cause instanceof DOMException) ||
       !["AbortError", "TimeoutError"].includes(cause.name)
@@ -276,8 +276,8 @@ export async function sendPrepared(
       return
     if (
       (timeoutSignal?.aborted &&
-        effectiveSignal?.reason === timeoutSignal.reason) ||
-      (!effectiveSignal?.aborted && cause.name === "TimeoutError")
+        abortSignal?.reason === timeoutSignal.reason) ||
+      (!abortSignal?.aborted && cause.name === "TimeoutError")
     ) {
       const error = new DOMException("Request timed out", "TimeoutError")
       recordNetworkEvent(network, start, "error", error.message, onNetworkEvent)
@@ -345,7 +345,7 @@ export async function sendPrepared(
         })
       ).token
     } catch (e) {
-      checkAbort(e)
+      checkAbort(e, signal)
       throw networkFailure(
         `requests.send: ${e instanceof Error ? e.message : String(e)}`,
         e,
@@ -528,7 +528,7 @@ export async function sendPrepared(
           response = await fetch(requestUrl, fetchInit)
         }
       } catch (e) {
-        checkAbort(e)
+        checkAbort(e, effectiveSignal)
         if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: fetch failed",
@@ -574,7 +574,7 @@ export async function sendPrepared(
       try {
         await response.arrayBuffer()
       } catch (e) {
-        checkAbort(e)
+        checkAbort(e, effectiveSignal)
         if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: failed to consume NTLM challenge response",
@@ -751,7 +751,7 @@ export async function sendPrepared(
     bodyBytes = new Uint8Array(await res.arrayBuffer())
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    checkAbort(e)
+    checkAbort(e, effectiveSignal)
     if (e instanceof DOMException && e.name === "AbortError") throw e
     throw networkFailure(
       `requests.send: failed to read response body: ${msg}`,

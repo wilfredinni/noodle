@@ -1575,6 +1575,43 @@ describe("send — network trace", () => {
     })
   }
 
+  it("preserves OAuth cancellation after the resource request timer expires", async () => {
+    const originalFetch = globalThis.fetch
+    const caller = new AbortController()
+    const resourceTimeout = new AbortController()
+    const timeout = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+      ms === 25 ? resourceTimeout.signal : new AbortController().signal,
+    )
+    globalThis.fetch = mock(async () => {
+      resourceTimeout.abort(new DOMException("timed out", "TimeoutError"))
+      caller.abort(new Error("private caller reason"))
+      throw new DOMException("aborted", "AbortError")
+    }) as unknown as typeof globalThis.fetch
+    try {
+      const result = await executeRequestLifecycle({
+        request: makeReq({
+          timeout: 25,
+          auth: {
+            ...defaultOAuth2Auth(),
+            grant_type: "client_credentials",
+            client_id: "trace-client",
+            access_token_url: "https://example.com/token",
+          },
+        }),
+        runScope: new RunScope(),
+        transport: { signal: caller.signal },
+      })
+      expect(result).toMatchObject({
+        status: "cancelled",
+        error: { name: "AbortError", message: "Request cancelled" },
+      })
+      expect(JSON.stringify(result)).not.toContain("private caller reason")
+    } finally {
+      globalThis.fetch = originalFetch
+      timeout.mockRestore()
+    }
+  })
+
   it("redacts request credentials and query values from fetch errors", async () => {
     const originalFetch = globalThis.fetch
     const failure = new Error(
