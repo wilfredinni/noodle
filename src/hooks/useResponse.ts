@@ -73,9 +73,12 @@ export function useResponse(
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
   const latestSignalsRef = useRef<Map<string, AbortSignal>>(new Map())
+  const visibleSignalRef = useRef<AbortSignal | null>(null)
   const selectedRequestIdRef = useRef(selectedRequest?.id)
 
   useEffect(() => {
+    if (selectedRequestIdRef.current !== selectedRequest?.id)
+      visibleSignalRef.current = null
     selectedRequestIdRef.current = selectedRequest?.id
     if (!selectedRequest) {
       setState({ status: "idle" })
@@ -100,32 +103,31 @@ export function useResponse(
 
   const trySend = useCallback(() => {
     const req = selectedRequest
-    if (req === null) return
-    setState((prev) => {
-      if (prev.status === "sending") return prev
-      const controller = new AbortController()
-      abortRef.current = controller
-      latestSignalsRef.current.set(req.id, controller.signal)
-      void runSend(
-        req,
-        env ?? undefined,
-        controller.signal,
-        setState,
-        cacheRef,
-        abortRef,
-        latestSignalsRef,
-        selectedRequestIdRef,
-        onCompleteRef,
-        collection,
-        requestPath,
-        proxyPolicy,
-        tlsPolicy,
-        cookies,
-        collectionDir,
-        onEnvironmentPersisted,
-      )
-      return startSend(prev, req)
-    })
+    if (req === null || visibleSignalRef.current) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    latestSignalsRef.current.set(req.id, controller.signal)
+    visibleSignalRef.current = controller.signal
+    setState((prev) => startSend(prev, req))
+    void runSend(
+      req,
+      env ?? undefined,
+      controller.signal,
+      setState,
+      cacheRef,
+      abortRef,
+      latestSignalsRef,
+      visibleSignalRef,
+      selectedRequestIdRef,
+      onCompleteRef,
+      collection,
+      requestPath,
+      proxyPolicy,
+      tlsPolicy,
+      cookies,
+      collectionDir,
+      onEnvironmentPersisted,
+    )
   }, [
     selectedRequest,
     env,
@@ -153,6 +155,7 @@ async function runSend(
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
   latestSignalsRef: React.RefObject<Map<string, AbortSignal>>,
+  visibleSignalRef: React.RefObject<AbortSignal | null>,
   selectedRequestIdRef: React.RefObject<string | undefined>,
   onCompleteRef: React.RefObject<
     | ((
@@ -286,6 +289,7 @@ async function runSend(
     publishResult(result)
     onCompleteRef.current?.(req, result, env, undefined, false)
   } finally {
+    if (visibleSignalRef.current === signal) visibleSignalRef.current = null
     if (abortRef.current?.signal === signal) abortRef.current = null
   }
 }

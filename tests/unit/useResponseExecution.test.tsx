@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { act, useEffect, useState } from "react"
+import { act, StrictMode, useEffect, useState } from "react"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -31,6 +31,102 @@ function request(over: Partial<Request> = {}): Request {
 }
 
 describe("useResponse execution results", () => {
+  for (const strict of [false, true]) {
+    it(`starts one lifecycle for repeated clicks ${strict ? "in StrictMode" : "before rendering"}`, async () => {
+      const originalSend = executor.send
+      const pending =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const retry =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const started = Promise.withResolvers<void>()
+      const signals: AbortSignal[] = []
+      const completed: SendCompleteResult[] = []
+      executor.send = (_req, options) => {
+        signals.push(options!.signal!)
+        started.resolve()
+        return signals.length === 1 ? pending.promise : retry.promise
+      }
+      let manual!: UseResponseResult
+      function Harness() {
+        manual = useResponse(request(), undefined, (_req, result) => {
+          completed.push(result)
+        })
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(
+            strict ? (
+              <StrictMode>
+                <Harness />
+              </StrictMode>
+            ) : (
+              <Harness />
+            ),
+            { width: 10, height: 3 },
+          ),
+        )
+        await act(async () => {
+          manual.trySend()
+          manual.trySend()
+        })
+        await act(async () => started.promise)
+        expect(signals).toHaveLength(1)
+        expect(manual.state.status).toBe("sending")
+        await act(async () => manual.cancelSend())
+        expect(signals[0]!.aborted).toBeTrue()
+        await act(async () => {
+          pending.reject(signals[0]!.reason)
+          await pending.promise.catch(() => {})
+        })
+        await waitForHookState(render, () => manual.state.status === "idle")
+        expect(completed).toEqual([])
+        await act(async () => {
+          manual.trySend()
+          manual.trySend()
+        })
+        await waitForHookState(render, () => signals.length === 2)
+        expect(signals[1]!.aborted).toBeFalse()
+        await act(async () => {
+          retry.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "retry",
+            timeMs: 1,
+          })
+          await retry.promise
+        })
+        await waitForHookState(render, () => manual.state.status === "done")
+        expect(signals).toHaveLength(2)
+        expect(completed).toMatchObject([
+          { status: "done", response: { body: "retry" } },
+        ])
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          pending.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          })
+          retry.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          })
+          await pending.promise.catch(() => {})
+          await retry.promise
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
   for (const newerFirst of [false, true]) {
     for (const oldOutcome of ["done", "error"] as const) {
       for (const sameRequest of [false, true]) {
@@ -103,6 +199,13 @@ describe("useResponse execution results", () => {
                 ? { status: "done", response: { body: "newer" } }
                 : { status: "sending", request: { id: second.id } },
             )
+            if (!newerFirst) {
+              await act(async () => {
+                manual.trySend()
+                manual.trySend()
+              })
+              expect(calls).toBe(2)
+            }
             await finish(newerFirst ? 0 : 1)
             expect(manual.state).toMatchObject({
               status: "done",
