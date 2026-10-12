@@ -125,7 +125,9 @@ it.each(
     expect(await readFile(join(result.path, "existing.yml"), "utf8")).toBe(
       existing,
     )
-    expect(await readdir(result.path, { recursive: true })).toEqual(before)
+    expect((await readdir(result.path, { recursive: true })).sort()).toEqual(
+      before.sort(),
+    )
     const fresh = await runImport({
       source,
       outputDir: join(dir, "fresh"),
