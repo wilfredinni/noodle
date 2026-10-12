@@ -41,7 +41,7 @@ export type TimelineExecutionResult =
       execution?: ResponseExecutionResults
     }
   | {
-      status: "error"
+      status: "error" | "cancelled"
       request?: Request
       error: Error
       execution?: ResponseExecutionResults
@@ -311,7 +311,7 @@ export function buildTimelineEntry(
           }
         : undefined,
     error:
-      result.status === "error"
+      result.status !== "done"
         ? { message: redact(result.error.message) }
         : undefined,
   }

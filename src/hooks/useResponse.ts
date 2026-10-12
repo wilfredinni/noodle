@@ -207,6 +207,10 @@ async function runSend(
       },
     })
 
+    if (lifecycle.status === "cancelled") {
+      setState({ status: "idle" })
+      return
+    }
     if (lifecycle.status === "error") {
       const result = {
         status: "error" as const,

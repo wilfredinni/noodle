@@ -127,6 +127,9 @@ describe("CollectionRunnerView", () => {
         summary: {
           selected: 0,
           executed: 0,
+          completed: 0,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: 0,
           requestFailures: 0,
@@ -251,6 +254,9 @@ describe("CollectionRunnerView", () => {
         summary: {
           selected: 2,
           executed: 2,
+          completed: 2,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: 2,
           requestFailures: 0,
@@ -372,6 +378,9 @@ describe("CollectionRunnerView", () => {
         summary: {
           selected: results.length,
           executed: results.length,
+          completed: results.length,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: results.length,
           requestFailures: 0,
@@ -1239,6 +1248,9 @@ describe("CollectionRunnerView", () => {
         summary: {
           selected: 2,
           executed: 1,
+          completed: 1,
+          cancelled: 0,
+          unstarted: 1,
           skipped: 1,
           requestSuccesses: 1,
           requestFailures: 0,
@@ -1382,6 +1394,9 @@ describe("CollectionRunnerView", () => {
       summary: {
         selected: 1,
         executed: 0,
+        completed: 0,
+        cancelled: 0,
+        unstarted: 1,
         skipped: 0,
         requestSuccesses: 0,
         requestFailures: 0,

@@ -19,7 +19,7 @@ export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerTagFilter = "include" | "exclude"
 export type RunnerResultRow =
   | { kind: "result"; id: string; result: RequestRunResult }
-  | { kind: "skipped"; id: string; reason: "fail-fast" }
+  | { kind: "skipped"; id: string; reason: "fail-fast" | "cancelled" }
 
 export interface UseCollectionRunnerOptions {
   collection: Collection | null

@@ -123,6 +123,9 @@ describe("human CLI output", () => {
         summary: {
           selected: 2,
           executed: 2,
+          completed: 2,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: 1,
           requestFailures: 1,
@@ -564,6 +567,9 @@ describe("human CLI output", () => {
           summary: {
             selected: 1,
             executed: 1,
+            completed: 1,
+            cancelled: 0,
+            unstarted: 0,
             skipped: 0,
             requestSuccesses: 1,
             requestFailures: 0,

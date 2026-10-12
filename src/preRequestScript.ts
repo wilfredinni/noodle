@@ -566,6 +566,7 @@ export type ScriptExecutionError = {
 }
 
 export type ScriptExecutionResult = {
+  cancelled?: true
   phase: ScriptPhase
   scope: ScriptSource["scope"]
   source?: ScriptSource
@@ -1531,8 +1532,23 @@ export async function runRequestScript(
       runtime.dispose()
     }
   } catch (error) {
-    if (options.signal?.aborted)
-      throw new DOMException("Script cancelled", "AbortError")
+    if (
+      ("cancellationSignal" in options
+        ? options.cancellationSignal
+        : options.signal
+      )?.aborted &&
+      !(
+        error instanceof ScriptEvaluationError &&
+        error.name === "ScriptWallTimeoutError"
+      )
+    ) {
+      const cancelled = failure({
+        name: "AbortError",
+        message: "Script cancelled",
+      })
+      cancelled.result.cancelled = true
+      return cancelled
+    }
     const classified = classifyScriptError(
       error instanceof ScriptEvaluationError
         ? error.diagnostic

@@ -176,7 +176,10 @@ describe("async request scripts", () => {
     await entered
     await secondEntered
     controller.abort()
-    await expect(running).rejects.toMatchObject({ name: "AbortError" })
+    await expect(running).resolves.toMatchObject({
+      status: "cancelled",
+      error: { name: "AbortError" },
+    })
     release()
   })
 

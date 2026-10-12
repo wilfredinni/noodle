@@ -7,6 +7,7 @@ import type {
   Response,
 } from "./schema"
 import { executor } from "./requests"
+import { ScriptEvaluationError } from "./scriptAsync"
 import { createBodyValueResolver } from "./bodyTemplate"
 import type { TransportExecutionOptions } from "./requests/send"
 import { requestScriptBlocks, labelScriptResult } from "./scriptInheritance"
@@ -74,6 +75,12 @@ export type RequestLifecycleResult =
       rawCaptures: CaptureResult[]
     })
   | (LifecycleBase & {
+      status: "cancelled"
+      error: Error
+      response?: Response
+      rawCaptures: CaptureResult[]
+    })
+  | (LifecycleBase & {
       status: "error"
       error: Error
       failureCategory: RequestLifecycleFailureCategory
@@ -84,6 +91,21 @@ type ScriptCallContext = {
   stack: string[]
   depth: number
   deadline?: number
+}
+
+function isCallerCancellation(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return (
+    Boolean(signal?.aborted) &&
+    !(
+      error !== signal?.reason &&
+      ((error instanceof DOMException && error.name === "TimeoutError") ||
+        (error instanceof ScriptEvaluationError &&
+          error.name === "ScriptWallTimeoutError"))
+    )
+  )
 }
 
 export function lifecycleFailureCategories(
@@ -99,18 +121,26 @@ export function lifecycleFailureCategories(
   const categories: ReturnType<typeof lifecycleFailureCategories> = []
   if (
     result.execution.scripts?.results.some(
-      (script) => !scriptExecutionSucceeded(script),
+      (script) => !script.cancelled && !scriptExecutionSucceeded(script),
     )
   )
     categories.push("script")
-  if (result.response.status >= 400) categories.push("http")
+  if (result.response && result.response.status >= 400) categories.push("http")
   if (result.execution.captures?.results.some((capture) => !capture.success))
     categories.push("capture")
   if (
     result.execution.assertions?.results.some((assertion) => !assertion.passed)
   )
     categories.push("assertion")
-  if (!testsSucceeded(result.execution.tests)) categories.push("test")
+  const tests = result.execution.tests
+  if (
+    result.status === "done"
+      ? !testsSucceeded(tests)
+      : tests?.error ||
+        tests?.errors?.length ||
+        tests?.results.some((test) => !test.passed)
+  )
+    categories.push("test")
   return categories
 }
 export async function executeRequestLifecycle(options: {
@@ -142,6 +172,11 @@ export async function executeRequestLifecycle(options: {
     requestPath,
     transport = {},
   } = options
+  const cancellationSignal =
+    "cancellationSignal" in transport
+      ? transport.cancellationSignal
+      : (transport.signal ?? null)
+  const checkCancellation = () => cancellationSignal?.throwIfAborted()
   const startedAt = options.consoleTiming ? performance.now() : undefined
   const declarations = requestScriptBlocks(request, collection, requestPath)
   const scriptSources =
@@ -173,6 +208,9 @@ export async function executeRequestLifecycle(options: {
   let timeline = request
   const scriptResults: ScriptExecutionResult[] = []
   const runtimeSecrets: string[] = []
+  let retainedResponse: Response | undefined
+  let rawCaptures: CaptureResult[] = []
+  let responseExecution = unevaluatedExecutionResults(declared)
   runScope.rememberSecrets(secretValues)
   const scriptContext = options.scriptContext ?? {
     budget: { calls: 0 },
@@ -185,6 +223,7 @@ export async function executeRequestLifecycle(options: {
       diagnostics,
       startedAt,
       signal: transport.signal,
+      cancellationSignal,
       deadline: scriptContext.deadline,
       requests,
       execute: async (kind, input, scope, signal, deadline) => {
@@ -218,6 +257,7 @@ export async function executeRequestLifecycle(options: {
           const childTransport: TransportExecutionOptions = {
             ...transport,
             signal,
+            cancellationSignal,
             oauthMode: "cached-only",
             onNetworkEvent: undefined,
             onPreparedRequest: undefined,
@@ -271,16 +311,22 @@ export async function executeRequestLifecycle(options: {
             for (const script of lifecycle.execution.scripts?.results ?? [])
               requests.push(...(script.requests ?? []))
             result = {
+              ...(lifecycle.status === "cancelled"
+                ? { cancelled: true as const }
+                : {}),
               failureCategories: lifecycleFailureCategories(lifecycle),
               execution: lifecycle.execution,
-              ...(lifecycle.status === "done"
+              ...(lifecycle.status !== "error" && lifecycle.response
                 ? { response: lifecycle.response }
-                : {
+                : {}),
+              ...(lifecycle.status !== "done"
+                ? {
                     error: {
                       name: lifecycle.error.name,
                       message: lifecycle.error.message,
                     },
-                  }),
+                  }
+                : {}),
             }
           } else {
             const child = literalScriptRequest(input, request.sendCookies)
@@ -299,10 +345,12 @@ export async function executeRequestLifecycle(options: {
               failureCategories: response.status >= 400 ? ["http"] : [],
             }
           }
-          signal.throwIfAborted()
+          if (result.cancelled) summary.cancelled = true
           summary.status = result.response?.status
           summary.failureCategories = result.failureCategories
-          summary.success = result.failureCategories.length === 0
+          summary.success =
+            !result.cancelled && result.failureCategories.length === 0
+          signal.throwIfAborted()
           if (!summary.success) {
             result.error ??= {
               name: "ScriptRequestError",
@@ -312,15 +360,23 @@ export async function executeRequestLifecycle(options: {
           summary.error = result.error
           return result
         } catch (error) {
+          summary.success = false
+          const cancelled = isCallerCancellation(error, cancellationSignal)
           const normalized = redactLifecycleError(
-            error instanceof Error ? error : new Error(String(error)),
+            cancelled
+              ? new DOMException("Request cancelled", "AbortError")
+              : error instanceof Error
+                ? error
+                : new Error(String(error)),
             scope.secretValues(),
           )
-          summary.failureCategories = [
-            dispatched ? "transport" : "configuration",
-          ]
+          if (cancelled) summary.cancelled = true
+          summary.failureCategories = summary.cancelled
+            ? []
+            : [dispatched ? "transport" : "configuration"]
           summary.error = { name: normalized.name, message: normalized.message }
           return {
+            ...(summary.cancelled ? { cancelled: true as const } : {}),
             failureCategories: summary.failureCategories,
             error: summary.error,
           }
@@ -371,7 +427,9 @@ export async function executeRequestLifecycle(options: {
   }
 
   try {
+    checkCancellation()
     blocks = await scriptSources.resolveBlocks(declarations)
+    checkCancellation()
     const merged =
       collection && requestPath
         ? mergeFolderOverrides(request, collection, requestPath)
@@ -389,6 +447,7 @@ export async function executeRequestLifecycle(options: {
     secretValues.push(...requestSensitiveValues(prepared))
 
     for (const block of blocks) {
+      checkCancellation()
       if (block.pre === undefined) continue
       const scriptResult = await runPreRequestScript(
         block.pre.text,
@@ -401,6 +460,7 @@ export async function executeRequestLifecycle(options: {
       secretValues.push(...scriptResult.secretValues)
       runScope.rememberSecrets(scriptResult.secretValues)
       scriptResults.push(scriptResult.result)
+      if (scriptResult.result.cancelled) checkCancellation()
       if (!scriptResult.result.success) {
         const execution = withScriptResults(
           unevaluatedExecutionResults(declared),
@@ -423,12 +483,14 @@ export async function executeRequestLifecycle(options: {
           secretValues,
         }
       }
+      checkCancellation()
       prepared = scriptResult.request
       timeline = timelineRequest(merged, prepared)
       secretValues.push(...requestSensitiveValues(prepared))
       await persistScripts(scriptResult.result, scriptResult.persistenceIntents)
     }
 
+    checkCancellation()
     const transportRequest = { ...prepared }
     delete transportRequest.tests
     delete transportRequest.scripts
@@ -463,46 +525,57 @@ export async function executeRequestLifecycle(options: {
           }
         : transport.onPreparedRequest,
     })
+    retainedResponse = rawResponse
     secretValues.push(
       ...runtimeSecrets,
       ...responseSensitiveValues(rawResponse),
     )
-    let rawCaptures: CaptureResult[] = []
+    checkCancellation()
     const posts: {
       result: ScriptExecutionResult
       intents: ScriptPersistenceIntent[]
     }[] = []
-    let responseExecution = await evaluateResponseExecution(
-      prepared,
-      rawResponse,
-      runScope,
-      secretValues,
-      (results) => {
-        rawCaptures = results
-      },
-      async () => {
-        for (const block of blocks) {
-          if (block.post === undefined) continue
-          const post = await runRequestScript(
-            "post",
-            block.post.text,
-            sentRequest,
-            environment,
-            runScope,
-            { response: rawResponse, cookies: transport.cookies },
-            scriptOptions(),
-          )
-          labelScriptResult(post, block.post.source)
-          scriptResults.push(post.result)
-          secretValues.push(...post.secretValues)
-          runScope.rememberSecrets(post.secretValues)
-          posts.push({
-            result: post.result,
-            intents: post.persistenceIntents ?? [],
-          })
-        }
-      },
-    )
+    responseExecution = {
+      ...responseExecution,
+      ...(await evaluateResponseExecution(
+        prepared,
+        rawResponse,
+        runScope,
+        secretValues,
+        (results) => {
+          rawCaptures = results
+        },
+        async () => {
+          for (const block of blocks) {
+            checkCancellation()
+            if (block.post === undefined) continue
+            const post = await runRequestScript(
+              "post",
+              block.post.text,
+              sentRequest,
+              environment,
+              runScope,
+              { response: rawResponse, cookies: transport.cookies },
+              scriptOptions(),
+            )
+            labelScriptResult(post, block.post.source)
+            scriptResults.push(post.result)
+            secretValues.push(...post.secretValues)
+            runScope.rememberSecrets(post.secretValues)
+            checkCancellation()
+            posts.push({
+              result: post.result,
+              intents: post.persistenceIntents ?? [],
+            })
+          }
+          checkCancellation()
+        },
+        (checkpoint) => {
+          responseExecution = { ...responseExecution, ...checkpoint }
+        },
+      )),
+    }
+    checkCancellation()
     if (options.persistCaptures) {
       responseExecution = await options.persistCaptures(
         timeline,
@@ -518,6 +591,7 @@ export async function executeRequestLifecycle(options: {
     }
     for (const post of posts) await persistScripts(post.result, post.intents)
     for (const block of blocks) {
+      checkCancellation()
       if (block.tests === undefined) continue
       runScope.rememberSecrets(secretValues)
       const tested = await runRequestScript(
@@ -532,6 +606,7 @@ export async function executeRequestLifecycle(options: {
         },
         {
           signal: transport.signal,
+          cancellationSignal,
           deadline: scriptContext.deadline,
           diagnostics,
           startedAt,
@@ -548,13 +623,16 @@ export async function executeRequestLifecycle(options: {
         results: [],
         logs: [],
       })
+      group.evaluated = true
+      if (tested.result.cancelled) group.cancelled = true
       ;(group.invocations ??= []).push(tested.result)
       group.results.push(...(tested.tests ?? []))
       group.logs.push(...tested.result.logs)
-      if (tested.result.error) {
+      if (tested.result.error && !tested.result.cancelled) {
         group.error ??= tested.result.error
         if (inherited) (group.errors ??= []).push(tested.result.error)
       }
+      checkCancellation()
     }
     secretValues.push(...runScope.secretValues())
     responseExecution = redactResponseExecution(responseExecution, secretValues)
@@ -562,17 +640,7 @@ export async function executeRequestLifecycle(options: {
       scriptResults.length > 0
         ? withScriptResults(responseExecution, scriptResults, secretValues)
         : responseExecution
-    const response = {
-      ...rawResponse,
-      ...(rawResponse.network
-        ? { network: redactNetworkEvents(rawResponse.network, secretValues) }
-        : {}),
-    }
-    if (rawResponse.bodyBytes)
-      Object.defineProperty(response, "bodyBytes", {
-        value: rawResponse.bodyBytes,
-        enumerable: false,
-      })
+    const response = lifecycleResponse(rawResponse, secretValues)
     return {
       status: "done",
       request: timeline,
@@ -584,21 +652,30 @@ export async function executeRequestLifecycle(options: {
     }
   } catch (error) {
     const aborted = error instanceof DOMException && error.name === "AbortError"
-    if (aborted && transport.signal?.aborted) throw error
     secretValues.push(...runtimeSecrets, ...runScope.secretValues())
     const normalized =
       error instanceof Error
         ? error
         : new Error(String(error), { cause: error })
     const safeError = redactLifecycleError(normalized, secretValues)
-    const execution =
-      scriptResults.length > 0
-        ? withScriptResults(
-            unevaluatedExecutionResults(declared),
-            scriptResults,
-            secretValues,
-          )
-        : unevaluatedExecutionResults(declared)
+    const partial = redactResponseExecution(responseExecution, secretValues)
+    const execution = scriptResults.length
+      ? withScriptResults(partial, scriptResults, secretValues)
+      : partial
+    if (isCallerCancellation(normalized, cancellationSignal)) {
+      return {
+        status: "cancelled",
+        request: timeline,
+        prepared,
+        error: new DOMException("Request cancelled", "AbortError"),
+        ...(retainedResponse
+          ? { response: lifecycleResponse(retainedResponse, secretValues) }
+          : {}),
+        rawCaptures,
+        execution,
+        secretValues,
+      }
+    }
     return {
       status: "error",
       request: timeline,
@@ -607,13 +684,33 @@ export async function executeRequestLifecycle(options: {
       failureCategory:
         error instanceof ScriptSourceError
           ? "configuration"
-          : aborted || Array.isArray((normalized as NetworkError).network)
+          : aborted ||
+              normalized.name === "TimeoutError" ||
+              Array.isArray((normalized as NetworkError).network)
             ? "transport"
             : "execution",
       execution,
       secretValues,
     }
   }
+}
+
+function lifecycleResponse(
+  rawResponse: Response,
+  secretValues: readonly RedactionSecret[],
+): Response {
+  const response = {
+    ...rawResponse,
+    ...(rawResponse.network
+      ? { network: redactNetworkEvents(rawResponse.network, secretValues) }
+      : {}),
+  }
+  if (rawResponse.bodyBytes)
+    Object.defineProperty(response, "bodyBytes", {
+      value: rawResponse.bodyBytes,
+      enumerable: false,
+    })
+  return response
 }
 
 function redactLifecycleError(

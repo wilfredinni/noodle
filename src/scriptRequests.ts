@@ -12,6 +12,7 @@ export type ScriptRequestSummary = {
   status?: number
   durationMs: number
   success: boolean
+  cancelled?: true
   failureCategories: string[]
   error?: ScriptExecutionError
 }
@@ -19,10 +20,11 @@ export type ScriptRequestSummary = {
 export function formatScriptRequestSummary(
   request: ScriptRequestSummary,
 ): string {
-  return `${"  ".repeat(Math.max(0, request.depth - 1))}${request.success ? "PASS" : "FAIL"} ${request.method} ${request.requestId ?? request.url}${request.status !== undefined ? ` (${request.status})` : ""}, ${request.durationMs}ms${request.failureCategories.length ? `, ${request.failureCategories.join(", ")}` : ""}`
+  return `${"  ".repeat(Math.max(0, request.depth - 1))}${request.cancelled ? "CANCELLED" : request.success ? "PASS" : "FAIL"} ${request.method} ${request.requestId ?? request.url}${request.status !== undefined ? ` (${request.status})` : ""}, ${request.durationMs}ms${request.failureCategories.length ? `, ${request.failureCategories.join(", ")}` : ""}`
 }
 
 export type ScriptRequestResult = {
+  cancelled?: true
   response?: Response
   execution?: ResponseExecutionResults
   failureCategories: string[]
@@ -34,6 +36,7 @@ export type ScriptRequestOptions = {
   diagnostics?: { consoleBytes: number; testBytes: number }
   sourceBytes?: number
   signal?: AbortSignal
+  cancellationSignal?: AbortSignal | null
   deadline?: number
   requests?: ScriptRequestSummary[]
   execute?: (

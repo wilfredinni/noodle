@@ -68,6 +68,7 @@ function oauth1SensitiveRequestValues(
 
 export interface TransportExecutionOptions {
   signal?: AbortSignal
+  cancellationSignal?: AbortSignal | null
   onNetworkEvent?: (network: NetworkEvent[]) => void
   onSensitiveValues?: (values: string[]) => void
   onPreparedRequest?: (request: TransportRequest) => void
@@ -148,6 +149,8 @@ export async function send(
     resolveVariables = true,
     ...transport
   } = options
+
+  transport.signal?.throwIfAborted()
   const merged =
     collection && requestPath
       ? mergeFolderOverrides(req, collection, requestPath)
@@ -201,6 +204,7 @@ export async function sendPrepared(
     // Storage failures are reflected by the jar status; HTTP still runs jar-less.
     await cookies.refresh().catch(() => {})
   }
+  signal?.throwIfAborted()
 
   const headers = substituted.headers
   const params = substituted.params
@@ -250,11 +254,21 @@ export async function sendPrepared(
   }
 
   let effectiveSignal = signal
+  let timeoutSignal: AbortSignal | undefined
   if (substituted.timeout > 0) {
-    const timeoutSignal = AbortSignal.timeout(substituted.timeout)
+    timeoutSignal = AbortSignal.timeout(substituted.timeout)
     effectiveSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal
+  }
+  const checkAbort = () => {
+    if (!effectiveSignal?.aborted) return
+    if (
+      timeoutSignal?.aborted &&
+      effectiveSignal.reason === timeoutSignal.reason
+    )
+      throw new DOMException("Request timed out", "TimeoutError")
+    throw new DOMException("Request cancelled", "AbortError")
   }
 
   if (
@@ -314,6 +328,11 @@ export async function sendPrepared(
         })
       ).token
     } catch (e) {
+      if (
+        e instanceof DOMException &&
+        ["AbortError", "TimeoutError"].includes(e.name)
+      )
+        throw e
       throw networkFailure(
         `requests.send: ${e instanceof Error ? e.message : String(e)}`,
         e,
@@ -496,6 +515,7 @@ export async function sendPrepared(
           response = await fetch(requestUrl, fetchInit)
         }
       } catch (e) {
+        checkAbort()
         if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: fetch failed",
@@ -541,6 +561,7 @@ export async function sendPrepared(
       try {
         await response.arrayBuffer()
       } catch (e) {
+        checkAbort()
         if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: failed to consume NTLM challenge response",
@@ -717,6 +738,7 @@ export async function sendPrepared(
     bodyBytes = new Uint8Array(await res.arrayBuffer())
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    checkAbort()
     if (e instanceof DOMException && e.name === "AbortError") throw e
     throw networkFailure(
       `requests.send: failed to read response body: ${msg}`,

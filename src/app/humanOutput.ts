@@ -24,6 +24,7 @@ function color(text: string, value: Color): string {
 }
 
 function statusLabel(result: RequestRunResult): string {
+  if (result.cancelled) return color("cancelled", "yellow")
   if (result.error) return color("ERROR", "red")
   const status = result.response!.status
   const label = `${status} ${result.response!.statusText}`
@@ -49,11 +50,13 @@ function formatScripts(result: RequestRunResult): string[] {
   if (!result.scripts) return []
   if (!result.scripts.evaluated) return ["  Scripts: not evaluated"]
   return result.scripts.results.flatMap((script) => {
-    const status = scriptExecutionSucceeded(script)
-      ? "passed"
-      : script.success
-        ? "execution passed, persistence failed"
-        : "failed"
+    const status = script.cancelled
+      ? "cancelled"
+      : scriptExecutionSucceeded(script)
+        ? "passed"
+        : script.success
+          ? "execution passed, persistence failed"
+          : "failed"
     const logs = `${script.logs.length} log${script.logs.length === 1 ? "" : "s"}`
     return [
       `  ${script.phase === "pre" ? "Pre" : "Post"}-script: ${status}, ${script.durationMs}ms, ${logs}${script.source ? ` (${scriptSourceLabel(script.source)})` : ""}`,
@@ -99,7 +102,7 @@ function formatTests(result: RequestRunResult): string[] {
     `  Tests: ${passed} passed, ${tests.results.length - passed} failed`,
     ...(tests.invocations ?? []).map(
       (invocation) =>
-        `    Tests: ${scriptSourceLabel(invocation.source)}, ${invocation.durationMs}ms, ${invocation.success ? "completed" : "script error"}`,
+        `    Tests: ${scriptSourceLabel(invocation.source)}, ${invocation.durationMs}ms, ${invocation.cancelled ? "cancelled" : invocation.success ? "completed" : "script error"}`,
     ),
     ...tests.results
       .filter((test) => !test.passed || test.source)
@@ -326,6 +329,11 @@ export function formatCollectionRun(data: CollectionRunResult): string {
       : []),
     "",
     `Summary: ${color(`${summary.requestSuccesses} passed`, "green")}, ${summary.requestFailures ? color(`${summary.requestFailures} failed`, "red") : "0 failed"}, ${summary.executed}/${summary.selected} executed, ${summary.skipped} skipped, ${summary.durationMs}ms`,
+    ...(data.cancelled
+      ? [
+          `Cancellation: ${summary.completed} completed, ${summary.cancelled} cancelled, ${summary.unstarted} unstarted`,
+        ]
+      : []),
     `Assertions: ${summary.assertionPasses} passed, ${summary.assertionFailures} failed`,
     `Capture failures: ${summary.captureFailures}`,
     ...(summary.testPasses !== undefined
