@@ -151,6 +151,7 @@ export async function send(
   } = options
 
   transport.signal?.throwIfAborted()
+  transport.cancellationSignal?.throwIfAborted()
   const merged =
     collection && requestPath
       ? mergeFolderOverrides(req, collection, requestPath)
@@ -277,7 +278,12 @@ export async function sendPrepared(
     if (
       (timeoutSignal?.aborted &&
         abortSignal?.reason === timeoutSignal.reason) ||
-      (!abortSignal?.aborted && cause.name === "TimeoutError")
+      (cause.name === "TimeoutError" &&
+        (!abortSignal?.aborted ||
+          (cancellationSignal !== undefined &&
+            transportSignal?.aborted &&
+            transportSignal !== cancellationSignal &&
+            abortSignal?.reason === transportSignal.reason)))
     ) {
       const error = new DOMException("Request timed out", "TimeoutError")
       recordNetworkEvent(network, start, "error", error.message, onNetworkEvent)
@@ -530,7 +536,6 @@ export async function sendPrepared(
         }
       } catch (e) {
         checkAbort(e, effectiveSignal)
-        if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: fetch failed",
           e,
@@ -576,7 +581,6 @@ export async function sendPrepared(
         await response.arrayBuffer()
       } catch (e) {
         checkAbort(e, effectiveSignal)
-        if (e instanceof DOMException && e.name === "AbortError") throw e
         throw networkFailure(
           "requests.send: failed to consume NTLM challenge response",
           e,
@@ -753,7 +757,6 @@ export async function sendPrepared(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     checkAbort(e, effectiveSignal)
-    if (e instanceof DOMException && e.name === "AbortError") throw e
     throw networkFailure(
       `requests.send: failed to read response body: ${msg}`,
       e,

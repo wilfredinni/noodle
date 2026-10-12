@@ -64,12 +64,12 @@ function formatScripts(result: RequestRunResult): string[] {
         (request) =>
           `    ${formatScriptRequestSummary(request)}${request.error ? `: ${request.error.message}` : ""}`,
       ),
-      ...(script.error
+      ...(!script.cancelled && script.error
         ? [
             `    ${script.error.name}: ${script.error.message}${script.error.line ? ` (${script.source?.sourcePath ?? (script.phase === "pre" ? "pre-request.js" : "post-response.js")}:${script.error.line}${script.error.column ? `:${script.error.column}` : ""})` : ""}`,
           ]
         : []),
-      ...(script.persistence ?? []).map(
+      ...(script.cancelled ? [] : (script.persistence ?? [])).map(
         (outcome) =>
           `    Persistence: ${outcome.operation} ${outcome.variable} (${outcome.target}): ${outcome.status}${outcome.error ? `: ${outcome.error.message}` : ""}`,
       ),

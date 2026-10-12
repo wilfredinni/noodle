@@ -703,6 +703,20 @@ describe("send — inherited auth", () => {
 })
 
 describe("send — network trace", () => {
+  for (const withTransportSignal of [false, true]) {
+    it(`rejects pre-aborted cancellation before substitution ${withTransportSignal ? "with" : "without"} a transport signal`, async () => {
+      const cancellationSignal = AbortSignal.abort()
+      await expect(
+        send(makeReq({ url: "https://example.com/$MISSING" }), {
+          signal: withTransportSignal
+            ? new AbortController().signal
+            : undefined,
+          cancellationSignal,
+        }),
+      ).rejects.toBe(cancellationSignal.reason)
+    })
+  }
+
   for (const source of ["signal", "cancellationSignal"] as const) {
     it(`skips cookie refresh when ${source} is already aborted`, async () => {
       const refresh = mock(async () => {})
@@ -1480,47 +1494,60 @@ describe("send — network trace", () => {
       })
     }
 
-    it(`retains the network trace on a ${phase} timeout`, async () => {
-      const originalFetch = globalThis.fetch
-      const snapshots: string[][] = []
-      globalThis.fetch = mock(async (_url, init) => {
-        const signal = init!.signal!
-        const interrupted = new Promise<never>((_, reject) => {
-          if (signal.aborted) reject(signal.reason)
-          else
-            signal.addEventListener("abort", () => reject(signal.reason), {
-              once: true,
-            })
-        })
-        if (phase === "fetch") return interrupted
-        const response = new Response("ok")
-        response.arrayBuffer = () => interrupted
-        return response
-      }) as unknown as typeof globalThis.fetch
-      try {
-        let error: NetworkError | undefined
-        try {
-          await send(makeReq({ timeout: 25 }), {
-            onNetworkEvent: (events) =>
-              snapshots.push(events.map((event) => event.type)),
+    for (const timeoutSource of ["request", "transport"] as const) {
+      it(`retains the network trace on a ${phase} ${timeoutSource} timeout`, async () => {
+        const originalFetch = globalThis.fetch
+        const snapshots: string[][] = []
+        const cancellation = new AbortController()
+        globalThis.fetch = mock(async (_url, init) => {
+          const signal = init!.signal!
+          const interrupted = new Promise<never>((_, reject) => {
+            if (signal.aborted) reject(signal.reason)
+            else
+              signal.addEventListener("abort", () => reject(signal.reason), {
+                once: true,
+              })
           })
-        } catch (caught) {
-          error = caught as NetworkError
+          if (phase === "fetch") return interrupted
+          const response = new Response("ok")
+          response.arrayBuffer = () => interrupted
+          return response
+        }) as unknown as typeof globalThis.fetch
+        try {
+          let error: NetworkError | undefined
+          try {
+            await send(
+              makeReq({ timeout: timeoutSource === "request" ? 25 : 0 }),
+              {
+                signal:
+                  timeoutSource === "transport"
+                    ? AbortSignal.timeout(25)
+                    : undefined,
+                cancellationSignal: cancellation.signal,
+                onNetworkEvent: (events) =>
+                  snapshots.push(events.map((event) => event.type)),
+              },
+            )
+          } catch (caught) {
+            error = caught as NetworkError
+          }
+          expect(error).toBeInstanceOf(DOMException)
+          expect(error?.name).toBe("TimeoutError")
+          expect(error?.message).toBe("Request timed out")
+          expect(cancellation.signal.aborted).toBe(false)
+          expect(error?.network?.map((event) => event.type)).toEqual(
+            phase === "fetch"
+              ? ["request", "error"]
+              : ["request", "response", "error"],
+          )
+          expect(snapshots.at(-1)).toEqual(
+            error?.network?.map((event) => event.type),
+          )
+        } finally {
+          globalThis.fetch = originalFetch
         }
-        expect(error).toBeInstanceOf(DOMException)
-        expect(error?.name).toBe("TimeoutError")
-        expect(error?.network?.map((event) => event.type)).toEqual(
-          phase === "fetch"
-            ? ["request", "error"]
-            : ["request", "response", "error"],
-        )
-        expect(snapshots.at(-1)).toEqual(
-          error?.network?.map((event) => event.type),
-        )
-      } finally {
-        globalThis.fetch = originalFetch
-      }
-    })
+      })
+    }
   }
 
   for (const abortName of ["AbortError", "TimeoutError"] as const) {
