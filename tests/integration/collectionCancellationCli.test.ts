@@ -147,23 +147,37 @@ for (const [signal, json] of [
   ["SIGINT", true],
   ["SIGTERM", true],
   ["SIGINT", false],
+  ["SIGTERM", false],
 ] as const) {
   it(`returns partial ${json ? "JSON" : "human"} output on emitted ${signal} and force-exits on a repeat signal`, async () => {
     const run = (collection.subCommands as { run: CommandDef }).run
     const exitCode = process.exitCode
     const stdout = process.stdout.write
+    const stderr = process.stderr.write
+    const tty = Object.getOwnPropertyDescriptor(process.stderr, "isTTY")
+    Object.defineProperty(process.stderr, "isTTY", {
+      value: true,
+      configurable: true,
+    })
     const outputs: string[] = []
+    const progress: string[] = []
+    let progressAtExit = ""
     const before = [
       process.listenerCount("SIGINT"),
       process.listenerCount("SIGTERM"),
     ]
     const exit = spyOn(process, "exit").mockImplementation(() => {
+      progressAtExit = progress.join("")
       throw new Error("forced exit")
     })
     process.stdout.write = ((text: string) => {
       outputs.push(text)
       return true
     }) as typeof stdout
+    process.stderr.write = ((text: string) => {
+      progress.push(text)
+      return true
+    }) as typeof stderr
     const pending = run.run!({
       args: { _: [dir], path: dir, json, noproxy: true, delay: "0" },
       rawArgs: [dir],
@@ -175,7 +189,15 @@ for (const [signal, json] of [
       const repeat = signal === "SIGINT" ? "SIGTERM" : "SIGINT"
       expect(() => process.emit(repeat)).toThrow("forced exit")
       expect(exit).toHaveBeenCalledWith(130)
+      if (json) expect(progressAtExit).toBe("")
+      else {
+        expect(progressAtExit).toContain("Running requests")
+        expect(progressAtExit.endsWith("\r\x1b[2K")).toBeTrue()
+      }
       await pending
+      // Mocked exit lets cancellation settle and report progress once more.
+      if (json) expect(progress).toEqual([])
+      else expect(progress.join("").endsWith("\r\x1b[2K")).toBeTrue()
       expect(process.exitCode).toBe(130)
       expect([
         process.listenerCount("SIGINT"),
@@ -204,6 +226,9 @@ for (const [signal, json] of [
       await pending
       exit.mockRestore()
       process.stdout.write = stdout
+      process.stderr.write = stderr
+      if (tty) Object.defineProperty(process.stderr, "isTTY", tty)
+      else Reflect.deleteProperty(process.stderr, "isTTY")
       process.exitCode = exitCode ?? 0
     }
   })
