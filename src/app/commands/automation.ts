@@ -293,7 +293,10 @@ const collection = defineCommand({
           async () => {
             const progress = args.json ? undefined : createRunProgressReporter()
             const controller = new AbortController()
-            const cancel = () => controller.abort()
+            const cancel = () => {
+              if (controller.signal.aborted) process.exit(130)
+              controller.abort()
+            }
             process.on("SIGINT", cancel)
             process.on("SIGTERM", cancel)
             try {

@@ -1337,6 +1337,50 @@ describe("send — network trace", () => {
     }
   })
 
+  for (const phase of ["fetch", "body"] as const) {
+    it(`retains the network trace on a ${phase} timeout`, async () => {
+      const originalFetch = globalThis.fetch
+      const snapshots: string[][] = []
+      globalThis.fetch = mock(async (_url, init) => {
+        const signal = init!.signal!
+        const interrupted = new Promise<never>((_, reject) => {
+          if (signal.aborted) reject(signal.reason)
+          else
+            signal.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            })
+        })
+        if (phase === "fetch") return interrupted
+        const response = new Response("ok")
+        response.arrayBuffer = () => interrupted
+        return response
+      }) as unknown as typeof globalThis.fetch
+      try {
+        let error: NetworkError | undefined
+        try {
+          await send(makeReq({ timeout: 25 }), {
+            onNetworkEvent: (events) =>
+              snapshots.push(events.map((event) => event.type)),
+          })
+        } catch (caught) {
+          error = caught as NetworkError
+        }
+        expect(error).toBeInstanceOf(DOMException)
+        expect(error?.name).toBe("TimeoutError")
+        expect(error?.network?.map((event) => event.type)).toEqual(
+          phase === "fetch"
+            ? ["request", "error"]
+            : ["request", "response", "error"],
+        )
+        expect(snapshots.at(-1)).toEqual(
+          error?.network?.map((event) => event.type),
+        )
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+  }
+
   it("redacts request credentials and query values from fetch errors", async () => {
     const originalFetch = globalThis.fetch
     const failure = new Error(

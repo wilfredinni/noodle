@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from "bun:test"
+import { afterEach, beforeEach, expect, it, spyOn } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -49,8 +49,10 @@ afterEach(async () => {
   server.stop(true)
   await rm(dir, { recursive: true, force: true })
 })
+// Windows subprocess.kill() force-terminates; emitted signals below test handlers.
+const signalTest = it.skipIf(process.platform === "win32")
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  it(`returns one partial JSON envelope and exits 130 on ${signal}`, async () => {
+  signalTest(`returns partial JSON and exits 130 on ${signal}`, async () => {
     child = Bun.spawn(
       [...command, "collection", "run", dir, "--noproxy", "--json"],
       {
@@ -85,7 +87,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     expect(stdout.trim().split("\n")).toHaveLength(1)
   })
 }
-it("prints partial human output on interruption", async () => {
+signalTest("prints partial human output on interruption", async () => {
   child = Bun.spawn([...command, "collection", "run", dir, "--noproxy"], {
     stdin: "ignore",
     stdout: "pipe",
@@ -140,3 +142,69 @@ it("removes signal listeners on success and configuration failure", async () => 
     process.exitCode = exitCode ?? 0
   }
 })
+
+for (const [signal, json] of [
+  ["SIGINT", true],
+  ["SIGTERM", true],
+  ["SIGINT", false],
+] as const) {
+  it(`returns partial ${json ? "JSON" : "human"} output on emitted ${signal} and force-exits on a repeat signal`, async () => {
+    const run = (collection.subCommands as { run: CommandDef }).run
+    const exitCode = process.exitCode
+    const stdout = process.stdout.write
+    const outputs: string[] = []
+    const before = [
+      process.listenerCount("SIGINT"),
+      process.listenerCount("SIGTERM"),
+    ]
+    const exit = spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("forced exit")
+    })
+    process.stdout.write = ((text: string) => {
+      outputs.push(text)
+      return true
+    }) as typeof stdout
+    const pending = run.run!({
+      args: { _: [dir], path: dir, json, noproxy: true, delay: "0" },
+      rawArgs: [dir],
+    } as never)
+    try {
+      await entered.promise
+      process.emit(signal)
+      expect(exit).not.toHaveBeenCalled()
+      const repeat = signal === "SIGINT" ? "SIGTERM" : "SIGINT"
+      expect(() => process.emit(repeat)).toThrow("forced exit")
+      expect(exit).toHaveBeenCalledWith(130)
+      await pending
+      expect(process.exitCode).toBe(130)
+      expect([
+        process.listenerCount("SIGINT"),
+        process.listenerCount("SIGTERM"),
+      ]).toEqual(before)
+      expect(outputs).toHaveLength(1)
+      if (json)
+        expect(JSON.parse(outputs[0]!)).toMatchObject({
+          status: "error",
+          errors: ["Collection run cancelled"],
+          data: {
+            cancelled: true,
+            results: [
+              { id: "a", ok: true },
+              { id: "b", cancelled: true },
+            ],
+            skipped: [{ id: "c", reason: "cancelled" }],
+            summary: { completed: 1, cancelled: 1, unstarted: 1 },
+          },
+        })
+      else
+        expect(outputs[0]).toContain(
+          "Cancellation: 1 completed, 1 cancelled, 1 unstarted",
+        )
+    } finally {
+      await pending
+      exit.mockRestore()
+      process.stdout.write = stdout
+      process.exitCode = exitCode ?? 0
+    }
+  })
+}
