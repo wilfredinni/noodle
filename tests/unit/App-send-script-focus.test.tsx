@@ -16,14 +16,22 @@ import { filestore } from "../../src/filestore"
 import { executor } from "../../src/requests"
 import * as responseHooks from "../../src/hooks/useResponse"
 import { scriptText } from "../../src/scriptAuthoring"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { setupKeymap } from "./_helpers"
+import * as timelineStore from "../../src/filestore"
+import * as toast from "../../src/ui/Toast"
 
 const testRender = createTestRender()
 const noop = () => {}
 const yes = () => true
 
-function Harness({ dir }: { dir: string }) {
+function Harness({
+  dir,
+  timelineMaxEntries = 0,
+}: {
+  dir: string
+  timelineMaxEntries?: number
+}) {
   const renderer = useRenderer()
   return (
     <RendererProvider renderer={renderer}>
@@ -57,7 +65,7 @@ function Harness({ dir }: { dir: string }) {
         collectionProxyCredentials={{}}
         tlsPassphrases={{}}
         cookiesEnabled={false}
-        timelineMaxEntries={0}
+        timelineMaxEntries={timelineMaxEntries}
         noProxy
         systemProxy={{ bypass: [] }}
         onAppProxyChange={yes}
@@ -86,6 +94,75 @@ function Harness({ dir }: { dir: string }) {
 }
 
 describe("Send while editing request scripts", () => {
+  it("retains the response and reports a failed asynchronous history save", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-history-save-failure-"))
+    let manual: responseHooks.UseResponseResult | undefined
+    let selected: string | undefined
+    const useResponse = responseHooks.useResponse
+    const responseSpy = spyOn(responseHooks, "useResponse").mockImplementation(
+      (req, ...args) => {
+        selected = req?.id
+        manual = useResponse(req, ...args)
+        return manual
+      },
+    )
+    const send = spyOn(executor, "send").mockResolvedValue({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "retained",
+      timeMs: 1,
+    })
+    const save = spyOn(timelineStore, "saveTimelineEntry").mockRejectedValue(
+      new Error("disk full"),
+    )
+    const notify = spyOn(toast, "showToast").mockImplementation(() => {})
+    const { keymap } = setupKeymap()
+    let render: Awaited<ReturnType<typeof testRender>> | undefined
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await filestore.saveRequest(dir, {
+        id: "request",
+        name: "Request",
+        method: "GET",
+        url: "https://example.com",
+        headers: {},
+        params: [],
+        timeout: 0,
+      })
+      render = await act(async () =>
+        testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <Harness dir={dir} timelineMaxEntries={50} />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 70, height: 24 },
+        ),
+      )
+      await waitForHookState(render, () => selected === "request")
+      await act(async () => manual!.trySend())
+      await waitForHookState(render, () => save.mock.calls.length === 1)
+      await act(async () => render!.flush())
+      expect(notify).toHaveBeenCalledWith(
+        "Failed to save request history",
+        "error",
+      )
+      expect(manual!.state).toMatchObject({
+        status: "done",
+        response: { body: "retained" },
+      })
+      expect(send).toHaveBeenCalledTimes(1)
+    } finally {
+      if (render) await act(async () => render!.renderer.destroy())
+      responseSpy.mockRestore()
+      send.mockRestore()
+      save.mockRestore()
+      notify.mockRestore()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it.each([
     ["pre", "d"],
     ["post", "f"],

@@ -34,29 +34,32 @@ export function useTimeline(
     }
   }, [])
 
-  const doLoad = useCallback(async () => {
-    const generation = ++loadGenerationRef.current
-    if (!collectionDir || !requestId) {
-      setEntries([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    try {
-      const loaded = await loadTimeline(collectionDir, requestId)
-      if (mountedRef.current && generation === loadGenerationRef.current) {
-        setEntries(loaded.slice(0, maxEntries))
-      }
-    } catch {
-      if (mountedRef.current && generation === loadGenerationRef.current) {
+  const doLoad = useCallback(
+    async (loadRequestId = requestId) => {
+      const generation = ++loadGenerationRef.current
+      if (!collectionDir || !loadRequestId) {
         setEntries([])
-      }
-    } finally {
-      if (mountedRef.current && generation === loadGenerationRef.current) {
         setLoading(false)
+        return
       }
-    }
-  }, [collectionDir, requestId, maxEntries])
+      setLoading(true)
+      try {
+        const loaded = await loadTimeline(collectionDir, loadRequestId)
+        if (mountedRef.current && generation === loadGenerationRef.current) {
+          setEntries(loaded.slice(0, maxEntries))
+        }
+      } catch {
+        if (mountedRef.current && generation === loadGenerationRef.current) {
+          setEntries([])
+        }
+      } finally {
+        if (mountedRef.current && generation === loadGenerationRef.current) {
+          setLoading(false)
+        }
+      }
+    },
+    [collectionDir, requestId, maxEntries],
+  )
 
   useEffect(() => {
     const key = `${collectionDir ?? ""}||${requestId ?? ""}||${maxEntries}`
@@ -107,15 +110,11 @@ export function useTimeline(
         saveTimelineEntry(collectionDir, entry.request.id, entry, maxEntries),
       )
       saveChainRef.current = save.then(() => {}).catch(() => {})
-      const persisted = await save
+      await save
       if (!mountedRef.current || lastKeyRef.current !== key) return
-      setEntries((prev) => {
-        if (lastKeyRef.current !== key) return prev
-        const next = [persisted, ...prev]
-        return next.length > maxEntries ? next.slice(0, maxEntries) : next
-      })
+      await doLoad(entry.request.id)
     },
-    [collectionDir, maxEntries],
+    [collectionDir, maxEntries, doLoad],
   )
 
   return { entries, loading, appendEntry, reload: doLoad }

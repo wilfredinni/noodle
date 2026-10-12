@@ -688,21 +688,23 @@ export function AppInner({
       runSecretValues: RedactionSecret[] = [],
       prepared = false,
     ) => {
-      timeline.appendEntry(
-        buildTimelineEntry(
-          req,
-          result,
-          dispatchEnvironment?.name,
-          dispatchEnvironment,
-          [
-            ...Object.values(appProxyCredentials),
-            ...Object.values(collectionProxyCredentials),
-            ...Object.values(tlsPassphrases),
-            ...runSecretValues,
-          ].filter((value) => typeof value !== "string" || Boolean(value)),
-          prepared,
-        ),
-      )
+      timeline
+        .appendEntry(
+          buildTimelineEntry(
+            req,
+            result,
+            dispatchEnvironment?.name,
+            dispatchEnvironment,
+            [
+              ...Object.values(appProxyCredentials),
+              ...Object.values(collectionProxyCredentials),
+              ...Object.values(tlsPassphrases),
+              ...runSecretValues,
+            ].filter((value) => typeof value !== "string" || Boolean(value)),
+            prepared,
+          ),
+        )
+        .catch(() => showToast("Failed to save request history", "error"))
     },
     [
       appProxyCredentials,
