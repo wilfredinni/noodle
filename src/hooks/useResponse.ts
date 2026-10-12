@@ -77,8 +77,10 @@ export function useResponse(
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
+  const selectedRequestIdRef = useRef(selectedRequest?.id)
 
   useEffect(() => {
+    selectedRequestIdRef.current = selectedRequest?.id
     if (!selectedRequest) {
       setState({ status: "idle" })
       return
@@ -114,6 +116,7 @@ export function useResponse(
         setState,
         cacheRef,
         abortRef,
+        selectedRequestIdRef,
         onCompleteRef,
         collection,
         requestPath,
@@ -151,6 +154,7 @@ async function runSend(
   setState: Dispatch<SetStateAction<SendState>>,
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
+  selectedRequestIdRef: React.RefObject<string | undefined>,
   onCompleteRef: React.RefObject<
     | ((
         req: Request,
@@ -193,6 +197,7 @@ async function runSend(
       transport: {
         signal,
         onNetworkEvent: (network: NetworkEvent[]) => {
+          if (abortRef.current?.signal !== signal) return
           setState((prev) =>
             prev.status === "sending" && prev.request.id === req.id
               ? { ...prev, network }
@@ -207,10 +212,8 @@ async function runSend(
       },
     })
 
-    if (lifecycle.status === "cancelled") {
-      setState({ status: "idle" })
+    if (lifecycle.status === "cancelled" && abortRef.current?.signal !== signal)
       return
-    }
     if (lifecycle.status === "error") {
       const result = {
         status: "error" as const,
@@ -232,14 +235,28 @@ async function runSend(
       return
     }
 
+    const response = lifecycle.response
+    if (!response) {
+      setState((prev) =>
+        prev.status === "sending" && prev.request.id === req.id
+          ? { status: "idle" }
+          : prev,
+      )
+      return
+    }
     const execution = lifecycle.execution
     const result = {
       status: "done" as const,
-      response: lifecycle.response,
+      response,
       execution,
     }
     cacheRef.current.set(req.id, { ...result, requestId: req.id })
-    setState((prev) => finishSend(prev, req, lifecycle.response, execution))
+    if (abortRef.current?.signal === signal)
+      setState((prev) =>
+        selectedRequestIdRef.current === req.id
+          ? finishSend(prev, req, response, execution)
+          : prev,
+      )
     onCompleteRef.current?.(
       lifecycle.request,
       result,
@@ -249,7 +266,12 @@ async function runSend(
     )
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
-      setState({ status: "idle" })
+      if (abortRef.current?.signal === signal)
+        setState((prev) =>
+          prev.status === "sending" && prev.request.id === req.id
+            ? { status: "idle" }
+            : prev,
+        )
       return
     }
     const err = e instanceof Error ? e : new Error(String(e), { cause: e })
@@ -262,6 +284,6 @@ async function runSend(
     setState((prev) => failSend(prev, req, err))
     onCompleteRef.current?.(req, result, env, undefined, false)
   } finally {
-    abortRef.current = null
+    if (abortRef.current?.signal === signal) abortRef.current = null
   }
 }

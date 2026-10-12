@@ -252,6 +252,37 @@ for (const phase of ["pre", "post"] as const) {
   })
 }
 
+for (const phase of ["pre", "post"] as const) {
+  it(`keeps a direct ${phase} child cancelled when it inherits a caller TimeoutError`, async () => {
+    const controller = new AbortController()
+    const source = `await noodle.sendRequest({url: "${url}/hold"})`
+    const running = executeRequestLifecycle({
+      request: request("root", {
+        scripts: phase === "pre" ? { pre: source } : { post: source },
+      }),
+      runScope: new RunScope(),
+      transport: {
+        signal: controller.signal,
+        proxyPolicy: { kind: "direct", source: "cli" },
+      },
+    })
+    await entered.promise
+    controller.abort(
+      new DOMException("private child timeout reason", "TimeoutError"),
+    )
+    const result = await running
+    expect(result.status).toBe("cancelled")
+    expect(result.execution.scripts?.results[0]?.requests).toMatchObject([
+      {
+        cancelled: true,
+        failureCategories: [],
+        error: { name: "AbortError", message: "Request cancelled" },
+      },
+    ])
+    expect(JSON.stringify(result)).not.toContain("private child timeout reason")
+  })
+}
+
 it("cancels delay across row boundaries without admitting the next execution", async () => {
   await save("a")
   await writeFile(join(dir, "rows.json"), "[{},{}]")

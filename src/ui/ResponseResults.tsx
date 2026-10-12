@@ -196,6 +196,10 @@ export function ResponseResults({
   )
   const hasTests = Boolean(tests || request?.tests !== undefined)
   const hasScripts = Boolean(scripts || request?.scripts)
+  const scriptsFailed = scriptResults.some(
+    (result) => !result.cancelled && !scriptExecutionSucceeded(result),
+  )
+  const scriptsCancelled = scriptResults.some((result) => result.cancelled)
   const hasAssertions = Boolean(assertions || activeAssertions.length)
   const hasCaptures = Boolean(
     showCaptures && (captures || activeCaptures.length > 0),
@@ -217,16 +221,20 @@ export function ResponseResults({
               <text
                 fg={
                   scripts.evaluated
-                    ? scripts.results.every(scriptExecutionSucceeded)
-                      ? theme.success
-                      : theme.error
+                    ? scriptsFailed
+                      ? theme.error
+                      : scriptsCancelled
+                        ? theme.warning
+                        : theme.success
                     : theme.warning
                 }
               >
                 {scripts.evaluated
-                  ? scripts.results.every(scriptExecutionSucceeded)
-                    ? "Passed"
-                    : "Failed"
+                  ? scriptsFailed
+                    ? "Failed"
+                    : scriptsCancelled
+                      ? "Cancelled"
+                      : "Passed"
                   : "Not evaluated"}
               </text>
             ) : null}
@@ -239,13 +247,23 @@ export function ResponseResults({
                 const id = `response-script-${index}`
                 const logCount = `${result.logs.length} log${result.logs.length === 1 ? "" : "s"}`
                 const passed = scriptExecutionSucceeded(result)
-                const persistenceCount = result.persistence?.length
+                const persistenceCount = result.cancelled
+                  ? 0
+                  : result.persistence?.length
                 return (
                   <CookieRow
                     id={id}
                     key={id}
-                    kindLabel={passed ? "PASS" : "FAIL"}
-                    kindColor={passed ? theme.success : theme.error}
+                    kindLabel={
+                      result.cancelled ? "CANCELLED" : passed ? "PASS" : "FAIL"
+                    }
+                    kindColor={
+                      result.cancelled
+                        ? theme.warning
+                        : passed
+                          ? theme.success
+                          : theme.error
+                    }
                     name={
                       result.phase === "pre" ? "Pre-request" : "Post-response"
                     }
@@ -286,7 +304,7 @@ export function ResponseResults({
                           ? [{ label: "Failure", value: request.error.message }]
                           : []),
                       ]),
-                      ...(result.persistence
+                      ...(!result.cancelled && result.persistence
                         ? [
                             {
                               label: "Execution",
@@ -298,7 +316,7 @@ export function ResponseResults({
                             })),
                           ]
                         : []),
-                      ...(result.error
+                      ...(!result.cancelled && result.error
                         ? [
                             { label: "Error", value: result.error.name },
                             {
@@ -514,7 +532,10 @@ export function ResponseResults({
             {tests ? (
               <text
                 fg={
-                  !tests.evaluated
+                  !tests.evaluated ||
+                  (tests.cancelled &&
+                    !hasTestErrors &&
+                    testResults.every((result) => result.passed))
                     ? theme.warning
                     : testsSucceeded(tests)
                       ? theme.success
@@ -522,7 +543,7 @@ export function ResponseResults({
                 }
               >
                 {tests.evaluated
-                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${hasTestErrors ? " · script error" : ""}`
+                  ? `${testResults.filter((result) => result.passed).length} passed · ${testResults.filter((result) => !result.passed).length} failed${hasTestErrors ? " · script error" : ""}${tests.cancelled ? " · cancelled" : ""}`
                   : "Not evaluated"}
               </text>
             ) : null}
@@ -531,8 +552,20 @@ export function ResponseResults({
             <>
               <CookieRow
                 id="response-test-script"
-                kindLabel={hasTestErrors ? "ERROR" : "LOGS"}
-                kindColor={hasTestErrors ? theme.error : theme.textMuted}
+                kindLabel={
+                  hasTestErrors
+                    ? "ERROR"
+                    : tests.cancelled
+                      ? "CANCELLED"
+                      : "LOGS"
+                }
+                kindColor={
+                  hasTestErrors
+                    ? theme.error
+                    : tests.cancelled
+                      ? theme.warning
+                      : theme.textMuted
+                }
                 name="Test script"
                 value={
                   hasTestErrors

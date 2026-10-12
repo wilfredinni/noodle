@@ -623,6 +623,32 @@ describe("async request scripts", () => {
     )
   })
 
+  for (const source of [
+    "while (true) {}",
+    "await 1; while (true) {}",
+    "throw new Proxy({}, { getOwnPropertyDescriptor() { while (true) {} } })",
+  ]) {
+    it(`classifies a wall deadline inside a synchronous VM slice: ${source}`, async () => {
+      await runPreRequestScript(
+        "1",
+        { ...request(), headers: {} },
+        undefined,
+        new RunScope(),
+      )
+      const scope = new RunScope()
+      const result = await runPreRequestScript(
+        `noodle.run.set("LATE", true); ${source}`,
+        { ...request(), headers: {} },
+        undefined,
+        scope,
+        { deadline: Date.now() + 40 },
+      )
+      expect(result.result.error?.name).toBe("ScriptWallTimeoutError")
+      expect(result.result.cancelled).toBeUndefined()
+      expect(scope.get("LATE")).toBeUndefined()
+    })
+  }
+
   it("bounds unresolved Promises, CPU loops, and wall time and preserves source locations", async () => {
     for (const [source, name] of [
       ["await new Promise(() => {})", "ScriptPendingPromiseError"],

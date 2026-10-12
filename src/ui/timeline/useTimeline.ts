@@ -100,19 +100,22 @@ export function useTimeline(
 
   const appendEntry = useCallback(
     async (entry: TimelineEntry) => {
-      if (!collectionDir || !requestId) return
+      if (!collectionDir) return
       if (maxEntries === 0) return
+      const key = `${collectionDir}||${entry.request.id}||${maxEntries}`
       const save = saveChainRef.current.then(() =>
-        saveTimelineEntry(collectionDir, requestId, entry, maxEntries),
+        saveTimelineEntry(collectionDir, entry.request.id, entry, maxEntries),
       )
       saveChainRef.current = save.then(() => {}).catch(() => {})
       const persisted = await save
+      if (!mountedRef.current || lastKeyRef.current !== key) return
       setEntries((prev) => {
+        if (lastKeyRef.current !== key) return prev
         const next = [persisted, ...prev]
         return next.length > maxEntries ? next.slice(0, maxEntries) : next
       })
     },
-    [collectionDir, requestId, maxEntries],
+    [collectionDir, maxEntries],
   )
 
   return { entries, loading, appendEntry, reload: doLoad }

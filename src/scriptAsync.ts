@@ -99,7 +99,10 @@ export class ScriptScheduler {
 
   private guestError(handle: QuickJSHandle): ScriptEvaluationError {
     try {
-      return new ScriptEvaluationError(this.run(() => this.normalize(handle)))
+      this.check()
+      const diagnostic = this.run(() => this.normalize(handle))
+      this.check()
+      return new ScriptEvaluationError(diagnostic)
     } finally {
       handle.dispose()
     }

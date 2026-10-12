@@ -283,7 +283,8 @@ export async function sendPrepared(
           (cancellationSignal !== undefined &&
             transportSignal?.aborted &&
             transportSignal !== cancellationSignal &&
-            abortSignal?.reason === transportSignal.reason)))
+            abortSignal?.reason === transportSignal.reason &&
+            abortSignal?.reason !== cancellationSignal?.reason)))
     ) {
       const error = new DOMException("Request timed out", "TimeoutError")
       recordNetworkEvent(network, start, "error", error.message, onNetworkEvent)
