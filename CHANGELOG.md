@@ -4,16 +4,32 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-12
+
+Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving completed requests and response diagnostics. Shared cancellation reaches HTTP, OAuth, scripts, child requests, and delays; execution events and explicit accounting distinguish completed, cancelled, and unstarted work. Homebrew installation now uses the official core formula.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-0-collection-run-cancellation/)
+
+### ✨ Features
+
+- Add shared collection-run cancellation and request-start, completion, and skip events with request and optional iteration identity. Keep one runner and result model, preserve completed response phases and redacted diagnostics, roll back unfinished script writes, and cancel HTTP, OAuth, saved/direct children, and inter-request delay.
+- Handle CLI collection interruption through SIGINT or SIGTERM by returning partial human or JSON output and exit status 130. Preserve exit statuses 0, 1, and 2; count completed, cancelled, and unstarted executions explicitly without treating cancellation as timeout, ordinary failure, or fail-fast. Close cookie jars and remove signal handlers on every exit path.
+
+### 🐞 Fixes
+
+- Align the Homebrew source-build OpenTUI pin with package dependencies at 0.5.17; update JSONPath Plus and keep the accepted core formula's Linux dependencies and offline build enforcement.
+- Verify release artifact producer Bun metadata independently of the local runtime used by release-artifact tests.
+
 ### 🔧 Refactors
 
 - Retire the old Homebrew tap's release dispatch after acceptance into Homebrew core. Published-release recovery now synchronizes only the website update manifest.
-- Align the local formula template with the accepted core formula, including Linux ICU dependencies and offline build enforcement.
 
 ### 📚 Documentation
 
-- Document official `brew install noodle` installation and migration from the old tap, including explicit agent skill refresh after upgrades.
-- Update the `noodle-release` skill for Homebrew core maintenance and site-only publication recovery.
-- Update the `noodle-use` skill's import prerequisites to use the official Homebrew formula.
+- Update the `noodle-dev` skill and testing/architecture references for shared cancellation, execution events, partial diagnostics, accounting, and signal acceptance coverage.
+- Update the `noodle-use` skill's automation contract for partial cancellation results and exit status 130, and its import prerequisites for official Homebrew installation.
+- Update the `noodle-release` skill for Homebrew core maintenance and site-only publication recovery, as committed since v0.9.8.
+- Document CLI interruption and cancellation accounting, and official Homebrew installation and migration with explicit agent skill refresh after upgrades.
 
 ## [0.9.8] - 2026-10-05
 
