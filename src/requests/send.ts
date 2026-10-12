@@ -182,7 +182,8 @@ export async function sendPrepared(
   options: TransportExecutionOptions = {},
 ): Promise<Response> {
   const {
-    signal,
+    signal: transportSignal,
+    cancellationSignal,
     onNetworkEvent,
     onSensitiveValues,
     proxyPolicy,
@@ -194,6 +195,12 @@ export async function sendPrepared(
     allowCrossOriginRedirects = true,
     knownSensitiveValues = [],
   } = options
+
+  const signal =
+    transportSignal && cancellationSignal
+      ? AbortSignal.any([transportSignal, cancellationSignal])
+      : (transportSignal ?? cancellationSignal ?? undefined)
+  signal?.throwIfAborted()
 
   if (
     cookies &&
@@ -263,14 +270,14 @@ export async function sendPrepared(
   }
   const checkAbort = (cause: unknown) => {
     if (
-      !effectiveSignal?.aborted ||
       !(cause instanceof DOMException) ||
       !["AbortError", "TimeoutError"].includes(cause.name)
     )
       return
     if (
-      timeoutSignal?.aborted &&
-      effectiveSignal.reason === timeoutSignal.reason
+      (timeoutSignal?.aborted &&
+        effectiveSignal?.reason === timeoutSignal.reason) ||
+      (!effectiveSignal?.aborted && cause.name === "TimeoutError")
     ) {
       const error = new DOMException("Request timed out", "TimeoutError")
       recordNetworkEvent(network, start, "error", error.message, onNetworkEvent)
@@ -338,11 +345,7 @@ export async function sendPrepared(
         })
       ).token
     } catch (e) {
-      if (
-        e instanceof DOMException &&
-        ["AbortError", "TimeoutError"].includes(e.name)
-      )
-        throw Object.assign(e, { network })
+      checkAbort(e)
       throw networkFailure(
         `requests.send: ${e instanceof Error ? e.message : String(e)}`,
         e,

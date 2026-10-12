@@ -1,6 +1,10 @@
 import { afterEach, describe, it, expect, mock, spyOn } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
-import { send, interpolatePathParams } from "../../src/requests/send"
+import {
+  send,
+  sendPrepared,
+  interpolatePathParams,
+} from "../../src/requests/send"
 import type { CollectionCookieJar } from "../../src/cookies"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../src/auth/defaults"
 import { executeRequestLifecycle } from "../../src/requestLifecycle"
@@ -699,6 +703,59 @@ describe("send — inherited auth", () => {
 })
 
 describe("send — network trace", () => {
+  for (const source of ["signal", "cancellationSignal"] as const) {
+    it(`skips cookie refresh when ${source} is already aborted`, async () => {
+      const refresh = mock(async () => {})
+      const cookies = {
+        status: { state: "encrypted" },
+        refresh,
+      } as unknown as CollectionCookieJar
+      await expect(
+        sendPrepared(
+          { ...makeReq(), headers: {} },
+          { [source]: AbortSignal.abort(), cookies },
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" })
+      expect(refresh).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const phase of ["fetch", "body"] as const) {
+    for (const withTransportSignal of [false, true]) {
+      it(`aborts ${phase} using cancellationSignal ${withTransportSignal ? "with" : "without"} a transport signal`, async () => {
+        const originalFetch = globalThis.fetch
+        const transport = new AbortController()
+        const cancellation = new AbortController()
+        globalThis.fetch = mock(async (_url, init) => {
+          const interrupt = async () => {
+            cancellation.abort()
+            if (!init?.signal?.aborted)
+              throw new Error("cancellation was not forwarded")
+            throw init.signal.reason
+          }
+          if (phase === "fetch") return interrupt()
+          const response = new Response("ok")
+          response.arrayBuffer = interrupt
+          return response
+        }) as unknown as typeof globalThis.fetch
+        try {
+          await expect(
+            send(makeReq(), {
+              signal: withTransportSignal ? transport.signal : undefined,
+              cancellationSignal: cancellation.signal,
+            }),
+          ).rejects.toMatchObject({
+            name: "AbortError",
+            message: "Request cancelled",
+          })
+          expect(transport.signal.aborted).toBe(false)
+        } finally {
+          globalThis.fetch = originalFetch
+        }
+      })
+    }
+  }
+
   it("uses Bun-backed app proxy credentials without environment overrides", async () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined
@@ -1490,7 +1547,10 @@ describe("send — network trace", () => {
                 access_token_url: "https://example.com/token",
               },
             }),
-            { signal: timeout ? undefined : controller.signal },
+            {
+              signal: new AbortController().signal,
+              cancellationSignal: timeout ? undefined : controller.signal,
+            },
           )
         } catch (caught) {
           error = caught as NetworkError
@@ -1500,8 +1560,14 @@ describe("send — network trace", () => {
         expect(error?.network?.map((event) => event.type)).toEqual([
           "auth",
           "auth",
+          "error",
         ])
-        expect(error?.network?.at(-1)?.message).toBe("Fetching OAuth 2 token")
+        const message =
+          abortName === "TimeoutError"
+            ? "Request timed out"
+            : "Request cancelled"
+        expect(error?.message).toBe(message)
+        expect(error?.network?.at(-1)?.message).toBe(message)
       } finally {
         globalThis.fetch = originalFetch
         timeout?.mockRestore()
