@@ -147,6 +147,77 @@ describe("useTimeline", () => {
     }
   })
 
+  for (const readOutcome of ["before-save", "after-save", "failure"] as const) {
+    it(`merges saves into a pending refresh (${readOutcome}) without extra reads`, async () => {
+      const dir = await mkdtemp(join(tmpdir(), "noodle-timeline-refresh-"))
+      const entry = {
+        timestamp: 1,
+        request: {
+          id: "request",
+          name: "Request",
+          method: "GET" as const,
+          url: "https://example.com",
+          headers: {},
+          params: [],
+        },
+      }
+      await saveTimelineEntry(dir, "request", entry)
+      let timeline!: UseTimelineResult
+      function Harness() {
+        timeline = useTimeline(dir, "request")
+        return null
+      }
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      await waitForHookState(render, () => !timeline.loading)
+      const originalLoad = filestore.loadTimeline
+      const snapshot = await originalLoad(dir, "request")
+      const release = Promise.withResolvers<void>()
+      const load = spyOn(filestore, "loadTimeline").mockImplementationOnce(
+        async (...args) => {
+          await release.promise
+          if (readOutcome === "failure") throw new Error("read failed")
+          return readOutcome === "before-save"
+            ? snapshot
+            : originalLoad(...args)
+        },
+      )
+      let refresh: Promise<void> | undefined
+      try {
+        await act(async () => {
+          refresh = timeline.reload()
+        })
+        await act(async () => {
+          await Promise.all([
+            timeline.appendEntry({ ...entry, timestamp: 2 }),
+            timeline.appendEntry({ ...entry, timestamp: 3 }),
+          ])
+        })
+        expect(load).toHaveBeenCalledTimes(1)
+        expect(timeline.entries.map((entry) => entry.timestamp)).toEqual([
+          3, 2, 1,
+        ])
+        await act(async () => {
+          release.resolve()
+          await refresh
+        })
+        expect(timeline.loading).toBe(false)
+        expect(timeline.entries.map((entry) => entry.timestamp)).toEqual([
+          3, 2, 1,
+        ])
+      } finally {
+        await act(async () => {
+          release.resolve()
+          await refresh
+          render.renderer.destroy()
+        })
+        load.mockRestore()
+        await rm(dir, { recursive: true, force: true })
+      }
+    })
+  }
+
   for (const oldOutcome of ["done", "error"] as const) {
     it(`keeps a late ${oldOutcome} in its original collection after App switches collections`, async () => {
       const dirs = await Promise.all([

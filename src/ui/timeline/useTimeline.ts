@@ -25,6 +25,7 @@ export function useTimeline(
   const lastKeyRef = useRef("")
   const loadGenerationRef = useRef(0)
   const mountedRef = useRef(true)
+  const appendedDuringLoadRef = useRef<TimelineEntry[] | null>(null)
   const saveChainRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
@@ -34,32 +35,36 @@ export function useTimeline(
     }
   }, [])
 
-  const doLoad = useCallback(
-    async (loadRequestId = requestId) => {
-      const generation = ++loadGenerationRef.current
-      if (!collectionDir || !loadRequestId) {
-        setEntries([])
+  const doLoad = useCallback(async () => {
+    const generation = ++loadGenerationRef.current
+    if (!collectionDir || !requestId) {
+      setEntries([])
+      setLoading(false)
+      return
+    }
+    const appended: TimelineEntry[] = []
+    appendedDuringLoadRef.current = appended
+    setLoading(true)
+    try {
+      const loaded = await loadTimeline(collectionDir, requestId)
+      if (mountedRef.current && generation === loadGenerationRef.current) {
+        const savedIds = new Set(appended.map((entry) => entry.id))
+        setEntries(
+          [
+            ...appended,
+            ...loaded.filter((entry) => !entry.id || !savedIds.has(entry.id)),
+          ].slice(0, maxEntries),
+        )
+      }
+    } catch {
+      // Selection changes clear entries; a failed refresh keeps the visible history.
+    } finally {
+      if (mountedRef.current && generation === loadGenerationRef.current) {
+        appendedDuringLoadRef.current = null
         setLoading(false)
-        return
       }
-      setLoading(true)
-      try {
-        const loaded = await loadTimeline(collectionDir, loadRequestId)
-        if (mountedRef.current && generation === loadGenerationRef.current) {
-          setEntries(loaded.slice(0, maxEntries))
-        }
-      } catch {
-        if (mountedRef.current && generation === loadGenerationRef.current) {
-          setEntries([])
-        }
-      } finally {
-        if (mountedRef.current && generation === loadGenerationRef.current) {
-          setLoading(false)
-        }
-      }
-    },
-    [collectionDir, requestId, maxEntries],
-  )
+    }
+  }, [collectionDir, requestId, maxEntries])
 
   useEffect(() => {
     const key = `${collectionDir ?? ""}||${requestId ?? ""}||${maxEntries}`
@@ -110,11 +115,18 @@ export function useTimeline(
         saveTimelineEntry(collectionDir, entry.request.id, entry, maxEntries),
       )
       saveChainRef.current = save.then(() => {}).catch(() => {})
-      await save
+      const persisted = await save
       if (!mountedRef.current || lastKeyRef.current !== key) return
-      await doLoad(entry.request.id)
+      appendedDuringLoadRef.current?.unshift(persisted)
+      appendedDuringLoadRef.current?.splice(maxEntries)
+      setEntries((prev) =>
+        [persisted, ...prev.filter((entry) => entry.id !== persisted.id)].slice(
+          0,
+          maxEntries,
+        ),
+      )
     },
-    [collectionDir, maxEntries, doLoad],
+    [collectionDir, maxEntries],
   )
 
   return { entries, loading, appendEntry, reload: doLoad }
