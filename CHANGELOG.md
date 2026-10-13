@@ -4,9 +4,9 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-10-12
+## [0.10.0] - 2026-10-13
 
-Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving completed requests and response diagnostics. Shared cancellation reaches HTTP, OAuth, scripts, child requests, and delays; execution events and explicit accounting distinguish completed, cancelled, and unstarted work. Homebrew installation now uses the official core formula.
+Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving completed requests and response diagnostics. Cancelled manual sends retain any completed response and appear in history, while cancellation stays separate from request failures and timeouts. Homebrew installation now uses the official core formula.
 
 [Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-0-collection-run-cancellation/)
 
@@ -17,7 +17,13 @@ Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving complete
 
 ### 🐞 Fixes
 
-- Align the Homebrew source-build OpenTUI pin with package dependencies at 0.5.17; update JSONPath Plus and keep the accepted core formula's Linux dependencies and offline build enforcement.
+- Preserve network traces and original transport error causes, and distinguish HTTP, OAuth, and child-request timeouts from later cancellation. A second CLI interruption forces exit 130 and clears terminal progress.
+- Keep overlapping manual sends associated with their own request and completion, preventing older results or cancellation from replacing the selected request's newer response. Repeated Send clicks start only one execution.
+- Preserve timeline entries when history loads finish after a save, keep late completions in their original collection, and allow later history saves to continue after a failed write.
+- Mark cancelled manual sends in Timeline and Results, retain any completed response and partial diagnostics, and exclude cancelled attempts from folder success rates and response timing averages.
+- Pin OpenTUI packages to 0.5.14 to match the existing Homebrew core resource; keep source-build CI and the formula template aligned while preserving Linux dependencies and offline build enforcement.
+- Update JSONPath Plus.
+- Generate the schema validator bundle with Homebrew's installed Bun during source builds, avoiding compiler-version byte mismatches while retaining the committed-bundle consistency check in CI.
 - Verify release artifact producer Bun metadata independently of the local runtime used by release-artifact tests.
 
 ### 🔧 Refactors
@@ -26,10 +32,10 @@ Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving complete
 
 ### 📚 Documentation
 
-- Update the `noodle-dev` skill and testing/architecture references for shared cancellation, execution events, partial diagnostics, accounting, and signal acceptance coverage.
+- Update the `noodle-dev` skill and testing/architecture references for shared cancellation, execution events, partial diagnostics, accounting, signal acceptance coverage, and cancelled manual-send history.
 - Update the `noodle-use` skill's automation contract for partial cancellation results and exit status 130, and its import prerequisites for official Homebrew installation.
 - Update the `noodle-release` skill for Homebrew core maintenance and site-only publication recovery, as committed since v0.9.8.
-- Document CLI interruption and cancellation accounting, and official Homebrew installation and migration with explicit agent skill refresh after upgrades.
+- Document CLI interruption and cancellation accounting, update the comparison page for cancellation and retained history, and clarify official Homebrew installation and migration with explicit agent skill refresh after upgrades.
 
 ## [0.9.8] - 2026-10-05
 

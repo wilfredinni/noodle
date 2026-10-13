@@ -394,9 +394,9 @@ results by iteration and counts progress across all executions. Human labels
 show iteration numbers starting at one. Datasets themselves are not included
 in results or history.
 
-Exit codes remain `0` for success, `1` for execution/response validation failure,
-and `2` for configuration or invalid data. Without `--data`, behavior and result
-shapes remain unchanged.
+Exit codes are `0` for success, `1` for execution/response validation failure,
+`2` for configuration or invalid data, and `130` for collection cancellation.
+Without `--data`, each selected request runs once.
 
 ## Human TUI script authoring
 

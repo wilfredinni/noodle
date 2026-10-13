@@ -81,7 +81,8 @@ await run(
   { ...process.env, CC: values.cc },
 )
 await run([process.execPath, "run", "script:check"])
-await run([process.execPath, "scripts/build-schema-validator.ts", "--check"])
+// Homebrew's Bun may generate different bytes than the runtime pinned in CI.
+await run([process.execPath, "scripts/build-schema-validator.ts"])
 await run([
   process.execPath,
   "scripts/build-script-type-libraries.ts",

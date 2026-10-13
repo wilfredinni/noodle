@@ -91,6 +91,7 @@ const TIPS = [
   "mark an environment value secret with {s} in environment browse mode",
   "temporarily disable TLS verification with {noodle --insecure}",
   "manual sends save timeline history with known secrets redacted at save time",
+  "timeline marks cancelled manual sends and keeps any completed response and partial diagnostics",
   "timeline details retain redacted script/test logs and child-call summaries; source code is excluded",
 ]
 

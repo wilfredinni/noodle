@@ -145,7 +145,7 @@ describe("script time API", () => {
     for (const phase of ["pre", "post"] as const) {
       const scope = new RunScope()
       const result = await run(
-        `noodle.run.set("aliases", ["EST5EDT", "CST6CDT", "MST7MDT", "PST8PDT", "GMT0", "GMT+0", "GMT-0"].map(timeZone => noodle.time.format(0, "YYYY-MM-DD HH:mm Z", { timeZone })));`,
+        `noodle.run.set("aliases", ["Etc/GMT+5", "Etc/GMT+6", "Etc/GMT+7", "Etc/GMT+8", "Etc/GMT0", "Etc/GMT+0", "Etc/GMT-0"].map(timeZone => noodle.time.format(0, "YYYY-MM-DD HH:mm Z", { timeZone })));`,
         scope,
         phase,
       )
