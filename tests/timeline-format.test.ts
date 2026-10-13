@@ -1,4 +1,8 @@
 import { describe, it, expect } from "bun:test"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { loadTimeline, saveTimelineEntry } from "../src/filestore"
 import {
   truncateUrl,
   relativeTime,
@@ -591,6 +595,65 @@ describe("buildDetailRequestHeaders", () => {
 })
 
 describe("buildTimelineEntry", () => {
+  for (const withResponse of [false, true]) {
+    it(`round trips cancelled history ${withResponse ? "with" : "without"} a redacted response`, async () => {
+      const dir = await mkdtemp(join(tmpdir(), "noodle-cancelled-history-"))
+      const req: Request = {
+        id: "request",
+        name: "Request",
+        method: "GET",
+        url: "https://example.com",
+        headers: {},
+        params: [],
+        timeout: 0,
+      }
+      const result = {
+        status: "cancelled" as const,
+        error: new DOMException("Request cancelled", "AbortError"),
+        ...(withResponse
+          ? {
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: { "set-cookie": "session=private-cookie" },
+                body: "private-cookie",
+                timeMs: 5,
+                network: [
+                  {
+                    type: "response" as const,
+                    message: "private-cookie",
+                    timeMs: 1,
+                  },
+                ],
+              },
+            }
+          : {}),
+      }
+      try {
+        const entry = buildTimelineEntry(req, result)
+        expect(entry.cancelled).toBe(true)
+        expect(entry.error?.message).toBe("Request cancelled")
+        expect(entryIsError(entry)).toBe(false)
+        expect(entryTiming(entry)).toBe(
+          withResponse ? "5ms · cancelled" : "cancelled",
+        )
+        expect(entryStatus(entry)).toBe(withResponse ? 200 : null)
+        if (withResponse) {
+          expect(entry.response?.body).toBe("[REDACTED]")
+          expect(entry.network?.[0]?.message).toBe("[REDACTED]")
+        }
+        await saveTimelineEntry(dir, req.id, entry)
+        const [persisted] = await loadTimeline(dir, req.id)
+        expect(JSON.parse(JSON.stringify(persisted))).toEqual(
+          JSON.parse(JSON.stringify(entry)),
+        )
+        expect(JSON.stringify(persisted)).not.toContain("private-cookie")
+      } finally {
+        await rm(dir, { recursive: true, force: true })
+      }
+    })
+  }
+
   it("snapshots redacted pre/post diagnostics without script source or runtime values", () => {
     const secret = "timeline-script-secret"
     const testSource = {

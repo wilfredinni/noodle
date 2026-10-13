@@ -80,6 +80,35 @@ async function renderOverlay(
 }
 
 describe("TimelineDetailOverlay", () => {
+  it("shows cancellation alongside a retained HTTP response", async () => {
+    const h = await renderOverlay(
+      makeEntry({
+        cancelled: true,
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "retained",
+          timeMs: 5,
+          size: 8,
+        },
+        error: { message: "Request cancelled" },
+      }),
+      () => {},
+      true,
+      { initialTab: "response" },
+    )
+    try {
+      await act(async () => h.renderOnce())
+      expect(h.captureCharFrame()).toContain("200 OK")
+      expect(h.captureCharFrame()).toContain("Request cancelled")
+      expect(h.captureCharFrame()).toContain("in 5ms · cancelled")
+      expect(h.captureCharFrame()).not.toContain("ERR")
+    } finally {
+      h.cleanup()
+    }
+  })
+
   it("shows all Console levels without a toolbar inside Runner details", async () => {
     const h = await renderOverlay(makeEntry(), () => {}, true, {
       execution: {

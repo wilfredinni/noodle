@@ -854,7 +854,7 @@ async function runRequest(
       entry: buildTimelineEntry(
         lifecycle.request,
         {
-          status: "error",
+          status: lifecycle.status,
           error: detailError,
           execution: lifecycle.execution,
         },
@@ -971,7 +971,9 @@ async function runRequest(
     requestId: request.id,
     entry: buildTimelineEntry(
       lifecycle.request,
-      { status: "done", response, execution },
+      lifecycle.status === "cancelled"
+        ? { status: "cancelled", response, execution, error: lifecycle.error }
+        : { status: "done", response, execution },
       environment?.name,
       undefined,
       responseSecretValues,

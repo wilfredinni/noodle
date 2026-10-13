@@ -80,7 +80,12 @@ describe("useResponse execution results", () => {
           await pending.promise.catch(() => {})
         })
         await waitForHookState(render, () => manual.state.status === "idle")
-        expect(completed).toEqual([])
+        expect(completed).toMatchObject([
+          {
+            status: "cancelled",
+            error: { name: "AbortError", message: "Request cancelled" },
+          },
+        ])
         await act(async () => {
           manual.trySend()
           manual.trySend()
@@ -100,6 +105,7 @@ describe("useResponse execution results", () => {
         await waitForHookState(render, () => manual.state.status === "done")
         expect(signals).toHaveLength(2)
         expect(completed).toMatchObject([
+          { status: "cancelled" },
           { status: "done", response: { body: "retry" } },
         ])
       } finally {
@@ -458,7 +464,7 @@ describe("useResponse execution results", () => {
       })
       expect(completed).toMatchObject([
         {
-          status: "done",
+          status: "cancelled",
           response: { body: "retained" },
           execution: manual.state.execution,
         },

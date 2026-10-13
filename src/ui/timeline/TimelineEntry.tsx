@@ -5,6 +5,7 @@ import { useTheme } from "../theme"
 import { statusColor } from "../format"
 import {
   entryMethod,
+  entryIsError,
   entryAssertionStatus,
   entryStatus,
   entryTiming,
@@ -31,7 +32,7 @@ export function TimelineEntry({
   const theme = useTheme()
   const [hovered, setHovered] = useState(false)
   const status = entryStatus(entry)
-  const hasError = entry.error !== undefined
+  const hasError = entryIsError(entry)
   const assertionStatus = entryAssertionStatus(entry)
 
   const rowBg =

@@ -6,11 +6,12 @@ import {
   collectionRun,
   type CollectionRunEvent,
   type CollectionRunOptions,
+  type RunDetail,
 } from "../../src/app/services"
 import { executeRequestLifecycle } from "../../src/requestLifecycle"
 import { RunScope } from "../../src/runScope"
 import { lang } from "../../src/lang"
-import type { Request } from "../../src/schema"
+import type { Request, TimelineEntry } from "../../src/schema"
 import {
   CollectionCookieJar,
   setCookieJarStorageForTests,
@@ -90,6 +91,7 @@ const run = (
   delayMs = 0,
   dataPath?: string,
   failFast = false,
+  onDetail?: RunDetail,
 ) =>
   collectionRun(
     dir,
@@ -102,7 +104,7 @@ const run = (
     [],
     [],
     failFast,
-    undefined,
+    onDetail,
     delayMs,
     dataPath,
     false,
@@ -618,6 +620,41 @@ it("preserves a script deadline that aborts before caller cancellation", async (
     result.execution.scripts?.results[0]?.requests?.[0]?.cancelled,
   ).toBeUndefined()
 })
+
+for (const phase of ["pre", "post"] as const) {
+  it(`retains cancellation in runner details during ${phase}`, async () => {
+    await save("root", {
+      scripts:
+        phase === "pre"
+          ? { pre: `await noodle.sendRequest({url: "${url}/hold"})` }
+          : { post: `await noodle.sendRequest({url: "${url}/hold"})` },
+    })
+    const controller = new AbortController()
+    const details: TimelineEntry[] = []
+    const running = run(
+      { signal: controller.signal },
+      [],
+      0,
+      undefined,
+      false,
+      (detail) => {
+        details.push(detail.entry)
+      },
+    )
+    await entered.promise
+    controller.abort(new Error("private cancellation reason"))
+    await running
+    expect(details).toHaveLength(1)
+    expect(details[0]).toMatchObject({
+      cancelled: true,
+      error: { message: "Request cancelled" },
+    })
+    expect(details[0]?.response?.status).toBe(
+      phase === "post" ? 200 : undefined,
+    )
+    expect(JSON.stringify(details)).not.toContain("private cancellation reason")
+  })
+}
 
 it("retains finished child HTTP metadata when the child's post script is cancelled", async () => {
   await save("root", { scripts: { pre: 'await noodle.runRequest("child")' } })

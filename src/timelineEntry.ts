@@ -44,6 +44,7 @@ export type TimelineExecutionResult =
       status: "error" | "cancelled"
       request?: Request
       error: Error
+      response?: Response
       execution?: ResponseExecutionResults
     }
 
@@ -55,6 +56,7 @@ export function buildTimelineEntry(
   settingsSecrets: RedactionSecret[] = [],
   prepared = false,
 ): TimelineEntry {
+  const response = result.response
   const secretValues = [
     ...environmentSecretValues(environment),
     ...settingsSecrets,
@@ -75,9 +77,7 @@ export function buildTimelineEntry(
     ...requestSensitiveValues(req)
       .map(resolvePublicVars)
       .filter((value) => variableReferences(value).length === 0),
-    ...(result.status === "done"
-      ? responseSensitiveValues(result.response)
-      : []),
+    ...(response ? responseSensitiveValues(response) : []),
   )
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   const redactResult = (value: string) =>
@@ -230,9 +230,14 @@ export function buildTimelineEntry(
       value: REDACTED,
     }
   }
+  const network =
+    result.status === "done"
+      ? result.response.network
+      : (response?.network ?? (result.error as NetworkError).network)
   return {
     id: randomUUID(),
     timestamp: Date.now(),
+    ...(result.status === "cancelled" ? { cancelled: true as const } : {}),
     envName,
     scripts: result.execution?.scripts
       ? {
@@ -249,16 +254,10 @@ export function buildTimelineEntry(
       ? { tests: redactTestExecution(result.execution.tests, secretValues) }
       : {}),
     assertions,
-    network:
-      result.status === "done"
-        ? result.response.network?.map((event) => ({
-            ...event,
-            message: redact(event.message),
-          }))
-        : (result.error as NetworkError).network?.map((event) => ({
-            ...event,
-            message: redact(event.message),
-          })),
+    network: network?.map((event) => ({
+      ...event,
+      message: redact(event.message),
+    })),
     request: {
       id: req.id,
       name: req.name,
@@ -286,30 +285,24 @@ export function buildTimelineEntry(
       bodyType: req.bodyType,
       auth: redactAuth(req.auth),
     },
-    response:
-      result.status === "done"
-        ? {
-            status: result.response.status,
-            statusText: redact(result.response.statusText),
-            headers: redactResponseHeaders(
-              result.response.headers,
-              secretValues,
-            ),
-            ...(result.response.bodyKind === "binary"
-              ? {
-                  bodyKind: "binary" as const,
-                  contentType: redact(
-                    responseContentType(result.response.headers),
-                  ),
-                  filename: responseFilename(result.response.headers)
-                    ? redact(responseFilename(result.response.headers)!)
-                    : undefined,
-                }
-              : { body: redact(result.response.body) }),
-            timeMs: result.response.timeMs,
-            size: responseByteSize(result.response),
-          }
-        : undefined,
+    response: response
+      ? {
+          status: response.status,
+          statusText: redact(response.statusText),
+          headers: redactResponseHeaders(response.headers, secretValues),
+          ...(response.bodyKind === "binary"
+            ? {
+                bodyKind: "binary" as const,
+                contentType: redact(responseContentType(response.headers)),
+                filename: responseFilename(response.headers)
+                  ? redact(responseFilename(response.headers)!)
+                  : undefined,
+              }
+            : { body: redact(response.body) }),
+          timeMs: response.timeMs,
+          size: responseByteSize(response),
+        }
+      : undefined,
     error:
       result.status !== "done"
         ? { message: redact(result.error.message) }

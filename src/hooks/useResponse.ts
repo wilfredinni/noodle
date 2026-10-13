@@ -44,6 +44,13 @@ export type SendCompleteResult =
       error: Error
       execution?: ResponseExecutionResults
     }
+  | {
+      status: "cancelled"
+      request: Request
+      error: Error
+      response?: Response
+      execution?: ResponseExecutionResults
+    }
 
 export interface UseResponseResult {
   state: SendState
@@ -256,11 +263,34 @@ async function runSend(
       return
     }
 
-    const response = lifecycle.response
-    if (!response) {
-      resetCancelled()
+    if (lifecycle.status === "cancelled") {
+      if (lifecycle.response) {
+        publishResult({
+          status: "done",
+          requestId: req.id,
+          response: lifecycle.response,
+          execution: lifecycle.execution,
+        })
+      } else {
+        resetCancelled()
+      }
+      onCompleteRef.current?.(
+        lifecycle.request,
+        {
+          status: "cancelled",
+          request: lifecycle.request,
+          error: lifecycle.error,
+          response: lifecycle.response,
+          execution: lifecycle.execution,
+        },
+        env,
+        lifecycle.secretValues,
+        lifecycle.prepared !== undefined,
+      )
       return
     }
+
+    const response = lifecycle.response
     const execution = lifecycle.execution
     const result = {
       status: "done" as const,

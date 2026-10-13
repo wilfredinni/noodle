@@ -537,10 +537,14 @@ export function TimelineDetailOverlay({
                   {entry?.error ? (
                     <box
                       border={["left", "right", "top", "bottom"]}
-                      borderColor={theme.error}
+                      borderColor={
+                        entry.cancelled ? theme.warning : theme.error
+                      }
                       style={{ padding: 1, marginTop: entry?.response ? 1 : 0 }}
                     >
-                      <text fg={theme.error}>{entry.error.message}</text>
+                      <text fg={entry.cancelled ? theme.warning : theme.error}>
+                        {entry.error.message}
+                      </text>
                     </box>
                   ) : null}
                   {warnings.map((warning, index) => (
