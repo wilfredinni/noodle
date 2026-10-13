@@ -54,6 +54,7 @@ const TIPS = [
   "Postman and Insomnia imports preserve compatible scripts; choose a new collection and review omitted-script warnings",
   "export a collection as OpenAPI or Postman with {noodle export <collection> --format <format> --output <path>}",
   "run a tagged collection suite with {noodle collection run <path> --tag smoke}",
+  "interrupt CLI {noodle collection run} with {Ctrl+C} to keep partial results; cancellation exits with status {130}",
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
   "add {--body}, {--headers}, or {--cookies} to {noodle request run} for redacted response details",
   "open the collection Runner with {F5} to select requests, filters, a delay, or a CSV/JSON data file",

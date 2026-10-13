@@ -10,6 +10,113 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("ResponseResults", () => {
+  for (const earlierFailure of [false, true]) {
+    it(`renders cancelled scripts without failure details ${earlierFailure ? "while retaining an earlier failure" : "as cancellation"}`, async () => {
+      const { keymap, host } = setupKeymap()
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <ResponseResults
+              execution={{
+                scripts: {
+                  evaluated: true,
+                  results: [
+                    ...(earlierFailure
+                      ? [
+                          {
+                            phase: "pre" as const,
+                            scope: "request" as const,
+                            sourceKind: "inline" as const,
+                            success: false,
+                            durationMs: 1,
+                            logs: [],
+                            error: {
+                              name: "Error",
+                              message: "earlier failure",
+                            },
+                          },
+                        ]
+                      : []),
+                    {
+                      phase: "post",
+                      scope: "request",
+                      sourceKind: "inline",
+                      source: { scope: "request", scopeId: "a", path: "a.yml" },
+                      success: false,
+                      cancelled: true,
+                      durationMs: 2,
+                      logs: [{ level: "info", message: "before cancellation" }],
+                      error: {
+                        name: "AbortError",
+                        message: "Script cancelled",
+                      },
+                      persistence: [
+                        {
+                          variable: "TOKEN",
+                          operation: "set",
+                          target: "environment",
+                          status: "failed",
+                        },
+                      ],
+                    },
+                  ],
+                },
+              }}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 85, height: 22 },
+      )
+      await render.renderOnce()
+      expect(render.captureCharFrame()).toMatch(
+        earlierFailure ? /Scripts\s+Failed/ : /Scripts\s+Cancelled/,
+      )
+      expect(render.captureCharFrame()).toMatch(/CANCELLED\s+Post-response/)
+      if (earlierFailure) await act(async () => host.press("down"))
+      await act(async () => host.press("return"))
+      await render.renderOnce()
+      const expanded = render.captureCharFrame()
+      expect(expanded).toContain("request: a")
+      expect(expanded).toContain("before cancellation")
+      expect(expanded).not.toContain("AbortError")
+      expect(expanded).not.toContain("Persistence")
+      expect(expanded).not.toContain("persistence failed")
+    })
+  }
+
+  it("labels interrupted scripted tests as cancelled while retaining their completed results", async () => {
+    const { keymap } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{
+              tests: {
+                evaluated: true,
+                cancelled: true,
+                logs: [],
+                results: [
+                  {
+                    name: "completed",
+                    passed: true,
+                    message: "passed",
+                    durationMs: 1,
+                  },
+                ],
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 85, height: 10 },
+    )
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain(
+      "1 passed · 0 failed · cancelled",
+    )
+    expect(render.captureCharFrame()).toMatch(/CANCELLED\s+Test script/)
+  })
+
   it("shows every inherited test error and schema detail with its origin", async () => {
     const { keymap, host } = setupKeymap()
     const source = { scope: "collection" as const, path: "settings.yml" }

@@ -123,6 +123,9 @@ describe("human CLI output", () => {
         summary: {
           selected: 2,
           executed: 2,
+          completed: 2,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: 1,
           requestFailures: 1,
@@ -383,6 +386,75 @@ describe("human CLI output", () => {
     expect(output).not.toContain("hidden log")
   })
 
+  for (const phase of ["pre", "post"] as const) {
+    it(`summarizes cancelled ${phase} scripts without error or persistence details`, () => {
+      const output = plain(
+        formatRequestRun({
+          result: {
+            id: "users/get",
+            method: "GET",
+            url: "https://example.com/users/1",
+            ok: false,
+            cancelled: true,
+            failureCategories: [],
+            scripts: {
+              evaluated: true,
+              results: [
+                {
+                  phase,
+                  scope: "request",
+                  source: {
+                    scope: "request",
+                    scopeId: "users/get",
+                    path: "users/get.yml",
+                  },
+                  sourceKind: "inline",
+                  success: false,
+                  cancelled: true,
+                  durationMs: 2.5,
+                  logs: [{ level: "warn", message: "hidden log" }],
+                  error: { name: "AbortError", message: "Script cancelled" },
+                  persistence: [
+                    {
+                      variable: "TOKEN",
+                      operation: "set",
+                      target: "environment",
+                      status: "failed",
+                      error: {
+                        name: "AbortError",
+                        message: "Persistence cancelled",
+                      },
+                    },
+                  ],
+                  requests: [
+                    {
+                      kind: "saved",
+                      requestId: "users/child",
+                      depth: 1,
+                      method: "GET",
+                      url: "https://example.com/child",
+                      status: 200,
+                      durationMs: 1,
+                      success: true,
+                      failureCategories: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }),
+      )
+      expect(output).toContain(
+        `${phase === "pre" ? "Pre" : "Post"}-script: cancelled, 2.5ms, 1 log (request: users/get)`,
+      )
+      expect(output).toContain("PASS GET users/child")
+      expect(output).not.toContain("AbortError")
+      expect(output).not.toContain("Persistence:")
+      expect(output).not.toContain("hidden log")
+    })
+  }
+
   it("distinguishes test script completion from failed callbacks", () => {
     const source = { scope: "request" as const, path: "a.yml", scopeId: "a" }
     for (const success of [true, false]) {
@@ -564,6 +636,9 @@ describe("human CLI output", () => {
           summary: {
             selected: 1,
             executed: 1,
+            completed: 1,
+            cancelled: 0,
+            unstarted: 0,
             skipped: 0,
             requestSuccesses: 1,
             requestFailures: 0,

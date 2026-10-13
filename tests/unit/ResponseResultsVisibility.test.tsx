@@ -134,6 +134,15 @@ describe("response Results", () => {
   })
 
   it("places Results status indicators last and matches the tab label color", async () => {
+    const cancelledScript = {
+      phase: "post" as const,
+      scope: "request" as const,
+      sourceKind: "inline" as const,
+      success: false,
+      cancelled: true as const,
+      durationMs: 2,
+      logs: [],
+    }
     const cases: { state: SendState; symbol: string }[] = [
       {
         state: {
@@ -194,6 +203,64 @@ describe("response Results", () => {
           execution: { assertions: { evaluated: false, results: [] } },
         },
         symbol: "–",
+      },
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            scripts: { evaluated: true, results: [cancelledScript] },
+          },
+        },
+        symbol: "–",
+      },
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            tests: { evaluated: true, cancelled: true, logs: [], results: [] },
+          },
+        },
+        symbol: "–",
+      },
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            scripts: {
+              evaluated: true,
+              results: [
+                { ...cancelledScript, phase: "pre", cancelled: undefined },
+                cancelledScript,
+              ],
+            },
+          },
+        },
+        symbol: "✗",
+      },
+      {
+        state: {
+          status: "done",
+          response,
+          execution: {
+            tests: {
+              evaluated: true,
+              cancelled: true,
+              logs: [],
+              results: [
+                {
+                  name: "earlier failure",
+                  passed: false,
+                  message: "failed",
+                  durationMs: 1,
+                },
+              ],
+            },
+          },
+        },
+        symbol: "✗",
       },
     ]
 

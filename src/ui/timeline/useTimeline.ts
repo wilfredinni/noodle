@@ -25,6 +25,7 @@ export function useTimeline(
   const lastKeyRef = useRef("")
   const loadGenerationRef = useRef(0)
   const mountedRef = useRef(true)
+  const appendedDuringLoadRef = useRef<TimelineEntry[] | null>(null)
   const saveChainRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
@@ -41,18 +42,25 @@ export function useTimeline(
       setLoading(false)
       return
     }
+    const appended: TimelineEntry[] = []
+    appendedDuringLoadRef.current = appended
     setLoading(true)
     try {
       const loaded = await loadTimeline(collectionDir, requestId)
       if (mountedRef.current && generation === loadGenerationRef.current) {
-        setEntries(loaded.slice(0, maxEntries))
+        const savedIds = new Set(appended.map((entry) => entry.id))
+        setEntries(
+          [
+            ...appended,
+            ...loaded.filter((entry) => !entry.id || !savedIds.has(entry.id)),
+          ].slice(0, maxEntries),
+        )
       }
     } catch {
-      if (mountedRef.current && generation === loadGenerationRef.current) {
-        setEntries([])
-      }
+      // Selection changes clear entries; a failed refresh keeps the visible history.
     } finally {
       if (mountedRef.current && generation === loadGenerationRef.current) {
+        appendedDuringLoadRef.current = null
         setLoading(false)
       }
     }
@@ -100,19 +108,25 @@ export function useTimeline(
 
   const appendEntry = useCallback(
     async (entry: TimelineEntry) => {
-      if (!collectionDir || !requestId) return
+      if (!collectionDir) return
       if (maxEntries === 0) return
+      const key = `${collectionDir}||${entry.request.id}||${maxEntries}`
       const save = saveChainRef.current.then(() =>
-        saveTimelineEntry(collectionDir, requestId, entry, maxEntries),
+        saveTimelineEntry(collectionDir, entry.request.id, entry, maxEntries),
       )
       saveChainRef.current = save.then(() => {}).catch(() => {})
       const persisted = await save
-      setEntries((prev) => {
-        const next = [persisted, ...prev]
-        return next.length > maxEntries ? next.slice(0, maxEntries) : next
-      })
+      if (!mountedRef.current || lastKeyRef.current !== key) return
+      appendedDuringLoadRef.current?.unshift(persisted)
+      appendedDuringLoadRef.current?.splice(maxEntries)
+      setEntries((prev) =>
+        [persisted, ...prev.filter((entry) => entry.id !== persisted.id)].slice(
+          0,
+          maxEntries,
+        ),
+      )
     },
-    [collectionDir, requestId, maxEntries],
+    [collectionDir, maxEntries],
   )
 
   return { entries, loading, appendEntry, reload: doLoad }

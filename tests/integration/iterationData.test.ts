@@ -182,6 +182,9 @@ it("runs rows in order with fresh scopes, original immutable iteration data, chi
   expect(result.summary).toMatchObject({
     selected: 4,
     executed: 4,
+    completed: 4,
+    cancelled: 0,
+    unstarted: 0,
     requestSuccesses: 4,
   })
 })

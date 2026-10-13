@@ -108,6 +108,9 @@ describe("useCollectionRunner", () => {
           summary: {
             selected: 2,
             executed: 2,
+            completed: 2,
+            cancelled: 0,
+            unstarted: 0,
             skipped: 0,
             requestSuccesses: 2,
             requestFailures: 0,
@@ -382,6 +385,9 @@ describe("useCollectionRunner", () => {
         summary: {
           selected: 3,
           executed: 1,
+          completed: 1,
+          cancelled: 0,
+          unstarted: 2,
           skipped: 2,
           requestSuccesses: 0,
           requestFailures: 1,
@@ -487,6 +493,9 @@ describe("useCollectionRunner", () => {
         summary: {
           selected: 0,
           executed: 0,
+          completed: 0,
+          cancelled: 0,
+          unstarted: 0,
           skipped: 0,
           requestSuccesses: 0,
           requestFailures: 0,

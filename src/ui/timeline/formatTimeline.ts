@@ -25,6 +25,7 @@ export function entryMethod(entry: TimelineEntry): Method {
 
 export function entryStatus(entry: TimelineEntry): number | null {
   if (entry.response) return entry.response.status
+  if (entry.cancelled) return null
   if (entry.error) return 0
   return null
 }
@@ -45,13 +46,15 @@ export function entrySize(entry: TimelineEntry): number | null {
 }
 
 export function entryTiming(entry: TimelineEntry): string {
-  if (entry.response) return `${Math.round(entry.response.timeMs)}ms`
+  if (entry.response)
+    return `${Math.round(entry.response.timeMs)}ms${entry.cancelled ? " · cancelled" : ""}`
+  if (entry.cancelled) return "cancelled"
   if (entry.error) return "ERR"
   return "-"
 }
 
 export function entryIsError(entry: TimelineEntry): boolean {
-  return entry.error !== undefined
+  return !entry.cancelled && entry.error !== undefined
 }
 
 export function shortMethod(m: string): string {

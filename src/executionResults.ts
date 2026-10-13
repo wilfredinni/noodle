@@ -30,6 +30,7 @@ export interface ExecutionResultGroup<T> {
 }
 
 export interface TestExecutionGroup extends ExecutionResultGroup<TestResult> {
+  cancelled?: true
   logs: ScriptLog[]
   invocations?: ScriptExecutionResult[]
   error?: ScriptExecutionError
@@ -40,6 +41,7 @@ export function testsSucceeded(tests: TestExecutionGroup | undefined): boolean {
   return (
     !tests ||
     (tests.evaluated &&
+      !tests.cancelled &&
       !tests.error &&
       !tests.errors?.length &&
       tests.results.every((result) => result.passed))
@@ -281,6 +283,7 @@ export async function evaluateResponseExecution(
   secretValues: RedactionSecret[] = [],
   onRawCaptures?: (results: CaptureResult[]) => void,
   afterCaptures?: () => Promise<void>,
+  onCheckpoint?: (execution: ResponseExecutionResults) => void,
 ): Promise<ResponseExecutionResults> {
   const resolve = createResponseResolver(response)
   const redact = (value: string) =>
@@ -326,17 +329,25 @@ export async function evaluateResponseExecution(
     )
   if (rawCaptures) onRawCaptures?.(rawCaptures)
   secretValues.push(...runScope.secretValues())
+  const captureResults = () =>
+    rawCaptures?.map((result): CaptureResult =>
+      result.success
+        ? {
+            ...result,
+            value: isSensitiveExpression(result.expression)
+              ? REDACTED
+              : redactExecutionValue(result.value, redactResult),
+          }
+        : { ...result, message: redact(result.message) },
+    )
+  onCheckpoint?.({
+    ...(hasCaptures
+      ? { captures: { evaluated: true, results: captureResults()! } }
+      : {}),
+    ...(hasAssertions ? { assertions: { evaluated: false, results: [] } } : {}),
+  })
   await afterCaptures?.()
-  const captures = rawCaptures?.map((result): CaptureResult =>
-    result.success
-      ? {
-          ...result,
-          value: isSensitiveExpression(result.expression)
-            ? REDACTED
-            : redactExecutionValue(result.value, redactResult),
-        }
-      : { ...result, message: redact(result.message) },
-  )
+  const captures = captureResults()
   const assertions = hasAssertions
     ? evaluateAssertions(request.assertions!, response, resolve).map(
         (result) => {

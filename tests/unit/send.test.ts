@@ -1,8 +1,12 @@
-import { afterEach, describe, it, expect, mock } from "bun:test"
+import { afterEach, describe, it, expect, mock, spyOn } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
-import { send, interpolatePathParams } from "../../src/requests/send"
+import {
+  send,
+  sendPrepared,
+  interpolatePathParams,
+} from "../../src/requests/send"
 import type { CollectionCookieJar } from "../../src/cookies"
-import { defaultOAuth1Auth } from "../../src/auth/defaults"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../src/auth/defaults"
 import { executeRequestLifecycle } from "../../src/requestLifecycle"
 import { RunScope } from "../../src/runScope"
 
@@ -699,6 +703,73 @@ describe("send — inherited auth", () => {
 })
 
 describe("send — network trace", () => {
+  for (const withTransportSignal of [false, true]) {
+    it(`rejects pre-aborted cancellation before substitution ${withTransportSignal ? "with" : "without"} a transport signal`, async () => {
+      const cancellationSignal = AbortSignal.abort()
+      await expect(
+        send(makeReq({ url: "https://example.com/$MISSING" }), {
+          signal: withTransportSignal
+            ? new AbortController().signal
+            : undefined,
+          cancellationSignal,
+        }),
+      ).rejects.toBe(cancellationSignal.reason)
+    })
+  }
+
+  for (const source of ["signal", "cancellationSignal"] as const) {
+    it(`skips cookie refresh when ${source} is already aborted`, async () => {
+      const refresh = mock(async () => {})
+      const cookies = {
+        status: { state: "encrypted" },
+        refresh,
+      } as unknown as CollectionCookieJar
+      await expect(
+        sendPrepared(
+          { ...makeReq(), headers: {} },
+          { [source]: AbortSignal.abort(), cookies },
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" })
+      expect(refresh).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const phase of ["fetch", "body"] as const) {
+    for (const withTransportSignal of [false, true]) {
+      it(`aborts ${phase} using cancellationSignal ${withTransportSignal ? "with" : "without"} a transport signal`, async () => {
+        const originalFetch = globalThis.fetch
+        const transport = new AbortController()
+        const cancellation = new AbortController()
+        globalThis.fetch = mock(async (_url, init) => {
+          const interrupt = async () => {
+            cancellation.abort()
+            if (!init?.signal?.aborted)
+              throw new Error("cancellation was not forwarded")
+            throw init.signal.reason
+          }
+          if (phase === "fetch") return interrupt()
+          const response = new Response("ok")
+          response.arrayBuffer = interrupt
+          return response
+        }) as unknown as typeof globalThis.fetch
+        try {
+          await expect(
+            send(makeReq(), {
+              signal: withTransportSignal ? transport.signal : undefined,
+              cancellationSignal: cancellation.signal,
+            }),
+          ).rejects.toMatchObject({
+            name: "AbortError",
+            message: "Request cancelled",
+          })
+          expect(transport.signal.aborted).toBe(false)
+        } finally {
+          globalThis.fetch = originalFetch
+        }
+      })
+    }
+  }
+
   it("uses Bun-backed app proxy credentials without environment overrides", async () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined
@@ -1336,6 +1407,263 @@ describe("send — network trace", () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  for (const phase of ["fetch", "body"] as const) {
+    it(`retains the network trace on ${phase} cancellation without exposing the abort reason`, async () => {
+      const originalFetch = globalThis.fetch
+      const controller = new AbortController()
+      const snapshots: string[][] = []
+      const cancel = async () => {
+        controller.abort(new Error("private abort reason"))
+        throw new DOMException("The operation was aborted", "AbortError")
+      }
+      globalThis.fetch = mock(async () => {
+        if (phase === "fetch") return cancel()
+        const response = new Response("ok")
+        response.arrayBuffer = cancel
+        return response
+      }) as unknown as typeof globalThis.fetch
+      try {
+        let error: NetworkError | undefined
+        try {
+          await send(makeReq(), {
+            signal: controller.signal,
+            onNetworkEvent: (events) =>
+              snapshots.push(events.map((event) => event.type)),
+          })
+        } catch (caught) {
+          error = caught as NetworkError
+        }
+        expect(error).toBeInstanceOf(DOMException)
+        expect(error?.name).toBe("AbortError")
+        expect(error?.message).toBe("Request cancelled")
+        expect(error?.network?.map((event) => event.type)).toEqual(
+          phase === "fetch"
+            ? ["request", "error"]
+            : ["request", "response", "error"],
+        )
+        expect(snapshots.at(-1)).toEqual(
+          error?.network?.map((event) => event.type),
+        )
+        expect(JSON.stringify(error)).not.toContain("private abort reason")
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+
+    for (const abortName of ["AbortError", "TimeoutError"] as const) {
+      it(`preserves a ${phase} failure racing ${abortName}`, async () => {
+        const originalFetch = globalThis.fetch
+        const controller = new AbortController()
+        const timeout =
+          abortName === "TimeoutError"
+            ? spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal)
+            : undefined
+        const failure = new Error("connection lost")
+        const fail = async () => {
+          controller.abort(new DOMException("interrupted", abortName))
+          throw failure
+        }
+        globalThis.fetch = mock(async () => {
+          if (phase === "fetch") return fail()
+          const response = new Response("ok")
+          response.arrayBuffer = fail
+          return response
+        }) as unknown as typeof globalThis.fetch
+        try {
+          let error: NetworkError | undefined
+          try {
+            await send(makeReq({ timeout: timeout ? 25 : 0 }), {
+              signal: timeout ? undefined : controller.signal,
+            })
+          } catch (caught) {
+            error = caught as NetworkError
+          }
+          expect(error?.name).toBe("Error")
+          expect(error?.cause).toBe(failure)
+          expect(error?.message).toBe(
+            phase === "fetch"
+              ? "requests.send: fetch failed"
+              : "requests.send: failed to read response body: connection lost",
+          )
+          expect(error?.network?.at(-1)?.message).toBe(error?.message)
+        } finally {
+          globalThis.fetch = originalFetch
+          timeout?.mockRestore()
+        }
+      })
+    }
+
+    for (const timeoutSource of ["request", "transport"] as const) {
+      it(`retains the network trace on a ${phase} ${timeoutSource} timeout`, async () => {
+        const originalFetch = globalThis.fetch
+        const snapshots: string[][] = []
+        const cancellation = new AbortController()
+        globalThis.fetch = mock(async (_url, init) => {
+          const signal = init!.signal!
+          const interrupted = new Promise<never>((_, reject) => {
+            if (signal.aborted) reject(signal.reason)
+            else
+              signal.addEventListener("abort", () => reject(signal.reason), {
+                once: true,
+              })
+          })
+          if (phase === "fetch") return interrupted
+          const response = new Response("ok")
+          response.arrayBuffer = () => interrupted
+          return response
+        }) as unknown as typeof globalThis.fetch
+        try {
+          let error: NetworkError | undefined
+          try {
+            await send(
+              makeReq({ timeout: timeoutSource === "request" ? 25 : 0 }),
+              {
+                signal:
+                  timeoutSource === "transport"
+                    ? AbortSignal.timeout(25)
+                    : undefined,
+                cancellationSignal: cancellation.signal,
+                onNetworkEvent: (events) =>
+                  snapshots.push(events.map((event) => event.type)),
+              },
+            )
+          } catch (caught) {
+            error = caught as NetworkError
+          }
+          expect(error).toBeInstanceOf(DOMException)
+          expect(error?.name).toBe("TimeoutError")
+          expect(error?.message).toBe("Request timed out")
+          expect(cancellation.signal.aborted).toBe(false)
+          expect(error?.network?.map((event) => event.type)).toEqual(
+            phase === "fetch"
+              ? ["request", "error"]
+              : ["request", "response", "error"],
+          )
+          expect(snapshots.at(-1)).toEqual(
+            error?.network?.map((event) => event.type),
+          )
+        } finally {
+          globalThis.fetch = originalFetch
+        }
+      })
+    }
+  }
+
+  for (const abortName of ["AbortError", "TimeoutError"] as const) {
+    it(`retains the parent OAuth trace on token-fetch ${abortName}`, async () => {
+      const originalFetch = globalThis.fetch
+      const controller = new AbortController()
+      const timeout =
+        abortName === "TimeoutError"
+          ? spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal)
+          : undefined
+      globalThis.fetch = mock(async (_url, init) => {
+        controller.abort(new DOMException("interrupted", abortName))
+        throw init!.signal!.reason
+      }) as unknown as typeof globalThis.fetch
+      try {
+        let error: NetworkError | undefined
+        try {
+          await send(
+            makeReq({
+              auth: {
+                ...defaultOAuth2Auth(),
+                grant_type: "client_credentials",
+                client_id: "trace-client",
+                access_token_url: "https://example.com/token",
+              },
+            }),
+            {
+              signal: new AbortController().signal,
+              cancellationSignal: timeout ? undefined : controller.signal,
+            },
+          )
+        } catch (caught) {
+          error = caught as NetworkError
+        }
+        expect(error).toBeInstanceOf(DOMException)
+        expect(error?.name).toBe(abortName)
+        expect(error?.network?.map((event) => event.type)).toEqual([
+          "auth",
+          "auth",
+          "error",
+        ])
+        const message =
+          abortName === "TimeoutError"
+            ? "Request timed out"
+            : "Request cancelled"
+        expect(error?.message).toBe(message)
+        expect(error?.network?.at(-1)?.message).toBe(message)
+      } finally {
+        globalThis.fetch = originalFetch
+        timeout?.mockRestore()
+      }
+    })
+  }
+
+  for (const expired of ["resource", "token", "caller"] as const) {
+    it(`preserves the OAuth ${expired === "token" ? "timeout" : "cancellation"} after the ${expired} timer expires`, async () => {
+      const originalFetch = globalThis.fetch
+      const caller = new AbortController()
+      const resourceTimeout = new AbortController()
+      const tokenTimeout = new AbortController()
+      const timeout = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+        ms === 25 ? resourceTimeout.signal : tokenTimeout.signal,
+      )
+      globalThis.fetch = mock(async (_url, init) => {
+        const expiredTimer =
+          expired === "resource" ? resourceTimeout : tokenTimeout
+        expiredTimer.abort(new DOMException("timed out", "TimeoutError"))
+        caller.abort(new Error("private caller reason"))
+        throw expired === "resource"
+          ? new DOMException("aborted", "AbortError")
+          : init!.signal!.reason
+      }) as unknown as typeof globalThis.fetch
+      try {
+        const result = await executeRequestLifecycle({
+          request: makeReq({
+            timeout: 25,
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              client_id: "trace-client",
+              access_token_url: "https://example.com/token",
+            },
+          }),
+          runScope: new RunScope(),
+          transport: {
+            signal: caller.signal,
+            onNetworkEvent: (events) => {
+              if (
+                expired === "caller" &&
+                events.at(-1)?.message === "Fetching OAuth 2 token"
+              )
+                caller.abort(
+                  new DOMException("private caller reason", "TimeoutError"),
+                )
+            },
+          },
+        })
+        expect(result).toMatchObject(
+          expired !== "token"
+            ? {
+                status: "cancelled",
+                error: { name: "AbortError", message: "Request cancelled" },
+              }
+            : {
+                status: "error",
+                failureCategory: "transport",
+                error: { name: "TimeoutError", message: "Request timed out" },
+              },
+        )
+        expect(JSON.stringify(result)).not.toContain("private caller reason")
+      } finally {
+        globalThis.fetch = originalFetch
+        timeout.mockRestore()
+      }
+    })
+  }
 
   it("redacts request credentials and query values from fetch errors", async () => {
     const originalFetch = globalThis.fetch

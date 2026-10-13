@@ -52,7 +52,13 @@ export class ScriptScheduler {
     this.onAbort = interrupt
     this.signal.addEventListener("abort", this.onAbort, { once: true })
     this.timer = setTimeout(
-      () => this.controller.abort(),
+      () =>
+        this.controller.abort(
+          new ScriptEvaluationError({
+            name: "ScriptWallTimeoutError",
+            message: "Script exceeded its network/wall-time deadline",
+          }),
+        ),
       Math.max(0, this.deadline - Date.now()),
     )
     context.runtime.setInterruptHandler(
@@ -73,14 +79,17 @@ export class ScriptScheduler {
   }
 
   check(): void {
+    if (this.signal.aborted) {
+      if (this.signal.reason instanceof ScriptEvaluationError)
+        throw this.signal.reason
+      throw new DOMException("Script cancelled", "AbortError")
+    }
     if (this.hostFailure) throw new ScriptEvaluationError(this.hostFailure)
     if (Date.now() >= this.deadline)
       throw new ScriptEvaluationError({
         name: "ScriptWallTimeoutError",
         message: "Script exceeded its network/wall-time deadline",
       })
-    if (this.signal.aborted)
-      throw new DOMException("Script cancelled", "AbortError")
     if (this.cpuUsed >= this.cpuLimit)
       throw new ScriptEvaluationError({
         name: "ScriptTimeoutError",
@@ -90,7 +99,10 @@ export class ScriptScheduler {
 
   private guestError(handle: QuickJSHandle): ScriptEvaluationError {
     try {
-      return new ScriptEvaluationError(this.run(() => this.normalize(handle)))
+      this.check()
+      const diagnostic = this.run(() => this.normalize(handle))
+      this.check()
+      return new ScriptEvaluationError(diagnostic)
     } finally {
       handle.dispose()
     }

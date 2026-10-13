@@ -197,6 +197,15 @@ terminal behavior; ordinary-account interactive testing remains pending.
   exercise post processing and hostile-allocation recovery without changing
   release scripts.
 
+## Collection cancellation regressions
+
+Run `tests/integration/collectionCancellation.test.ts` and
+`collectionCancellationCli.test.ts` for pre-aborted signals, HTTP and OAuth,
+pre/post child calls, partial diagnostics, redaction, cancellable delay, dataset
+identities, fail-fast precedence, accounting, and cleanup. The CLI suite uses
+real SIGINT/SIGTERM and supports `NOODLE_TEST_BINARY`. Repeat changed async
+files ten times; keep cancellation distinct from request/script timeouts.
+
 ## Async scripting regressions
 
 Run `tests/integration/asyncScripts.test.ts` for chaining, transactional captures,

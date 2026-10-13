@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test"
-import { act, useEffect, useState } from "react"
+import { act, StrictMode, useEffect, useState } from "react"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createTestRender, waitForHookState } from "../testRender"
-import { useResponse } from "../../src/hooks/useResponse"
+import {
+  useResponse,
+  type UseResponseResult,
+  type SendCompleteResult,
+} from "../../src/hooks/useResponse"
 import { executor } from "../../src/requests"
 import type { Environment, Request } from "../../src/schema"
 import type { SendState } from "../../src/ui/sendState"
@@ -27,6 +31,533 @@ function request(over: Partial<Request> = {}): Request {
 }
 
 describe("useResponse execution results", () => {
+  for (const strict of [false, true]) {
+    it(`starts one lifecycle for repeated clicks ${strict ? "in StrictMode" : "before rendering"}`, async () => {
+      const originalSend = executor.send
+      const pending =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const retry =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const started = Promise.withResolvers<void>()
+      const signals: AbortSignal[] = []
+      const completed: SendCompleteResult[] = []
+      executor.send = (_req, options) => {
+        signals.push(options!.signal!)
+        started.resolve()
+        return signals.length === 1 ? pending.promise : retry.promise
+      }
+      let manual!: UseResponseResult
+      function Harness() {
+        manual = useResponse(request(), undefined, (_req, result) => {
+          completed.push(result)
+        })
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(
+            strict ? (
+              <StrictMode>
+                <Harness />
+              </StrictMode>
+            ) : (
+              <Harness />
+            ),
+            { width: 10, height: 3 },
+          ),
+        )
+        await act(async () => {
+          manual.trySend()
+          manual.trySend()
+        })
+        await act(async () => started.promise)
+        expect(signals).toHaveLength(1)
+        expect(manual.state.status).toBe("sending")
+        await act(async () => manual.cancelSend())
+        expect(signals[0]!.aborted).toBeTrue()
+        await act(async () => {
+          pending.reject(signals[0]!.reason)
+          await pending.promise.catch(() => {})
+        })
+        await waitForHookState(render, () => manual.state.status === "idle")
+        expect(completed).toMatchObject([
+          {
+            status: "cancelled",
+            error: { name: "AbortError", message: "Request cancelled" },
+          },
+        ])
+        await act(async () => {
+          manual.trySend()
+          manual.trySend()
+        })
+        await waitForHookState(render, () => signals.length === 2)
+        expect(signals[1]!.aborted).toBeFalse()
+        await act(async () => {
+          retry.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "retry",
+            timeMs: 1,
+          })
+          await retry.promise
+        })
+        await waitForHookState(render, () => manual.state.status === "done")
+        expect(signals).toHaveLength(2)
+        expect(completed).toMatchObject([
+          { status: "cancelled" },
+          { status: "done", response: { body: "retry" } },
+        ])
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          pending.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          })
+          retry.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          })
+          await pending.promise.catch(() => {})
+          await retry.promise
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
+  for (const newerFirst of [false, true]) {
+    for (const oldOutcome of ["done", "error"] as const) {
+      for (const sameRequest of [false, true]) {
+        it(`keeps overlapping ${sameRequest ? "same-request" : "different-request"} results ordered when the older send ${oldOutcome === "done" ? "succeeds" : "fails"} ${newerFirst ? "last" : "first"}`, async () => {
+          const originalSend = executor.send
+          const pending = [
+            Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+            Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+          ]
+          const started = [
+            Promise.withResolvers<void>(),
+            Promise.withResolvers<void>(),
+          ]
+          let calls = 0
+          executor.send = () => {
+            const index = calls++
+            started[index]!.resolve()
+            return pending[index]!.promise
+          }
+          const first = request()
+          const second = sameRequest ? first : request({ id: "second" })
+          let manual!: UseResponseResult
+          let select!: (req: Request | null) => void
+          const completed: {
+            id: string
+            status: SendCompleteResult["status"]
+          }[] = []
+          function Harness() {
+            const [selected, setSelected] = useState<Request | null>(first)
+            select = setSelected
+            manual = useResponse(selected, undefined, (req, result) => {
+              completed.push({ id: req.id, status: result.status })
+            })
+            return null
+          }
+          try {
+            const render = await act(async () =>
+              testRender(<Harness />, { width: 10, height: 3 }),
+            )
+            await act(async () => manual.trySend())
+            await act(async () => started[0]!.promise)
+            await act(async () => select(null))
+            await act(async () => select(second))
+            await act(async () => manual.trySend())
+            await act(async () => started[1]!.promise)
+            const finish = async (index: number) => {
+              await act(async () => {
+                if (index === 0 && oldOutcome === "error")
+                  pending[0]!.reject(new Error("older offline"))
+                else
+                  pending[index]!.resolve({
+                    status: 200,
+                    statusText: "OK",
+                    headers: {},
+                    body: index === 0 ? "older" : "newer",
+                    timeMs: 1,
+                  })
+                await pending[index]!.promise.catch(() => {})
+                await render.flush()
+              })
+              await waitForHookState(
+                render,
+                () =>
+                  completed.length === (index === (newerFirst ? 1 : 0) ? 1 : 2),
+              )
+            }
+            await finish(newerFirst ? 1 : 0)
+            expect(manual.state).toMatchObject(
+              newerFirst
+                ? { status: "done", response: { body: "newer" } }
+                : { status: "sending", request: { id: second.id } },
+            )
+            if (!newerFirst) {
+              await act(async () => {
+                manual.trySend()
+                manual.trySend()
+              })
+              expect(calls).toBe(2)
+            }
+            await finish(newerFirst ? 0 : 1)
+            expect(manual.state).toMatchObject({
+              status: "done",
+              response: { body: "newer" },
+            })
+            await act(async () => select(null))
+            await act(async () => select(second))
+            expect(manual.state).toMatchObject({
+              status: "done",
+              response: { body: "newer" },
+            })
+            expect(completed).toHaveLength(2)
+            if (!sameRequest) {
+              await act(async () => select(first))
+              expect(manual.state).toMatchObject(
+                oldOutcome === "done"
+                  ? { status: "done", response: { body: "older" } }
+                  : { status: "error", error: { message: "older offline" } },
+              )
+            }
+          } finally {
+            await act(async () => {
+              manual?.cancelSend()
+              for (const deferred of pending)
+                deferred.resolve({
+                  status: 200,
+                  statusText: "OK",
+                  headers: {},
+                  body: "cleanup",
+                  timeMs: 1,
+                })
+              await Promise.allSettled(pending.map(({ promise }) => promise))
+            })
+            executor.send = originalSend
+          }
+        })
+      }
+    }
+  }
+
+  for (const secondFinishesFirst of [false, true]) {
+    it(`shows the selected first request while another send owns cancellation and finishes ${secondFinishesFirst ? "first" : "last"}`, async () => {
+      const originalSend = executor.send
+      const pending = [
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>(),
+      ]
+      const started = [
+        Promise.withResolvers<void>(),
+        Promise.withResolvers<void>(),
+      ]
+      let calls = 0
+      executor.send = () => {
+        const index = calls++
+        started[index]!.resolve()
+        return pending[index]!.promise
+      }
+      const first = request()
+      let manual!: UseResponseResult
+      let select!: (req: Request | null) => void
+      const completed: string[] = []
+      function Harness() {
+        const [selected, setSelected] = useState<Request | null>(first)
+        select = setSelected
+        manual = useResponse(selected, undefined, (req) => {
+          completed.push(req.id)
+        })
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(<Harness />, { width: 10, height: 3 }),
+        )
+        await act(async () => manual.trySend())
+        await act(async () => started[0]!.promise)
+        await act(async () => select(request({ id: "second" })))
+        await act(async () => manual.trySend())
+        await act(async () => started[1]!.promise)
+        await act(async () => select(first))
+        for (const index of secondFinishesFirst ? [1, 0] : [0, 1]) {
+          await act(async () => {
+            pending[index]!.resolve({
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: index === 0 ? "first response" : "second response",
+              timeMs: 1,
+            })
+            await pending[index]!.promise
+            await render.flush()
+          })
+          await waitForHookState(
+            render,
+            () =>
+              completed.length ===
+              (index === (secondFinishesFirst ? 1 : 0) ? 1 : 2),
+          )
+          if (index === 0 || completed.length === 2)
+            expect(manual.state).toMatchObject({
+              status: "done",
+              requestId: "first",
+              response: { body: "first response" },
+            })
+          else expect(manual.state.status).toBe("idle")
+        }
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          for (const deferred of pending)
+            deferred.resolve({
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "cleanup",
+              timeMs: 1,
+            })
+          await Promise.allSettled(pending.map(({ promise }) => promise))
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
+  for (const returnBeforeCompletion of [true, false]) {
+    it(`shows the active response only for the selected request ${returnBeforeCompletion ? "after returning before completion" : "after returning to its cache"}`, async () => {
+      const originalSend = executor.send
+      const started = Promise.withResolvers<void>()
+      const pending =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      executor.send = () => {
+        started.resolve()
+        return pending.promise
+      }
+      const req = request()
+      let manual!: UseResponseResult
+      let select!: (req: Request | null) => void
+      const completed: string[] = []
+      function Harness() {
+        const [selected, setSelected] = useState<Request | null>(req)
+        select = setSelected
+        manual = useResponse(selected, undefined, (req) =>
+          completed.push(req.id),
+        )
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(<Harness />, { width: 10, height: 3 }),
+        )
+        await act(async () => manual.trySend())
+        await act(async () => started.promise)
+        await act(async () => select(request({ id: "second" })))
+        if (returnBeforeCompletion) await act(async () => select(req))
+        await act(async () => {
+          pending.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "completed first",
+            timeMs: 1,
+          })
+          await pending.promise
+          await render.flush()
+        })
+        await waitForHookState(render, () => completed.length === 1)
+        expect(manual.state.status).toBe(
+          returnBeforeCompletion ? "done" : "idle",
+        )
+        if (!returnBeforeCompletion) await act(async () => select(req))
+        expect(manual.state).toMatchObject({
+          status: "done",
+          requestId: "first",
+          response: { body: "completed first" },
+        })
+        expect(completed).toEqual(["first"])
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          pending.resolve({
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          })
+          await pending.promise
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
+  it("retains, reports and caches the response when post-script cancellation interrupts a child", async () => {
+    const originalSend = executor.send
+    const entered = Promise.withResolvers<void>()
+    let child: ReturnType<typeof executor.send> | undefined
+    let calls = 0
+    executor.send = async (_req, options) => {
+      if (++calls === 1)
+        return {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "retained",
+          timeMs: 1,
+        }
+      child = new Promise((_resolve, reject) => {
+        options!.signal!.addEventListener(
+          "abort",
+          () => reject(options!.signal!.reason),
+          { once: true },
+        )
+        entered.resolve()
+      })
+      return child
+    }
+    const req = request({
+      scripts: {
+        post: 'console.log("before"); await noodle.sendRequest({url: "https://example.com/child"})',
+      },
+    })
+    let manual!: UseResponseResult
+    let select!: (req: Request | null) => void
+    const completed: SendCompleteResult[] = []
+    function Harness() {
+      const [selected, setSelected] = useState<Request | null>(req)
+      select = setSelected
+      manual = useResponse(selected, undefined, (_req, result) =>
+        completed.push(result),
+      )
+      return null
+    }
+    try {
+      const render = await act(async () =>
+        testRender(<Harness />, { width: 10, height: 3 }),
+      )
+      await act(async () => manual.trySend())
+      await act(async () => entered.promise)
+      await act(async () => {
+        manual.cancelSend()
+        await child?.catch(() => {})
+      })
+      await waitForHookState(render, () => manual.state.status !== "sending")
+      expect(manual.state.status).toBe("done")
+      if (manual.state.status !== "done") throw new Error("narrow")
+      expect(manual.state.response.body).toBe("retained")
+      expect(manual.state.execution?.scripts?.results[0]).toMatchObject({
+        cancelled: true,
+        logs: [{ message: "before" }],
+      })
+      expect(completed).toMatchObject([
+        {
+          status: "cancelled",
+          response: { body: "retained" },
+          execution: manual.state.execution,
+        },
+      ])
+      await act(async () => select(request({ id: "second" })))
+      await act(async () => select(req))
+      expect(manual.state.status).toBe("done")
+      expect(calls).toBe(2)
+    } finally {
+      await act(async () => {
+        manual?.cancelSend()
+        await child?.catch(() => {})
+      })
+      executor.send = originalSend
+    }
+  })
+
+  for (const sameRequest of [false, true]) {
+    it(`keeps a newer ${sameRequest ? "same-request" : "different-request"} send active after a late cancellation`, async () => {
+      const originalSend = executor.send
+      const first =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const second =
+        Promise.withResolvers<Awaited<ReturnType<typeof executor.send>>>()
+      const started = [
+        Promise.withResolvers<void>(),
+        Promise.withResolvers<void>(),
+      ]
+      let calls = 0
+      let secondSignal: AbortSignal | undefined
+      executor.send = (_req, options) => {
+        const index = calls++
+        if (index === 1) secondSignal = options?.signal
+        started[index]!.resolve()
+        return index === 0 ? first.promise : second.promise
+      }
+      const req = request()
+      let manual!: UseResponseResult
+      let select!: (req: Request | null) => void
+      function Harness() {
+        const [selected, setSelected] = useState<Request | null>(req)
+        select = setSelected
+        manual = useResponse(selected)
+        return null
+      }
+      try {
+        const render = await act(async () =>
+          testRender(<Harness />, { width: 10, height: 3 }),
+        )
+        await act(async () => manual.trySend())
+        await act(async () => started[0]!.promise)
+        await act(async () => {
+          manual.cancelSend()
+          select(null)
+        })
+        await act(async () =>
+          select(sameRequest ? req : request({ id: "second" })),
+        )
+        await act(async () => manual.trySend())
+        await act(async () => started[1]!.promise)
+        await act(async () => {
+          first.reject(new DOMException("cancelled", "AbortError"))
+          await first.promise.catch(() => {})
+          await render.flush()
+        })
+        const stateAfterCancellation = manual.state
+        await act(async () => {
+          manual.cancelSend()
+          second.reject(new DOMException("cancelled", "AbortError"))
+          await second.promise.catch(() => {})
+          await render.flush()
+        })
+        expect(stateAfterCancellation.status).toBe("sending")
+        expect(secondSignal?.aborted).toBe(true)
+      } finally {
+        await act(async () => {
+          manual?.cancelSend()
+          const response = {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "cleanup",
+            timeMs: 1,
+          }
+          first.resolve(response)
+          second.resolve(response)
+          await Promise.allSettled([first.promise, second.promise])
+        })
+        executor.send = originalSend
+      }
+    })
+  }
+
   it("reports the environment snapshot captured when the request started", async () => {
     const originalSend = executor.send
     const startedSend = Promise.withResolvers<void>()

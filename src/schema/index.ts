@@ -351,6 +351,7 @@ export interface Environment {
 export type SecretStatus = "process" | "keychain" | "missing" | "disabled"
 
 export interface TimelineEntry {
+  cancelled?: true
   id?: string
   timestamp: number
   envName?: string

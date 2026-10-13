@@ -1073,6 +1073,9 @@ capture:
         summary: {
           selected: 0,
           executed: 0,
+          completed: 0,
+          cancelled: 0,
+          unstarted: 0,
           failureCategories: ["configuration"],
         },
       })
@@ -1128,6 +1131,9 @@ capture:
       expect(result.summary).toMatchObject({
         selected: 2,
         executed: 2,
+        completed: 2,
+        cancelled: 0,
+        unstarted: 0,
         skipped: 0,
         requestSuccesses: 2,
         requestFailures: 0,
@@ -1185,6 +1191,9 @@ capture:
       expect(result.summary).toMatchObject({
         selected: 4,
         executed: 4,
+        completed: 4,
+        cancelled: 0,
+        unstarted: 0,
         requestSuccesses: 1,
         requestFailures: 3,
         assertionPasses: 0,
@@ -1295,6 +1304,9 @@ capture:
       expect(result.summary).toMatchObject({
         selected: 3,
         executed: 1,
+        completed: 1,
+        cancelled: 0,
+        unstarted: 2,
         skipped: 2,
         requestSuccesses: 0,
         requestFailures: 1,
@@ -1373,6 +1385,9 @@ capture:
       summary: {
         selected: 0,
         executed: 0,
+        completed: 0,
+        cancelled: 0,
+        unstarted: 0,
         skipped: 0,
         failureCategories: [],
       },

@@ -313,8 +313,8 @@ describe("secret storage", () => {
           setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
         ),
       )
-      expect(results.every((result) => result.status === "fulfilled")).toBe(
-        true,
+      expect(results.filter((result) => result.status === "rejected")).toEqual(
+        [],
       )
       const savedId = (await loadSettings(root)).collectionId
       expect(savedId).toBeDefined()

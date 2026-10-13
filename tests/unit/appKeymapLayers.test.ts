@@ -791,6 +791,9 @@ describe("app keymap layers", () => {
       summary: {
         selected: 0,
         executed: 0,
+        completed: 0,
+        cancelled: 0,
+        unstarted: 0,
         skipped: 0,
         requestSuccesses: 0,
         requestFailures: 0,

@@ -381,6 +381,9 @@ describe("CLI integration", () => {
           summary: {
             selected: 0,
             executed: 0,
+            completed: 0,
+            cancelled: 0,
+            unstarted: 0,
             skipped: 0,
             requestSuccesses: 0,
             requestFailures: 0,
@@ -475,6 +478,9 @@ describe("CLI integration", () => {
           summary: {
             selected: 2,
             executed: 1,
+            completed: 1,
+            cancelled: 0,
+            unstarted: 1,
             skipped: 1,
             requestSuccesses: 0,
             requestFailures: 1,

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises"
 import { existsSync } from "node:fs"
 import {
   mkdir,
@@ -664,6 +665,7 @@ async function environmentFor(
     : undefined
 }
 export interface RequestRunResult {
+  cancelled?: true
   iteration?: number
   tests?: ResponseExecutionResults["tests"]
   id: string
@@ -718,6 +720,9 @@ export interface CollectionRunSummary {
   testScriptErrors?: number
   selected: number
   executed: number
+  completed: number
+  cancelled: number
+  unstarted: number
   skipped: number
   requestSuccesses: number
   requestFailures: number
@@ -728,13 +733,36 @@ export interface CollectionRunSummary {
   failureCategories: RunFailureCategory[]
 }
 export interface CollectionRunResult {
+  cancelled?: true
   iterations?: number
   results: RequestRunResult[]
-  skipped: { id: string; reason: "fail-fast"; iteration?: number }[]
+  skipped: {
+    id: string
+    reason: "fail-fast" | "cancelled"
+    iteration?: number
+  }[]
   failed: boolean
   failure?: { category: "configuration"; message: string }
   summary: CollectionRunSummary
   warnings?: string[]
+}
+export type CollectionRunEvent =
+  | { type: "request-start"; id: string; iteration?: number }
+  | {
+      type: "request-complete"
+      id: string
+      iteration?: number
+      result: RequestRunResult
+    }
+  | {
+      type: "request-skip"
+      id: string
+      iteration?: number
+      reason: "fail-fast" | "cancelled"
+    }
+export interface CollectionRunOptions {
+  signal?: AbortSignal
+  onEvent?: (event: CollectionRunEvent) => void
 }
 export type RunProgress = (completed: number, total: number) => void
 export type RequestRunDetail = {
@@ -758,6 +786,7 @@ async function runRequest(
   output?: PreparedResponseOutput,
   scriptSources?: ScriptSourceResolver,
   consoleTiming = false,
+  signal?: AbortSignal,
 ): Promise<RequestRunResult> {
   const lifecycle = await executeRequestLifecycle({
     request,
@@ -782,6 +811,7 @@ async function runRequest(
         }
       : {}),
     transport: {
+      signal,
       proxyPolicy,
       tlsPolicy,
       cookies,
@@ -792,12 +822,16 @@ async function runRequest(
   const redact = (value: string) =>
     redactKnownSecrets(value, lifecycle.secretValues)
 
-  if (lifecycle.status === "error") {
+  if (
+    lifecycle.status === "error" ||
+    (lifecycle.status === "cancelled" && !lifecycle.response)
+  ) {
     const network = (lifecycle.error as { network?: unknown }).network
     const detailError = Object.assign(new Error(lifecycle.error.message), {
       ...(Array.isArray(network) ? { network } : {}),
     })
     const result: RequestRunResult = {
+      ...(lifecycle.status === "cancelled" ? { cancelled: true as const } : {}),
       id: request.id,
       method: lifecycle.prepared?.method ?? request.method,
       url: redact(lifecycle.prepared?.url ?? request.url),
@@ -805,10 +839,12 @@ async function runRequest(
       ok: false,
       failureCategories: RUN_FAILURE_CATEGORIES.filter(
         (category) =>
-          category === lifecycle.failureCategory ||
+          (lifecycle.status === "error" &&
+            category === lifecycle.failureCategory) ||
           (category === "script" &&
             lifecycle.execution.scripts?.results.some(
-              (script) => !scriptExecutionSucceeded(script),
+              (script) =>
+                !script.cancelled && !scriptExecutionSucceeded(script),
             )),
       ),
       ...lifecycle.execution,
@@ -818,7 +854,7 @@ async function runRequest(
       entry: buildTimelineEntry(
         lifecycle.request,
         {
-          status: "error",
+          status: lifecycle.status,
           error: detailError,
           execution: lifecycle.execution,
         },
@@ -831,7 +867,8 @@ async function runRequest(
     return result
   }
 
-  const { response, prepared } = lifecycle
+  const response = lifecycle.response!
+  const prepared = lifecycle.prepared!
   const execution = lifecycle.execution
   const authWarnings = (response.network ?? [])
     .filter(
@@ -848,6 +885,9 @@ async function runRequest(
   ]
   const failureCategories = lifecycleFailureCategories(lifecycle)
   const result: RequestRunResult = {
+    ...(lifecycle.status === "cancelled"
+      ? { cancelled: true as const, error: "Request cancelled" }
+      : {}),
     id: request.id,
     method: prepared.method,
     url: redact(prepared.url),
@@ -893,6 +933,7 @@ async function runRequest(
       timeMs: response.timeMs,
     },
     ok:
+      lifecycle.status !== "cancelled" &&
       testsSucceeded(execution.tests) &&
       (execution.scripts?.results.every(scriptExecutionSucceeded) ?? true) &&
       response.status < 400 &&
@@ -930,7 +971,9 @@ async function runRequest(
     requestId: request.id,
     entry: buildTimelineEntry(
       lifecycle.request,
-      { status: "done", response, execution },
+      lifecycle.status === "cancelled"
+        ? { status: "cancelled", response, execution, error: lifecycle.error }
+        : { status: "done", response, execution },
       environment?.name,
       undefined,
       responseSecretValues,
@@ -964,9 +1007,13 @@ function summarizeRun(
   return {
     selected,
     executed: results.length,
+    completed: results.filter((result) => !result.cancelled).length,
+    cancelled: results.filter((result) => result.cancelled).length,
+    unstarted: selected - results.length,
     skipped,
     requestSuccesses: results.filter((result) => result.ok).length,
-    requestFailures: results.filter((result) => !result.ok).length,
+    requestFailures: results.filter((result) => !result.ok && !result.cancelled)
+      .length,
     ...(testGroups.length
       ? {
           testPasses: testResults.filter((result) => result.passed).length,
@@ -1022,23 +1069,17 @@ export async function collectionRun(
   delayMs = 0,
   dataPath?: string,
   syntaxPreflight = false,
+  { signal, onEvent }: CollectionRunOptions = {},
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
   let selected = 0
   let dir: string
-  let settings: CollectionSettings
   let collection: Collection
   let requests: Request[]
-  let environment: Environment | undefined
-  let policy: ProxyPolicy | undefined
-  let tlsPolicy: TlsPolicy | undefined
-  let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
-  let scriptSources: ScriptSourceResolver
   let rows: Awaited<ReturnType<typeof loadIterationData>> | undefined
   try {
-    if (!Number.isSafeInteger(delayMs) || delayMs < 0) {
+    if (!Number.isSafeInteger(delayMs) || delayMs < 0)
       throw new Error("delay must be a non-negative safe integer")
-    }
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir, { loadScripts: false })
     requests = selectCollectionRunRequests(
@@ -1053,73 +1094,120 @@ export async function collectionRun(
       validateExecutionCount(selected, rows.length)
       selected *= rows.length
     }
-    settings = await loadSettings(dir)
-    collection = {
-      ...collection,
-      scripts: settings.scripts,
-      tests: settings.tests,
-    }
-    scriptSources = createScriptSourceResolver(dir, syntaxPreflight)
-    for (const request of requests)
-      await scriptSources.resolveBlocks(
-        requestScriptBlocks(request, collection),
-      )
-    environment = await environmentFor(dir, settings, environmentName)
-    policy = await proxyPolicyFor(
-      dir,
-      settings,
-      noProxy,
-      systemProxy ?? takeSystemProxyFromEnv(),
-    )
-    tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
-    cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
   } catch (error) {
     return configurationRunResult(error, selected, startedAt)
   }
-  const cookies = cookieAccess.jar
   const results: RequestRunResult[] = []
   const skipped: CollectionRunResult["skipped"] = []
-  const warnings = new Set(cookieAccess.warnings)
-  onProgress?.(0, selected)
-  let stopped = false
+  const warnings = new Set<string>()
+  let cookies: CollectionCookieJar | undefined
+  let stopped: "fail-fast" | "cancelled" | undefined
+  let environment: Environment | undefined
+  let policy: ProxyPolicy | undefined
+  let tlsPolicy: TlsPolicy | undefined
+  const scriptSources = createScriptSourceResolver(dir, syntaxPreflight)
   try {
+    try {
+      signal?.throwIfAborted()
+      const settings = await loadSettings(dir)
+      signal?.throwIfAborted()
+      collection = {
+        ...collection,
+        scripts: settings.scripts,
+        tests: settings.tests,
+      }
+      for (const request of requests) {
+        await scriptSources.resolveBlocks(
+          requestScriptBlocks(request, collection),
+        )
+        signal?.throwIfAborted()
+      }
+      environment = await environmentFor(dir, settings, environmentName)
+      signal?.throwIfAborted()
+      policy = await proxyPolicyFor(
+        dir,
+        settings,
+        noProxy,
+        systemProxy ?? takeSystemProxyFromEnv(),
+      )
+      signal?.throwIfAborted()
+      tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
+      signal?.throwIfAborted()
+      const access = await cookieJarFor(dir, settings, CONFIG_DIR)
+      cookies = access.jar
+      for (const warning of access.warnings) warnings.add(warning)
+      signal?.throwIfAborted()
+    } catch (error) {
+      if (!signal?.aborted)
+        return configurationRunResult(error, selected, startedAt)
+      stopped = "cancelled"
+    }
+    onProgress?.(0, selected)
+    let completed = 0
     for (let iteration = 0; iteration < (rows?.length ?? 1); iteration++) {
+      if (!stopped && signal?.aborted) stopped = "cancelled"
       const data = rows?.[iteration]
       const runScope = new RunScope(
         data ? { index: iteration, count: rows!.length, data } : null,
       )
-      if (data)
+      if (data && !stopped)
         for (const [name, value] of Object.entries(data))
           runScope.set(name, structuredClone(value))
-      const iterationCookies = rows ? cookies?.cloneTransient() : cookies
+      const iterationCookies = stopped
+        ? undefined
+        : rows
+          ? cookies?.cloneTransient()
+          : cookies
       try {
         for (const request of requests) {
-          const identity = rows ? { iteration } : {}
+          const identity = { id: request.id, ...(rows ? { iteration } : {}) }
+          if (!stopped && signal?.aborted) stopped = "cancelled"
+          if (!stopped && delayMs > 0 && results.length > 0) {
+            try {
+              await delay(delayMs, undefined, { signal })
+            } catch (error) {
+              if (!signal?.aborted) throw error
+              stopped = "cancelled"
+            }
+          }
+          if (!stopped && signal?.aborted) stopped = "cancelled"
           if (stopped) {
-            skipped.push({ id: request.id, reason: "fail-fast", ...identity })
+            const skip = { ...identity, reason: stopped }
+            skipped.push(skip)
+            onEvent?.({ type: "request-skip", ...skip })
             continue
           }
-          if (delayMs > 0 && results.length > 0) await Bun.sleep(delayMs)
-          const result = await runRequest(
-            dir,
-            collection,
-            request,
-            runScope,
-            environment,
-            policy,
-            tlsPolicy,
-            iterationCookies,
-            false,
-            onDetail
-              ? (detail) => onDetail({ ...detail, ...identity })
-              : undefined,
-            undefined,
-            scriptSources,
-            syntaxPreflight,
-          )
-          results.push({ ...result, ...identity })
-          onProgress?.(results.length, selected)
-          if (failFast && !result.ok) stopped = true
+          onEvent?.({ type: "request-start", ...identity })
+          const result = {
+            ...(await runRequest(
+              dir,
+              collection,
+              request,
+              runScope,
+              environment,
+              policy,
+              tlsPolicy,
+              iterationCookies,
+              false,
+              onDetail
+                ? (detail) =>
+                    onDetail({ ...detail, ...(rows ? { iteration } : {}) })
+                : undefined,
+              undefined,
+              scriptSources,
+              syntaxPreflight,
+              signal,
+            )),
+            ...(rows ? { iteration } : {}),
+          }
+          results.push(result)
+          if (result.cancelled) stopped = "cancelled"
+          else {
+            completed++
+            if (failFast && !result.ok) stopped = "fail-fast"
+          }
+          onEvent?.({ type: "request-complete", ...identity, result })
+          onProgress?.(completed, selected)
         }
       } finally {
         if (rows) await closeCookieJar(iterationCookies)
@@ -1133,11 +1221,12 @@ export async function collectionRun(
   for (const warning of cookies?.warnings ?? []) warnings.add(warning)
   return {
     ...(rows ? { iterations: rows.length } : {}),
+    ...(stopped === "cancelled" ? { cancelled: true as const } : {}),
     results,
     skipped,
-    failed: results.some((result) => result.ok === false),
+    failed: stopped === "cancelled" || results.some((result) => !result.ok),
     summary: summarizeRun(results, selected, skipped.length, startedAt),
-    ...(warnings.size > 0 ? { warnings: [...warnings] } : {}),
+    ...(warnings.size ? { warnings: [...warnings] } : {}),
   }
 }
 export async function requestCreate(

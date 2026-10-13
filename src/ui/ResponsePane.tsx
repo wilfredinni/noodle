@@ -61,7 +61,6 @@ import {
   type VisualSession,
 } from "./ResponseVisualBody"
 import { parseVisualBody } from "./responseVisual"
-import { testsSucceeded } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
 import { responseByteSize } from "../responseBody"
 import { ResponseBinaryBody } from "./ResponseBinaryBody"
@@ -92,9 +91,14 @@ function responseResultsStatus(
   const captures = state.execution?.captures
   if (!scripts && !assertions && !captures && !tests) return null
   if (
-    (tests?.evaluated && !testsSucceeded(tests)) ||
+    (tests?.evaluated &&
+      (tests.error ||
+        tests.errors?.length ||
+        tests.results.some((result) => !result.passed))) ||
     (scripts?.evaluated &&
-      scripts.results.some((result) => !scriptExecutionSucceeded(result))) ||
+      scripts.results.some(
+        (result) => !result.cancelled && !scriptExecutionSucceeded(result),
+      )) ||
     (assertions?.evaluated &&
       assertions.results.some((result) => !result.passed)) ||
     (captures?.evaluated && captures.results.some((result) => !result.success))
@@ -102,6 +106,8 @@ function responseResultsStatus(
     return "error"
   }
   if (
+    tests?.cancelled ||
+    scripts?.results.some((result) => result.cancelled) ||
     tests?.evaluated === false ||
     scripts?.evaluated === false ||
     assertions?.evaluated === false ||

@@ -292,6 +292,16 @@ const collection = defineCommand({
           args.json,
           async () => {
             const progress = args.json ? undefined : createRunProgressReporter()
+            const controller = new AbortController()
+            const cancel = () => {
+              if (controller.signal.aborted) {
+                progress?.finish()
+                process.exit(130)
+              }
+              controller.abort()
+            }
+            process.on("SIGINT", cancel)
+            process.on("SIGTERM", cancel)
             try {
               const data = await collectionRun(
                 args.path,
@@ -307,10 +317,15 @@ const collection = defineCommand({
                 undefined,
                 args.delay.trim() === "" ? Number.NaN : Number(args.delay),
                 args.data,
+                false,
+                { signal: controller.signal },
               )
               return {
                 data,
                 failed: data.failed,
+                ...(data.cancelled
+                  ? { errors: ["Collection run cancelled"], exitCode: 130 }
+                  : {}),
                 ...(data.failure
                   ? {
                       errors: [data.failure.message],
@@ -319,6 +334,8 @@ const collection = defineCommand({
                   : {}),
               }
             } finally {
+              process.off("SIGINT", cancel)
+              process.off("SIGTERM", cancel)
               progress?.finish()
             }
           },
