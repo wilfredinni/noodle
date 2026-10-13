@@ -28,11 +28,13 @@ export function computeFolderActivity(
 ): FolderActivityStats {
   const requests: RequestActivityStats[] = childRequests.map((req) => {
     const entries = timelines.get(req.id) ?? []
-    const successEntries = entries.filter(
+    const completed = entries.filter((entry) => !entry.cancelled)
+    const successEntries = completed.filter(
       (e) => e.response && e.response.status >= 200 && e.response.status < 400,
     )
     const callCount = entries.length
-    const successRate = callCount > 0 ? successEntries.length / callCount : null
+    const successRate =
+      completed.length > 0 ? successEntries.length / completed.length : null
     const avgTimeMs =
       successEntries.length > 0
         ? Math.round(

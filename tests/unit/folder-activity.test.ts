@@ -43,6 +43,39 @@ function makeTimeline(
 }
 
 describe("computeFolderActivity", () => {
+  for (const completed of [false, true]) {
+    it(`excludes cancelled attempts from outcome metrics ${completed ? "with" : "without"} completed sends`, () => {
+      const timeline = makeTimeline("user/list", [
+        {
+          cancelled: true,
+          timestamp: 999,
+          response: undefined,
+          error: { message: "Request cancelled" },
+        },
+        {
+          cancelled: true,
+          response: { ...makeEntry().response!, timeMs: 999 },
+        },
+        ...(completed
+          ? [
+              { response: { ...makeEntry().response!, timeMs: 100 } },
+              { response: { ...makeEntry().response!, status: 500 } },
+            ]
+          : []),
+      ])
+      const result = computeFolderActivity(
+        [{ id: "user/list", name: "List Users", method: "GET" }],
+        timeline,
+      )
+      expect(result.requests[0]).toMatchObject({
+        callCount: completed ? 4 : 2,
+        lastSent: 999,
+        successRate: completed ? 0.5 : null,
+        avgTimeMs: completed ? 100 : null,
+      })
+    })
+  }
+
   it("counts only 2xx/3xx as success, not 4xx/5xx", () => {
     const timeline = makeTimeline("user/list", [
       { response: { ...makeEntry().response!, status: 200 } },
