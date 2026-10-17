@@ -30,9 +30,6 @@ function Harness({
       activeEnvName={undefined}
       dirty={false}
       onSelectEnv={() => {}}
-      onCreate={() => {}}
-      onClone={() => {}}
-      onDelete={() => {}}
       focused={false}
     />
   )

@@ -668,7 +668,7 @@ export function CollectionRunnerView({
                     ? `${runner.stopping ? "Stopping" : "Stop"} ${runner.progress.completed}/${runner.progress.total}`
                     : `Run ${runner.matchedIds.size * (runner.iterationCount ?? 1)} request${runner.matchedIds.size * (runner.iterationCount ?? 1) === 1 ? "" : "s"}`
                 }
-                disabled={running ? runner.stopping : !runner.runAvailable}
+                disabled={running ? runner.stopping : !runner.canRun}
                 onAction={() => {
                   if (running) {
                     runner.stop()

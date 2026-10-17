@@ -18,9 +18,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -47,9 +44,6 @@ describe("EnvSidebar", () => {
           onSelectEnv={(name) => {
             selected = name
           }}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
           onPaneFocus={() => focused++}
           onEnvironmentContextMenu={(name) => {
@@ -93,9 +87,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -115,9 +106,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={true}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -137,9 +125,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -159,9 +144,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -181,9 +163,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
           jumpMode
         />
@@ -205,9 +184,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -234,9 +210,6 @@ describe("EnvSidebar", () => {
           envColors={{ dev: "success", prod: undefined }}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -261,9 +234,6 @@ describe("EnvSidebar", () => {
           activeEnvName={undefined}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -290,9 +260,6 @@ describe("EnvSidebar", () => {
           }}
           dirty={false}
           onSelectEnv={() => {}}
-          onCreate={() => {}}
-          onClone={() => {}}
-          onDelete={() => {}}
           focused={false}
         />
       </ThemeProvider>,

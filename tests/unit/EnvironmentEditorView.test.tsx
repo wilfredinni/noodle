@@ -35,7 +35,6 @@ describe("EnvironmentEditorView", () => {
             focus="env-sidebar"
             envHeaderRef={createRef<EnvHeaderPaneHandle>()}
             onCreateEnvironment={() => creates++}
-            setEnvDeletePending={() => {}}
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -96,7 +95,6 @@ describe("EnvironmentEditorView", () => {
           focus="env-vars"
           envHeaderRef={createRef<EnvHeaderPaneHandle>()}
           onCreateEnvironment={() => {}}
-          setEnvDeletePending={() => {}}
         />
       )
     }
@@ -134,7 +132,6 @@ describe("EnvironmentEditorView", () => {
               focus="env-sidebar"
               envHeaderRef={createRef<EnvHeaderPaneHandle>()}
               onCreateEnvironment={() => createCalls++}
-              setEnvDeletePending={() => {}}
             />
           </ThemeProvider>
         </KeymapProvider>,

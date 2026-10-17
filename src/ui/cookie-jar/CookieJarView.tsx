@@ -9,6 +9,7 @@ import { FullBorder } from "../borders"
 export function CookieJarView({
   view,
   status,
+  readOnly = false,
   focus,
   jumpMode = false,
   onPaneFocus = () => {},
@@ -19,6 +20,7 @@ export function CookieJarView({
 }: {
   view: UseCookieJarViewResult
   status: CookieJarStatus
+  readOnly?: boolean
   focus: Focus
   jumpMode?: boolean
   onPaneFocus?: (focus: Focus) => void
@@ -35,7 +37,8 @@ export function CookieJarView({
     return (
       <EmptyState
         border={FullBorder}
-        actionActive
+        actionActive={!readOnly}
+        actionDisabled={readOnly}
         subtitle="No cookies in this collection"
         message="Add a cookie"
         onAction={onAddCookie}
@@ -60,6 +63,7 @@ export function CookieJarView({
       <CookieJarPane
         view={view}
         status={status}
+        readOnly={readOnly}
         domain={view.selectedDomain}
         focused={focus === "cookie-list"}
         jumpMode={jumpMode}

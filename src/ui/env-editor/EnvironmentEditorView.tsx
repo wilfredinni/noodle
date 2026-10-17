@@ -20,7 +20,6 @@ interface EnvironmentEditorViewProps {
   onPaneFocus?: (focus: Focus) => void
   onCreateEnvironment: () => void
   onEnvironmentContextMenu?: (name: string) => void
-  setEnvDeletePending: (name: string | null) => void
 }
 
 export function EnvironmentEditorView({
@@ -35,7 +34,6 @@ export function EnvironmentEditorView({
   onPaneFocus = () => {},
   onCreateEnvironment,
   onEnvironmentContextMenu,
-  setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
   const remaskSecrets = envEditor.remaskSecrets
   useEffect(() => {
@@ -66,24 +64,6 @@ export function EnvironmentEditorView({
         envColors={envColors}
         dirty={envEditor.dirty}
         onSelectEnv={envEditor.selectEnv}
-        onCreate={() => {
-          if (readOnly) return
-          envEditor.openEditor()
-          onPaneFocus("env-vars")
-        }}
-        onClone={() => {
-          if (readOnly) return
-          if (envEditor.selectedEnvName) {
-            const target = `${envEditor.selectedEnvName} - Copy`
-            envEditor.cloneEnv(target)
-          }
-        }}
-        onDelete={() => {
-          if (readOnly) return
-          if (envEditor.selectedEnvName) {
-            setEnvDeletePending(envEditor.selectedEnvName)
-          }
-        }}
         focused={focus === "env-sidebar"}
         jumpMode={jumpMode}
         onPaneFocus={() => {

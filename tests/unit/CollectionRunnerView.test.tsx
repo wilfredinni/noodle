@@ -925,6 +925,13 @@ describe("CollectionRunnerView", () => {
     await render.renderOnce()
     expect(current!.selectOpen).toBe(true)
     expect(render.captureCharFrame()).toContain("Collection default")
+    expect(current!.runAvailable).toBe(true)
+    expect(current!.canRun).toBe(false)
+    const runLabel = render
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("Run 1 request"))
+    expect(runLabel?.fg.equals(RGBA.fromHex(THEMES[0]!.border))).toBe(true)
     expect(
       runButton.backgroundColor.equals(
         RGBA.fromHex(THEMES[0]!.backgroundElement),

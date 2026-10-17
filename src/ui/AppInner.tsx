@@ -2130,25 +2130,21 @@ export function AppInner({
               setPaletteTarget("environment")
               overlays.setCommandPaletteVisible(true)
             }}
-            setEnvDeletePending={overlays.setEnvDeletePending}
           />
         ) : view === "cookie-jar" && mode === "collection" ? (
           <CookieJarView
             view={cookieJarView}
             status={cookieStorage.status}
+            readOnly={runnerBusy}
             focus={focus}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
-            onAddCookie={
-              runnerBusy
-                ? undefined
-                : () => {
-                    overlays.setCookieFormInitial(null)
-                    overlays.setCookieFormVisible(true)
-                  }
-            }
-            onRetry={runnerBusy ? undefined : retryCookieStorage}
-            onReset={runnerBusy ? undefined : requestCookieStorageReset}
+            onAddCookie={() => {
+              overlays.setCookieFormInitial(null)
+              overlays.setCookieFormVisible(true)
+            }}
+            onRetry={retryCookieStorage}
+            onReset={requestCookieStorageReset}
             resetKey={displayKey(keybinds.cookie_clear)}
           />
         ) : view === "runner" && mode === "collection" ? (

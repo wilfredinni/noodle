@@ -126,6 +126,7 @@ async function harness() {
   let signal!: AbortSignal
   let reportProgress: Parameters<typeof collectionRun>[2]
   let calls = 0
+  const openedFilters: Array<["include" | "exclude", number]> = []
   const done =
     Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
   const runCollection: typeof collectionRun = async (...args) => {
@@ -182,6 +183,8 @@ async function harness() {
           runner: {
             runnerRef: stateRef,
             detailScrollRef,
+            openTagFilter: (filter: "include" | "exclude", index: number) =>
+              openedFilters.push([filter, index]),
             openResultDetail: openDetail,
             close: () => setVisible(false),
           },
@@ -209,7 +212,9 @@ async function harness() {
               hasUnsavedChanges={false}
               detailScrollRef={detailScrollRef}
               onPaneFocus={setPane}
-              onEditTagFilter={() => {}}
+              onEditTagFilter={(filter, index) =>
+                openedFilters.push([filter, index])
+              }
               onOpenResultDetail={openDetail}
             />
           ) : (
@@ -256,6 +261,7 @@ async function harness() {
     focus: () => focus,
     shown: () => show,
     opened: () => opened,
+    openedFilters,
     start: async () => {
       await act(async () => {
         running = runner.run()
@@ -328,6 +334,38 @@ async function harness() {
 }
 
 describe("live Collection Runner", () => {
+  it("blocks tag-filter editing by mouse and keyboard during a run", async () => {
+    const h = await harness()
+    await act(async () => h.render.resize(120, 40))
+    await h.render.renderOnce()
+    const clickTag = async (filter: "include" | "exclude") => {
+      const tag = h.render.renderer.root.findDescendantById(
+        `runner-${filter}-tag-0`,
+      )!
+      await act(async () =>
+        h.render.mockMouse.click(
+          tag.screenX + 1,
+          tag.screenY,
+          MouseButtons.LEFT,
+        ),
+      )
+    }
+    await clickTag("include")
+    expect(h.openedFilters).toEqual([["include", 0]])
+    h.openedFilters.length = 0
+    await h.start()
+    await clickTag("include")
+    await clickTag("exclude")
+    await act(async () => h.host.press("tab"))
+    expect(h.focus()).toBe("runner-options")
+    await act(async () => h.host.press("return"))
+    expect(h.get().stopping).toBe(true)
+    await clickTag("include")
+    await clickTag("exclude")
+    expect(h.openedFilters).toEqual([])
+    await h.finish(true)
+  })
+
   it.each(["keyboard", "mouse", "focused", "detail"])(
     "publishes completed details and stops by %s at 80x24",
     async (input) => {
