@@ -937,7 +937,9 @@ export function AppInner({
       if (
         runnerRef.current.isRunning() ||
         (!configure &&
-          (runnerRef.current.phase !== "configure" || runnerRef.current.result))
+          (viewRef.current === "runner" ||
+            runnerRef.current.phase !== "configure" ||
+            runnerRef.current.result))
       ) {
         if (viewRef.current !== "runner")
           runnerReturnFocusRef.current = settingsReturnFocus(

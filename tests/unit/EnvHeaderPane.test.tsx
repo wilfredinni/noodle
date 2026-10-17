@@ -1,15 +1,58 @@
 import { describe, it, expect } from "bun:test"
-import { act, useState } from "react"
+import { act, createRef, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { EnvHeaderPane } from "../../src/ui/env-editor/EnvHeaderPane"
+import {
+  EnvHeaderPane,
+  type EnvHeaderPaneHandle,
+} from "../../src/ui/env-editor/EnvHeaderPane"
 import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
 
 describe("EnvHeaderPane", () => {
+  it("closes an open color select when it becomes read-only", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let lock!: () => void
+    const colors: unknown[] = []
+    const header = createRef<EnvHeaderPaneHandle>()
+    function Locking() {
+      const [readOnly, setReadOnly] = useState(false)
+      lock = () => setReadOnly(true)
+      return (
+        <EnvHeaderPane
+          ref={header}
+          readOnly={readOnly}
+          name="dev"
+          color={undefined}
+          onNameChange={() => {}}
+          onColorChange={(color) => colors.push(color)}
+          focused
+        />
+      )
+    }
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Locking />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 14 },
+    )
+    await h.renderOnce()
+    await act(async () => header.current!.focusColor())
+    await act(async () => host.press("return"))
+    await act(async () => h.renderOnce())
+    expect(h.captureCharFrame()).toContain("success")
+    await act(async () => lock())
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(colors).toEqual([])
+    cleanup()
+  })
+
   it("renders name input and color select with placeholder", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

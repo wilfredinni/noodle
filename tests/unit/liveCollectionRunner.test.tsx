@@ -8,7 +8,7 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../../src/ui/editor/CodeEditor"
 import { MouseButtons } from "@opentui/core/testing"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { setupKeymap } from "./_helpers"
 import {
   useCollectionRunner,
@@ -264,6 +264,10 @@ async function harness() {
       await act(async () => {
         await render.renderOnce()
       })
+      await waitForHookState(
+        render,
+        () => runner.resultRows[0]?.kind === "running",
+      )
       expect(calls).toBe(1)
     },
     firstDone: async () => {
@@ -273,14 +277,18 @@ async function harness() {
         emit({ type: "request-start", id: "second" })
         reportProgress?.(1, 3)
       })
+      await waitForHookState(
+        render,
+        () => runner.resultRows[0]?.kind === "result",
+      )
       await act(async () => {
         await render.renderOnce()
       })
     },
     aborted: () => signal.aborted,
-    fail: async () => {
+    fail: async (error = new Error("Invalid external script")) => {
       await act(async () => {
-        done.reject(new Error("Invalid external script"))
+        done.reject(error)
         await running
       })
       await act(async () => {
@@ -351,45 +359,44 @@ describe("live Collection Runner", () => {
       expect(before).toContain("s Stop 1/3")
       expect(before).toContain("v0.10.1")
       expect(before).toContain("Live acceptance")
-      await act(async () => h.host.press("return"))
-      await act(async () => {
-        await h.render.renderOnce()
-      })
-      expect(h.opened()?.requestId).toBe("first")
-      await act(async () => h.host.press("right"))
-      await act(async () => {
-        await h.render.renderOnce()
-      })
-      expect(h.render.captureCharFrame()).toContain('"ready": true')
-      await act(async () => h.host.press("right"))
-      await act(async () => {
-        await h.render.renderOnce()
-      })
-      expect(h.render.captureCharFrame()).toContain("completed log")
-      await act(async () => h.host.press("right"))
-      await act(async () => {
-        await h.render.renderOnce()
-      })
-      expect(h.render.captureCharFrame()).toContain("ready check")
-      if (input !== "detail") await act(async () => h.host.press("escape"))
-      await act(async () => {
-        if (input === "mouse") {
-          const button =
-            h.render.renderer.root.findDescendantById("runner-run-button")!
-          await h.render.mockMouse.click(
+      if (input === "detail") {
+        await act(async () => h.host.press("return"))
+        await act(async () => {
+          await h.render.renderOnce()
+        })
+        expect(h.opened()?.requestId).toBe("first")
+        await act(async () => h.host.press("right"))
+        await act(async () => {
+          await h.render.renderOnce()
+        })
+        expect(h.render.captureCharFrame()).toContain('"ready": true')
+        await act(async () => h.host.press("right"))
+        await act(async () => {
+          await h.render.renderOnce()
+        })
+        expect(h.render.captureCharFrame()).toContain("completed log")
+        await act(async () => h.host.press("right"))
+        await act(async () => {
+          await h.render.renderOnce()
+        })
+        expect(h.render.captureCharFrame()).toContain("ready check")
+      }
+      if (input === "mouse") {
+        const button =
+          h.render.renderer.root.findDescendantById("runner-run-button")!
+        await act(async () =>
+          h.render.mockMouse.click(
             button.screenX + 1,
             button.screenY,
             MouseButtons.LEFT,
-          )
-        } else if (input === "focused") {
-          h.host.press("tab")
-          await act(async () => {
-            await h.render.renderOnce()
-          })
-          h.host.press("return")
-        } else h.host.press("s")
-        h.get().stop()
-      })
+          ),
+        )
+      } else if (input === "focused") {
+        await act(async () => h.host.press("tab"))
+        expect(h.focus()).toBe("runner-options")
+        await act(async () => h.host.press("return"))
+      } else await act(async () => h.host.press("s"))
+      await waitForHookState(h.render, () => h.aborted())
       expect(h.aborted()).toBe(true)
       expect(h.get().stopping).toBe(true)
       expect(h.get().canRun).toBe(false)
@@ -415,6 +422,28 @@ describe("live Collection Runner", () => {
     expect(h.focus()).toBe("runner-options")
     expect(h.get().canRun).toBe(true)
   })
+
+  it.each(["signal", "AbortError"])(
+    "reports rejected cancellation from %s without a configuration failure",
+    async (source) => {
+      const h = await harness()
+      await h.start()
+      await h.firstDone()
+      if (source === "signal") await act(async () => h.host.press("s"))
+      await h.fail(
+        source === "AbortError"
+          ? new DOMException("aborted", "AbortError")
+          : new Error("aborted"),
+      )
+      expect(h.get().phase).toBe("results")
+      expect(h.get().result?.cancelled).toBe(true)
+      expect(h.get().result?.failure).toBeUndefined()
+      expect(h.get().runError).toBeNull()
+      expect(h.get().result?.results).toEqual([successful])
+      expect(h.get().result?.summary.failureCategories).toEqual([])
+      expect(h.get().resultDetails.get("first")).toEqual(detail)
+    },
+  )
 
   it("keeps an active run alive when Escape leaves its workspace", async () => {
     const h = await harness()

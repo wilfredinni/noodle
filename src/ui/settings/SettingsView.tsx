@@ -380,14 +380,22 @@ export function SettingsView({
 
   const commitCurrentCollectionGeneralField = useCallback(
     () =>
+      contentLocked ||
       scope !== "collection" ||
       category !== "general" ||
       commitCollectionGeneralField(contentIndex),
-    [category, commitCollectionGeneralField, contentIndex, scope],
+    [
+      contentLocked,
+      category,
+      commitCollectionGeneralField,
+      contentIndex,
+      scope,
+    ],
   )
 
   useEffect(() => {
     const textInputActive =
+      !contentLocked &&
       focus === "settings-content" &&
       ((category === "collections" &&
         contentIndex === collectionRegisterIndex) ||
@@ -401,6 +409,7 @@ export function SettingsView({
     return () => keymap.setData("app.text-input", false)
   }, [
     category,
+    contentLocked,
     scriptEditing,
     collectionRegisterIndex,
     contentIndex,
@@ -415,10 +424,14 @@ export function SettingsView({
     setContentIndex(0)
     setMessage(null)
     setCaptureName(null)
+    setSelectOpen(false)
+    setScriptEditing(false)
+    setProxyTextInput(false)
+    setTlsTextInput(false)
     setHoveredCollectionIndex(null)
     setHoveredCategory(null)
     scrollRef.current?.scrollTo(0)
-  }, [scope, category])
+  }, [scope, category, contentLocked])
 
   useEffect(() => {
     if (
@@ -470,7 +483,7 @@ export function SettingsView({
   }, [category, contentIndex, collections, focus, keybindNames, message, scope])
 
   useEffect(() => {
-    if (!captureName) return
+    if (!captureName || contentLocked) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -516,7 +529,7 @@ export function SettingsView({
       { priority: 220 },
     )
     return dispose
-  }, [captureName, keybinds, keymap, onKeybindChange])
+  }, [captureName, contentLocked, keybinds, keymap, onKeybindChange])
 
   useEffect(() => {
     if (captureName || selectOpen) return
@@ -525,6 +538,19 @@ export function SettingsView({
       (ctx) => {
         if (keymap.getData("app.overlay") !== "none") return
         const event = ctx.event
+        if (
+          keyEventToBinding(event) === keybinds.runner_open &&
+          keymap.getCommands({
+            filter: { name: "collection.runner" },
+            limit: 1,
+          }).length > 0
+        ) {
+          if (!commitCurrentCollectionGeneralField()) {
+            event.preventDefault()
+            event.stopPropagation()
+          }
+          return
+        }
         if (
           category === "scripts" &&
           focus === "settings-content" &&
@@ -574,7 +600,15 @@ export function SettingsView({
           }
           return
         }
-        if (focus !== "settings-content" || contentLocked) return
+        if (focus !== "settings-content") return
+        if (contentLocked) {
+          if (event.name === "tab") {
+            event.preventDefault()
+            event.stopPropagation()
+            onPaneFocus("settings-sidebar")
+          }
+          return
+        }
 
         if (scope === "collection" && category === "general") {
           if (["up", "down", "home", "end"].includes(event.name)) {
@@ -762,6 +796,7 @@ export function SettingsView({
     contentLocked,
     focus,
     keybindNames,
+    keybinds.runner_open,
     keymap,
     onCategoryChange,
     onClose,

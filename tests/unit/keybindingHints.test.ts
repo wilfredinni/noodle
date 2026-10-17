@@ -201,6 +201,18 @@ describe("getKeybindingHints footer", () => {
     ])
   })
 
+  it.each(["runner-options", "runner-requests"] as const)(
+    "matches running Enter behavior in %s",
+    (focus) => {
+      const hints = getKeybindingHints(
+        ctx({ view: "runner", focus, runnerPhase: "running" }),
+      ).footer
+      expect(
+        hints.find((hint) => hint.command === "runner.activate")?.word,
+      ).toBe(focus === "runner-options" ? "stop" : "open")
+    },
+  )
+
   it("uses contextual settings hints", () => {
     expect(
       getKeybindingHints(ctx({ view: "settings", focus: "settings-sidebar" }))

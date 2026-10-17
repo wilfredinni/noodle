@@ -12,6 +12,7 @@ export interface EmptyStateProps {
   font?: ASCIIFontName
   border?: BorderPreset
   actionActive?: boolean
+  actionDisabled?: boolean
   actionLabel?: string
   onAction: () => void
 }
@@ -23,6 +24,7 @@ export function EmptyState({
   font = "block",
   border,
   actionActive = false,
+  actionDisabled = false,
   actionLabel = message,
   onAction,
 }: EmptyStateProps) {
@@ -30,7 +32,7 @@ export function EmptyState({
   const keymap = useKeymap()
 
   useKeyboard((key) => {
-    if (keymap.getData("app.overlay") !== "none") return
+    if (actionDisabled || keymap.getData("app.overlay") !== "none") return
     if (key.name !== "return" && key.name !== "space") return
 
     key.preventDefault()
@@ -76,6 +78,7 @@ export function EmptyState({
           id="empty-state-action"
           label={actionLabel}
           active={actionActive}
+          disabled={actionDisabled}
           onAction={onAction}
         />
       </box>

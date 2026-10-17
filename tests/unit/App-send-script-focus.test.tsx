@@ -14,6 +14,7 @@ import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import * as viewModule from "../../src/ui/MainView"
 import { filestore } from "../../src/filestore"
 import { executor } from "../../src/requests"
+import * as runnerHooks from "../../src/hooks/useCollectionRunner"
 import * as responseHooks from "../../src/hooks/useResponse"
 import { scriptText } from "../../src/scriptAuthoring"
 import { createTestRender, waitForHookState } from "../testRender"
@@ -94,6 +95,60 @@ function Harness({
 }
 
 describe("Send while editing request scripts", () => {
+  it("preserves active Runner configuration when F5 is pressed again", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-runner-shortcut-"))
+    const { keymap, host, cleanup } = setupKeymap()
+    const useRunner = runnerHooks.useCollectionRunner
+    let runner!: runnerHooks.UseCollectionRunnerResult
+    const runnerSpy = spyOn(
+      runnerHooks,
+      "useCollectionRunner",
+    ).mockImplementation((options) => {
+      runner = useRunner(options)
+      return runner
+    })
+    let h: Awaited<ReturnType<typeof testRender>> | undefined
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await filestore.saveRequest(dir, {
+        id: "request",
+        name: "Request",
+        method: "GET",
+        url: "https://example.com",
+        headers: {},
+        params: [],
+        timeout: 0,
+      })
+      h = await act(async () =>
+        testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <Harness dir={dir} />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 100, height: 30 },
+        ),
+      )
+      await waitForHookState(h, () => runner.requests.length === 1)
+      await act(async () => host.press("f5"))
+      await waitForHookState(h, () => keymap.getData("app.view") === "runner")
+      await act(async () => {
+        runner.toggleFailFast()
+        runner.setDelayMsInput("75")
+        runner.toggleSelected(0)
+      })
+      await act(async () => host.press("f5"))
+      expect(runner.failFast).toBe(true)
+      expect(runner.delayMsInput).toBe("75")
+      expect(runner.selectedIds.size).toBe(0)
+    } finally {
+      if (h) await act(async () => h!.renderer.destroy())
+      runnerSpy.mockRestore()
+      cleanup()
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("retains the response and reports a failed asynchronous history save", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-history-save-failure-"))
     let manual: responseHooks.UseResponseResult | undefined

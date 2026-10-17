@@ -1416,6 +1416,21 @@ describe("buildCommandPaletteCommands", () => {
       expect(stopped).toBe(1)
     },
   )
+  it.each(["runner", "settings", "env-editor"])(
+    "omits main-only request commands from the running %s palette",
+    (view) => {
+      const ctx = minimalContext()
+      ctx.getView = () => view as ReturnType<typeof ctx.getView>
+      ctx.runner = {
+        isRunning: () => true,
+        stop: () => {},
+        stopping: false,
+      } as never
+      const ids = buildCommandPaletteCommands(ctx).map((command) => command.id)
+      expect(ids).not.toContain("request.find")
+      expect(ids).not.toContain("request.generate-client-code")
+    },
+  )
   it("distinguishes explicit configuration from resuming the latest run", () => {
     const ctx = minimalContext()
     const calls: unknown[][] = []

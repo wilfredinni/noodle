@@ -901,6 +901,28 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("blocks result paging while a Runner select is open", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    context.global.focusRef.current = "runner-requests"
+    context.runner.runnerRef.current.phase = "results"
+    let pages = 0
+    context.runner.detailScrollRef.current = {
+      scrollBy: () => pages++,
+    } as never
+    const disposers = register(context)
+    context.runner.runnerRef.current.selectOpen = true
+    host.press("pageup")
+    host.press("pagedown")
+    expect(pages).toBe(0)
+    context.runner.runnerRef.current.selectOpen = false
+    host.press("pagedown")
+    expect(pages).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("does not switch Runner pages before results exist", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

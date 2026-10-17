@@ -46,7 +46,8 @@ export function EnvironmentEditorView({
     return (
       <EmptyState
         border={FullBorder}
-        actionActive
+        actionActive={!readOnly}
+        actionDisabled={readOnly}
         subtitle="No environments in this collection"
         message="Create environment"
         onAction={() => {
@@ -116,17 +117,25 @@ export function EnvironmentEditorView({
         />
         <EnvEditorPane
           draft={envEditor.draft}
-          editState={envEditor.editState}
+          editState={
+            readOnly
+              ? { ...envEditor.editState, mode: "inactive" }
+              : envEditor.editState
+          }
           editKey={envEditor.editKey}
           editValue={envEditor.editValue}
-          setEditKey={envEditor.setEditKey}
-          setEditValue={envEditor.setEditValue}
+          setEditKey={(value) => {
+            if (!readOnly) envEditor.setEditKey(value)
+          }}
+          setEditValue={(value) => {
+            if (!readOnly) envEditor.setEditValue(value)
+          }}
           saving={envEditor.saving}
           error={envEditor.error}
           focused={focus === "env-vars"}
           jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("env-vars")}
-          onInteraction={envEditor.commitEdit}
+          onInteraction={readOnly ? undefined : envEditor.commitEdit}
           onActivateRow={(row, addingRow, subfield) => {
             onPaneFocus("env-vars")
             if (readOnly) return
@@ -134,17 +143,17 @@ export function EnvironmentEditorView({
           }}
           onToggleRow={(row) => {
             onPaneFocus("env-vars")
-            envEditor.commitEdit()
             if (readOnly) return
+            envEditor.commitEdit()
             envEditor.toggleVar(row)
           }}
           onToggleSecret={(row) => {
             onPaneFocus("env-vars")
-            envEditor.commitEdit()
             if (readOnly) return
+            envEditor.commitEdit()
             envEditor.toggleSecret(row)
           }}
-          onRevealSecret={envEditor.toggleReveal}
+          onRevealSecret={readOnly ? undefined : envEditor.toggleReveal}
           revealedRowId={envEditor.revealedRowId}
           clonePrompt={envEditor.clonePrompt}
         />

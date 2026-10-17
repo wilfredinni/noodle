@@ -229,7 +229,11 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       return [
         { key: "s", word: "stop", command: "runner.stop" },
         { key: "↑/↓", word: "select" },
-        { key: "Enter", word: "open", command: "runner.activate" },
+        {
+          key: "Enter",
+          word: ctx.focus === "runner-options" ? "stop" : "open",
+          command: "runner.activate",
+        },
         { key: "Tab", word: "focus", command: "runner.focus-next" },
         { key: "Esc", word: "back", command: "runner.escape" },
       ]

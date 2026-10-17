@@ -133,7 +133,9 @@ export const EnvHeaderPane = forwardRef<
           interactive={!readOnly}
           items={colorItems}
           value={color ?? "none"}
-          onChange={(id) => onColorChange(id === "none" ? undefined : id)}
+          onChange={(id) => {
+            if (!readOnly) onColorChange(id === "none" ? undefined : id)
+          }}
           focused={colorFocused}
           maxDropdownHeight={10}
           dropdownAlign="right"

@@ -134,6 +134,7 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.page-up",
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-requests" && state().phase !== "configure")
             runner.detailScrollRef.current?.scrollBy(-1, "viewport")
@@ -141,6 +142,7 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.page-down",
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-requests" && state().phase !== "configure")
             runner.detailScrollRef.current?.scrollBy(1, "viewport")

@@ -13,7 +13,7 @@ import {
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { THEMES, ThemeProvider } from "../../src/ui/theme"
 import { CollectionRunnerView } from "../../src/ui/CollectionRunnerView"
 import { useCollectionRunner } from "../../src/hooks/useCollectionRunner"
@@ -555,6 +555,7 @@ describe("CollectionRunnerView", () => {
     await act(async () => current!.setTagFilter("include", 0, "smoke"))
     expect(current!.includeTags).toEqual([])
     await act(async () => reportProgress?.(1, 3))
+    await waitForHookState(render, () => current!.progress.completed === 1)
     await render.renderOnce()
     expect(render.captureCharFrame()).toContain("s Stop 1/3")
     const runningButton = render.renderer.root.findDescendantById(

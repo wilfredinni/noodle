@@ -800,7 +800,7 @@ export function buildCommandPaletteCommands(
         keybinding: displayKey(keybinds.runner_open),
         run: () => ctx.openRunner(null),
       },
-      ...requestCommands,
+      ...(view === "main" ? requestCommands : []),
       ...mainEnvCommands,
       ...workspaceCommands,
       ...mainOnlyCommands,

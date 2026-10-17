@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { act, useState } from "react"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import {
   useCollectionRunner,
   type UseCollectionRunnerResult,
@@ -82,6 +82,96 @@ function renderHook(
 }
 
 describe("useCollectionRunner", () => {
+  it("keeps empty live navigation at zero before run-start", async () => {
+    const done =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    const h = renderHook({ runCollection: async () => done.promise })
+    const render = await h.render
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+    })
+    await act(async () => h.get().resultUp())
+    expect(h.get().resultIndex).toBe(0)
+    await act(async () => h.get().resultDown())
+    expect(h.get().resultIndex).toBe(0)
+    await act(async () => {
+      done.resolve({
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: summarizeRun([], 0, 0, performance.now()),
+      })
+      await running
+    })
+    await render.renderOnce()
+  })
+
+  it("summarizes each completed result once and publishes immutable batched snapshots", async () => {
+    const done =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    let events!: NonNullable<CollectionRunOptions["onEvent"]>
+    let checksRead = 0
+    const h = renderHook({
+      runCollection: async (...args) => {
+        events = args[14]!.onEvent!
+        events({
+          type: "run-start",
+          requestIds: ["root", "admin/first", "admin/second"],
+        })
+        return done.promise
+      },
+    })
+    const render = await h.render
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+    })
+    const result = (id: string) => ({
+      id,
+      method: "GET" as const,
+      url: "https://example.com",
+      ok: true,
+      failureCategories: [],
+      get assertions() {
+        checksRead++
+        return { evaluated: true, results: [] }
+      },
+    })
+    const first = result("root")
+    await act(async () =>
+      events({ type: "request-complete", id: first.id, result: first }),
+    )
+    await waitForHookState(
+      render,
+      () => h.get().result?.summary.completed === 1,
+    )
+    const snapshot = h.get().result!
+    for (const id of ["admin/first", "admin/second"]) {
+      await act(async () =>
+        events({ type: "request-complete", id, result: result(id) }),
+      )
+      await waitForHookState(
+        render,
+        () =>
+          h.get().result?.summary.completed === (id === "admin/first" ? 2 : 3),
+      )
+    }
+    expect(checksRead).toBe(3)
+    expect(snapshot.summary.completed).toBe(1)
+    expect(snapshot.results).toHaveLength(1)
+    expect(h.get().result?.summary).toMatchObject({
+      completed: 3,
+      executed: 3,
+      unstarted: 0,
+      requestSuccesses: 3,
+    })
+    await act(async () => {
+      done.resolve(h.get().result!)
+      await running
+    })
+  })
+
   it("validates relative data files, retains repeated request details and revalidates before sending", async () => {
     const dir = await mkdtemp(join(tmpdir(), "runner-data-"))
     try {
@@ -539,6 +629,7 @@ describe("useCollectionRunner", () => {
       h.get().toggleSelected(0)
       await h.get().setDataPath("missing.json")
     })
+    await waitForHookState(render, () => h.get().resultRows.length === 2)
     expect(h.get().resultRows.map((row) => row.id)).toEqual([
       "0:root",
       "1:root",

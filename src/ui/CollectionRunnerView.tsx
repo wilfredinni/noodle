@@ -59,7 +59,8 @@ const OPTION_DESCRIPTIONS = [
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
-  if (row.kind === "skipped") return row.reason
+  if (row.kind === "skipped")
+    return row.reason === "fail-fast" ? "Fail-fast" : "Cancelled"
   if (row.kind !== "result")
     return row.kind === "running" ? "In progress" : "Waiting"
   if (row.result.cancelled) return "Cancelled"
@@ -303,16 +304,17 @@ export function CollectionRunnerView({
       resultNameAvailable - resultValueWidth - resultTimingColumnWidth,
     ),
   )
-  const maximumRequestCount = runner.requests.length
+  const maximumRequestCount = Math.max(
+    runner.requests.length * (runner.iterationCount ?? 1),
+    runner.progress.total,
+  )
   const runButtonMinWidth =
     Math.max(
       stringWidth("r Run 0 requests"),
       stringWidth(
         `r Run ${maximumRequestCount} request${maximumRequestCount === 1 ? "" : "s"}`,
       ),
-      stringWidth(
-        `${SPINNER_FRAMES[0]} Running ${maximumRequestCount}/${maximumRequestCount}`,
-      ),
+      stringWidth(`s Stopping ${maximumRequestCount}/${maximumRequestCount}`),
     ) + 2
   const running = runner.phase === "running"
   const runFocused =
@@ -900,7 +902,7 @@ export function CollectionRunnerView({
                       </box>
                       <text
                         fg={theme.textMuted}
-                      >{`${runner.result.summary.completed} completed · ${runner.result.summary.cancelled} cancelled · ${running ? runner.resultRows.filter((row) => row.kind === "pending").length : runner.result.summary.unstarted} ${running ? "pending" : "unstarted"}`}</text>
+                      >{`${runner.result.summary.completed} completed · ${runner.result.summary.cancelled} cancelled · ${running ? runner.resultRows.filter((row) => row.kind === "pending").length : Math.max(0, runner.result.summary.unstarted - runner.result.summary.skipped)} ${running ? "pending" : "unstarted"}`}</text>
                       <text
                         content={t`${fg(theme.textMuted)(`${runner.result.summary.assertionPasses} assertion${runner.result.summary.assertionPasses === 1 ? "" : "s"} passed`)}${fg(theme.error)(runner.result.summary.assertionFailures > 0 ? ` · ${runner.result.summary.assertionFailures} failed` : "")}${fg(runner.result.summary.captureFailures > 0 ? theme.error : theme.textMuted)(runner.result.summary.captureFailures > 0 ? ` · ${runner.result.summary.captureFailures} capture failure${runner.result.summary.captureFailures === 1 ? "" : "s"}` : " · no capture failures")}${fg(theme.warning)(runner.result.summary.skipped > 0 ? ` · ${runner.result.summary.skipped} skipped` : "")}`}
                         style={{ marginBottom: 1 }}

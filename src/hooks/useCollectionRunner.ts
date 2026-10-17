@@ -3,6 +3,7 @@ import type { Collection, CollectionItem, Request } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import {
   collectionRun,
+  RUN_FAILURE_CATEGORIES,
   selectCollectionRunRequests,
   summarizeRun,
   type CollectionRunResult,
@@ -477,11 +478,17 @@ export function useCollectionRunner({
     if (row?.kind === "request") setRequestIndexState(row.index)
   }, [navigationRows, requestRowIndex])
   const resultUp = useCallback(
-    () => setResultIndex((index) => nextIndex(index, resultRows.length, -1)),
+    () =>
+      setResultIndex((index) =>
+        Math.max(0, nextIndex(index, resultRows.length, -1)),
+      ),
     [resultRows.length],
   )
   const resultDown = useCallback(
-    () => setResultIndex((index) => nextIndex(index, resultRows.length, 1)),
+    () =>
+      setResultIndex((index) =>
+        Math.max(0, nextIndex(index, resultRows.length, 1)),
+      ),
     [resultRows.length],
   )
   const resultFirst = useCallback(() => setResultIndex(0), [])
@@ -600,12 +607,18 @@ export function useCollectionRunner({
     const generation = ++generationRef.current
     const controller = new AbortController()
     controllerRef.current = controller
-    const current = () => generationRef.current === generation
+    const current = () =>
+      generationRef.current === generation &&
+      controllerRef.current === controller
     const startedAt = performance.now()
     let rows: RunnerResultRow[] = []
     const rowIndices = new Map<string, number>()
-    let publishing = false
-    let finished = false
+    let publishTimer: ReturnType<typeof setTimeout> | undefined
+    const details = new Map<string, RequestRunDetail>()
+    let nextProgress = {
+      completed: 0,
+      total: nextRequests.length * iterationCount,
+    }
     let partial: CollectionRunResult = {
       results: [],
       skipped: [],
@@ -618,24 +631,23 @@ export function useCollectionRunner({
       ),
     }
     const publish = () => {
-      if (publishing) return
-      publishing = true
-      queueMicrotask(() => {
-        publishing = false
-        if (!current() || finished) return
+      if (publishTimer !== undefined) return
+      publishTimer = setTimeout(() => {
+        publishTimer = undefined
+        if (!current()) return
         setLiveRows([...rows])
         setResult({
           ...partial,
           results: [...partial.results],
           skipped: [...partial.skipped],
-          summary: summarizeRun(
-            partial.results,
-            rows.length,
-            partial.skipped.length,
-            startedAt,
-          ),
+          summary: {
+            ...partial.summary,
+            durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+          },
         })
-      })
+        setResultDetails(new Map(details))
+        setProgress(nextProgress)
+      }, 50)
     }
     const ids = nextRequests.map((request) => request.id)
     setRunError(null)
@@ -652,7 +664,10 @@ export function useCollectionRunner({
         collectionDir,
         environmentName ?? undefined,
         (completed, total) => {
-          if (current()) setProgress({ completed, total })
+          if (current()) {
+            nextProgress = { completed, total }
+            publish()
+          }
         },
         noProxy,
         systemProxy,
@@ -662,13 +677,9 @@ export function useCollectionRunner({
         excludeTags,
         failFast,
         (detail) => {
-          if (current())
-            setResultDetails((details) =>
-              new Map(details).set(
-                runResultKey(detail.requestId, detail.iteration),
-                detail,
-              ),
-            )
+          if (!current()) return
+          details.set(runResultKey(detail.requestId, detail.iteration), detail)
+          publish()
         },
         delayMs,
         dataPath ? resolve(collectionDir, expandUserPath(dataPath)) : undefined,
@@ -697,7 +708,9 @@ export function useCollectionRunner({
               ).flat()
               rowIndices.clear()
               rows.forEach((row, index) => rowIndices.set(row.id, index))
-              setProgress({ completed: 0, total: rows.length })
+              nextProgress = { completed: 0, total: rows.length }
+              partial.summary.selected = rows.length
+              partial.summary.unstarted = rows.length
             } else {
               const id = runResultKey(event.id, event.iteration)
               const index = rowIndices.get(id)
@@ -706,8 +719,39 @@ export function useCollectionRunner({
               else if (event.type === "request-complete") {
                 row = { kind: "result", id, result: event.result }
                 partial.results.push(event.result)
+                const delta = summarizeRun([event.result], 1, 0, startedAt)
+                partial.summary = { ...partial.summary }
+                for (const key of [
+                  "executed",
+                  "completed",
+                  "cancelled",
+                  "requestSuccesses",
+                  "requestFailures",
+                  "assertionPasses",
+                  "assertionFailures",
+                  "captureFailures",
+                  "testPasses",
+                  "testFailures",
+                  "testScriptErrors",
+                ] as const) {
+                  if (delta[key] !== undefined)
+                    partial.summary[key] =
+                      (partial.summary[key] ?? 0) + delta[key]
+                }
+                partial.summary.unstarted--
+                partial.summary.failureCategories =
+                  RUN_FAILURE_CATEGORIES.filter(
+                    (category) =>
+                      partial.summary.failureCategories.includes(category) ||
+                      delta.failureCategories.includes(category),
+                  )
+                partial.failed ||= !event.result.ok
               } else {
                 row = { kind: "skipped", id, reason: event.reason }
+                partial.summary = {
+                  ...partial.summary,
+                  skipped: partial.summary.skipped + 1,
+                }
                 partial.skipped.push({
                   id: event.id,
                   iteration: event.iteration,
@@ -725,7 +769,6 @@ export function useCollectionRunner({
         },
       )
       if (!current()) return
-      finished = true
       setResult(next)
       if (next.failure) {
         setRunError(next.failure.message)
@@ -733,24 +776,31 @@ export function useCollectionRunner({
       } else setPhase("results")
     } catch (error) {
       if (!current()) return
-      finished = true
+      const cancelled =
+        controller.signal.aborted ||
+        (error instanceof Error && error.name === "AbortError")
       const message = error instanceof Error ? error.message : String(error)
-      setRunError(message)
+      setRunError(cancelled ? null : message)
       setResult({
         ...partial,
         failed: true,
-        failure: { category: "configuration", message },
+        ...(cancelled
+          ? { cancelled: true as const }
+          : { failure: { category: "configuration" as const, message } }),
         summary: summarizeRun(
           partial.results,
           rows.length || ids.length * iterationCount,
           partial.skipped.length,
           startedAt,
-          true,
+          !cancelled,
         ),
       })
-      setPhase("configure")
+      setPhase(cancelled ? "results" : "configure")
     } finally {
+      clearTimeout(publishTimer)
       if (current()) {
+        setResultDetails(new Map(details))
+        setProgress(nextProgress)
         runningRef.current = false
         controllerRef.current = null
         setStopping(false)
