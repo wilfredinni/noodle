@@ -709,8 +709,11 @@ export function useCollectionRunner({
               rowIndices.clear()
               rows.forEach((row, index) => rowIndices.set(row.id, index))
               nextProgress = { completed: 0, total: rows.length }
-              partial.summary.selected = rows.length
-              partial.summary.unstarted = rows.length
+              partial.summary = {
+                ...partial.summary,
+                selected: rows.length,
+                unstarted: rows.length,
+              }
             } else {
               const id = runResultKey(event.id, event.iteration)
               const index = rowIndices.get(id)

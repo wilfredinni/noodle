@@ -107,6 +107,50 @@ describe("useCollectionRunner", () => {
     await render.renderOnce()
   })
 
+  it("does not mutate the published summary when run-start replaces the preview plan", async () => {
+    const done =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    let onEvent!: NonNullable<CollectionRunOptions["onEvent"]>
+    const h = renderHook({
+      runCollection: async (...args) => {
+        onEvent = args[14]!.onEvent!
+        return done.promise
+      },
+    })
+    const render = await h.render
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+    })
+    const snapshot = h.get().result!
+    expect(snapshot.summary).toMatchObject({ selected: 3, unstarted: 3 })
+    try {
+      await act(async () =>
+        onEvent({ type: "run-start", requestIds: ["root"], iterations: 2 }),
+      )
+      expect(snapshot.summary).toMatchObject({ selected: 3, unstarted: 3 })
+      await waitForHookState(
+        render,
+        () => h.get().result?.summary.selected === 2,
+      )
+      expect(h.get().result?.summary).toMatchObject({
+        selected: 2,
+        unstarted: 2,
+      })
+      expect(snapshot.summary).toMatchObject({ selected: 3, unstarted: 3 })
+    } finally {
+      await act(async () => {
+        done.resolve({
+          results: [],
+          skipped: [],
+          failed: false,
+          summary: summarizeRun([], 2, 0, performance.now()),
+        })
+        await running
+      })
+    }
+  })
+
   it("summarizes each completed result once and publishes immutable batched snapshots", async () => {
     const done =
       Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()

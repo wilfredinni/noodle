@@ -1187,6 +1187,12 @@ describe("app keymap layers", () => {
     expect(folded).toBe(1)
     expect(unfolded).toBe(1)
 
+    context.runner.runnerRef.current.phase = "running"
+    host.press("f8")
+    host.press("f9")
+    expect(folded).toBe(2)
+    expect(unfolded).toBe(2)
+
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
@@ -1511,6 +1517,28 @@ describe("app keymap layers", () => {
       ok: false,
       reason: "disabled",
     })
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("preserves URL bar Tab and Shift+Tab navigation during a background run", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.runner.runnerRef.current.phase = "running"
+    context.global.focusRef.current = "urlbar"
+    context.global.setUrlbarSubFocus = (next) => {
+      context.global.urlbarSubFocusRef.current = next
+    }
+    keymap.setData("app.focus", "urlbar")
+    const disposers = register(context)
+    host.press("tab")
+    expect(context.global.urlbarSubFocusRef.current).toBe("text")
+    expect(calls.focus).toBe("")
+    host.press("tab", { shift: true })
+    expect(context.global.urlbarSubFocusRef.current).toBe("select")
+    expect(calls.focus).toBe("")
+    expect(keymap.dispatchCommand("editor.format").ok).toBe(false)
+    expect(keymap.dispatchCommand("request.save").ok).toBe(false)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

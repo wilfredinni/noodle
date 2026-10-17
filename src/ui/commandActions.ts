@@ -40,6 +40,10 @@ export function runnerAllowsCommand(name: string): boolean {
     /\.(up|down|left|right|first|last|escape|tab-prev|tab-next)$/.test(name) ||
     [
       "collection.runner",
+      "urlbar.tab",
+      "urlbar.prev",
+      "editor.fold-all",
+      "editor.unfold-all",
       "request.find",
       "request.edit-enter",
       "folder.edit-enter",

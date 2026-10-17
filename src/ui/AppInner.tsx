@@ -1273,6 +1273,7 @@ export function AppInner({
         responseFileSaved: !!responseFileActions.savedPath,
         settingsCategory,
         runnerPhase: runner.phase,
+        runnerStopping: runner.stopping,
         keybinds,
       }),
     [
@@ -1292,6 +1293,7 @@ export function AppInner({
       responseFileActions.savedPath,
       settingsCategory,
       runner.phase,
+      runner.stopping,
       keybinds,
     ],
   )

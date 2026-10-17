@@ -145,7 +145,7 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([
       seg("s", "stop", "runner.stop"),
       seg("↑/↓", "select"),
-      seg("Enter", "open", "runner.activate"),
+      seg("Enter", "activate", "runner.activate"),
       seg("Tab", "focus", "runner.focus-next"),
       seg("Esc", "back", "runner.escape"),
     ])
@@ -209,7 +209,24 @@ describe("getKeybindingHints footer", () => {
       ).footer
       expect(
         hints.find((hint) => hint.command === "runner.activate")?.word,
-      ).toBe(focus === "runner-options" ? "stop" : "open")
+      ).toBe(focus === "runner-options" ? "stop" : "activate")
+    },
+  )
+
+  it.each(["runner-options", "runner-requests"] as const)(
+    "hides unavailable Stop hints while stopping in %s",
+    (focus) => {
+      const hints = getKeybindingHints(
+        ctx({
+          view: "runner",
+          focus,
+          runnerPhase: "running",
+          runnerStopping: true,
+        }),
+      ).footer
+      expect(hints.some((hint) => hint.command === "runner.stop")).toBe(false)
+      expect(hints.some((hint) => hint.word === "stop")).toBe(false)
+      expect(hints).toContainEqual(seg("Esc", "back", "runner.escape"))
     },
   )
 
