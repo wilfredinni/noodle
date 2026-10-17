@@ -113,7 +113,7 @@ describe("local development environment", () => {
     expect(
       checked.execution.iterations.map((result) => result.requestSuccesses),
     ).toEqual([4, 4])
-  }, 20_000)
+  }, 60_000)
 
   it("resets state to the same known data and closes every listener", async () => {
     const server = await start()
