@@ -276,6 +276,7 @@ Text history remains compatible. Add no request YAML fields for response handlin
 
 ## Key conventions
 
+- **GitHub issues and reviews:** Never close GitHub issues, mark pull request review threads or comments as resolved, or dismiss reviews unless the user explicitly instructs you to perform that action. Reviewing code, addressing feedback, fixing CI, committing, or pushing does not grant this permission. Leave issue and review states unchanged without that explicit instruction.
 - **Oxfmt check covers** only `./src ./tests`; `.agents/` is not included.
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
