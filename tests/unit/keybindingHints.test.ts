@@ -138,11 +138,17 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([seg("f2", "expand", "request.expand-toggle")])
   })
 
-  it("does not show status text while the runner is executing", () => {
+  it("shows Stop, inspection, and navigation while the runner is executing", () => {
     expect(
       getKeybindingHints(ctx({ view: "runner", runnerPhase: "running" }))
         .footer,
-    ).toEqual([])
+    ).toEqual([
+      seg("s", "stop", "runner.stop"),
+      seg("↑/↓", "select"),
+      seg("Enter", "open", "runner.activate"),
+      seg("Tab", "focus", "runner.focus-next"),
+      seg("Esc", "back", "runner.escape"),
+    ])
   })
 
   it("shows the Runner option edit and run shortcuts", () => {

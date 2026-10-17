@@ -22,6 +22,7 @@ export interface EnvHeaderPaneHandle {
 export const EnvHeaderPane = forwardRef<
   EnvHeaderPaneHandle,
   {
+    readOnly?: boolean
     name: string
     color: string | undefined
     onNameChange: (name: string) => void
@@ -33,6 +34,7 @@ export const EnvHeaderPane = forwardRef<
   }
 >(function EnvHeaderPane(
   {
+    readOnly = false,
     name,
     color,
     onNameChange,
@@ -54,7 +56,7 @@ export const EnvHeaderPane = forwardRef<
   useImperativeHandle(ref, () => ({
     focusName: () => {
       setColorFocused(false)
-      nameRef.current?.focus()
+      if (!readOnly) nameRef.current?.focus()
     },
     focusColor: () => {
       setColorFocused(true)
@@ -68,7 +70,7 @@ export const EnvHeaderPane = forwardRef<
 
   useEffect(() => {
     if (focused && !prevFocused.current && !colorFocused) {
-      nameRef.current?.focus()
+      if (!readOnly) nameRef.current?.focus()
     }
     prevFocused.current = focused
   }, [focused, colorFocused])
@@ -105,25 +107,30 @@ export const EnvHeaderPane = forwardRef<
     >
       <box style={{ flexGrow: 1, position: "relative" }}>
         {jumpMode && <JumpBadge letter="m" style={JUMP_BADGE_TOP_LEFT} />}
-        <input
-          ref={nameRef}
-          value={name}
-          placeholder="Environment name"
-          onInput={onNameChange}
-          focused={nameFocused}
-          backgroundColor={
-            nameFocused ? theme.backgroundElement : theme.backgroundPanel
-          }
-          focusedBackgroundColor={theme.borderSubtle}
-          textColor={theme.text}
-          cursorColor={theme.primary}
-          paddingX={1}
-          style={{ flexGrow: 1 }}
-        />
+        {readOnly ? (
+          <text>{name}</text>
+        ) : (
+          <input
+            ref={nameRef}
+            value={name}
+            placeholder="Environment name"
+            onInput={onNameChange}
+            focused={nameFocused}
+            backgroundColor={
+              nameFocused ? theme.backgroundElement : theme.backgroundPanel
+            }
+            focusedBackgroundColor={theme.borderSubtle}
+            textColor={theme.text}
+            cursorColor={theme.primary}
+            paddingX={1}
+            style={{ flexGrow: 1 }}
+          />
+        )}
       </box>
       <box style={{ flexShrink: 0, position: "relative" }}>
         {jumpMode && <JumpBadge letter="c" style={JUMP_BADGE_TOP_LEFT} />}
         <Select
+          interactive={!readOnly}
           items={colorItems}
           value={color ?? "none"}
           onChange={(id) => onColorChange(id === "none" ? undefined : id)}

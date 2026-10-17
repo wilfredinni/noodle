@@ -665,6 +665,26 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Borders                     | `src/ui/borders.ts`                                                                                                                                                                                                                                                                                                          |
 | Pure helpers                | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `selection.ts`)                                                                                                                                                                                                                    |
 
+## Live collection Runner
+
+`collectionRun()` emits an authoritative `run-start` plan after selection and
+dataset validation, followed by top-level start/completion/skip events.
+`useCollectionRunner` owns one AbortController, a synchronous duplicate-start
+guard, generation-scoped callbacks, and iteration/request-keyed live rows and
+details. Batch event publication within a microtask so fail-fast skips do not
+queue one full result snapshot per skipped execution. Reuse `summarizeRun` and
+adopt the returned collection result after cleanup.
+
+The existing Runner shows Results during execution; completed details reuse
+TimelineDetailOverlay, ResponseResults, and ScriptConsole. Stop uses shared
+cancellation with `s`, click, or focused Enter/Space. Keep navigation available,
+resume the current workspace's latest run with F5, and block writes/sends and
+collection or execution configuration changes across commands and mouse paths.
+Use the shared `runnerAllowsCommand` policy for keymap and palette guards;
+component interaction locks cover direct controls. Do not add persistent history
+or another execution path. Focus Results once on start, preserve later inspection,
+and restore options after configuration failure without stealing focus elsewhere.
+
 ## Async script calls
 
 `scriptAsync.ts` pumps bounded QuickJS Promise jobs and cancels pending host work

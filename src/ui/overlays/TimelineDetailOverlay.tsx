@@ -70,6 +70,8 @@ export function formatHeaderEntries(
 
 export function TimelineDetailOverlay({
   visible,
+  onStop,
+  stopping = false,
   entry,
   iteration,
   onClose,
@@ -90,6 +92,8 @@ export function TimelineDetailOverlay({
   onExportBody = async () => {},
 }: {
   visible: boolean
+  onStop?: () => void
+  stopping?: boolean
   iteration?: number
   entry: TimelineEntry | null
   onClose: () => void
@@ -292,7 +296,8 @@ export function TimelineDetailOverlay({
         const key = ctx.event
         key.preventDefault()
         key.stopPropagation()
-        if (key.name === "escape") onClose()
+        if (key.name === "s" && onStop && !stopping) onStop()
+        else if (key.name === "escape") onClose()
         else if (key.name === "left" || key.name === "right") {
           const ids = tabs.map((tab) => tab.id as DetailTab)
           const index = ids.indexOf(activeTab)
@@ -383,6 +388,8 @@ export function TimelineDetailOverlay({
     exportBody,
     onEditAssertions,
     onEditCaptures,
+    onStop,
+    stopping,
   ])
 
   if (!visible || !entry) return null
@@ -433,7 +440,20 @@ export function TimelineDetailOverlay({
           tabs={tabs}
           activeId={activeTab}
           onChange={(tab) => selectTab(tab as DetailTab)}
-          rightChildren={<EscapeClose onClose={onClose} />}
+          rightChildren={
+            <box flexDirection="row" gap={1}>
+              {onStop && (
+                <ActionButton
+                  id="runner-detail-stop"
+                  shortcut="s"
+                  label={stopping ? "Stopping" : "Stop"}
+                  disabled={stopping}
+                  onAction={onStop}
+                />
+              )}
+              <EscapeClose onClose={onClose} />
+            </box>
+          }
         >
           {activeTab === "console" ? (
             <ScriptConsole

@@ -199,6 +199,13 @@ terminal behavior; ordinary-account interactive testing remains pending.
 
 ## Collection cancellation regressions
 
+`liveCollectionRunner.test.tsx` covers incremental execution rows and details,
+keyboard/mouse/focused/detail Stop, responsive navigation, failure focus, and
+80×24 rendering. Keep hook guards and stale-callback/disposal coverage in
+`useCollectionRunner.test.tsx`, and test cross-view write guards in production
+keymap and command-palette suites. Repeat changed asynchronous files ten times
+without React act warnings. Capture the actual native rendered frame for visual QA.
+
 Run `tests/integration/collectionCancellation.test.ts` and
 `collectionCancellationCli.test.ts` for pre-aborted signals, HTTP and OAuth,
 pre/post child calls, partial diagnostics, redaction, cancellable delay, dataset

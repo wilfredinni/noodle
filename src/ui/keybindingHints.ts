@@ -225,7 +225,14 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.view === "runner") {
-    if (ctx.runnerPhase === "running") return []
+    if (ctx.runnerPhase === "running")
+      return [
+        { key: "s", word: "stop", command: "runner.stop" },
+        { key: "↑/↓", word: "select" },
+        { key: "Enter", word: "open", command: "runner.activate" },
+        { key: "Tab", word: "focus", command: "runner.focus-next" },
+        { key: "Esc", word: "back", command: "runner.escape" },
+      ]
     if (ctx.focus === "runner-options") {
       return [
         { key: "↑/↓", word: "select" },

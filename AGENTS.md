@@ -478,8 +478,19 @@ Bulk fold and unfold actions are configurable in Shortcuts and unbound by defaul
 | `Space` | Toggle the selected request or folder |
 | `Enter` | Activate an option or expand a result row |
 | `r` | Start the configured run from options |
+| `s` | Stop the active run, including from its detail overlay |
 | `←` | Return from results to configuration |
-| `Esc` | Close the Runner |
+| `Esc` | Leave the Runner while the active run continues |
+
+Results update per execution, with pending, running, passed, failed, skipped,
+and cancelled states keyed by request and dataset iteration. Completed details
+remain inspectable during execution. Tab and scrolling stay available; the Run
+action becomes Stop, activated by click or focused Enter/Space. Stop remains in
+the stopping state until shared cancellation and cookie cleanup settle. F5
+resumes the current workspace's latest run without resetting it. No per-collection
+history or disk retention is added. Active runs block edits, sends, collection
+switch/reload, and environment/cookie/transport configuration changes across
+keyboard, palette, and mouse paths; read-only browsing and appearance remain available.
 
 ### Cookie jar mode
 

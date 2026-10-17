@@ -4,6 +4,7 @@ import type { SystemProxySettings } from "../proxy"
 import {
   collectionRun,
   selectCollectionRunRequests,
+  summarizeRun,
   type CollectionRunResult,
   type RequestRunDetail,
   type RequestRunResult,
@@ -18,6 +19,7 @@ import { DATA_LIMITS, loadIterationData, runResultKey } from "../iterationData"
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerTagFilter = "include" | "exclude"
 export type RunnerResultRow =
+  | { kind: "pending" | "running"; id: string }
   | { kind: "result"; id: string; result: RequestRunResult }
   | { kind: "skipped"; id: string; reason: "fail-fast" | "cancelled" }
 
@@ -38,6 +40,9 @@ export interface UseCollectionRunnerOptions {
 export interface UseCollectionRunnerResult {
   collectionDir: string
   phase: RunnerPhase
+  stopping: boolean
+  stop: () => void
+  isRunning: () => boolean
   scopeLabel: string
   items: CollectionItem[]
   requests: Request[]
@@ -162,7 +167,9 @@ export function useCollectionRunner({
   }, [collection, requests])
   const [phase, setPhase] = useState<RunnerPhase>("configure")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [environmentName, setEnvironmentName] = useState<string | null>(null)
+  const [environmentName, setEnvironmentNameState] = useState<string | null>(
+    null,
+  )
   const [includeTags, setIncludeTags] = useState<string[]>([])
   const [excludeTags, setExcludeTags] = useState<string[]>([])
   const [includeTagIndex, setIncludeTagIndex] = useState(0)
@@ -188,6 +195,27 @@ export function useCollectionRunner({
   const [result, setResult] = useState<CollectionRunResult | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
   const runningRef = useRef(false)
+  const controllerRef = useRef<AbortController | null>(null)
+  const generationRef = useRef(0)
+  const [stopping, setStopping] = useState(false)
+  const [liveRows, setLiveRows] = useState<RunnerResultRow[]>([])
+  const isRunning = useCallback(() => runningRef.current, [])
+  const stop = useCallback(() => {
+    if (!runningRef.current || controllerRef.current?.signal.aborted) return
+    controllerRef.current?.abort()
+    setStopping(true)
+  }, [])
+  const setEnvironmentName = useCallback((name: string | null) => {
+    if (!runningRef.current) setEnvironmentNameState(name)
+  }, [])
+  useEffect(
+    () => () => {
+      generationRef.current++
+      controllerRef.current?.abort()
+      runningRef.current = false
+    },
+    [],
+  )
   const parsedDelayMs = Number(delayMsInput)
   const delayMs =
     delayMsInput.trim() !== "" &&
@@ -200,7 +228,7 @@ export function useCollectionRunner({
   const setOptionIndex = useCallback(
     (index: number) => {
       if (
-        phase === "running" ||
+        (runningRef.current && index !== RUNNER_RUN_OPTION_INDEX) ||
         selectOpen ||
         index < 0 ||
         index >= OPTION_COUNT
@@ -212,7 +240,7 @@ export function useCollectionRunner({
   )
   const setTagFilterIndex = useCallback(
     (filter: RunnerTagFilter, index: number) => {
-      if (phase === "running") return
+      if (runningRef.current) return
       const limit =
         filter === "include" ? includeTags.length : excludeTags.length
       const next = Math.max(0, Math.min(limit, index))
@@ -223,7 +251,7 @@ export function useCollectionRunner({
   )
   const setTagFilter = useCallback(
     (filter: RunnerTagFilter, index: number, tag: string) => {
-      if (phase === "running") return
+      if (runningRef.current) return
       const current = filter === "include" ? includeTags : excludeTags
       if (index < 0 || index > current.length) return
       const next = [...current]
@@ -242,7 +270,7 @@ export function useCollectionRunner({
   )
   const deleteTagFilter = useCallback(
     (filter: RunnerTagFilter, index: number) => {
-      if (phase === "running") return
+      if (runningRef.current) return
       const current = filter === "include" ? includeTags : excludeTags
       if (index < 0 || index >= current.length) return
       const next = current.filter((_, currentIndex) => currentIndex !== index)
@@ -259,9 +287,15 @@ export function useCollectionRunner({
   )
 
   useEffect(() => {
+    generationRef.current++
+    controllerRef.current?.abort()
+    controllerRef.current = null
+    runningRef.current = false
+    setStopping(false)
+    setLiveRows([])
     setPhase("configure")
     setSelectedIds(new Set(requests.map((request) => request.id)))
-    setEnvironmentName(activeEnvironment)
+    setEnvironmentNameState(activeEnvironment)
     setIncludeTags([])
     setExcludeTags([])
     setIncludeTagIndex(0)
@@ -345,7 +379,7 @@ export function useCollectionRunner({
           : null))
   const setDataPath = useCallback(
     async (path: string) => {
-      if (phase === "running") return
+      if (runningRef.current) return
       dataPathRef.current = path
       setDataPathState(path)
       if (!path) {
@@ -373,6 +407,7 @@ export function useCollectionRunner({
   )
 
   const resultRows = useMemo(() => {
+    if (runningRef.current) return liveRows
     if (!result) return []
     return [
       ...result.results.map((entry): RunnerResultRow => ({
@@ -386,11 +421,11 @@ export function useCollectionRunner({
         reason: entry.reason,
       })),
     ]
-  }, [result])
+  }, [result, phase, liveRows])
 
   const moveOption = useCallback(
     (direction: 1 | -1) => {
-      if (phase === "running" || selectOpen) return
+      if (runningRef.current || selectOpen) return
       setOptionIndexState((index) =>
         Math.max(0, Math.min(OPTION_COUNT - 1, index + direction)),
       )
@@ -456,7 +491,7 @@ export function useCollectionRunner({
   )
   const toggleFolder = useCallback(
     (path: string) => {
-      if (phase === "running") return
+      if (runningRef.current) return
       const ids = requests
         .filter(
           (request) =>
@@ -497,7 +532,7 @@ export function useCollectionRunner({
         index = row?.kind === "request" ? row.index : requestIndex
       }
       const id = requests[index]?.id
-      if (!id || phase === "running" || !eligibleIds.has(id)) return
+      if (!id || runningRef.current || !eligibleIds.has(id)) return
       setSelectedIds((current) => {
         const next = new Set(current)
         if (next.has(id)) next.delete(id)
@@ -516,11 +551,11 @@ export function useCollectionRunner({
     ],
   )
   const toggleFailFast = useCallback(() => {
-    if (phase !== "running") setFailFast((value) => !value)
+    if (!runningRef.current) setFailFast((value) => !value)
   }, [phase])
   const setDelayMsInput = useCallback(
     (value: string) => {
-      if (phase !== "running") setDelayMsInputState(value)
+      if (!runningRef.current) setDelayMsInputState(value)
     },
     [phase],
   )
@@ -562,19 +597,63 @@ export function useCollectionRunner({
     }
     if (nextRequests.length === 0) return
     runningRef.current = true
+    const generation = ++generationRef.current
+    const controller = new AbortController()
+    controllerRef.current = controller
+    const current = () => generationRef.current === generation
+    const startedAt = performance.now()
+    let rows: RunnerResultRow[] = []
+    const rowIndices = new Map<string, number>()
+    let publishing = false
+    let finished = false
+    let partial: CollectionRunResult = {
+      results: [],
+      skipped: [],
+      failed: false,
+      summary: summarizeRun(
+        [],
+        nextRequests.length * iterationCount,
+        0,
+        startedAt,
+      ),
+    }
+    const publish = () => {
+      if (publishing) return
+      publishing = true
+      queueMicrotask(() => {
+        publishing = false
+        if (!current() || finished) return
+        setLiveRows([...rows])
+        setResult({
+          ...partial,
+          results: [...partial.results],
+          skipped: [...partial.skipped],
+          summary: summarizeRun(
+            partial.results,
+            rows.length,
+            partial.skipped.length,
+            startedAt,
+          ),
+        })
+      })
+    }
     const ids = nextRequests.map((request) => request.id)
     setRunError(null)
-    setResult(null)
+    setStopping(false)
+    setResult({ ...partial, results: [], skipped: [] })
+    setLiveRows([])
+    setOptionIndexState(RUNNER_RUN_OPTION_INDEX)
     setResultIndex(0)
     setResultDetails(new Map())
     setProgress({ completed: 0, total: ids.length * iterationCount })
     setPhase("running")
     try {
-      const nextDetails = new Map<string, RequestRunDetail>()
       const next = await runCollection(
         collectionDir,
         environmentName ?? undefined,
-        (completed, total) => setProgress({ completed, total }),
+        (completed, total) => {
+          if (current()) setProgress({ completed, total })
+        },
         noProxy,
         systemProxy,
         insecure,
@@ -582,23 +661,100 @@ export function useCollectionRunner({
         includeTags,
         excludeTags,
         failFast,
-        (detail) =>
-          nextDetails.set(
-            runResultKey(detail.requestId, detail.iteration),
-            detail,
-          ),
+        (detail) => {
+          if (current())
+            setResultDetails((details) =>
+              new Map(details).set(
+                runResultKey(detail.requestId, detail.iteration),
+                detail,
+              ),
+            )
+        },
         delayMs,
         dataPath ? resolve(collectionDir, expandUserPath(dataPath)) : undefined,
         true,
+        {
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (!current()) return
+            if (event.type === "run-start") {
+              partial = {
+                ...partial,
+                ...(event.iterations !== undefined
+                  ? { iterations: event.iterations }
+                  : {}),
+              }
+              rows = Array.from(
+                { length: event.iterations ?? 1 },
+                (_, iteration) =>
+                  event.requestIds.map((id): RunnerResultRow => ({
+                    kind: "pending",
+                    id: runResultKey(
+                      id,
+                      event.iterations === undefined ? undefined : iteration,
+                    ),
+                  })),
+              ).flat()
+              rowIndices.clear()
+              rows.forEach((row, index) => rowIndices.set(row.id, index))
+              setProgress({ completed: 0, total: rows.length })
+            } else {
+              const id = runResultKey(event.id, event.iteration)
+              const index = rowIndices.get(id)
+              let row: RunnerResultRow
+              if (event.type === "request-start") row = { kind: "running", id }
+              else if (event.type === "request-complete") {
+                row = { kind: "result", id, result: event.result }
+                partial.results.push(event.result)
+              } else {
+                row = { kind: "skipped", id, reason: event.reason }
+                partial.skipped.push({
+                  id: event.id,
+                  iteration: event.iteration,
+                  reason: event.reason,
+                })
+              }
+              if (index !== undefined) rows[index] = row
+              else {
+                rowIndices.set(id, rows.length)
+                rows.push(row)
+              }
+            }
+            publish()
+          },
+        },
       )
-      setResultDetails(nextDetails)
+      if (!current()) return
+      finished = true
       setResult(next)
-      setPhase("results")
+      if (next.failure) {
+        setRunError(next.failure.message)
+        setPhase("configure")
+      } else setPhase("results")
     } catch (error) {
-      setRunError(error instanceof Error ? error.message : String(error))
+      if (!current()) return
+      finished = true
+      const message = error instanceof Error ? error.message : String(error)
+      setRunError(message)
+      setResult({
+        ...partial,
+        failed: true,
+        failure: { category: "configuration", message },
+        summary: summarizeRun(
+          partial.results,
+          rows.length || ids.length * iterationCount,
+          partial.skipped.length,
+          startedAt,
+          true,
+        ),
+      })
       setPhase("configure")
     } finally {
-      runningRef.current = false
+      if (current()) {
+        runningRef.current = false
+        controllerRef.current = null
+        setStopping(false)
+      }
     }
   }, [
     collection,
@@ -624,6 +780,9 @@ export function useCollectionRunner({
   return {
     collectionDir,
     phase,
+    stopping,
+    stop,
+    isRunning,
     scopeLabel: folderPath ? `Folder: ${folderPath}` : "Entire collection",
     items,
     requests,
@@ -683,8 +842,8 @@ export function useCollectionRunner({
     toggleSelected,
     toggleFolder,
     toggleFailFast,
-    showConfigure: () => result && setPhase("configure"),
-    showResults: () => result && setPhase("results"),
+    showConfigure: () => !runningRef.current && result && setPhase("configure"),
+    showResults: () => !runningRef.current && result && setPhase("results"),
     run,
   }
 }

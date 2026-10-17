@@ -118,6 +118,7 @@ export function parseTimelineMaxEntries(
 }
 
 export function SettingsView({
+  runLocked = false,
   scope,
   category,
   collectionAvailable,
@@ -172,6 +173,7 @@ export function SettingsView({
   onCollectionUnregister,
   onRegisterCollection,
 }: {
+  runLocked?: boolean
   scope: SettingsScope
   category: SettingsCategory
   collectionAvailable: boolean
@@ -243,6 +245,9 @@ export function SettingsView({
   onRegisterCollection: (path: string) => string | null
 }) {
   const theme = useTheme()
+  const contentLocked =
+    runLocked && !(scope === "global" && category === "appearance")
+  const section = contentLocked ? null : category
   const keymap = useKeymap()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const pathInputRef = useRef<VarInputHandle | null>(null)
@@ -569,7 +574,7 @@ export function SettingsView({
           }
           return
         }
-        if (focus !== "settings-content") return
+        if (focus !== "settings-content" || contentLocked) return
 
         if (scope === "collection" && category === "general") {
           if (["up", "down", "home", "end"].includes(event.name)) {
@@ -754,6 +759,7 @@ export function SettingsView({
     onFormatOnSaveChange,
     contentIndex,
     cookiesEnabled,
+    contentLocked,
     focus,
     keybindNames,
     keymap,
@@ -896,8 +902,13 @@ export function SettingsView({
             },
           }}
         >
+          {contentLocked && (
+            <text fg={theme.warning}>
+              Stop the collection run to change these settings.
+            </text>
+          )}
           <box style={{ flexDirection: "column", gap: 1, paddingRight: 1 }}>
-            {scope === "collection" && category === "scripts" && (
+            {scope === "collection" && section === "scripts" && (
               <CollectionScripts
                 key={activeCollectionDir}
                 fields={collectionScripts ?? {}}
@@ -908,7 +919,7 @@ export function SettingsView({
                 onChange={onCollectionScriptsChange}
               />
             )}
-            {scope === "global" && category === "appearance" && (
+            {scope === "global" && section === "appearance" && (
               <>
                 <SettingsSectionHeader
                   title="Appearance"
@@ -955,7 +966,7 @@ export function SettingsView({
                 </SettingLabel>
               </>
             )}
-            {scope === "global" && category === "behavior" && (
+            {scope === "global" && section === "behavior" && (
               <>
                 <SettingsSectionHeader
                   title="Behavior"
@@ -1011,7 +1022,7 @@ export function SettingsView({
                 </SettingLabel>
               </>
             )}
-            {category === "network" && (
+            {section === "network" && (
               <>
                 <SettingsSectionHeader
                   title="Proxy"
@@ -1054,7 +1065,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "collection" && category === "tls" && (
+            {scope === "collection" && section === "tls" && (
               <>
                 <SettingsSectionHeader
                   title="Certificates"
@@ -1074,7 +1085,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "global" && category === "collections" && (
+            {scope === "global" && section === "collections" && (
               <>
                 <SettingsSectionHeader
                   title="Collections"
@@ -1184,7 +1195,7 @@ export function SettingsView({
                 </box>
               </>
             )}
-            {scope === "global" && category === "keyboard" && (
+            {scope === "global" && section === "keyboard" && (
               <>
                 <SettingsSectionHeader
                   title="Keyboard"
@@ -1204,7 +1215,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "collection" && category === "general" && (
+            {scope === "collection" && section === "general" && (
               <>
                 <SettingsSectionHeader
                   title="General"
@@ -1347,7 +1358,7 @@ export function SettingsView({
                 </box>
               </>
             )}
-            {message && category !== "keyboard" && (
+            {message && section !== "keyboard" && (
               <text
                 fg={message.kind === "success" ? theme.success : theme.error}
               >

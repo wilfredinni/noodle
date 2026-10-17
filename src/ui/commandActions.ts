@@ -33,6 +33,41 @@ import type { ResponseFilePending } from "./useOverlayState"
 import { openResponseFile, prepareResponseOutput } from "../responseFile"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
 
+// Active runs allow inspection and navigation; writes stay locked across views.
+export function runnerAllowsCommand(name: string): boolean {
+  return (
+    /^(runner\.(?!run$)|focus\.|response\.|layout\.|sidebar\.)/.test(name) ||
+    /\.(up|down|left|right|first|last|escape|tab-prev|tab-next)$/.test(name) ||
+    [
+      "collection.runner",
+      "request.find",
+      "request.edit-enter",
+      "folder.edit-enter",
+      "request.expand-toggle",
+      "pane.expand",
+      "request.generate-client-code",
+      "env.editor-open",
+      "env-browse.reveal",
+      "cookie-jar.open",
+      "cookie.close",
+      "cookie.expand",
+      "cookie.copy",
+      "cookie.filter",
+      "cookie.filter.exit",
+      "cookie.filter.clear",
+      "app.help",
+      "app.about",
+      "app.notification",
+      "app.theme",
+      "app.command-palette",
+      "app.settings-open",
+      "script.execution-order",
+      "console.copy",
+      "jump.enter",
+    ].includes(name)
+  )
+}
+
 export function formatCode(
   editor: CodeEditorRenderable | null | undefined,
 ): boolean {

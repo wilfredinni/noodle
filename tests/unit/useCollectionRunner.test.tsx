@@ -9,7 +9,11 @@ import {
   type UseCollectionRunnerResult,
 } from "../../src/hooks/useCollectionRunner"
 import type { Collection, Request } from "../../src/schema"
-import type { collectionRun } from "../../src/app/services"
+import {
+  summarizeRun,
+  type collectionRun,
+  type CollectionRunOptions,
+} from "../../src/app/services"
 
 const testRender = createTestRender()
 const request = (id: string, tags?: string[]): Request => ({
@@ -507,6 +511,137 @@ describe("useCollectionRunner", () => {
         },
       })
       await Promise.all([first, second])
+    })
+  })
+  it("uses the authoritative iteration plan and locks setters before React renders", async () => {
+    const pending =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    let options!: CollectionRunOptions
+    const runCollection: typeof collectionRun = async (...args) => {
+      options = args[14]!
+      options.onEvent!({
+        type: "run-start",
+        requestIds: ["root"],
+        iterations: 2,
+      })
+      return pending.promise
+    }
+    const h = renderHook({ runCollection })
+    const render = await h.render
+    await render.renderOnce()
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+      h.get().setEnvironmentName("staging")
+      h.get().setDelayMsInput("99")
+      h.get().setTagFilter("include", 0, "safe")
+      h.get().toggleFailFast()
+      h.get().toggleSelected(0)
+      await h.get().setDataPath("missing.json")
+    })
+    expect(h.get().resultRows.map((row) => row.id)).toEqual([
+      "0:root",
+      "1:root",
+    ])
+    expect(h.get().progress.total).toBe(2)
+    expect(h.get().environmentName).toBe("development")
+    expect(h.get().delayMsInput).toBe("0")
+    expect(h.get().includeTags).toEqual([])
+    expect(h.get().failFast).toBe(false)
+    expect(h.get().selectedIds.has("root")).toBe(true)
+    expect(h.get().dataPath).toBe("")
+    await act(async () => h.get().stop())
+    expect(options.signal!.aborted).toBe(true)
+    await act(async () => {
+      options.onEvent!({
+        type: "request-skip",
+        id: "root",
+        iteration: 0,
+        reason: "cancelled",
+      })
+      options.onEvent!({
+        type: "request-skip",
+        id: "root",
+        iteration: 1,
+        reason: "cancelled",
+      })
+      pending.resolve({
+        cancelled: true,
+        iterations: 2,
+        results: [],
+        skipped: [
+          { id: "root", iteration: 0, reason: "cancelled" },
+          { id: "root", iteration: 1, reason: "cancelled" },
+        ],
+        failed: true,
+        summary: summarizeRun([], 2, 2, performance.now()),
+      })
+      await running
+    })
+    expect(h.get().result?.summary).toMatchObject({
+      completed: 0,
+      cancelled: 0,
+      unstarted: 2,
+      skipped: 2,
+    })
+    expect(h.get().phase).toBe("results")
+  })
+
+  it("aborts reset and disposed runs and ignores their late callbacks", async () => {
+    const pending =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    let options!: CollectionRunOptions
+    const runCollection: typeof collectionRun = async (...args) => {
+      options = args[14]!
+      return pending.promise
+    }
+    const h = renderHook({ runCollection })
+    const render = await h.render
+    await render.renderOnce()
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+    })
+    await act(async () => h.reset())
+    expect(options.signal!.aborted).toBe(true)
+    await act(async () => {
+      options.onEvent!({ type: "request-start", id: "root" })
+      pending.resolve({
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: summarizeRun([], 0, 0, performance.now()),
+      })
+      await running
+    })
+    expect(h.get().phase).toBe("configure")
+    expect(h.get().result).toBeNull()
+    expect(h.get().resultRows).toEqual([])
+    const active =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    // Reset coverage above owns its producer; a separate mounted run proves disposal.
+    const second = renderHook({
+      runCollection: async (...args) => {
+        options = args[14]!
+        return active.promise
+      },
+    })
+    const secondRender = await second.render
+    await secondRender.renderOnce()
+    let secondRun!: Promise<void>
+    await act(async () => {
+      secondRun = second.get().run()
+    })
+    await act(async () => secondRender.renderer.destroy())
+    expect(options.signal!.aborted).toBe(true)
+    await act(async () => {
+      active.resolve({
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: summarizeRun([], 0, 0, performance.now()),
+      })
+      await secondRun
     })
   })
 })

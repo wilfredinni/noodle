@@ -1,3 +1,4 @@
+import type { UseCollectionRunnerResult } from "../hooks/useCollectionRunner"
 import type { RefObject } from "react"
 import { basename } from "node:path"
 import { HelpOverlay } from "./overlays/HelpOverlay"
@@ -54,6 +55,7 @@ interface AppOverlaysProps {
    * `useOverlayState`. Passed whole so a new overlay only needs declaring
    * there and rendering here.
    */
+  runner?: UseCollectionRunnerResult
   overlays: OverlayState
   keybinds: Keybinds
   /** Owned by `useReloadGuard`, not by the overlay state. */
@@ -147,6 +149,7 @@ export function AppOverlays({
   requests,
   onFindRequest,
   onEditRunnerRequestTab,
+  runner,
   collectionSwitcherVisible,
   collectionPaths,
   collectionSettingsByPath,
@@ -604,6 +607,12 @@ export function AppOverlays({
             else setTimelineDetailEntry(null)
           }}
           execution={runnerDetail?.execution}
+          onStop={
+            runnerDetail && runner?.phase === "running"
+              ? runner.stop
+              : undefined
+          }
+          stopping={runner?.stopping}
           request={runnerDetail?.request}
           showCaptures={runnerDetail !== null}
           captureLifetimeNote={
@@ -615,7 +624,7 @@ export function AppOverlays({
           }
           warnings={runnerDetail?.warnings}
           onEditAssertions={
-            runnerDetail
+            runnerDetail && !runner?.isRunning()
               ? () => {
                   const requestId = runnerDetail.entry.request.id
                   setRunnerDetail(null)
@@ -624,7 +633,7 @@ export function AppOverlays({
               : undefined
           }
           onEditCaptures={
-            runnerDetail
+            runnerDetail && !runner?.isRunning()
               ? () => {
                   const requestId = runnerDetail.entry.request.id
                   setRunnerDetail(null)

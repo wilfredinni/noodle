@@ -58,6 +58,8 @@ const TIPS = [
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
   "add {--body}, {--headers}, or {--cookies} to {noodle request run} for redacted response details",
   "open the collection Runner with {F5} to select requests, filters, a delay, or a CSV/JSON data file",
+  "inspect completed Runner Results and Console while other requests run; {s} stops the run",
+  "leave an active Runner with {Esc}; {F5} returns to its live or completed results",
   "repeat selected requests for each data row with {noodle collection run <path> --data <file>}",
   "open {^P}, choose Import Collection to bring a source into a new or current collection",
   "open {^P}, choose Show Last Notification to read and scroll the latest message",

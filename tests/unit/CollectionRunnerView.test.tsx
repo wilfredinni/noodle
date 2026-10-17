@@ -306,11 +306,15 @@ describe("CollectionRunnerView", () => {
       )
     }
     const render = await testRender(<Harness />, { width: 120, height: 30 })
-    await render.renderOnce()
+    await act(async () => {
+      await render.renderOnce()
+    })
     await act(async () => {
       await current!.run()
     })
-    await render.renderOnce()
+    await act(async () => {
+      await render.renderOnce()
+    })
     expect(render.captureCharFrame()).toContain("Iteration 1/2")
     expect(render.captureCharFrame()).toContain("Iteration 2/2")
     for (let index = 0; index < 2; index++) {
@@ -324,13 +328,17 @@ describe("CollectionRunnerView", () => {
           MouseButtons.LEFT,
         )
       })
-      await render.renderOnce()
+      await act(async () => {
+        await render.renderOnce()
+      })
     }
     expect(opened).toEqual(["https://example.com/0", "https://example.com/1"])
     await act(async () => {
       render.resize(80, 30)
     })
-    await render.renderOnce()
+    await act(async () => {
+      await render.renderOnce()
+    })
     expect(render.captureCharFrame()).toContain("Iteration 2/2")
   })
   it("keeps runner and run result rows compact", async () => {
@@ -542,13 +550,13 @@ describe("CollectionRunnerView", () => {
       globalThis.setInterval = originalSetInterval
     }
     expect(current!.phase).toBe("running")
-    expect(render.captureCharFrame()).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Running 1\/3/)
+    expect(render.captureCharFrame()).toContain("s Stop 0/3")
     expect(render.captureCharFrame()).not.toContain("r Run 3 requests")
     await act(async () => current!.setTagFilter("include", 0, "smoke"))
     expect(current!.includeTags).toEqual([])
     await act(async () => reportProgress?.(1, 3))
     await render.renderOnce()
-    expect(render.captureCharFrame()).toContain("Running 2/3")
+    expect(render.captureCharFrame()).toContain("s Stop 1/3")
     const runningButton = render.renderer.root.findDescendantById(
       "runner-run-button",
     ) as BoxRenderable
@@ -560,7 +568,9 @@ describe("CollectionRunnerView", () => {
       height: runningButton.height,
     }).toEqual(runButtonGeometry)
     expect(
-      runningButton.backgroundColor.equals(RGBA.fromHex(THEMES[0]!.primary)),
+      runningButton.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.backgroundElement),
+      ),
     ).toBe(true)
     await act(async () => {
       await render.mockMouse.click(
@@ -570,7 +580,7 @@ describe("CollectionRunnerView", () => {
       )
       await render.mockMouse.moveTo(0, 0)
     })
-    expect(paneFocusCalls).toBe(1)
+    expect(paneFocusCalls).toBe(2)
     await act(async () => {
       finishRun?.()
       await Promise.resolve()
@@ -1305,7 +1315,7 @@ describe("CollectionRunnerView", () => {
     const frame = render.captureCharFrame()
     expect(frame).toContain("Select")
     expect(frame).toContain("Results")
-    expect(frame).toContain("PASS  1/1 request · 7ms")
+    expect(frame).toContain("PASS  1/2 requests · 7ms")
     expect(frame).toContain(
       "1 assertion passed · no capture failures · 1 skipped",
     )
