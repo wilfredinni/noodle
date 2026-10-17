@@ -42,6 +42,7 @@ export async function acquireFileLock(
   const ownerFile = join(lockDir, "owner")
   const owner = `${process.pid}:${randomUUID()}`
   const started = Date.now()
+  let recovered = false
   await mkdir(dirname(file), { recursive: true })
 
   while (true) {
@@ -68,7 +69,12 @@ export async function acquireFileLock(
         throw new FileLockError("write", file, { cause: error })
     }
 
-    if (timing.recoverDeadOwner && (await recoverDeadOwner(lockDir))) continue
+    if (recovered && Date.now() - started >= timing.lockTimeoutMs)
+      throw new FileLockError("lock-timeout", file)
+    if (timing.recoverDeadOwner && (await recoverDeadOwner(lockDir))) {
+      recovered = true
+      continue
+    }
     if (Date.now() - started >= timing.lockTimeoutMs)
       throw new FileLockError("lock-timeout", file)
     const spread = timing.maxBackoffMs - timing.minBackoffMs

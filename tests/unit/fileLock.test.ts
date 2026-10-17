@@ -67,6 +67,27 @@ it("recovers an opted-in dead owner's lock without changing protected data", asy
   }
 })
 
+it("bounds recovery retries while retaining one immediate recovery attempt", async () => {
+  const file = join(directory, "cookies.json")
+  await abandon(file)
+  const rename = fs.rename
+  let recoveries = 0
+  const competingWriter = spyOn(fs, "rename").mockImplementation(
+    async (from, to) => {
+      await rename(from, to)
+      if (from === `${file}.lock` && ++recoveries < 3) await abandon(file)
+    },
+  )
+  try {
+    await expect(
+      acquireFileLock(file, { ...timing, recoverDeadOwner: true }),
+    ).rejects.toMatchObject({ code: "lock-timeout" })
+    expect(recoveries).toBe(1)
+  } finally {
+    competingWriter.mockRestore()
+  }
+})
+
 it("keeps abandoned locks when recovery has not been explicitly enabled", async () => {
   const file = join(directory, ".mutation")
   const owner = await abandon(file)
