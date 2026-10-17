@@ -17,6 +17,7 @@ Noodle 0.10.1 shows Collection Runner results as requests finish, so you can ins
 ### 🐞 Fixes
 
 - Restore usable Runner focus after completion, cancellation, and configuration failure while preserving inspection focus and compact 80×24 layouts.
+- Recover cookie jar and encryption-key locks left by confirmed exited processes, preserving lock backups, existing cookies, and stored keys. Keep live or uncertain owners locked and leave environment transactions unchanged.
 
 ### 📚 Documentation
 

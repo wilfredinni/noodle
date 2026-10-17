@@ -1029,7 +1029,11 @@ async function acquireLock(
   lockTimeoutMs = timing.lockTimeoutMs,
 ): Promise<LockHandle> {
   try {
-    return await acquireFileLock(file, { ...timing, lockTimeoutMs })
+    return await acquireFileLock(file, {
+      ...timing,
+      lockTimeoutMs,
+      recoverDeadOwner: true,
+    })
   } catch (error) {
     if (!(error instanceof FileLockError)) throw error
     throw new CookieJarStorageError(

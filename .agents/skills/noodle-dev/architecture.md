@@ -133,6 +133,12 @@ A shared key lock coordinates initialization across jars without replacing a
 malformed stored key. Collection ID initialization separately locks the canonical
 collection directory and re-reads settings before saving. Lock files plus an
 append-only mutation journal keep concurrent handles from overwriting one another.
+Cookie jar and shared-key locks opt into dead-owner recovery: only a valid owner
+whose PID returns `ESRCH` can be moved to a permanent, nonempty
+`.lock.abandoned-<pid>-<uuid>` backup. Keep that deterministic backup to prevent
+competing recoveries from moving a replacement lock. Never reclaim by age or
+recover live, unknown, or inaccessible owners. Environment mutation and
+collection-ID locks retain manual recovery.
 
 Opening malformed, undecryptable, or otherwise unreadable storage returns an
 `unavailable` status. Requests continue without jar cookies and do not replace
