@@ -4,9 +4,11 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
-## [0.10.1] - 2026-10-17
+## [0.10.1] - 2026-10-18
 
 Noodle 0.10.1 shows Collection Runner results as requests finish, so you can inspect completed responses, checks, and Console logs while the run continues. Stop an active run from the keyboard or mouse, browse elsewhere, and return to its partial or final results with F5.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-1-live-runner-results/)
 
 ### ✨ Features
 
@@ -18,12 +20,17 @@ Noodle 0.10.1 shows Collection Runner results as requests finish, so you can ins
 
 - Restore usable Runner focus after completion, cancellation, and configuration failure while preserving inspection focus and compact 80×24 layouts.
 - Recover cookie jar and encryption-key locks left by confirmed exited processes, preserving lock backups, existing cookies, and stored keys. Keep live or uncertain owners locked and leave environment transactions unchanged.
+- Retry temporary Windows lock-directory creation contention while preserving persistent filesystem errors.
+
+### 🔧 Refactors
+
+- Upgrade CI and release jobs to Bun 1.4.3, align release-artifact metadata, and refresh runtime and development dependencies while retaining the OpenTUI 0.5.14 pin.
 
 ### 📚 Documentation
 
-- Update `noodle-dev` for live Runner state, cancellation ownership, navigation guards, and rendered acceptance coverage.
-- Update `noodle-use` with live Runner inspection, Stop, and current-workspace resume behavior.
-- Refresh local Runner guidance and tips. Website updates are deferred for this release preparation.
+- Update `noodle-dev` for live Runner state, cancellation ownership, navigation guards, rendered acceptance coverage, and safe dead-owner cookie-lock recovery.
+- Update `noodle-use` with live Runner inspection, Stop, current-workspace resume behavior, and automatic dead-owner cookie-lock recovery that preserves session data.
+- Synchronize installation, Runner, shortcut, cookie, troubleshooting, and agent-skill guides, the automation version example, comparison, and release article; retain the README, agent instructions, and in-app Runner tips updated since v0.10.0.
 
 ## [0.10.0] - 2026-10-13
 

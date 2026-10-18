@@ -57,7 +57,7 @@ const TIPS = [
   "interrupt CLI {noodle collection run} with {Ctrl+C} to keep partial results; cancellation exits with status {130}",
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
   "add {--body}, {--headers}, or {--cookies} to {noodle request run} for redacted response details",
-  "open the collection Runner with {F5} to select requests, filters, a delay, or a CSV/JSON data file",
+  "open or resume the collection Runner with {F5}; configure requests, filters, a delay, or a CSV/JSON data file before running",
   "inspect completed Runner Results and Console while other requests run; {s} stops the run",
   "leave an active Runner with {Esc}; {F5} returns to its live or completed results",
   "repeat selected requests for each data row with {noodle collection run <path> --data <file>}",

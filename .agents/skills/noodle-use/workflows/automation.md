@@ -76,6 +76,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
   read-only.
 - Windows cookie storage requires a vault-backed encryption key and does not fall back to plaintext. Existing plaintext jars are unavailable until an explicit backup-backed reset; fix vault access before resetting. macOS/Linux retain the warned mode-`0600` fallback.
 - Treat cookie `data.warnings` as non-fatal diagnostics. Run results can succeed while warning that cookie storage is plaintext or unavailable; unavailable jars are skipped for that run. `cookie list` also reports `data.state`, warnings, and `hostOnly` for every cookie.
+- Cookie jar and encryption-key locks recover automatically only when valid owner metadata identifies a confirmed exited process. Recovery keeps an abandoned-lock backup and preserves cookies and keys. Live or uncertain owners remain locked; do not clear session data to resolve lock contention. Environment transaction locks still require manual investigation.
 - Treat every `cookie list` value as sensitive. Do not paste human or JSON output into logs, issues, or shared reports without redaction.
 - `cookie clear` is the explicit recovery operation for unreadable cookie storage. It preserves the original file and returns its path in `data.backupPath` before creating a clean jar. Report that backup path to the user.
 - Add `--insecure` to `request run` or `collection run` only when the user explicitly authorizes disabling TLS certificate verification for that invocation.
