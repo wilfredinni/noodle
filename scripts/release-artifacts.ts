@@ -46,7 +46,7 @@ const artifactNames: string[] = releaseTargets.map(
   ({ asset }) => `validated-${asset}`,
 )
 // Keep in sync with bun-version in .github/workflows/ci.yml and release.yml.
-export const bunVersion = "1.4.2"
+export const bunVersion = "1.4.3"
 
 function regularFile(path: string): Buffer {
   const stat = lstatSync(path)
