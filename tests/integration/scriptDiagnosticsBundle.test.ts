@@ -87,6 +87,12 @@ console.log('bundled semantic diagnostics passed');`,
       error: "",
     })
   } finally {
-    await rm(dir, { recursive: true, force: true })
+    // Windows can briefly retain file handles after the compiled child exits.
+    await rm(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    })
   }
 }, 30_000)
