@@ -1,6 +1,6 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import { act, createRef, useState } from "react"
-import type { BoxRenderable } from "@opentui/core"
+import { ScrollBoxRenderable, type BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
@@ -21,6 +21,68 @@ function emptyEditor(): UseEnvironmentEditorResult {
 }
 
 describe("EnvironmentEditorView", () => {
+  it("ignores a stale add-row cursor while locked and restores it on unlock", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const scroll = spyOn(ScrollBoxRenderable.prototype, "scrollChildIntoView")
+    let unlock!: () => void
+    const editState = {
+      mode: "browsing" as const,
+      row: -1,
+      addingRow: true,
+      editingRow: -1,
+    }
+    const editor = {
+      envNames: ["dev"],
+      selectedEnvName: "dev",
+      draft: {
+        name: "dev",
+        varRows: Array.from({ length: 30 }, (_, id) => ({
+          id,
+          key: `VAR_${id}`,
+          value: "value",
+          enabled: true,
+        })),
+      },
+      editState,
+      remaskSecrets: () => {},
+    } as unknown as UseEnvironmentEditorResult
+    function Locking() {
+      const [readOnly, setReadOnly] = useState(true)
+      unlock = () => setReadOnly(false)
+      return (
+        <EnvironmentEditorView
+          readOnly={readOnly}
+          envEditor={editor}
+          activeEnv={null}
+          envColors={{}}
+          focus="env-vars"
+          envHeaderRef={createRef<EnvHeaderPaneHandle>()}
+          onCreateEnvironment={() => {}}
+        />
+      )
+    }
+    try {
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Locking />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 16 },
+      )
+      await act(async () => h.renderOnce())
+      expect(scroll.mock.calls.some(([id]) => id === "vrow-add")).toBe(false)
+      expect(h.captureCharFrame()).toContain("VAR_0")
+      await act(async () => unlock())
+      expect(scroll.mock.calls.some(([id]) => id === "vrow-add")).toBe(true)
+      expect(editor.editState).toBe(editState)
+      expect(editor.editState.addingRow).toBe(true)
+    } finally {
+      scroll.mockRestore()
+      cleanup()
+    }
+  })
+
   it("disables empty-state creation while read-only", async () => {
     const { keymap, cleanup } = setupKeymap()
     let creates = 0

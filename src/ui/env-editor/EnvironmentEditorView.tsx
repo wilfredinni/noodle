@@ -2,11 +2,21 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import { useEffect, type RefObject } from "react"
-import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
+import type {
+  EnvEditState,
+  UseEnvironmentEditorResult,
+} from "../../hooks/useEnvironmentEditor"
 import type { Environment } from "../../schema"
 import type { Focus } from "../focus"
 import { EmptyState } from "../EmptyState"
 import { FullBorder } from "../borders"
+
+const inactiveEditState: EnvEditState = {
+  mode: "inactive",
+  row: -1,
+  addingRow: false,
+  editingRow: -1,
+}
 
 interface EnvironmentEditorViewProps {
   readOnly?: boolean
@@ -97,11 +107,7 @@ export function EnvironmentEditorView({
         />
         <EnvEditorPane
           draft={envEditor.draft}
-          editState={
-            readOnly
-              ? { ...envEditor.editState, mode: "inactive" }
-              : envEditor.editState
-          }
+          editState={readOnly ? inactiveEditState : envEditor.editState}
           editKey={envEditor.editKey}
           editValue={envEditor.editValue}
           setEditKey={(value) => {
