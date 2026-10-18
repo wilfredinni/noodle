@@ -118,6 +118,7 @@ export function parseTimelineMaxEntries(
 }
 
 export function SettingsView({
+  runLocked = false,
   scope,
   category,
   collectionAvailable,
@@ -172,6 +173,7 @@ export function SettingsView({
   onCollectionUnregister,
   onRegisterCollection,
 }: {
+  runLocked?: boolean
   scope: SettingsScope
   category: SettingsCategory
   collectionAvailable: boolean
@@ -243,6 +245,9 @@ export function SettingsView({
   onRegisterCollection: (path: string) => string | null
 }) {
   const theme = useTheme()
+  const contentLocked =
+    runLocked && !(scope === "global" && category === "appearance")
+  const section = contentLocked ? null : category
   const keymap = useKeymap()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const pathInputRef = useRef<VarInputHandle | null>(null)
@@ -375,14 +380,22 @@ export function SettingsView({
 
   const commitCurrentCollectionGeneralField = useCallback(
     () =>
+      contentLocked ||
       scope !== "collection" ||
       category !== "general" ||
       commitCollectionGeneralField(contentIndex),
-    [category, commitCollectionGeneralField, contentIndex, scope],
+    [
+      contentLocked,
+      category,
+      commitCollectionGeneralField,
+      contentIndex,
+      scope,
+    ],
   )
 
   useEffect(() => {
     const textInputActive =
+      !contentLocked &&
       focus === "settings-content" &&
       ((category === "collections" &&
         contentIndex === collectionRegisterIndex) ||
@@ -396,6 +409,7 @@ export function SettingsView({
     return () => keymap.setData("app.text-input", false)
   }, [
     category,
+    contentLocked,
     scriptEditing,
     collectionRegisterIndex,
     contentIndex,
@@ -410,10 +424,14 @@ export function SettingsView({
     setContentIndex(0)
     setMessage(null)
     setCaptureName(null)
+    setSelectOpen(false)
+    setScriptEditing(false)
+    setProxyTextInput(false)
+    setTlsTextInput(false)
     setHoveredCollectionIndex(null)
     setHoveredCategory(null)
     scrollRef.current?.scrollTo(0)
-  }, [scope, category])
+  }, [scope, category, contentLocked])
 
   useEffect(() => {
     if (
@@ -465,7 +483,7 @@ export function SettingsView({
   }, [category, contentIndex, collections, focus, keybindNames, message, scope])
 
   useEffect(() => {
-    if (!captureName) return
+    if (!captureName || contentLocked) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -511,7 +529,7 @@ export function SettingsView({
       { priority: 220 },
     )
     return dispose
-  }, [captureName, keybinds, keymap, onKeybindChange])
+  }, [captureName, contentLocked, keybinds, keymap, onKeybindChange])
 
   useEffect(() => {
     if (captureName || selectOpen) return
@@ -520,6 +538,19 @@ export function SettingsView({
       (ctx) => {
         if (keymap.getData("app.overlay") !== "none") return
         const event = ctx.event
+        if (
+          keyEventToBinding(event) === keybinds.runner_open &&
+          keymap.getCommands({
+            filter: { name: "collection.runner" },
+            limit: 1,
+          }).length > 0
+        ) {
+          if (!commitCurrentCollectionGeneralField()) {
+            event.preventDefault()
+            event.stopPropagation()
+          }
+          return
+        }
         if (
           category === "scripts" &&
           focus === "settings-content" &&
@@ -570,6 +601,14 @@ export function SettingsView({
           return
         }
         if (focus !== "settings-content") return
+        if (contentLocked) {
+          if (event.name === "tab") {
+            event.preventDefault()
+            event.stopPropagation()
+            onPaneFocus("settings-sidebar")
+          }
+          return
+        }
 
         if (scope === "collection" && category === "general") {
           if (["up", "down", "home", "end"].includes(event.name)) {
@@ -754,8 +793,10 @@ export function SettingsView({
     onFormatOnSaveChange,
     contentIndex,
     cookiesEnabled,
+    contentLocked,
     focus,
     keybindNames,
+    keybinds.runner_open,
     keymap,
     onCategoryChange,
     onClose,
@@ -896,8 +937,13 @@ export function SettingsView({
             },
           }}
         >
+          {contentLocked && (
+            <text fg={theme.warning}>
+              Stop the collection run to change these settings.
+            </text>
+          )}
           <box style={{ flexDirection: "column", gap: 1, paddingRight: 1 }}>
-            {scope === "collection" && category === "scripts" && (
+            {scope === "collection" && section === "scripts" && (
               <CollectionScripts
                 key={activeCollectionDir}
                 fields={collectionScripts ?? {}}
@@ -908,7 +954,7 @@ export function SettingsView({
                 onChange={onCollectionScriptsChange}
               />
             )}
-            {scope === "global" && category === "appearance" && (
+            {scope === "global" && section === "appearance" && (
               <>
                 <SettingsSectionHeader
                   title="Appearance"
@@ -955,7 +1001,7 @@ export function SettingsView({
                 </SettingLabel>
               </>
             )}
-            {scope === "global" && category === "behavior" && (
+            {scope === "global" && section === "behavior" && (
               <>
                 <SettingsSectionHeader
                   title="Behavior"
@@ -1011,7 +1057,7 @@ export function SettingsView({
                 </SettingLabel>
               </>
             )}
-            {category === "network" && (
+            {section === "network" && (
               <>
                 <SettingsSectionHeader
                   title="Proxy"
@@ -1054,7 +1100,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "collection" && category === "tls" && (
+            {scope === "collection" && section === "tls" && (
               <>
                 <SettingsSectionHeader
                   title="Certificates"
@@ -1074,7 +1120,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "global" && category === "collections" && (
+            {scope === "global" && section === "collections" && (
               <>
                 <SettingsSectionHeader
                   title="Collections"
@@ -1184,7 +1230,7 @@ export function SettingsView({
                 </box>
               </>
             )}
-            {scope === "global" && category === "keyboard" && (
+            {scope === "global" && section === "keyboard" && (
               <>
                 <SettingsSectionHeader
                   title="Keyboard"
@@ -1204,7 +1250,7 @@ export function SettingsView({
                 />
               </>
             )}
-            {scope === "collection" && category === "general" && (
+            {scope === "collection" && section === "general" && (
               <>
                 <SettingsSectionHeader
                   title="General"
@@ -1347,7 +1393,7 @@ export function SettingsView({
                 </box>
               </>
             )}
-            {message && category !== "keyboard" && (
+            {message && section !== "keyboard" && (
               <text
                 fg={message.kind === "success" ? theme.success : theme.error}
               >

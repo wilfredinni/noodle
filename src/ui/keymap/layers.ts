@@ -1,3 +1,5 @@
+import type { Command, CommandContext } from "@opentui/keymap"
+import type { Renderable, KeyEvent } from "@opentui/core"
 import type { UseBindingsLayer } from "@opentui/keymap/react"
 import { createCookieJarLayers } from "./cookieLayers"
 import { createEnvironmentLayers } from "./environmentLayers"
@@ -6,6 +8,7 @@ import { createGlobalLayers } from "./globalLayers"
 import { createRequestLayers } from "./requestLayers"
 import { createRunnerLayer } from "./runnerLayers"
 import type { AppKeymapContext } from "./types"
+import { runnerAllowsCommand } from "../commandActions"
 
 export type AppKeymapLayers = readonly [
   UseBindingsLayer,
@@ -41,7 +44,7 @@ export function createAppKeymapLayers(
     createCookieJarLayers(context)
   const runner = createRunnerLayer(context)
 
-  return [
+  const layers: AppKeymapLayers = [
     alwaysOn,
     urlbar,
     base,
@@ -60,4 +63,17 @@ export function createAppKeymapLayers(
     cookieNavigate,
     runner,
   ]
+  for (const layer of layers) {
+    for (const command of (layer.commands ?? []) as Command<
+      Renderable,
+      KeyEvent
+    >[]) {
+      if (runnerAllowsCommand(command.name)) continue
+      const enabled = command.enabled
+      command.enabled = (ctx: CommandContext<Renderable, KeyEvent>) =>
+        !context.runner.runnerRef.current.isRunning() &&
+        (typeof enabled === "function" ? enabled(ctx) : enabled !== false)
+    }
+  }
+  return layers
 }

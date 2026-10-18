@@ -158,6 +158,7 @@ export function StatusBar(input: {
   collectionPath?: string
   errorCount?: number
   sendCommand?: string
+  runnerProgress?: { completed: number; total: number }
   cookieStatus?: CookieJarStatus
   onHintActivate?: (command: string) => void
 }) {
@@ -181,7 +182,9 @@ export function StatusBar(input: {
     view === "main" && !transient && (input.errorCount ?? 0) > 0
       ? `${input.errorCount} ${input.errorCount === 1 ? "error" : "errors"}`
       : ""
-  const rightLabel = errorLabel || collectionPath
+  const rightLabel = input.runnerProgress
+    ? `Runner ${input.runnerProgress.completed}/${input.runnerProgress.total} · ${displayKey(input.kb.runner_open)}`
+    : errorLabel || collectionPath
   const rightLabelWidth = rightLabel
     ? Math.min(
         stringWidth(rightLabel),

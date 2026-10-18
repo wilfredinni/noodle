@@ -25,7 +25,8 @@ let server: ReturnType<typeof Bun.serve>
 let url: string
 let entered: ReturnType<typeof Promise.withResolvers<void>>
 let release: ReturnType<typeof Promise.withResolvers<void>>
-let events: CollectionRunEvent[]
+let events: Exclude<CollectionRunEvent, { type: "run-start" }>[]
+let plans: Extract<CollectionRunEvent, { type: "run-start" }>[]
 let hits: string[]
 const originalSend = executor.send
 beforeEach(async () => {
@@ -44,6 +45,7 @@ beforeEach(async () => {
     },
   })
   events = []
+  plans = []
   hits = []
   entered = Promise.withResolvers<void>()
   release = Promise.withResolvers<void>()
@@ -108,7 +110,13 @@ const run = (
     delayMs,
     dataPath,
     false,
-    { onEvent: (event) => events.push(event), ...options },
+    {
+      onEvent: (event) => {
+        if (event.type === "run-start") plans.push(event)
+        else events.push(event)
+      },
+      ...options,
+    },
   )
 
 it("cancels before execution with complete dataset identities and no preparation", async () => {
@@ -140,6 +148,9 @@ it("cancels before execution with complete dataset identities and no preparation
       failureCategories: [],
     },
   })
+  expect(plans).toEqual([
+    { type: "run-start", requestIds: ["a", "b"], iterations: 2 },
+  ])
   expect(result.skipped).toEqual([
     { id: "a", iteration: 0, reason: "cancelled" },
     { id: "b", iteration: 0, reason: "cancelled" },
@@ -294,7 +305,8 @@ it("cancels delay across row boundaries without admitting the next execution", a
     {
       signal: controller.signal,
       onEvent: (event) => {
-        events.push(event)
+        if (event.type === "run-start") plans.push(event)
+        else events.push(event)
         if (event.type === "request-complete") first.resolve()
       },
     },
@@ -349,7 +361,8 @@ it("latches fail-fast before completion observers abort and skips later iteratio
     {
       signal: controller.signal,
       onEvent: (event) => {
-        events.push(event)
+        if (event.type === "run-start") plans.push(event)
+        else events.push(event)
         if (event.type === "request-complete") controller.abort()
       },
     },
@@ -543,7 +556,8 @@ it("treats a caller-owned TimeoutError reason as cancellation without exposing i
   const result = await run({
     signal: controller.signal,
     onEvent: (event) => {
-      events.push(event)
+      if (event.type === "run-start") plans.push(event)
+      else events.push(event)
       if (event.type === "request-start")
         controller.abort(
           new DOMException("private timeout reason", "TimeoutError"),

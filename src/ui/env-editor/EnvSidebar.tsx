@@ -14,9 +14,6 @@ export function EnvSidebar({
   envColors,
   dirty,
   onSelectEnv,
-  onCreate: _onCreate,
-  onClone: _onClone,
-  onDelete: _onDelete,
   focused,
   jumpMode = false,
   onPaneFocus,
@@ -28,9 +25,6 @@ export function EnvSidebar({
   envColors?: Record<string, string | undefined>
   dirty: boolean
   onSelectEnv: (name: string) => void
-  onCreate: () => void
-  onClone: () => void
-  onDelete: () => void
   focused: boolean
   jumpMode?: boolean
   onPaneFocus?: () => void

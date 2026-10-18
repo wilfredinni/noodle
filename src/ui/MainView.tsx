@@ -58,6 +58,7 @@ interface MainViewProps {
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
+  readOnly?: boolean
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
   onResponseBodyEditorAvailableChange?: (available: boolean) => void
@@ -148,6 +149,7 @@ export function MainView({
   responseQueryRef,
   responseBodyForCopyRef,
   mode = "collection",
+  readOnly = false,
   jumpMode = false,
   onQueryVisibleChange,
   onResponseBodyEditorAvailableChange,
@@ -168,6 +170,7 @@ export function MainView({
   onFolderContextMenu,
 }: MainViewProps) {
   const theme = useTheme()
+  const interactive = mode === "collection" && !readOnly
   const containerRef = useRef<BoxRenderable | null>(null)
   const [containerWidth, setContainerWidth] = useState<number | null>(null)
   const splitContainerRef = useRef<BoxRenderable | null>(null)
@@ -204,7 +207,8 @@ export function MainView({
     return (
       <EmptyState
         title="Noodle"
-        actionActive
+        actionActive={!readOnly}
+        actionDisabled={readOnly}
         message="Initialize this collection"
         onAction={onInitialize}
       />
@@ -232,7 +236,8 @@ export function MainView({
     return (
       <EmptyState
         border={FullBorder}
-        actionActive
+        actionActive={interactive}
+        actionDisabled={!interactive}
         subtitle="No requests in this collection"
         message="Create request"
         onAction={onCreateRequest}
@@ -393,13 +398,9 @@ export function MainView({
             onTabChange={folderEb.enterBrowseAt}
             onAuthFocusRow={(row) => folderEb.enterBrowseAt("auth", row)}
             onInteraction={folderEb.commitEdit}
-            onFieldActivate={
-              mode === "collection" ? folderEb.activateAt : undefined
-            }
-            onFieldToggle={
-              mode === "collection" ? folderEb.toggleAt : undefined
-            }
-            interactive={mode === "collection"}
+            onFieldActivate={interactive ? folderEb.activateAt : undefined}
+            onFieldToggle={interactive ? folderEb.toggleAt : undefined}
+            interactive={interactive}
           />
         ) : (
           <RequestResponseView
@@ -429,7 +430,7 @@ export function MainView({
             onOpenTimelineEntry={onOpenTimelineEntry}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
-            urlbarInteractive={urlbarInteractive}
+            urlbarInteractive={urlbarInteractive && interactive}
             responseKey={selectedId}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
@@ -446,7 +447,7 @@ export function MainView({
             onRequestAuthFocusRow={(row) => eb.enterBrowseAt("auth", row)}
             onRequestInteraction={eb.commitEdit}
             onRequestBodyEditorFocus={
-              mode === "collection"
+              interactive
                 ? (bodyType: BodyType) => {
                     if (bodyType === "json" || bodyType === "xml") {
                       if (eb.isEditingTextBody) return
@@ -458,12 +459,8 @@ export function MainView({
                   }
                 : undefined
             }
-            onRequestFieldActivate={
-              mode === "collection" ? eb.activateAt : undefined
-            }
-            onRequestFieldToggle={
-              mode === "collection" ? eb.toggleAt : undefined
-            }
+            onRequestFieldActivate={interactive ? eb.activateAt : undefined}
+            onRequestFieldToggle={interactive ? eb.toggleAt : undefined}
           />
         )}
       </box>

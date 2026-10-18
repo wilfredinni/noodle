@@ -13,63 +13,67 @@ import { SIDEBAR_WIDTH } from "../../src/ui/Sidebar"
 const testRender = createTestRender()
 
 describe("MainView", () => {
-  it("uses the bordered empty state for an initialized collection without requests", async () => {
-    const { keymap, cleanup } = setupKeymap()
-    let createRequestCalls = 0
-    const props = {
-      items: [],
-      loading: false,
-      error: null,
-      mode: "collection" as const,
-      onCreateRequest: () => createRequestCalls++,
-      onInitialize: () => {},
-    } as unknown as Parameters<typeof MainView>[0]
-    const { renderOnce, renderer, captureCharFrame, mockMouse } =
-      await testRender(
-        <KeymapProvider keymap={keymap}>
-          <ThemeProvider activeIndex={0} previewIndex={null}>
-            <MainView {...props} />
-          </ThemeProvider>
-        </KeymapProvider>,
-        { width: 80, height: 20 },
-      )
-    await act(async () => {
-      await renderOnce()
-      await renderOnce()
-    })
+  it.each([false, true])(
+    "keeps the empty collection visible with readOnly=%s",
+    async (readOnly) => {
+      const { keymap, cleanup } = setupKeymap()
+      let createRequestCalls = 0
+      const props = {
+        items: [],
+        loading: false,
+        error: null,
+        mode: "collection" as const,
+        readOnly,
+        onCreateRequest: () => createRequestCalls++,
+        onInitialize: () => {},
+      } as unknown as Parameters<typeof MainView>[0]
+      const { renderOnce, renderer, captureCharFrame, mockMouse } =
+        await testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <MainView {...props} />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 80, height: 20 },
+        )
+      await act(async () => {
+        await renderOnce()
+        await renderOnce()
+      })
 
-    const frame = captureCharFrame()
-    expect(frame).toContain("No requests in this collection")
-    expect(frame).toContain("Create request")
-    expect(
-      renderer.root.findDescendantById("empty-state-title"),
-    ).toBeUndefined()
-    expect(
-      renderer.root.findDescendantById("sidebar-resize-handle"),
-    ).toBeUndefined()
-    expect(
-      renderer.root.findDescendantById("request-response-resize-handle"),
-    ).toBeUndefined()
+      const frame = captureCharFrame()
+      expect(frame).toContain("No requests in this collection")
+      expect(frame).toContain("Create request")
+      expect(
+        renderer.root.findDescendantById("empty-state-title"),
+      ).toBeUndefined()
+      expect(
+        renderer.root.findDescendantById("sidebar-resize-handle"),
+      ).toBeUndefined()
+      expect(
+        renderer.root.findDescendantById("request-response-resize-handle"),
+      ).toBeUndefined()
 
-    const emptyState = renderer.root.findDescendantById(
-      "empty-state",
-    ) as BoxRenderable
-    expect(emptyState.border).toEqual([...FullBorder.border])
+      const emptyState = renderer.root.findDescendantById(
+        "empty-state",
+      ) as BoxRenderable
+      expect(emptyState.border).toEqual([...FullBorder.border])
 
-    const action = renderer.root.findDescendantById(
-      "empty-state-action",
-    ) as BoxRenderable
-    await act(async () => {
-      await mockMouse.click(
-        action.screenX + Math.floor(action.width / 2),
-        action.screenY,
-        MouseButtons.LEFT,
-      )
-    })
-    expect(createRequestCalls).toBe(1)
+      const action = renderer.root.findDescendantById(
+        "empty-state-action",
+      ) as BoxRenderable
+      await act(async () => {
+        await mockMouse.click(
+          action.screenX + Math.floor(action.width / 2),
+          action.screenY,
+          MouseButtons.LEFT,
+        )
+      })
+      expect(createRequestCalls).toBe(readOnly ? 0 : 1)
 
-    cleanup()
-  })
+      cleanup()
+    },
+  )
 
   it("keeps request inspection available in browse mode", async () => {
     const { keymap, cleanup } = setupKeymap()

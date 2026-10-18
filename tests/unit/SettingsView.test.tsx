@@ -28,11 +28,13 @@ const testRender = createTestRender()
 
 function Harness({
   collectionAvailable = true,
+  runLocked = false,
   onClose = () => {},
   initialCategory = "appearance",
   initialScope = "global",
   initialFocus = "settings-sidebar",
   onCategoryVisited = () => {},
+  onFocusChanged = () => {},
   onCollectionsChange = () => true,
   onCollectionUnregister = () => {},
   onKeybindChange = () => true,
@@ -45,13 +47,16 @@ function Harness({
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
   activeThemeIndex = 0,
+  keybinds = bindingDefaults(),
 }: {
   collectionAvailable?: boolean
+  runLocked?: boolean
   onClose?: () => void
   initialCategory?: SettingsCategory
   initialScope?: SettingsScope
   initialFocus?: Focus
   onCategoryVisited?: (category: SettingsCategory) => void
+  onFocusChanged?: (focus: Focus) => void
   onCollectionsChange?: (collections: string[]) => boolean
   onCollectionUnregister?: (path: string) => void
   onKeybindChange?: (name: string, key: string) => boolean
@@ -69,6 +74,7 @@ function Harness({
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
   activeThemeIndex?: number
+  keybinds?: ReturnType<typeof bindingDefaults>
 }) {
   const [scope, setScope] = useState<SettingsScope>(initialScope)
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
@@ -78,6 +84,7 @@ function Harness({
   )
   return (
     <SettingsView
+      runLocked={runLocked}
       scope={scope}
       category={category}
       collectionAvailable={collectionAvailable}
@@ -98,7 +105,7 @@ function Harness({
       noProxy={false}
       envNames={["development", "production"]}
       activeEnvName="development"
-      keybinds={bindingDefaults()}
+      keybinds={keybinds}
       collections={["/tmp/one", "/tmp/two"]}
       activeCollectionDir="/tmp/one"
       onScopeChange={(next) => {
@@ -109,7 +116,10 @@ function Harness({
         onCategoryVisited(next)
         setCategory(next)
       }}
-      onPaneFocus={setFocus}
+      onPaneFocus={(next) => {
+        setFocus(next)
+        onFocusChanged(next)
+      }}
       onClose={onClose}
       onThemeChange={onThemeChange}
       onLayoutChange={() => true}
@@ -401,6 +411,169 @@ describe("SettingsView", () => {
     expect(captureCharFrame()).toContain("Certificates")
     cleanup()
   })
+
+  it("keeps printable Runner shortcuts literal in settings text fields", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const patches: unknown[] = []
+    const dispose = keymap.registerLayer({
+      commands: [
+        {
+          name: "collection.runner",
+          enabled: () => !keymap.getData("app.text-input"),
+          run: () => {
+            throw Error("must not open Runner")
+          },
+        },
+      ],
+      bindings: [{ key: "x", cmd: "collection.runner" }],
+    })
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="general"
+            initialFocus="settings-content"
+            keybinds={{ ...bindingDefaults(), runner_open: "x" }}
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 26 },
+    )
+    await h.renderOnce()
+    await act(async () => h.mockInput.typeText("xx"))
+    expect(patches).toEqual([])
+    expect(h.captureCharFrame()).toContain("xx")
+    dispose()
+    cleanup()
+  })
+
+  it.each([0, 1, 2])(
+    "commits collection general field %s before the Runner shortcut",
+    async (index) => {
+      const { keymap, host, cleanup } = setupKeymap()
+      const patches: Array<Partial<CollectionSettings>> = []
+      let opened = 0
+      const dispose = keymap.registerLayer({
+        commands: [
+          {
+            name: "collection.runner",
+            run: () => {
+              expect(patches).toHaveLength(1)
+              opened++
+            },
+          },
+        ],
+        bindings: [{ key: "f5", cmd: "collection.runner" }],
+      })
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness
+              initialScope="collection"
+              initialCategory="general"
+              initialFocus="settings-content"
+              onCollectionSettingsChange={(patch) => {
+                patches.push(patch)
+                return true
+              }}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 90, height: 26 },
+      )
+      await h.renderOnce()
+      for (let i = 0; i < index; i++) await act(async () => host.press("tab"))
+      if (index === 2) {
+        await act(async () => h.mockInput.pressBackspace())
+        await act(async () => h.mockInput.pressBackspace())
+      }
+      await act(async () =>
+        h.mockInput.typeText(
+          index === 0 ? "Saved name" : index === 1 ? "Saved description" : "75",
+        ),
+      )
+      await act(async () => host.press("f5"))
+      expect(patches).toEqual([
+        index === 0
+          ? { name: "Saved name" }
+          : index === 1
+            ? { description: "Saved description" }
+            : { timelineMaxEntries: 75 },
+      ])
+      expect(opened).toBe(1)
+      dispose()
+      cleanup()
+    },
+  )
+
+  it.each(["general", "keyboard"] as const)(
+    "clears transient %s controls on lock and keeps Tab navigation",
+    async (category) => {
+      const { keymap, host, cleanup } = setupKeymap()
+      const patches: unknown[] = []
+      let latestFocus: Focus = "settings-content"
+      let lock!: (value: boolean) => void
+      function Locking() {
+        const [locked, setLocked] = useState(false)
+        lock = setLocked
+        return (
+          <Harness
+            onFocusChanged={(next) => {
+              latestFocus = next
+            }}
+            runLocked={locked}
+            initialScope={category === "general" ? "collection" : "global"}
+            initialCategory={category}
+            initialFocus="settings-content"
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+            onKeybindChange={(...args) => {
+              patches.push(args)
+              return true
+            }}
+          />
+        )
+      }
+      const h = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Locking />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 110, height: 30 },
+      )
+      await h.renderOnce()
+      if (category === "general")
+        await act(async () => h.mockInput.typeText("pending draft"))
+      else {
+        await act(async () => host.press("end"))
+        await act(async () => host.press("return"))
+        await act(async () => host.press("f1"))
+        await act(async () => h.renderOnce())
+        expect(h.captureCharFrame()).toContain("Already used")
+      }
+      await act(async () => lock(true))
+      await act(async () => h.renderOnce())
+      expect(keymap.getData("app.text-input")).toBe(false)
+      const frame = h.captureCharFrame()
+      expect(frame).toContain("Stop the collection run")
+      expect(frame).not.toContain("Already used")
+      await act(async () => host.press("s", { ctrl: true }))
+      await act(async () => host.press("tab"))
+      await act(async () => h.renderOnce())
+      expect(latestFocus as Focus).toBe("settings-sidebar")
+      await act(async () => host.press("escape"))
+      expect(patches).toEqual([])
+      cleanup()
+    },
+  )
 
   it("commits collection name and multiline description when tabbing", async () => {
     const { keymap, host, cleanup } = setupKeymap()

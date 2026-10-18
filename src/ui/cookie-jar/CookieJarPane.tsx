@@ -15,6 +15,7 @@ import { CookieRow, cookieDetails, cookieNameWidth } from "../CookieRow"
 export function CookieJarPane({
   view,
   status,
+  readOnly = false,
   domain,
   focused,
   jumpMode = false,
@@ -25,6 +26,7 @@ export function CookieJarPane({
 }: {
   view: UseCookieJarViewResult
   status: CookieJarStatus
+  readOnly?: boolean
   domain: string | null
   focused: boolean
   jumpMode?: boolean
@@ -99,23 +101,27 @@ export function CookieJarPane({
           <box style={{ flexDirection: "row", gap: 2 }}>
             <box
               onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT) return
+                if (event.button !== MouseButton.LEFT || readOnly) return
                 onRetry?.()
                 event.preventDefault()
                 event.stopPropagation()
               }}
             >
-              <text fg={theme.primary}>Retry (r)</text>
+              <text fg={readOnly ? theme.textMuted : theme.primary}>
+                Retry (r)
+              </text>
             </box>
             <box
               onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT) return
+                if (event.button !== MouseButton.LEFT || readOnly) return
                 onReset?.()
                 event.preventDefault()
                 event.stopPropagation()
               }}
             >
-              <text fg={theme.error}>Reset with backup ({resetKey})</text>
+              <text fg={readOnly ? theme.textMuted : theme.error}>
+                Reset with backup ({resetKey})
+              </text>
             </box>
           </box>
         </box>

@@ -276,6 +276,7 @@ Text history remains compatible. Add no request YAML fields for response handlin
 
 ## Key conventions
 
+- **GitHub issues and reviews:** Never close GitHub issues, mark pull request review threads or comments as resolved, or dismiss reviews unless the user explicitly instructs you to perform that action. Reviewing code, addressing feedback, fixing CI, committing, or pushing does not grant this permission. Leave issue and review states unchanged without that explicit instruction.
 - **Oxfmt check covers** only `./src ./tests`; `.agents/` is not included.
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
@@ -478,8 +479,19 @@ Bulk fold and unfold actions are configurable in Shortcuts and unbound by defaul
 | `Space` | Toggle the selected request or folder |
 | `Enter` | Activate an option or expand a result row |
 | `r` | Start the configured run from options |
+| `s` | Stop the active run, including from its detail overlay |
 | `←` | Return from results to configuration |
-| `Esc` | Close the Runner |
+| `Esc` | Leave the Runner while the active run continues |
+
+Results update per execution, with pending, running, passed, failed, skipped,
+and cancelled states keyed by request and dataset iteration. Completed details
+remain inspectable during execution. Tab and scrolling stay available; the Run
+action becomes Stop, activated by click or focused Enter/Space. Stop remains in
+the stopping state until shared cancellation and cookie cleanup settle. F5
+resumes the current workspace's latest run without resetting it. No per-collection
+history or disk retention is added. Active runs block edits, sends, collection
+switch/reload, and environment/cookie/transport configuration changes across
+keyboard, palette, and mouse paths; read-only browsing and appearance remain available.
 
 ### Cookie jar mode
 

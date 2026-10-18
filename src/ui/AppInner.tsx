@@ -923,6 +923,7 @@ export function AppInner({
     insecure,
     resetKey: runnerResetKey,
   })
+  const runnerBusy = runner.phase === "running"
   const runnerRef = useRef(runner)
   useLayoutEffect(() => {
     runnerRef.current = runner
@@ -932,7 +933,28 @@ export function AppInner({
     setRunnerResetKey((key) => key + 1)
   }, [])
   const handleOpenRunner = useCallback(
-    (scope: string | null) => {
+    (scope: string | null, configure = false) => {
+      if (
+        runnerRef.current.isRunning() ||
+        (!configure &&
+          (viewRef.current === "runner" ||
+            runnerRef.current.phase !== "configure" ||
+            runnerRef.current.result))
+      ) {
+        if (viewRef.current !== "runner")
+          runnerReturnFocusRef.current = settingsReturnFocus(
+            viewRef.current,
+            focusRef.current,
+          )
+        setView("runner")
+        setFocus(
+          runnerRef.current.phase === "configure"
+            ? "runner-options"
+            : "runner-requests",
+        )
+        setJumpMode(false)
+        return true
+      }
       const opened = openCollectionRunner(
         scope,
         () => {
@@ -955,14 +977,14 @@ export function AppInner({
     [eb.commitEdit, envEditor.commitEdit, folderEb.commitEdit, resetRunner],
   )
   const closeRunner = useCallback(() => {
-    if (runnerRef.current.phase === "running") return
     setView("main")
     setFocus(runnerReturnFocusRef.current)
   }, [])
   const handleOpenRunnerRequestTab = useCallback(
     (requestId: string, tab: FieldKind) => {
-      if (tab !== "assertions" && tab !== "captures") return
-      openRunnerRequestTab(
+      if (runnerRef.current.isRunning()) return false
+      if (tab !== "assertions" && tab !== "captures") return false
+      return openRunnerRequestTab(
         requestId,
         tab,
         revealRequest,
@@ -1051,7 +1073,7 @@ export function AppInner({
 
   const handleOpenRunnerTagFilter = useCallback(
     (filter: "include" | "exclude", index: number) => {
-      if (runnerRef.current.phase === "running") return
+      if (runnerRef.current.isRunning()) return
       const tags =
         filter === "include"
           ? runnerRef.current.includeTags
@@ -1252,6 +1274,7 @@ export function AppInner({
         responseFileSaved: !!responseFileActions.savedPath,
         settingsCategory,
         runnerPhase: runner.phase,
+        runnerStopping: runner.stopping,
         keybinds,
       }),
     [
@@ -1271,12 +1294,17 @@ export function AppInner({
       responseFileActions.savedPath,
       settingsCategory,
       runner.phase,
+      runner.stopping,
       keybinds,
     ],
   )
 
   const sendCommand =
-    view === "main" && mode === "collection" && !overlayActive && !jumpMode
+    !runnerBusy &&
+    view === "main" &&
+    mode === "collection" &&
+    !overlayActive &&
+    !jumpMode
       ? paneMode === "browse" && focus === "request"
         ? "browse.send"
         : paneMode === "edit" && focus === "request" && eb.isEditingTextBody
@@ -1908,6 +1936,11 @@ export function AppInner({
         onReloadCollection: requestReload,
         paletteTarget,
         openRunner: handleOpenRunner,
+        runner: {
+          isRunning: runner.isRunning,
+          stopping: runner.stopping,
+          stop: runner.stop,
+        },
         setSidebarVisible,
         sidebarVisibleRef,
         folderViewRef,
@@ -1936,6 +1969,10 @@ export function AppInner({
       responseFileActions,
       focus,
       responseTab,
+      runner.phase,
+      runner.stopping,
+      runner.stop,
+      runner.isRunning,
     ],
   )
 
@@ -1958,12 +1995,18 @@ export function AppInner({
         envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
         onCollectionActivate={
-          view !== "env-editor" && view !== "cookie-jar" && !overlayActive
+          view !== "env-editor" &&
+          view !== "cookie-jar" &&
+          !overlayActive &&
+          !runnerBusy
             ? handleCollectionActivate
             : undefined
         }
         onEnvironmentActivate={
-          view === "main" && mode === "collection" && !overlayActive
+          view === "main" &&
+          mode === "collection" &&
+          !overlayActive &&
+          !runnerBusy
             ? handleEnvironmentActivate
             : undefined
         }
@@ -2024,7 +2067,9 @@ export function AppInner({
             }
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
-            urlbarInteractive={activeOverlay === "none" && !isReadOnly}
+            urlbarInteractive={
+              activeOverlay === "none" && !isReadOnly && !runnerBusy
+            }
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             onQueryVisibleChange={setQueryVisible}
@@ -2039,6 +2084,7 @@ export function AppInner({
               setCollectionReloadToken((current) => current + 1)
             }
             mode={mode}
+            readOnly={runnerBusy}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
             onUrlbarFocus={focusUrlbar}
@@ -2076,6 +2122,7 @@ export function AppInner({
         ) : view === "env-editor" && mode === "collection" ? (
           <EnvironmentEditorView
             envEditor={envEditor}
+            readOnly={runnerBusy}
             activeEnv={envState.activeEnv}
             envColors={envColors}
             focus={focus}
@@ -2092,12 +2139,12 @@ export function AppInner({
               setPaletteTarget("environment")
               overlays.setCommandPaletteVisible(true)
             }}
-            setEnvDeletePending={overlays.setEnvDeletePending}
           />
         ) : view === "cookie-jar" && mode === "collection" ? (
           <CookieJarView
             view={cookieJarView}
             status={cookieStorage.status}
+            readOnly={runnerBusy}
             focus={focus}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
@@ -2122,6 +2169,7 @@ export function AppInner({
         ) : view === "settings" ? (
           <SettingsView
             scope={visibleSettingsScope}
+            runLocked={runnerBusy}
             category={settingsCategory}
             collectionAvailable={isCollection}
             focus={focus}
@@ -2207,6 +2255,7 @@ export function AppInner({
           requests={requests}
           onFindRequest={findRequest}
           onEditRunnerRequestTab={handleOpenRunnerRequestTab}
+          runner={runner}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
           collectionSettingsByPath={collectionSettingsByPath}
@@ -2263,6 +2312,7 @@ export function AppInner({
         errorCount={collectionErrorCount}
         sendCommand={collectionErrorCount > 0 ? undefined : sendCommand}
         cookieStatus={cookieStorage.status}
+        runnerProgress={runnerBusy ? runner.progress : undefined}
         onHintActivate={handleHintActivate}
       />
     </box>

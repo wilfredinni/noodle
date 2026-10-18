@@ -106,7 +106,10 @@ to create a collection, send your first request, and inspect the response.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
   iteration data, and JSON results. Interrupt CLI collection runs with Ctrl+C to
-  retain completed results and inspect what was cancelled or never started. Try the [local data-run example](dev/collection/scripting-data).
+  retain completed results and inspect what was cancelled or never started.
+  In the TUI, inspect completed Results and Console while later requests run;
+  press `s` or click Stop to cancel, and use F5 to return after browsing elsewhere.
+  Try the [local data-run example](dev/collection/scripting-data).
 - 🕘 **[Response history](https://noodlerest.dev/docs/reference/timeline/) and
   [cookies](https://noodlerest.dev/docs/guides/settings/#general):**
   Revisit past responses and manage a cookie jar for each collection.

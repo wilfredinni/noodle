@@ -2,13 +2,24 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import { useEffect, type RefObject } from "react"
-import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
+import type {
+  EnvEditState,
+  UseEnvironmentEditorResult,
+} from "../../hooks/useEnvironmentEditor"
 import type { Environment } from "../../schema"
 import type { Focus } from "../focus"
 import { EmptyState } from "../EmptyState"
 import { FullBorder } from "../borders"
 
+const inactiveEditState: EnvEditState = {
+  mode: "inactive",
+  row: -1,
+  addingRow: false,
+  editingRow: -1,
+}
+
 interface EnvironmentEditorViewProps {
+  readOnly?: boolean
   envEditor: UseEnvironmentEditorResult
   activeEnv: Environment | null
   envColors: Record<string, string | undefined>
@@ -19,11 +30,11 @@ interface EnvironmentEditorViewProps {
   onPaneFocus?: (focus: Focus) => void
   onCreateEnvironment: () => void
   onEnvironmentContextMenu?: (name: string) => void
-  setEnvDeletePending: (name: string | null) => void
 }
 
 export function EnvironmentEditorView({
   envEditor,
+  readOnly = false,
   activeEnv,
   envColors,
   focus,
@@ -33,7 +44,6 @@ export function EnvironmentEditorView({
   onPaneFocus = () => {},
   onCreateEnvironment,
   onEnvironmentContextMenu,
-  setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
   const remaskSecrets = envEditor.remaskSecrets
   useEffect(() => {
@@ -44,10 +54,13 @@ export function EnvironmentEditorView({
     return (
       <EmptyState
         border={FullBorder}
-        actionActive
+        actionActive={!readOnly}
+        actionDisabled={readOnly}
         subtitle="No environments in this collection"
         message="Create environment"
-        onAction={onCreateEnvironment}
+        onAction={() => {
+          if (!readOnly) onCreateEnvironment()
+        }}
       />
     )
   }
@@ -61,21 +74,6 @@ export function EnvironmentEditorView({
         envColors={envColors}
         dirty={envEditor.dirty}
         onSelectEnv={envEditor.selectEnv}
-        onCreate={() => {
-          envEditor.openEditor()
-          onPaneFocus("env-vars")
-        }}
-        onClone={() => {
-          if (envEditor.selectedEnvName) {
-            const target = `${envEditor.selectedEnvName} - Copy`
-            envEditor.cloneEnv(target)
-          }
-        }}
-        onDelete={() => {
-          if (envEditor.selectedEnvName) {
-            setEnvDeletePending(envEditor.selectedEnvName)
-          }
-        }}
         focused={focus === "env-sidebar"}
         jumpMode={jumpMode}
         onPaneFocus={() => {
@@ -94,6 +92,7 @@ export function EnvironmentEditorView({
       >
         <EnvHeaderPane
           ref={envHeaderRef}
+          readOnly={readOnly}
           name={envEditor.draft?.name ?? ""}
           color={envEditor.draft?.color}
           onNameChange={envEditor.setName}
@@ -108,32 +107,39 @@ export function EnvironmentEditorView({
         />
         <EnvEditorPane
           draft={envEditor.draft}
-          editState={envEditor.editState}
+          editState={readOnly ? inactiveEditState : envEditor.editState}
           editKey={envEditor.editKey}
           editValue={envEditor.editValue}
-          setEditKey={envEditor.setEditKey}
-          setEditValue={envEditor.setEditValue}
+          setEditKey={(value) => {
+            if (!readOnly) envEditor.setEditKey(value)
+          }}
+          setEditValue={(value) => {
+            if (!readOnly) envEditor.setEditValue(value)
+          }}
           saving={envEditor.saving}
           error={envEditor.error}
           focused={focus === "env-vars"}
           jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("env-vars")}
-          onInteraction={envEditor.commitEdit}
+          onInteraction={readOnly ? undefined : envEditor.commitEdit}
           onActivateRow={(row, addingRow, subfield) => {
             onPaneFocus("env-vars")
+            if (readOnly) return
             envEditor.activateVar(row, addingRow, subfield)
           }}
           onToggleRow={(row) => {
             onPaneFocus("env-vars")
+            if (readOnly) return
             envEditor.commitEdit()
             envEditor.toggleVar(row)
           }}
           onToggleSecret={(row) => {
             onPaneFocus("env-vars")
+            if (readOnly) return
             envEditor.commitEdit()
             envEditor.toggleSecret(row)
           }}
-          onRevealSecret={envEditor.toggleReveal}
+          onRevealSecret={readOnly ? undefined : envEditor.toggleReveal}
           revealedRowId={envEditor.revealedRowId}
           clonePrompt={envEditor.clonePrompt}
         />

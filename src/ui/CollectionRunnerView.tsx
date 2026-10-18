@@ -59,13 +59,19 @@ const OPTION_DESCRIPTIONS = [
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
-  if (row.kind === "skipped") return "Skipped"
+  if (row.kind === "skipped")
+    return row.reason === "fail-fast" ? "Fail-fast" : "Cancelled"
+  if (row.kind !== "result")
+    return row.kind === "running" ? "In progress" : "Waiting"
+  if (row.result.cancelled) return "Cancelled"
   if (!row.result.response) return "error"
   return `${row.result.response.status} ${row.result.response.statusText}`
 }
 
 function resultKindLabel(row: RunnerResultRow): string {
   if (row.kind === "skipped") return "SKIPPED"
+  if (row.kind !== "result") return row.kind.toUpperCase()
+  if (row.result.cancelled) return "CANCELLED"
   return row.result.ok ? "PASS" : "FAIL"
 }
 
@@ -74,7 +80,7 @@ function resultMethodLabel(row: RunnerResultRow): string {
 }
 
 function resultTimingLabel(row: RunnerResultRow): string {
-  if (row.kind === "skipped" || !row.result.response) return ""
+  if (row.kind !== "result" || !row.result.response) return ""
   return `${Math.round(row.result.response.timeMs)}ms`
 }
 
@@ -298,24 +304,21 @@ export function CollectionRunnerView({
       resultNameAvailable - resultValueWidth - resultTimingColumnWidth,
     ),
   )
-  const maximumRequestCount = runner.requests.length
+  const maximumRequestCount = Math.max(
+    runner.requests.length * (runner.iterationCount ?? 1),
+    runner.progress.total,
+  )
   const runButtonMinWidth =
     Math.max(
       stringWidth("r Run 0 requests"),
       stringWidth(
         `r Run ${maximumRequestCount} request${maximumRequestCount === 1 ? "" : "s"}`,
       ),
-      stringWidth(
-        `${SPINNER_FRAMES[0]} Running ${maximumRequestCount}/${maximumRequestCount}`,
-      ),
+      stringWidth(`s Stopping ${maximumRequestCount}/${maximumRequestCount}`),
     ) + 2
   const running = runner.phase === "running"
   const runFocused =
     focus === "runner-options" && runner.optionIndex === RUNNER_RUN_OPTION_INDEX
-  const currentRequest = Math.min(
-    runner.progress.completed + 1,
-    runner.progress.total,
-  )
   const paneStyle = {
     flexDirection: "column" as const,
     flexGrow: 1,
@@ -326,7 +329,7 @@ export function CollectionRunnerView({
     paddingRight: 1,
     backgroundColor: theme.backgroundPanel,
   }
-  const activeTab = runner.phase === "results" ? "results" : "select"
+  const activeTab = runner.phase === "configure" ? "select" : "results"
   const configurationLocked = runner.phase === "running" || runner.selectOpen
 
   const splitPaneStyle = (first: boolean) => {
@@ -368,13 +371,30 @@ export function CollectionRunnerView({
   useLayoutEffect(() => {
     const previousPhase = previousPhaseRef.current
     previousPhaseRef.current = runner.phase
-    if (runner.phase === "results" && previousPhase !== "results") {
+    if (
+      (runner.phase === "running" || runner.phase === "results") &&
+      previousPhase !== "running" &&
+      previousPhase !== "results"
+    ) {
+      if (runner.phase === "running" && stacked) setSplitRatio(0.3)
       if (focus !== "runner-requests") onPaneFocus("runner-requests")
+      return
+    }
+    if (runner.phase === "configure" && previousPhase === "running") {
+      onPaneFocus("runner-options")
+      return
+    }
+    if (
+      runner.phase === "results" &&
+      previousPhase === "running" &&
+      focus === "runner-options"
+    ) {
+      onPaneFocus("runner-requests")
       return
     }
     if (focus !== "runner-options" && focus !== "runner-requests")
       onPaneFocus(
-        runner.phase === "results" ? "runner-requests" : "runner-options",
+        runner.phase !== "configure" ? "runner-requests" : "runner-options",
       )
   }, [focus, onPaneFocus, runner.phase])
 
@@ -639,18 +659,21 @@ export function CollectionRunnerView({
             <box style={{ height: 1, minHeight: 1, flexShrink: 0 }}>
               <ActionButton
                 id="runner-run-button"
-                shortcut={running ? SPINNER_FRAMES[spinnerIndex] : "r"}
+                shortcut={running ? "s" : "r"}
                 minWidth={runButtonMinWidth}
                 focused={runFocused}
                 highlightWhenDisabled
                 label={
                   running
-                    ? `Running ${currentRequest}/${runner.progress.total}`
+                    ? `${runner.stopping ? "Stopping" : "Stop"} ${runner.progress.completed}/${runner.progress.total}`
                     : `Run ${runner.matchedIds.size * (runner.iterationCount ?? 1)} request${runner.matchedIds.size * (runner.iterationCount ?? 1) === 1 ? "" : "s"}`
                 }
-                disabled={!runner.runAvailable && !running}
+                disabled={running ? runner.stopping : !runner.canRun}
                 onAction={() => {
-                  if (running) return
+                  if (running) {
+                    runner.stop()
+                    return
+                  }
                   runner.setOptionIndex(RUNNER_RUN_OPTION_INDEX)
                   onPaneFocus("runner-options")
                   void runner.run()
@@ -857,16 +880,29 @@ export function CollectionRunnerView({
                       <box style={{ flexDirection: "row" }}>
                         <text
                           fg={
-                            runner.result.failed ? theme.error : theme.success
+                            running || runner.result.cancelled
+                              ? theme.warning
+                              : runner.result.failed
+                                ? theme.error
+                                : theme.success
                           }
                           attributes={TextAttributes.BOLD}
                         >
-                          {runner.result.failed ? "FAIL" : "PASS"}
+                          {running
+                            ? `${SPINNER_FRAMES[spinnerIndex]} ${runner.stopping ? "STOPPING" : "RUNNING"}`
+                            : runner.result.cancelled
+                              ? "CANCELLED"
+                              : runner.result.failed
+                                ? "FAIL"
+                                : "PASS"}
                         </text>
                         <text fg={theme.text}>
-                          {`  ${runner.result.summary.requestSuccesses}/${runner.result.summary.executed} request${runner.result.summary.executed === 1 ? "" : "s"} · ${runner.result.summary.durationMs}ms`}
+                          {`  ${runner.result.summary.requestSuccesses}/${runner.result.summary.selected} request${runner.result.summary.selected === 1 ? "" : "s"} · ${runner.result.summary.durationMs}ms`}
                         </text>
                       </box>
+                      <text
+                        fg={theme.textMuted}
+                      >{`${runner.result.summary.completed} completed · ${runner.result.summary.cancelled} cancelled · ${running ? runner.resultRows.filter((row) => row.kind === "pending").length : Math.max(0, runner.result.summary.unstarted - runner.result.summary.skipped)} ${running ? "pending" : "unstarted"}`}</text>
                       <text
                         content={t`${fg(theme.textMuted)(`${runner.result.summary.assertionPasses} assertion${runner.result.summary.assertionPasses === 1 ? "" : "s"} passed`)}${fg(theme.error)(runner.result.summary.assertionFailures > 0 ? ` · ${runner.result.summary.assertionFailures} failed` : "")}${fg(runner.result.summary.captureFailures > 0 ? theme.error : theme.textMuted)(runner.result.summary.captureFailures > 0 ? ` · ${runner.result.summary.captureFailures} capture failure${runner.result.summary.captureFailures === 1 ? "" : "s"}` : " · no capture failures")}${fg(theme.warning)(runner.result.summary.skipped > 0 ? ` · ${runner.result.summary.skipped} skipped` : "")}`}
                         style={{ marginBottom: 1 }}
@@ -944,8 +980,11 @@ export function CollectionRunnerView({
                     const canOpen =
                       row.kind === "result" && runner.resultDetails.has(row.id)
                     const resultColor =
-                      row.kind === "skipped"
-                        ? theme.textMuted
+                      row.kind !== "result" || row.result.cancelled
+                        ? row.kind === "running" ||
+                          (row.kind === "result" && row.result.cancelled)
+                          ? theme.warning
+                          : theme.textMuted
                         : row.result.ok
                           ? theme.success
                           : theme.error
@@ -988,7 +1027,7 @@ export function CollectionRunnerView({
                           expanded={false}
                           hovered={false}
                           valueColor={
-                            row.kind === "skipped"
+                            row.kind !== "result"
                               ? theme.textMuted
                               : row.result.response
                                 ? statusColor(row.result.response.status, theme)

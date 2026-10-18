@@ -21,6 +21,7 @@ import {
 } from "../src/cookies"
 import { setSecretBackendForTests, type SecretBackend } from "../src/secrets"
 import { acquireFileLock } from "../src/fileLock"
+import { randomUUID } from "node:crypto"
 
 function memoryBackend(): SecretBackend & { values: Map<string, string> } {
   const values = new Map<string, string>()
@@ -476,7 +477,7 @@ describe("CollectionCookieJar", () => {
     await rm(lockDir, { recursive: true, force: true })
   })
 
-  it("requires explicit abandoned-lock recovery and retains pending writes", async () => {
+  it("requires explicit recovery for unknown lock ownership and retains pending writes", async () => {
     setCookieJarTimingForTests({
       lockTimeoutMs: 20,
       minBackoffMs: 1,
@@ -991,6 +992,103 @@ describe("CollectionCookieJar", () => {
       }
     } finally {
       await Promise.all(jars.map((jar) => jar.close().catch(() => {})))
+    }
+  })
+
+  it("recovers dead jar and key locks without replacing cookies or their key", async () => {
+    const id = "abandoned-locks"
+    const jar = await CollectionCookieJar.open(configDir, id)
+    jar.put({ name: "session", value: "retained", domain: "example.com" })
+    await jar.close()
+    const original = await readFile(jar.file, "utf8")
+    const keys = [...backend.values]
+    const setKey = spyOn(backend, "set")
+    const child = Bun.spawn([process.execPath, "-e", "process.exit(0)"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    })
+    expect(await child.exited).toBe(0)
+    for (const file of [jar.file, join(configDir, "cookie-jar-key")]) {
+      await mkdir(`${file}.lock`)
+      await writeFile(
+        join(`${file}.lock`, "owner"),
+        `${child.pid}:${randomUUID()}`,
+      )
+    }
+    setCookieJarTimingForTests({ lockTimeoutMs: 0 })
+    const reopened = await CollectionCookieJar.open(configDir, id)
+    try {
+      expect(reopened.status.state).toBe("encrypted")
+      expect(reopened.cookieHeaderFor("https://example.com/")).toBe(
+        "session=retained",
+      )
+      expect(await readFile(jar.file, "utf8")).toBe(original)
+      expect([...backend.values]).toEqual(keys)
+      expect(setKey).not.toHaveBeenCalled()
+      reopened.put({ name: "next", value: "saved", domain: "example.com" })
+      await reopened.saveNow()
+      const saved = await CollectionCookieJar.open(configDir, id)
+      try {
+        expect(saved.cookieHeaderFor("https://example.com/")).toBe(
+          "session=retained; next=saved",
+        )
+        expect([...backend.values]).toEqual(keys)
+        expect(setKey).not.toHaveBeenCalled()
+      } finally {
+        await saved.close()
+      }
+    } finally {
+      setKey.mockRestore()
+      await reopened.close().catch(() => {})
+    }
+  })
+
+  it("preserves unreadable cookies and the original key after dead-lock recovery", async () => {
+    const jar = await CollectionCookieJar.open(
+      configDir,
+      "abandoned-unreadable",
+    )
+    jar.put({ name: "session", value: "retained", domain: "example.com" })
+    await jar.close()
+    const keys = [...backend.values]
+    const invalid = "enc:v1:invalid"
+    await writeFile(jar.file, invalid)
+    const child = Bun.spawn([process.execPath, "-e", "process.exit(0)"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    })
+    expect(await child.exited).toBe(0)
+    for (const file of [jar.file, join(configDir, "cookie-jar-key")]) {
+      await mkdir(`${file}.lock`)
+      await writeFile(
+        join(`${file}.lock`, "owner"),
+        `${child.pid}:${randomUUID()}`,
+      )
+    }
+    setCookieJarTimingForTests({ lockTimeoutMs: 0 })
+    const reopened = await CollectionCookieJar.open(
+      configDir,
+      "abandoned-unreadable",
+    )
+    try {
+      expect(reopened.status).toMatchObject({
+        state: "unavailable",
+        error: { code: "decrypt" },
+      })
+      reopened.put({ name: "pending", value: "1", domain: "example.com" })
+      await expect(reopened.saveNow()).rejects.toMatchObject({
+        code: "decrypt",
+      })
+      expect(await readFile(jar.file, "utf8")).toBe(invalid)
+      expect([...backend.values]).toEqual(keys)
+      const entries = await readdir(join(configDir, "cookies"))
+      expect(
+        entries.some(
+          (entry) => entry.includes(".backup-") || entry.includes(".tmp-"),
+        ),
+      ).toBe(false)
+    } finally {
+      await reopened.close().catch(() => {})
     }
   })
 

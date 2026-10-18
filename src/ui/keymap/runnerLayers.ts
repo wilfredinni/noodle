@@ -6,7 +6,8 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
   const { keymap, keybinds, global, runner } = context
   const state = () => runner.runnerRef.current
   const focus = () => global.focusRef.current
-  const unlocked = () => state().phase !== "running" && !state().selectOpen
+  const unlocked = () => !state().isRunning() && !state().selectOpen
+  const navigable = () => !state().selectOpen
 
   return {
     enabled: () =>
@@ -14,45 +15,50 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       keymap.getData("app.overlay") === "none",
     commands: [
       {
+        name: "runner.stop",
+        enabled: () => state().isRunning() && !state().stopping,
+        run: () => state().stop(),
+      },
+      {
         name: "runner.up",
-        enabled: unlocked,
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-options") state().optionUp()
           else if (focus() === "runner-requests") {
-            if (state().phase === "results") state().resultUp()
+            if (state().phase !== "configure") state().resultUp()
             else state().requestUp()
           }
         },
       },
       {
         name: "runner.down",
-        enabled: unlocked,
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-options") state().optionDown()
           else if (focus() === "runner-requests") {
-            if (state().phase === "results") state().resultDown()
+            if (state().phase !== "configure") state().resultDown()
             else state().requestDown()
           }
         },
       },
       {
         name: "runner.first",
-        enabled: unlocked,
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-options") state().optionFirst()
           else if (focus() === "runner-requests") {
-            if (state().phase === "results") state().resultFirst()
+            if (state().phase !== "configure") state().resultFirst()
             else state().requestFirst()
           }
         },
       },
       {
         name: "runner.last",
-        enabled: unlocked,
+        enabled: navigable,
         run: () => {
           if (focus() === "runner-options") state().optionLast()
           else if (focus() === "runner-requests") {
-            if (state().phase === "results") state().resultLast()
+            if (state().phase !== "configure") state().resultLast()
             else state().requestLast()
           }
         },
@@ -68,9 +74,12 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       {
         name: "runner.activate",
         run: () => {
-          if (state().phase === "running") return
           if (state().selectOpen) return
           if (focus() === "runner-options") {
+            if (state().isRunning()) {
+              state().stop()
+              return
+            }
             if (state().optionIndex === 1)
               runner.openTagFilter("include", state().includeTagIndex)
             else if (state().optionIndex === 2)
@@ -82,7 +91,7 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
             )
               void state().run()
           } else if (focus() === "runner-requests") {
-            if (state().phase === "results") {
+            if (state().phase !== "configure") {
               const row = state().resultRows[state().resultIndex]
               if (row?.kind === "result" && state().resultDetails.has(row.id))
                 runner.openResultDetail()
@@ -109,11 +118,15 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       {
         name: "runner.toggle",
         enabled: () =>
-          unlocked() &&
-          ((focus() === "runner-options" && state().optionIndex === 3) ||
+          (unlocked() ||
+            (state().isRunning() && focus() === "runner-options")) &&
+          ((focus() === "runner-options" &&
+            (state().optionIndex === 3 || state().isRunning())) ||
             (focus() === "runner-requests" && state().phase !== "results")),
         run: () => {
-          if (focus() === "runner-options" && state().optionIndex === 3)
+          if (focus() === "runner-options" && state().isRunning())
+            state().stop()
+          else if (focus() === "runner-options" && state().optionIndex === 3)
             state().toggleFailFast()
           else if (focus() === "runner-requests" && state().phase !== "results")
             state().toggleSelected()
@@ -121,15 +134,17 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.page-up",
+        enabled: navigable,
         run: () => {
-          if (focus() === "runner-requests" && state().phase === "results")
+          if (focus() === "runner-requests" && state().phase !== "configure")
             runner.detailScrollRef.current?.scrollBy(-1, "viewport")
         },
       },
       {
         name: "runner.page-down",
+        enabled: navigable,
         run: () => {
-          if (focus() === "runner-requests" && state().phase === "results")
+          if (focus() === "runner-requests" && state().phase !== "configure")
             runner.detailScrollRef.current?.scrollBy(1, "viewport")
         },
       },
@@ -165,9 +180,8 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.focus-next",
-        enabled: () => state().phase !== "running",
         run: () => {
-          if (!unlocked()) return
+          if (!navigable()) return
           const current = focus()
           if (current === "runner-options") global.setFocus("runner-requests")
           else if (current === "runner-requests")
@@ -176,9 +190,8 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       },
       {
         name: "runner.focus-prev",
-        enabled: () => state().phase !== "running",
         run: () => {
-          if (!unlocked()) return
+          if (!navigable()) return
           const current = focus()
           if (current === "runner-options") global.setFocus("runner-requests")
           else if (current === "runner-requests")
@@ -188,12 +201,13 @@ export function createRunnerLayer(context: AppKeymapContext): UseBindingsLayer {
       {
         name: "runner.escape",
         run: () => {
-          if (state().phase === "running" || state().selectOpen) return
+          if (state().selectOpen) return
           runner.close()
         },
       },
     ],
     bindings: [
+      { key: "s", cmd: "runner.stop" },
       { key: "up", cmd: "runner.up" },
       { key: "down", cmd: "runner.down" },
       { key: "home", cmd: "runner.first" },

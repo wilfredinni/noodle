@@ -6,10 +6,11 @@ import { useCookieJarView } from "../../src/hooks/useCookieJarView"
 import {
   CookieJarStorageError,
   type CollectionCookieJar,
+  type CookieJarStatus,
   type JarCookie,
 } from "../../src/cookies"
 import { CookieJarView } from "../../src/ui/cookie-jar/CookieJarView"
-import { act, useRef } from "react"
+import { act, useRef, useState } from "react"
 import type { BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -82,12 +83,20 @@ function Harness({
   onAddCookie,
   focus = "cookie-sidebar",
   onPaneFocus,
+  readOnly,
+  status = { state: "encrypted" },
+  onRetry,
+  onReset,
 }: {
   jar: CollectionCookieJar
   onReady?: (v: ReturnType<typeof useCookieJarView>) => void
   onAddCookie?: () => void
   focus?: Focus
   onPaneFocus?: (focus: Focus) => void
+  readOnly?: boolean
+  status?: CookieJarStatus
+  onRetry?: () => void
+  onReset?: () => void
 }) {
   const view = useCookieJarView(jar)
   const ref = useRef(onReady)
@@ -97,15 +106,110 @@ function Harness({
   return (
     <CookieJarView
       view={view}
-      status={{ state: "encrypted" }}
+      status={status}
+      readOnly={readOnly}
       focus={focus}
       onAddCookie={onAddCookie}
       onPaneFocus={onPaneFocus}
+      onRetry={onRetry}
+      onReset={onReset}
     />
   )
 }
 
 describe("CookieJarView", () => {
+  it("keeps the empty state visible and disables creation while read-only", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let creates = 0
+    let setReadOnly!: (value: boolean) => void
+    function Locking() {
+      const [readOnly, setLocked] = useState(false)
+      setReadOnly = setLocked
+      return (
+        <Harness
+          jar={jarWith([])}
+          readOnly={readOnly}
+          onAddCookie={() => creates++}
+        />
+      )
+    }
+    const h = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Locking />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await h.renderOnce()
+    const before = h.captureCharFrame()
+    await act(async () => setReadOnly(true))
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toBe(before)
+    expect(before).toContain("No cookies in this collection")
+    const button = h.renderer.root.findDescendantById("empty-state-action")!
+    await act(async () => {
+      await h.mockInput.pressEnter()
+      await h.mockInput.typeText(" ")
+      await h.mockMouse.click(button.screenX + 1, button.screenY)
+    })
+    expect(creates).toBe(0)
+    await act(async () => setReadOnly(false))
+    await h.renderOnce()
+    await act(async () => h.mockMouse.click(button.screenX + 1, button.screenY))
+    expect(creates).toBe(1)
+    cleanup()
+  })
+
+  it("keeps unavailable diagnostics visible and locks recovery until writable", async () => {
+    const recovery: string[] = []
+    let setReadOnly!: (value: boolean) => void
+    function Locking() {
+      const [readOnly, setLocked] = useState(false)
+      setReadOnly = setLocked
+      return (
+        <Harness
+          jar={jarWith([])}
+          readOnly={readOnly}
+          status={{
+            state: "unavailable",
+            error: new CookieJarStorageError(
+              "malformed",
+              "Cookie storage is malformed.",
+              "/tmp/cookies/demo.json",
+            ),
+          }}
+          onRetry={() => recovery.push("retry")}
+          onReset={() => recovery.push("reset")}
+        />
+      )
+    }
+    const h = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Locking />
+      </ThemeProvider>,
+      { width: 100, height: 12 },
+    )
+    await h.renderOnce()
+    const before = h.captureCharFrame()
+    await act(async () => setReadOnly(true))
+    await h.renderOnce()
+    expect(h.captureCharFrame()).toBe(before)
+    expect(before).toContain("Cookie storage is malformed.")
+    for (const locked of [true, false]) {
+      await act(async () => setReadOnly(locked))
+      await h.renderOnce()
+      for (const label of ["Retry (r)", "Reset with backup"]) {
+        const lines = h.captureCharFrame().split("\n")
+        const y = lines.findIndex((line) => line.includes(label))
+        expect(y).toBeGreaterThanOrEqual(0)
+        const x = lines[y]!.indexOf(label)
+        await act(async () => h.mockMouse.click(x + 1, y))
+      }
+      expect(recovery).toEqual(locked ? [] : ["retry", "reset"])
+    }
+  })
+
   it("renders domains and cookie rows", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

@@ -138,11 +138,17 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([seg("f2", "expand", "request.expand-toggle")])
   })
 
-  it("does not show status text while the runner is executing", () => {
+  it("shows Stop, inspection, and navigation while the runner is executing", () => {
     expect(
       getKeybindingHints(ctx({ view: "runner", runnerPhase: "running" }))
         .footer,
-    ).toEqual([])
+    ).toEqual([
+      seg("s", "stop", "runner.stop"),
+      seg("↑/↓", "select"),
+      seg("Enter", "activate", "runner.activate"),
+      seg("Tab", "focus", "runner.focus-next"),
+      seg("Esc", "back", "runner.escape"),
+    ])
   })
 
   it("shows the Runner option edit and run shortcuts", () => {
@@ -194,6 +200,35 @@ describe("getKeybindingHints footer", () => {
       seg("Esc", "close", "runner.escape"),
     ])
   })
+
+  it.each(["runner-options", "runner-requests"] as const)(
+    "matches running Enter behavior in %s",
+    (focus) => {
+      const hints = getKeybindingHints(
+        ctx({ view: "runner", focus, runnerPhase: "running" }),
+      ).footer
+      expect(
+        hints.find((hint) => hint.command === "runner.activate")?.word,
+      ).toBe(focus === "runner-options" ? "stop" : "activate")
+    },
+  )
+
+  it.each(["runner-options", "runner-requests"] as const)(
+    "hides unavailable Stop hints while stopping in %s",
+    (focus) => {
+      const hints = getKeybindingHints(
+        ctx({
+          view: "runner",
+          focus,
+          runnerPhase: "running",
+          runnerStopping: true,
+        }),
+      ).footer
+      expect(hints.some((hint) => hint.command === "runner.stop")).toBe(false)
+      expect(hints.some((hint) => hint.word === "stop")).toBe(false)
+      expect(hints).toContainEqual(seg("Esc", "back", "runner.escape"))
+    },
+  )
 
   it("uses contextual settings hints", () => {
     expect(

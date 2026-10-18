@@ -4,6 +4,27 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-17
+
+Noodle 0.10.1 shows Collection Runner results as requests finish, so you can inspect completed responses, checks, and Console logs while the run continues. Stop an active run from the keyboard or mouse, browse elsewhere, and return to its partial or final results with F5.
+
+### ✨ Features
+
+- Show pending, running, passed, failed, skipped, and cancelled Runner executions with live details and iteration-aware summaries through the shared collection execution path.
+- Add Stop through shared cancellation, available with `s`, mouse activation, focused Enter/Space, completed-result details, and the command palette. Preserve finished diagnostics and distinguish cancelled executions from failures and unstarted requests.
+- Keep application navigation responsive during runs, resume the current workspace's latest run with F5, and guard edits, additional sends, collection reloads/switches, and execution configuration until cleanup finishes.
+
+### 🐞 Fixes
+
+- Restore usable Runner focus after completion, cancellation, and configuration failure while preserving inspection focus and compact 80×24 layouts.
+- Recover cookie jar and encryption-key locks left by confirmed exited processes, preserving lock backups, existing cookies, and stored keys. Keep live or uncertain owners locked and leave environment transactions unchanged.
+
+### 📚 Documentation
+
+- Update `noodle-dev` for live Runner state, cancellation ownership, navigation guards, and rendered acceptance coverage.
+- Update `noodle-use` with live Runner inspection, Stop, and current-workspace resume behavior.
+- Refresh local Runner guidance and tips. Website updates are deferred for this release preparation.
+
 ## [0.10.0] - 2026-10-13
 
 Noodle 0.10.0 lets CLI collection runs stop gracefully while preserving completed requests and response diagnostics. Cancelled manual sends retain any completed response and appear in history, while cancellation stays separate from request failures and timeouts. Homebrew installation now uses the official core formula.

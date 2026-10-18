@@ -1,6 +1,7 @@
 import type { ScriptActions } from "./editor/ScriptEditor"
 import type { FormattingTarget } from "./editor/CodeFormattingContext"
-import { formatCode } from "./commandActions"
+import { formatCode, runnerAllowsCommand } from "./commandActions"
+import type { UseCollectionRunnerResult } from "../hooks/useCollectionRunner"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./overlays/CommandPaletteOverlay"
@@ -69,6 +70,7 @@ import {
 export type CommandPaletteTarget = "request" | "folder" | "environment"
 
 export interface CommandBuilderContext {
+  runner?: Pick<UseCollectionRunnerResult, "isRunning" | "stopping" | "stop">
   responseFileActions?: ResponseFileActions
   responseFileShortcutsAvailable?: boolean
   keybinds: Keybinds
@@ -164,7 +166,7 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onReloadCollection: () => void
-  openRunner: (folderPath: string | null) => boolean
+  openRunner: (folderPath: string | null, configure?: boolean) => boolean
   paletteTarget: CommandPaletteTarget | null
   setSidebarVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   sidebarVisibleRef: RefObject<boolean>
@@ -468,7 +470,7 @@ export function buildCommandPaletteCommands(
         const folderPath =
           paletteTarget === "folder" ? c.focusedFolderPathRef.current : null
         if (paletteTarget === "folder" && !folderPath) return false
-        return ctx.openRunner(folderPath)
+        return ctx.openRunner(folderPath, true)
       },
     },
     {
@@ -777,6 +779,41 @@ export function buildCommandPaletteCommands(
       },
     },
   ]
+
+  if (ctx.runner?.isRunning()) {
+    return [
+      {
+        id: "runner.stop",
+        label: ctx.runner.stopping
+          ? "Stopping Collection Run…"
+          : "Stop Collection Run",
+        section: "Workspace",
+        run: () => {
+          ctx.runner!.stop()
+          return true
+        },
+      },
+      {
+        id: "collection.runner",
+        label: "Open Active Runner",
+        section: "Workspace",
+        keybinding: displayKey(keybinds.runner_open),
+        run: () => ctx.openRunner(null),
+      },
+      ...(view === "main" ? requestCommands : []),
+      ...mainEnvCommands,
+      ...workspaceCommands,
+      ...mainOnlyCommands,
+      ...settingsCommands,
+      ...globalCommands,
+      ...systemCommands,
+      ...externalEditorCommands,
+    ].filter(
+      (command, index, all) =>
+        runnerAllowsCommand(command.id) &&
+        all.findIndex((item) => item.id === command.id) === index,
+    )
+  }
 
   if (paletteTarget === "request") {
     if (mode !== "collection") return []

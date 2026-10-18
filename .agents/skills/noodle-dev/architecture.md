@@ -133,6 +133,12 @@ A shared key lock coordinates initialization across jars without replacing a
 malformed stored key. Collection ID initialization separately locks the canonical
 collection directory and re-reads settings before saving. Lock files plus an
 append-only mutation journal keep concurrent handles from overwriting one another.
+Cookie jar and shared-key locks opt into dead-owner recovery: only a valid owner
+whose PID returns `ESRCH` can be moved to a permanent, nonempty
+`.lock.abandoned-<pid>-<uuid>` backup. Keep that deterministic backup to prevent
+competing recoveries from moving a replacement lock. Never reclaim by age or
+recover live, unknown, or inaccessible owners. Environment mutation and
+collection-ID locks retain manual recovery.
 
 Opening malformed, undecryptable, or otherwise unreadable storage returns an
 `unavailable` status. Requests continue without jar cookies and do not replace
@@ -664,6 +670,26 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Keybindings                 | `src/ui/keybind.ts`, `src/ui/keymap/`, `src/ui/useOverlayIntercepts.ts`                                                                                                                                                                                                                                                      |
 | Borders                     | `src/ui/borders.ts`                                                                                                                                                                                                                                                                                                          |
 | Pure helpers                | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `selection.ts`)                                                                                                                                                                                                                    |
+
+## Live collection Runner
+
+`collectionRun()` emits an authoritative `run-start` plan after selection and
+dataset validation, followed by top-level start/completion/skip events.
+`useCollectionRunner` owns one AbortController, a synchronous duplicate-start
+guard, generation-scoped callbacks, and iteration/request-keyed live rows and
+details. Batch event publication within a microtask so fail-fast skips do not
+queue one full result snapshot per skipped execution. Reuse `summarizeRun` and
+adopt the returned collection result after cleanup.
+
+The existing Runner shows Results during execution; completed details reuse
+TimelineDetailOverlay, ResponseResults, and ScriptConsole. Stop uses shared
+cancellation with `s`, click, or focused Enter/Space. Keep navigation available,
+resume the current workspace's latest run with F5, and block writes/sends and
+collection or execution configuration changes across commands and mouse paths.
+Use the shared `runnerAllowsCommand` policy for keymap and palette guards;
+component interaction locks cover direct controls. Do not add persistent history
+or another execution path. Focus Results once on start, preserve later inspection,
+and restore options after configuration failure without stealing focus elsewhere.
 
 ## Async script calls
 

@@ -25,3 +25,4 @@ openapi.yml
 .codex/agents/*
 !.codex/agents/*.toml
 emptyfolder
+/noodle

@@ -1387,4 +1387,75 @@ describe("buildCommandPaletteCommands", () => {
       })
     }
   }
+  it.each([null, "request", "folder", "environment"] as const)(
+    "locks the %s palette during an active run",
+    (target) => {
+      const ctx = minimalContext()
+      ctx.paletteTarget = target
+      let stopped = 0
+      ctx.runner = {
+        isRunning: () => true,
+        stop: () => stopped++,
+        stopping: false,
+      } as never
+      const commands = buildCommandPaletteCommands(ctx)
+      const ids = commands.map((command) => command.id)
+      expect(ids).toContain("runner.stop")
+      expect(ids).toContain("collection.runner")
+      expect(ids).toContain("env.editor-open")
+      for (const id of [
+        "request.send",
+        "collection.reload",
+        "collection.switcher",
+        "env.save",
+        "collection.import",
+        "workspace.edit-yaml",
+      ])
+        expect(ids).not.toContain(id)
+      commands.find((command) => command.id === "runner.stop")!.run()
+      expect(stopped).toBe(1)
+    },
+  )
+  it.each(["runner", "settings", "env-editor"])(
+    "omits main-only request commands from the running %s palette",
+    (view) => {
+      const ctx = minimalContext()
+      ctx.getView = () => view as ReturnType<typeof ctx.getView>
+      ctx.runner = {
+        isRunning: () => true,
+        stop: () => {},
+        stopping: false,
+      } as never
+      const ids = buildCommandPaletteCommands(ctx).map((command) => command.id)
+      expect(ids).not.toContain("request.find")
+      expect(ids).not.toContain("request.generate-client-code")
+    },
+  )
+  it("distinguishes explicit configuration from resuming the latest run", () => {
+    const ctx = minimalContext()
+    const calls: unknown[][] = []
+    ctx.openRunner = (...args) => {
+      calls.push(args)
+      return true
+    }
+    buildCommandPaletteCommands(ctx)
+      .find((command) => command.id === "collection.runner")!
+      .run()
+    expect(calls).toEqual([[null, true]])
+    ctx.paletteTarget = "folder"
+    ctx.focusedFolderPathRef.current = "other-folder"
+    buildCommandPaletteCommands(ctx)
+      .find((command) => command.id === "collection.runner")!
+      .run()
+    expect(calls[1]).toEqual(["other-folder", true])
+    ctx.runner = {
+      isRunning: () => true,
+      stop: () => {},
+      stopping: false,
+    } as never
+    buildCommandPaletteCommands(ctx)
+      .find((command) => command.id === "collection.runner")!
+      .run()
+    expect(calls[2]).toEqual([null])
+  })
 })

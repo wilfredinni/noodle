@@ -190,6 +190,9 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     runnerRef: {
       current: {
         phase: "configure",
+        isRunning: () => runner.runnerRef.current.phase === "running",
+        stopping: false,
+        stop: () => {},
         selectOpen: false,
         result: null,
         resultRows: [],
@@ -562,7 +565,7 @@ describe("app keymap layers", () => {
     expect(firstCommandName(layers[13])).toBe("cookie.close")
     expect(firstCommandName(layers[14])).toBe("cookie.filter.exit")
     expect(firstCommandName(layers[15])).toBe("cookie.up")
-    expect(firstCommandName(layers[16])).toBe("runner.up")
+    expect(firstCommandName(layers[16])).toBe("runner.stop")
     cleanup()
   })
 
@@ -658,7 +661,7 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("handles Runner navigation and ignores Escape while a run is active", () => {
+  it("handles Runner navigation and allows Escape while a run is active", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "runner")
@@ -708,8 +711,31 @@ describe("app keymap layers", () => {
     host.press("return")
     host.press("escape")
     expect(calls.runnerTagFilterOpen).toHaveLength(2)
-    expect(calls.runnerClose).toBe(1)
+    expect(calls.runnerClose).toBe(2)
 
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("blocks writes away from the active Runner but keeps navigation and F5", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.runner.runnerRef.current.phase = "running"
+    const disposers = register(context)
+    host.press("return", { ctrl: true })
+    host.press("s", { ctrl: true })
+    host.press("e")
+    keymap.dispatchCommand("collection.switcher")
+    expect(calls.send).toBe(0)
+    expect(calls.environmentPicker).toBe(false)
+    host.press("f5")
+    expect(calls.runnerOpen).toEqual([null])
+    host.press("f3")
+    expect(calls.focus).toBe("env-sidebar")
+    keymap.setData("app.view", "env-editor")
+    context.global.viewRef.current = "env-editor"
+    host.press("s", { ctrl: true })
+    expect(calls.envSave).toBe(0)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
@@ -772,7 +798,7 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("moves Tab only between Runner panes and blocks it for an open select or run", () => {
+  it("moves Tab between Runner panes during runs and blocks it for an open select", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "runner")
@@ -832,8 +858,9 @@ describe("app keymap layers", () => {
     context.runner.runnerRef.current.phase = "running"
     host.press("tab")
     host.press("tab", { shift: true })
-    expect(calls.focus).toBe("")
+    expect(calls.focus).toBe("runner-requests")
 
+    calls.focus = ""
     context.runner.runnerRef.current.phase = "configure"
     context.runner.runnerRef.current.selectOpen = true
     host.press("tab")
@@ -870,6 +897,28 @@ describe("app keymap layers", () => {
     host.press("d", { ctrl: true })
     expect(calls.runnerTagFilterDelete).toHaveLength(2)
 
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("blocks result paging while a Runner select is open", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    context.global.focusRef.current = "runner-requests"
+    context.runner.runnerRef.current.phase = "results"
+    let pages = 0
+    context.runner.detailScrollRef.current = {
+      scrollBy: () => pages++,
+    } as never
+    const disposers = register(context)
+    context.runner.runnerRef.current.selectOpen = true
+    host.press("pageup")
+    host.press("pagedown")
+    expect(pages).toBe(0)
+    context.runner.runnerRef.current.selectOpen = false
+    host.press("pagedown")
+    expect(pages).toBe(1)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
@@ -1137,6 +1186,12 @@ describe("app keymap layers", () => {
 
     expect(folded).toBe(1)
     expect(unfolded).toBe(1)
+
+    context.runner.runnerRef.current.phase = "running"
+    host.press("f8")
+    host.press("f9")
+    expect(folded).toBe(2)
+    expect(unfolded).toBe(2)
 
     disposers.forEach((dispose) => dispose())
     cleanup()
@@ -1462,6 +1517,28 @@ describe("app keymap layers", () => {
       ok: false,
       reason: "disabled",
     })
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("preserves URL bar Tab and Shift+Tab navigation during a background run", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.runner.runnerRef.current.phase = "running"
+    context.global.focusRef.current = "urlbar"
+    context.global.setUrlbarSubFocus = (next) => {
+      context.global.urlbarSubFocusRef.current = next
+    }
+    keymap.setData("app.focus", "urlbar")
+    const disposers = register(context)
+    host.press("tab")
+    expect(context.global.urlbarSubFocusRef.current).toBe("text")
+    expect(calls.focus).toBe("")
+    host.press("tab", { shift: true })
+    expect(context.global.urlbarSubFocusRef.current).toBe("select")
+    expect(calls.focus).toBe("")
+    expect(keymap.dispatchCommand("editor.format").ok).toBe(false)
+    expect(keymap.dispatchCommand("request.save").ok).toBe(false)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

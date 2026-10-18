@@ -747,6 +747,7 @@ export interface CollectionRunResult {
   warnings?: string[]
 }
 export type CollectionRunEvent =
+  | { type: "run-start"; requestIds: string[]; iterations?: number }
   | { type: "request-start"; id: string; iteration?: number }
   | {
       type: "request-complete"
@@ -983,7 +984,7 @@ async function runRequest(
   return result
 }
 
-function summarizeRun(
+export function summarizeRun(
   results: RequestRunResult[],
   selected: number,
   skipped: number,
@@ -1107,6 +1108,11 @@ export async function collectionRun(
   let tlsPolicy: TlsPolicy | undefined
   const scriptSources = createScriptSourceResolver(dir, syntaxPreflight)
   try {
+    onEvent?.({
+      type: "run-start",
+      requestIds: requests.map((request) => request.id),
+      ...(rows ? { iterations: rows.length } : {}),
+    })
     try {
       signal?.throwIfAborted()
       const settings = await loadSettings(dir)
