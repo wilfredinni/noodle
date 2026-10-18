@@ -65,7 +65,16 @@ export async function acquireFileLock(
         },
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST")
+      const fsError = error as NodeJS.ErrnoException
+      // Windows can reject mkdir while a released lock directory is pending deletion.
+      if (
+        fsError.code !== "EEXIST" &&
+        !(
+          process.platform === "win32" &&
+          fsError.code === "EPERM" &&
+          fsError.syscall === "mkdir"
+        )
+      )
         throw new FileLockError("write", file, { cause: error })
     }
 

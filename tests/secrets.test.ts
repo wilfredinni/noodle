@@ -269,70 +269,65 @@ describe("secret storage", () => {
     }
   })
 
-  it.each(
-    Array.from({ length: process.platform === "win32" ? 100 : 1 }, (_, i) => i),
-  )(
-    "uses one collection id when secret operations initialize concurrently (%i)",
-    async () => {
-      const root = await mkdtemp(join(tmpdir(), "noodle-secret-race-"))
-      await saveSettings(root, { environment: "dev" })
-      const collectionIds = new Set<string>()
-      const backend = memoryBackend()
-      setSecretBackendForTests({
-        ...backend,
-        async set(options) {
-          collectionIds.add(options.name.split(":", 1)[0]!)
-          await backend.set(options)
-        },
-      })
+  it("uses one collection id when secret operations initialize concurrently", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-secret-race-"))
+    await saveSettings(root, { environment: "dev" })
+    const collectionIds = new Set<string>()
+    const backend = memoryBackend()
+    setSecretBackendForTests({
+      ...backend,
+      async set(options) {
+        collectionIds.add(options.name.split(":", 1)[0]!)
+        await backend.set(options)
+      },
+    })
 
-      let publications = 0
-      let activePublications = 0
-      let maxActivePublications = 0
-      const realRename = fs.rename
-      const settingsFiles = new Set([
-        join(root, "settings.yml"),
-        join(await fs.realpath(root), "settings.yml"),
-      ])
-      const publication = spyOn(fs, "rename").mockImplementation(
-        async (from, to) => {
-          if (!settingsFiles.has(String(to))) return realRename(from, to)
-          publications += 1
-          activePublications += 1
-          maxActivePublications = Math.max(
-            maxActivePublications,
-            activePublications,
-          )
-          try {
-            await Bun.sleep(25)
-            return await realRename(from, to)
-          } finally {
-            activePublications -= 1
-          }
-        },
-      )
-      try {
-        const results = await Promise.allSettled(
-          Array.from({ length: 20 }, (_, index) =>
-            setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
-          ),
+    let publications = 0
+    let activePublications = 0
+    let maxActivePublications = 0
+    const realRename = fs.rename
+    const settingsFiles = new Set([
+      join(root, "settings.yml"),
+      join(await fs.realpath(root), "settings.yml"),
+    ])
+    const publication = spyOn(fs, "rename").mockImplementation(
+      async (from, to) => {
+        if (!settingsFiles.has(String(to))) return realRename(from, to)
+        publications += 1
+        activePublications += 1
+        maxActivePublications = Math.max(
+          maxActivePublications,
+          activePublications,
         )
-        expect(
-          results
-            .filter((result) => result.status === "rejected")
-            .map((result) => result.reason?.cause ?? result.reason),
-        ).toEqual([])
-        const savedId = (await loadSettings(root)).collectionId
-        expect(savedId).toBeDefined()
-        expect(collectionIds).toEqual(new Set([savedId!]))
-        expect(publications).toBe(1)
-        expect(maxActivePublications).toBe(1)
-      } finally {
-        publication.mockRestore()
-        await rm(root, { recursive: true, force: true })
-      }
-    },
-  )
+        try {
+          await Bun.sleep(25)
+          return await realRename(from, to)
+        } finally {
+          activePublications -= 1
+        }
+      },
+    )
+    try {
+      const results = await Promise.allSettled(
+        Array.from({ length: 20 }, (_, index) =>
+          setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
+        ),
+      )
+      expect(
+        results
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason?.cause ?? result.reason),
+      ).toEqual([])
+      const savedId = (await loadSettings(root)).collectionId
+      expect(savedId).toBeDefined()
+      expect(collectionIds).toEqual(new Set([savedId!]))
+      expect(publications).toBe(1)
+      expect(maxActivePublications).toBe(1)
+    } finally {
+      publication.mockRestore()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
 
   it("preserves the reserved id and releases its initialization lock after a failed publication", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-secret-id-failure-"))

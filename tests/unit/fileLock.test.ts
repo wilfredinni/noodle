@@ -18,6 +18,7 @@ import { acquireFileLock } from "../../src/fileLock"
 const timing = { lockTimeoutMs: 0, minBackoffMs: 0, maxBackoffMs: 0 }
 let directory: string
 let deadPid: number
+const platform = process.platform
 
 beforeAll(async () => {
   const child = Bun.spawn([process.execPath, "-e", "process.exit(0)"], {
@@ -33,7 +34,87 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  Object.defineProperty(process, "platform", { value: platform })
   await rm(directory, { recursive: true, force: true })
+})
+
+it("retries Windows mkdir EPERM until the released lock directory is available", async () => {
+  Object.defineProperty(process, "platform", { value: "win32" })
+  const file = join(directory, "cookies.json")
+  const realMkdir = fs.mkdir
+  let attempts = 0
+  const createDirectory = spyOn(fs, "mkdir").mockImplementation(
+    async (path, options) => {
+      if (String(path) === `${file}.lock` && ++attempts < 3)
+        throw Object.assign(new Error("Directory is pending deletion"), {
+          code: "EPERM",
+          syscall: "mkdir",
+        })
+      await realMkdir(path, options)
+      return undefined
+    },
+  )
+  let lock: Awaited<ReturnType<typeof acquireFileLock>> | undefined
+  try {
+    lock = await acquireFileLock(file, { ...timing, lockTimeoutMs: 1000 })
+    expect(attempts).toBe(3)
+    expect(await readFile(join(`${file}.lock`, "owner"), "utf8")).toStartWith(
+      `${process.pid}:`,
+    )
+  } finally {
+    createDirectory.mockRestore()
+    await lock?.release()
+  }
+})
+
+it.each([
+  ["win32", "EPERM", "lock-timeout"],
+  ["darwin", "EPERM", "write"],
+  ["win32", "EIO", "write"],
+])("bounds or rejects %s mkdir %s as %s", async (platform, code, expected) => {
+  Object.defineProperty(process, "platform", { value: platform })
+  const file = join(directory, "cookies.json")
+  const error = Object.assign(new Error("Injected mkdir failure"), {
+    code,
+    syscall: "mkdir",
+  })
+  const realMkdir = fs.mkdir
+  const createDirectory = spyOn(fs, "mkdir").mockImplementation(
+    async (path, options) => {
+      if (String(path) === `${file}.lock`) throw error
+      await realMkdir(path, options)
+      return undefined
+    },
+  )
+  try {
+    await expect(acquireFileLock(file, timing)).rejects.toMatchObject({
+      code: expected,
+      ...(expected === "write" ? { cause: error } : {}),
+    })
+    expect(await readdir(directory)).toEqual([])
+  } finally {
+    createDirectory.mockRestore()
+  }
+})
+
+it("preserves Windows owner-write EPERM and cleans up the unclaimed lock", async () => {
+  Object.defineProperty(process, "platform", { value: "win32" })
+  const file = join(directory, "cookies.json")
+  const error = Object.assign(new Error("Injected owner-write failure"), {
+    code: "EPERM",
+    syscall: "open",
+  })
+  const writeOwner = spyOn(fs, "writeFile").mockRejectedValue(error)
+  try {
+    await expect(acquireFileLock(file, timing)).rejects.toMatchObject({
+      code: "write",
+      cause: error,
+    })
+    expect(writeOwner).toHaveBeenCalledTimes(1)
+    expect(await readdir(directory)).toEqual([])
+  } finally {
+    writeOwner.mockRestore()
+  }
 })
 
 async function abandon(file: string) {
