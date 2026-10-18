@@ -218,7 +218,7 @@ describe("release platforms", () => {
     expect(ci.jobs.test["timeout-minutes"]).toBe(5)
     expect(
       JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts.test,
-    ).toBe("bun test --isolate")
+    ).toBe("bun scripts/test.ts")
     expect(ci.jobs["platform-checks"]["timeout-minutes"]).toBe(
       "${{ matrix.os == 'windows-latest' && 30 || 20 }}",
     )

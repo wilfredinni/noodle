@@ -2,7 +2,8 @@
 
 ## Runner
 
-`bun run test` runs the full suite with Bun's per-file global and module isolation.
+`bun run test` runs the full suite with a separate Bun process for each test file.
+This also isolates native allocator and FFI state, which Bun's `--isolate` shares.
 CI, the pre-push hook, and release checks use the same script. Keep tests sequential
 and preserve the existing per-test and job deadlines. Uses `describe`, `it`,
 `expect` from `bun:test` (not jest/vitest).
