@@ -769,49 +769,56 @@ describe("ResponsePane status text truncation and layout tests", () => {
     })
   }
 
-  it("hides urlbar m/u badges when expanded=response", async () => {
-    const { keymap, draft, eb } = createTestProps()
-    const responseIdle: SendState = { status: "idle" }
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider
-        keymap={
-          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-        }
-      >
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box style={{ width: 80, height: 24, flexDirection: "column" }}>
-            <RequestResponseView
-              draft={
-                draft as unknown as Parameters<
-                  typeof RequestResponseView
-                >[0]["draft"]
-              }
-              eb={
-                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
-              }
-              error={null}
-              focus="response"
-              layout="stacked"
-              expanded="response"
-              activeEnv={null}
-              responseState={responseIdle}
-              timelineEntries={[]}
-              onResponseTabChange={() => {}}
-              setSelectOpen={() => {}}
-              urlbarSubFocus="text"
-              urlbarInteractive={true}
-              jumpMode={true}
-            />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 80, height: 24 },
-    )
-    await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).not.toContain(" m ")
-    expect(frame).not.toContain(" u ")
-  })
+  it.each([null, "response"] as const)(
+    "shows urlbar m/u badges only when available (expanded=%s)",
+    async (expanded) => {
+      const { keymap, draft, eb } = createTestProps()
+      const responseIdle: SendState = { status: "idle" }
+      const { renderOnce, captureCharFrame } = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box style={{ width: 80, height: 24, flexDirection: "column" }}>
+              <RequestResponseView
+                draft={
+                  draft as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["draft"]
+                }
+                eb={
+                  eb as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["eb"]
+                }
+                error={null}
+                focus="response"
+                layout="stacked"
+                expanded={expanded}
+                activeEnv={null}
+                responseState={responseIdle}
+                timelineEntries={[]}
+                onResponseTabChange={() => {}}
+                setSelectOpen={() => {}}
+                urlbarSubFocus="text"
+                urlbarInteractive={true}
+                jumpMode={true}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 24 },
+      )
+      await renderOnce()
+      const urlbar = captureCharFrame().split("\n").slice(0, 3).join("\n")
+      expect(urlbar).toContain("https://api.example.com")
+      for (const badge of [" m ", " u "])
+        if (expanded === "response") expect(urlbar).not.toContain(badge)
+        else expect(urlbar).toContain(badge)
+    },
+  )
 
   it("hides response badges when no request is selected", async () => {
     const { keymap, draft, eb } = createTestProps()
