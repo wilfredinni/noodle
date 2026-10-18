@@ -46,8 +46,10 @@ it("filtered out", () => { throw Error("name filter was not forwarded") })`
     ["--test-name-pattern=^isolated$"],
   )
   expect(result.exitCode).toBe(0)
-  expect(result.output).toContain("[1/2] tests/a.test.ts")
-  expect(result.output).toContain("[2/2] tests/nested/b.test.tsx")
+  expect(result.output).toContain(`[1/2] ${join("tests", "a.test.ts")}`)
+  expect(result.output).toContain(
+    `[2/2] ${join("tests", "nested", "b.test.tsx")}`,
+  )
   const pids = (
     await Bun.file(join(directories.at(-1)!, "processes.txt")).text()
   )
