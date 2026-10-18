@@ -1,8 +1,9 @@
 import { expect, it } from "bun:test"
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { removeTestDirectory } from "../testCleanup"
 
 it("runs semantic diagnostics and bundled workers from an empty standalone directory", async () => {
   const dir = await mkdtemp(join(tmpdir(), "noodle-script-diagnostics-"))
@@ -87,12 +88,6 @@ console.log('bundled semantic diagnostics passed');`,
       error: "",
     })
   } finally {
-    // Windows can briefly retain file handles after the compiled child exits.
-    await rm(dir, {
-      recursive: true,
-      force: true,
-      maxRetries: 10,
-      retryDelay: 100,
-    })
+    await removeTestDirectory(dir)
   }
 }, 30_000)

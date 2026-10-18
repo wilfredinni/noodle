@@ -215,16 +215,20 @@ describe("release platforms", () => {
       }
     }
     expect(ci.jobs["test-windows"]["timeout-minutes"]).toBe(30)
+    expect(ci.jobs.test["timeout-minutes"]).toBe(5)
+    expect(
+      JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts.test,
+    ).toBe("bun test --isolate")
     expect(ci.jobs["platform-checks"]["timeout-minutes"]).toBe(
       "${{ matrix.os == 'windows-latest' && 30 || 20 }}",
     )
     expect(
       ci.jobs["test-windows"].steps!.filter((step) =>
-        step.run?.startsWith("bun test"),
+        step.run?.startsWith("bun run test"),
       ),
     ).toHaveLength(1)
     expect(
-      ci.jobs.test.steps!.filter((step) => step.run === "bun test"),
+      ci.jobs.test.steps!.filter((step) => step.run === "bun run test"),
     ).toHaveLength(1)
     for (const job of Object.values(ci.jobs))
       for (const step of job.steps ?? [])
@@ -559,7 +563,7 @@ describe("manual CI builds", () => {
     const suite = ci.jobs["test-windows"].steps!.find(
       (step) => step.name === "Run complete applicable Windows suite",
     )!
-    expect(suite.run).toBe("bun test --timeout=30000")
+    expect(suite.run).toBe("bun run test --timeout=30000")
     expect(suite.if).toBeUndefined()
     expect(
       job.steps!.some((step) => step.run === "bun test --timeout=30000"),

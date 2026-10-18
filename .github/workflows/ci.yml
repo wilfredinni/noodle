@@ -286,7 +286,7 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun test
+      - run: bun run test
 
   test-windows:
     runs-on: windows-latest
@@ -309,4 +309,4 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - name: Run complete applicable Windows suite
-        run: bun test --timeout=30000
+        run: bun run test --timeout=30000

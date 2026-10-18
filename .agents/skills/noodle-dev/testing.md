@@ -2,10 +2,13 @@
 
 ## Runner
 
-`bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
+`bun run test` runs the full suite with Bun's per-file global and module isolation.
+CI, the pre-push hook, and release checks use the same script. Keep tests sequential
+and preserve the existing per-test and job deadlines. Uses `describe`, `it`,
+`expect` from `bun:test` (not jest/vitest).
 
 ```bash
-bun test                                    # all tests
+bun run test                                # all tests, isolated per file
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```
