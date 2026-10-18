@@ -41,7 +41,7 @@ function makeReq(over: Partial<Request> = {}): Request {
 }
 
 function proxyUrl(proxy: BunFetchRequestInit["proxy"]): string | undefined {
-  if (proxy === undefined) return undefined
+  if (proxy === undefined || proxy === false) return undefined
   if (typeof proxy === "string") return proxy
   if (proxy instanceof URL) return proxy.toString()
   return proxy.url.toString()
