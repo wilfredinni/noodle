@@ -46,6 +46,7 @@ export async function acquireFileLock(
   await mkdir(dirname(file), { recursive: true })
 
   while (true) {
+    let creationError: unknown
     try {
       await mkdir(lockDir)
       try {
@@ -76,16 +77,22 @@ export async function acquireFileLock(
         )
       )
         throw new FileLockError("write", file, { cause: error })
+      if (fsError.code !== "EEXIST") creationError = error
     }
 
-    if (recovered && Date.now() - started >= timing.lockTimeoutMs)
-      throw new FileLockError("lock-timeout", file)
-    if (timing.recoverDeadOwner && (await recoverDeadOwner(lockDir))) {
-      recovered = true
-      continue
+    if (creationError) {
+      if (Date.now() - started >= timing.lockTimeoutMs)
+        throw new FileLockError("write", file, { cause: creationError })
+    } else {
+      if (recovered && Date.now() - started >= timing.lockTimeoutMs)
+        throw new FileLockError("lock-timeout", file)
+      if (timing.recoverDeadOwner && (await recoverDeadOwner(lockDir))) {
+        recovered = true
+        continue
+      }
+      if (Date.now() - started >= timing.lockTimeoutMs)
+        throw new FileLockError("lock-timeout", file)
     }
-    if (Date.now() - started >= timing.lockTimeoutMs)
-      throw new FileLockError("lock-timeout", file)
     const spread = timing.maxBackoffMs - timing.minBackoffMs
     const delay = timing.minBackoffMs + Math.floor(Math.random() * (spread + 1))
     await new Promise((resolve) => setTimeout(resolve, delay))

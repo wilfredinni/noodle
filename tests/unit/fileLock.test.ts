@@ -68,7 +68,7 @@ it("retries Windows mkdir EPERM until the released lock directory is available",
 })
 
 it.each([
-  ["win32", "EPERM", "lock-timeout"],
+  ["win32", "EPERM", "write"],
   ["darwin", "EPERM", "write"],
   ["win32", "EIO", "write"],
 ])("bounds or rejects %s mkdir %s as %s", async (platform, code, expected) => {
@@ -96,6 +96,45 @@ it.each([
     createDirectory.mockRestore()
   }
 })
+
+it.each([false, true])(
+  "preserves persistent Windows mkdir EPERM after retries (recovery %s)",
+  async (recoverDeadOwner) => {
+    Object.defineProperty(process, "platform", { value: "win32" })
+    const file = join(directory, "cookies.json")
+    const error = Object.assign(new Error("Creation is not permitted"), {
+      code: "EPERM",
+      syscall: "mkdir",
+    })
+    const realMkdir = fs.mkdir
+    let attempts = 0
+    const now = spyOn(Date, "now").mockImplementation(() => attempts)
+    const createDirectory = spyOn(fs, "mkdir").mockImplementation(
+      async (path, options) => {
+        if (String(path) === `${file}.lock`) {
+          attempts++
+          throw error
+        }
+        await realMkdir(path, options)
+        return undefined
+      },
+    )
+    try {
+      await expect(
+        acquireFileLock(file, {
+          ...timing,
+          lockTimeoutMs: 3,
+          recoverDeadOwner,
+        }),
+      ).rejects.toMatchObject({ code: "write", cause: error })
+      expect(attempts).toBe(3)
+      expect(await readdir(directory)).toEqual([])
+    } finally {
+      now.mockRestore()
+      createDirectory.mockRestore()
+    }
+  },
+)
 
 it("preserves Windows owner-write EPERM and cleans up the unclaimed lock", async () => {
   Object.defineProperty(process, "platform", { value: "win32" })
