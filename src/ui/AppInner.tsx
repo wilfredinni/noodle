@@ -982,9 +982,9 @@ export function AppInner({
   }, [])
   const handleOpenRunnerRequestTab = useCallback(
     (requestId: string, tab: FieldKind) => {
-      if (runnerRef.current.isRunning()) return
-      if (tab !== "assertions" && tab !== "captures") return
-      openRunnerRequestTab(
+      if (runnerRef.current.isRunning()) return false
+      if (tab !== "assertions" && tab !== "captures") return false
+      return openRunnerRequestTab(
         requestId,
         tab,
         revealRequest,
@@ -1073,6 +1073,7 @@ export function AppInner({
 
   const handleOpenRunnerTagFilter = useCallback(
     (filter: "include" | "exclude", index: number) => {
+      if (runnerRef.current.isRunning()) return
       const tags =
         filter === "include"
           ? runnerRef.current.includeTags
@@ -1935,7 +1936,11 @@ export function AppInner({
         onReloadCollection: requestReload,
         paletteTarget,
         openRunner: handleOpenRunner,
-        runner,
+        runner: {
+          isRunning: runner.isRunning,
+          stopping: runner.stopping,
+          stop: runner.stop,
+        },
         setSidebarVisible,
         sidebarVisibleRef,
         folderViewRef,
@@ -1964,7 +1969,10 @@ export function AppInner({
       responseFileActions,
       focus,
       responseTab,
-      runner,
+      runner.phase,
+      runner.stopping,
+      runner.stop,
+      runner.isRunning,
     ],
   )
 
@@ -2075,7 +2083,8 @@ export function AppInner({
             onCollectionErrorSaved={() =>
               setCollectionReloadToken((current) => current + 1)
             }
-            mode={runnerBusy ? "browse" : mode}
+            mode={mode}
+            readOnly={runnerBusy}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
             onUrlbarFocus={focusUrlbar}

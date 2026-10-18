@@ -12,6 +12,9 @@ import { ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import * as viewModule from "../../src/ui/MainView"
+import * as runnerViewModule from "../../src/ui/CollectionRunnerView"
+import * as overlayModule from "../../src/ui/AppOverlays"
+import { summarizeRun, type collectionRun } from "../../src/app/services"
 import { filestore } from "../../src/filestore"
 import { executor } from "../../src/requests"
 import * as runnerHooks from "../../src/hooks/useCollectionRunner"
@@ -95,18 +98,48 @@ function Harness({
 }
 
 describe("Send while editing request scripts", () => {
-  it("preserves active Runner configuration when F5 is pressed again", async () => {
+  it("preserves Runner configuration and gates stale edit callbacks through cleanup", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-runner-shortcut-"))
     const { keymap, host, cleanup } = setupKeymap()
     const useRunner = runnerHooks.useCollectionRunner
     let runner!: runnerHooks.UseCollectionRunnerResult
+    const done =
+      Promise.withResolvers<Awaited<ReturnType<typeof collectionRun>>>()
+    let running: Promise<void> | undefined
     const runnerSpy = spyOn(
       runnerHooks,
       "useCollectionRunner",
     ).mockImplementation((options) => {
-      runner = useRunner(options)
+      runner = useRunner({ ...options, runCollection: () => done.promise })
       return runner
     })
+    let mainProps!: ComponentProps<typeof viewModule.MainView>
+    let runnerProps!: ComponentProps<
+      typeof runnerViewModule.CollectionRunnerView
+    >
+    let overlayProps!: ComponentProps<typeof overlayModule.AppOverlays>
+    const mainView = viewModule.MainView
+    const runnerView = runnerViewModule.CollectionRunnerView
+    const overlays = overlayModule.AppOverlays
+    const mainSpy = spyOn(viewModule, "MainView").mockImplementation(
+      (props) => {
+        mainProps = props
+        return mainView(props)
+      },
+    )
+    const runnerViewSpy = spyOn(
+      runnerViewModule,
+      "CollectionRunnerView",
+    ).mockImplementation((props) => {
+      runnerProps = props
+      return runnerView(props)
+    })
+    const overlaySpy = spyOn(overlayModule, "AppOverlays").mockImplementation(
+      (props) => {
+        overlayProps = props
+        return overlays(props)
+      },
+    )
     let h: Awaited<ReturnType<typeof testRender>> | undefined
     try {
       await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
@@ -132,18 +165,101 @@ describe("Send while editing request scripts", () => {
       await waitForHookState(h, () => runner.requests.length === 1)
       await act(async () => host.press("f5"))
       await waitForHookState(h, () => keymap.getData("app.view") === "runner")
+      const commands = overlayProps.commandPaletteCommands
       await act(async () => {
         runner.toggleFailFast()
         runner.setDelayMsInput("75")
         runner.toggleSelected(0)
       })
+      expect(overlayProps.commandPaletteCommands).toBe(commands)
       await act(async () => host.press("f5"))
       expect(runner.failFast).toBe(true)
       expect(runner.delayMsInput).toBe("75")
       expect(runner.selectedIds.size).toBe(0)
+      await act(async () => runner.toggleSelected(0))
+
+      const openFilter = runnerProps.onEditTagFilter
+      const openRequestTab = overlayProps.onEditRunnerRequestTab
+      await act(async () => {
+        running = runner.run()
+        expect(runner.isRunning()).toBe(true)
+        openFilter("include", 0)
+        openFilter("exclude", 0)
+        expect(openRequestTab("request", "assertions")).toBe(false)
+        expect(openRequestTab("request", "captures")).toBe(false)
+      })
+      expect(overlayProps.overlays.tagEditPending).toBeNull()
+      expect(keymap.getData("app.view")).toBe("runner")
+      expect(
+        overlayProps.commandPaletteCommands.some(
+          (command) => command.id === "runner.stop",
+        ),
+      ).toBe(true)
+
+      await act(async () => host.press("escape"))
+      expect(mainProps.mode).toBe("collection")
+      expect(mainProps.readOnly).toBe(true)
+      expect(mainProps.urlbarInteractive).toBe(false)
+      expect(mainProps.onSend).toBeUndefined()
+      const editState = mainProps.eb.editState
+      const activeTab = mainProps.eb.activeTab
+      await act(async () => {
+        runner.stop()
+        openFilter("include", 0)
+        expect(openRequestTab("request", "captures")).toBe(false)
+      })
+      expect(overlayProps.overlays.tagEditPending).toBeNull()
+      expect(mainProps.readOnly).toBe(true)
+      expect(
+        overlayProps.commandPaletteCommands.find(
+          (command) => command.id === "runner.stop",
+        )?.label,
+      ).toBe("Stopping Collection Run…")
+
+      await act(async () => {
+        done.resolve({
+          results: [],
+          skipped: [],
+          failed: false,
+          cancelled: true,
+          summary: summarizeRun([], 0, 0, performance.now()),
+        })
+        await running
+      })
+      expect(mainProps.mode).toBe("collection")
+      expect(mainProps.readOnly).toBe(false)
+      expect(mainProps.eb.editState).toEqual(editState)
+      expect(mainProps.eb.activeTab).toBe(activeTab)
+      expect(
+        overlayProps.commandPaletteCommands.some(
+          (command) => command.id === "runner.stop",
+        ),
+      ).toBe(false)
+      await act(async () => openFilter("exclude", 0))
+      expect(overlayProps.overlays.tagEditPending).toMatchObject({
+        kind: "runner-filter",
+        filter: "exclude",
+      })
+      await act(async () => host.press("escape"))
+      await act(async () =>
+        expect(openRequestTab("request", "captures")).toBe(true),
+      )
+      expect(mainProps.eb.activeTab).toBe("captures")
     } finally {
+      done.resolve({
+        results: [],
+        skipped: [],
+        failed: false,
+        summary: summarizeRun([], 0, 0, performance.now()),
+      })
+      await act(async () => {
+        await running
+      })
       if (h) await act(async () => h!.renderer.destroy())
       runnerSpy.mockRestore()
+      mainSpy.mockRestore()
+      runnerViewSpy.mockRestore()
+      overlaySpy.mockRestore()
       cleanup()
       await rm(dir, { recursive: true, force: true })
     }

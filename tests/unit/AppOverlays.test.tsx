@@ -390,56 +390,69 @@ describe("AppOverlays routing", () => {
     cleanup()
   })
 
-  it("opens Runner details on Request and routes edits from Results", async () => {
-    const closed: unknown[] = []
-    const edits: string[] = []
-    const { frame, host, renderOnce, cleanup } = await renderOverlays(
-      {
-        activeOverlay: "timeline-detail",
-        runnerDetail: {
-          entry: {
-            timestamp: 1,
+  it.each([
+    ["a", "assertions"],
+    ["c", "captures"],
+  ] as const)(
+    "keeps Runner details until %s navigation succeeds",
+    async (key, tab) => {
+      const closed: unknown[] = []
+      const edits: string[] = []
+      let allowed = false
+      const { frame, host, renderOnce, cleanup } = await renderOverlays(
+        {
+          activeOverlay: "timeline-detail",
+          runnerDetail: {
+            entry: {
+              timestamp: 1,
+              request: {
+                id: "health",
+                name: "Health",
+                method: "GET",
+                url: "https://example.com/health",
+                headers: {},
+                params: [],
+              },
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body: "ready",
+                timeMs: 1,
+                size: 5,
+              },
+            },
+            execution: {
+              assertions: { evaluated: true, results: [] },
+            },
             request: {
-              id: "health",
-              name: "Health",
-              method: "GET",
-              url: "https://example.com/health",
-              headers: {},
-              params: [],
-            },
-            response: {
-              status: 200,
-              statusText: "OK",
-              headers: {},
-              body: "ready",
-              timeMs: 1,
-              size: 5,
+              assertions: [
+                { expression: "status", operator: "equals", value: 200 },
+              ],
             },
           },
-          execution: {
-            assertions: { evaluated: true, results: [] },
-          },
-          request: {
-            assertions: [
-              { expression: "status", operator: "equals", value: 200 },
-            ],
+          setRunnerDetail: (detail) => closed.push(detail),
+        },
+        {
+          onEditRunnerRequestTab: (requestId, tab) => {
+            edits.push(`${requestId}:${tab}`)
+            return allowed
           },
         },
-        setRunnerDetail: (detail) => closed.push(detail),
-      },
-      {
-        onEditRunnerRequestTab: (requestId, tab) =>
-          edits.push(`${requestId}:${tab}`),
-      },
-    )
+      )
 
-    expect(frame).toContain("GET https://example.com/health")
-    await act(async () => host.press("right"))
-    await act(async () => host.press("right"))
-    await renderOnce()
-    await act(async () => host.press("a"))
-    expect(closed).toEqual([null])
-    expect(edits).toEqual(["health:assertions"])
-    cleanup()
-  })
+      expect(frame).toContain("GET https://example.com/health")
+      await act(async () => host.press("right"))
+      await act(async () => host.press("right"))
+      await renderOnce()
+      await act(async () => host.press(key))
+      expect(closed).toEqual([])
+      expect(edits).toEqual([`health:${tab}`])
+      allowed = true
+      await act(async () => host.press(key))
+      expect(closed).toEqual([null])
+      expect(edits).toEqual([`health:${tab}`, `health:${tab}`])
+      cleanup()
+    },
+  )
 })

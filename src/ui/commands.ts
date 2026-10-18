@@ -70,7 +70,7 @@ import {
 export type CommandPaletteTarget = "request" | "folder" | "environment"
 
 export interface CommandBuilderContext {
-  runner?: UseCollectionRunnerResult
+  runner?: Pick<UseCollectionRunnerResult, "isRunning" | "stopping" | "stop">
   responseFileActions?: ResponseFileActions
   responseFileShortcutsAvailable?: boolean
   keybinds: Keybinds

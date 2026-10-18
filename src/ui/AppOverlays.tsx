@@ -77,7 +77,7 @@ interface AppOverlaysProps {
   onEditRunnerRequestTab: (
     requestId: string,
     tab: "assertions" | "captures",
-  ) => void
+  ) => boolean
   collectionPaths: string[]
   collectionSettingsByPath: Record<string, CollectionSettings>
   collectionDir: string
@@ -627,8 +627,8 @@ export function AppOverlays({
             runnerDetail && !runner?.isRunning()
               ? () => {
                   const requestId = runnerDetail.entry.request.id
-                  setRunnerDetail(null)
-                  onEditRunnerRequestTab(requestId, "assertions")
+                  if (onEditRunnerRequestTab(requestId, "assertions"))
+                    setRunnerDetail(null)
                 }
               : undefined
           }
@@ -636,8 +636,8 @@ export function AppOverlays({
             runnerDetail && !runner?.isRunning()
               ? () => {
                   const requestId = runnerDetail.entry.request.id
-                  setRunnerDetail(null)
-                  onEditRunnerRequestTab(requestId, "captures")
+                  if (onEditRunnerRequestTab(requestId, "captures"))
+                    setRunnerDetail(null)
                 }
               : undefined
           }
