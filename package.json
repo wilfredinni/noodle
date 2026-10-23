@@ -36,7 +36,7 @@
     "citty": "^0.2.2",
     "csv-parse": "7.0.3",
     "httpsnippet": "^3.0.10",
-    "jose": "^6.2.12",
+    "jose": "^6.2.13",
     "js-yaml": "^5.5.0",
     "jsonc-parser": "^3.3.1",
     "jsonpath-plus": "^11.2.1",
