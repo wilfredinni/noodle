@@ -1,3 +1,10 @@
+import {
+  retainRunnerSnapshot,
+  runnerDisplayItems,
+  type RunnerConfiguration,
+  type RunnerDisplayItem,
+  type RunnerSnapshot,
+} from "../runnerSession"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Collection, CollectionItem, Request } from "../schema"
 import type { SystemProxySettings } from "../proxy"
@@ -35,6 +42,7 @@ export interface UseCollectionRunnerOptions {
   systemProxy: SystemProxySettings
   insecure: boolean
   resetKey: number
+  session?: Map<string, RunnerSnapshot>
   runCollection?: typeof collectionRun
 }
 
@@ -45,6 +53,8 @@ export interface UseCollectionRunnerResult {
   stop: () => void
   isRunning: () => boolean
   scopeLabel: string
+  executedConfiguration?: RunnerConfiguration
+  resultItems?: RunnerDisplayItem[]
   items: CollectionItem[]
   requests: Request[]
   requestTags: Map<string, string[]>
@@ -143,6 +153,7 @@ export function useCollectionRunner({
   systemProxy,
   insecure,
   resetKey,
+  session,
   runCollection = collectionRun,
 }: UseCollectionRunnerOptions): UseCollectionRunnerResult {
   const items = useMemo(() => {
@@ -166,6 +177,16 @@ export function useCollectionRunner({
       ]),
     )
   }, [collection, requests])
+  const localSession = useRef(new Map<string, RunnerSnapshot>())
+  const snapshots = session ?? localSession.current
+  const retainedRef = useRef(snapshots.get(collectionDir))
+  const [executedConfiguration, setExecutedConfiguration] = useState<
+    RunnerConfiguration | undefined
+  >(retainedRef.current?.configuration)
+  const [resultItems, setResultItems] = useState<RunnerDisplayItem[]>(
+    retainedRef.current?.items ?? [],
+  )
+  const initializedRef = useRef(false)
   const [phase, setPhase] = useState<RunnerPhase>("configure")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [environmentName, setEnvironmentNameState] = useState<string | null>(
@@ -287,15 +308,38 @@ export function useCollectionRunner({
     [excludeTags, includeTags, phase],
   )
 
+  const restoreRetained = () => {
+    const retained = retainedRef.current
+    setLiveRows([])
+    setResult(retained?.result ?? null)
+    setResultDetails(retained?.details ?? new Map())
+    setResultItems(retained?.items ?? [])
+    setExecutedConfiguration(retained?.configuration)
+    const keys = retained
+      ? [...retained.result.results, ...retained.result.skipped].map((row) =>
+          runResultKey(row.id, row.iteration),
+        )
+      : []
+    setResultIndex(Math.max(0, keys.indexOf(retained?.selectedKey ?? "")))
+  }
+
   useEffect(() => {
+    retainedRef.current = snapshots.get(collectionDir)
     generationRef.current++
     controllerRef.current?.abort()
     controllerRef.current = null
     runningRef.current = false
     setStopping(false)
     setLiveRows([])
-    setPhase("configure")
-    setSelectedIds(new Set(requests.map((request) => request.id)))
+    const restored = !initializedRef.current ? retainedRef.current : undefined
+    setPhase(restored ? "results" : "configure")
+    initializedRef.current = true
+    setSelectedIds(
+      new Set(
+        restored?.configuration.selectedIds ??
+          requests.map((request) => request.id),
+      ),
+    )
     setEnvironmentNameState(activeEnvironment)
     setIncludeTags([])
     setExcludeTags([])
@@ -309,12 +353,10 @@ export function useCollectionRunner({
     setSelectOpen(false)
     setRequestIndexState(0)
     setRequestRowIndex(0)
-    setResultIndex(0)
-    setResultDetails(new Map())
+    restoreRetained()
     setProgress({ completed: 0, total: 0 })
-    setResult(null)
     setRunError(null)
-  }, [resetKey])
+  }, [resetKey, collectionDir])
 
   const selectedRequestIds = useMemo(
     () =>
@@ -423,6 +465,19 @@ export function useCollectionRunner({
       })),
     ]
   }, [result, phase, liveRows])
+
+  useEffect(() => {
+    if (
+      phase !== "results" ||
+      !retainedRef.current ||
+      result !== retainedRef.current.result
+    )
+      return
+    const selectedKey = resultRows[resultIndex]?.id
+    const retained = { ...retainedRef.current, selectedKey }
+    retainedRef.current = retained
+    snapshots.set(collectionDir, retained)
+  }, [phase, result, resultIndex, resultRows, snapshots, collectionDir])
 
   const moveOption = useCallback(
     (direction: 1 | -1) => {
@@ -649,7 +704,34 @@ export function useCollectionRunner({
         setProgress(nextProgress)
       }, 50)
     }
+    const configuration: RunnerConfiguration = {
+      scope: folderPath,
+      selectedIds: [...selectedRequestIds],
+      environmentName,
+      includeTags: [...includeTags],
+      excludeTags: [...excludeTags],
+      failFast,
+      delayMs,
+      dataPath,
+      noProxy,
+      insecure,
+    }
+    const displayItems = runnerDisplayItems(items)
+    const finish = (next: CollectionRunResult) => {
+      const retained = retainRunnerSnapshot({
+        configuration,
+        items: displayItems,
+        result: next,
+        details,
+      })
+      retainedRef.current = retained
+      snapshots.set(collectionDir, retained)
+      restoreRetained()
+      setPhase("results")
+    }
     const ids = nextRequests.map((request) => request.id)
+    setExecutedConfiguration(configuration)
+    setResultItems(displayItems)
     setRunError(null)
     setStopping(false)
     setResult({ ...partial, results: [], skipped: [] })
@@ -772,11 +854,11 @@ export function useCollectionRunner({
         },
       )
       if (!current()) return
-      setResult(next)
       if (next.failure) {
+        restoreRetained()
         setRunError(next.failure.message)
         setPhase("configure")
-      } else setPhase("results")
+      } else finish(next)
     } catch (error) {
       if (!current()) return
       const cancelled =
@@ -784,7 +866,7 @@ export function useCollectionRunner({
         (error instanceof Error && error.name === "AbortError")
       const message = error instanceof Error ? error.message : String(error)
       setRunError(cancelled ? null : message)
-      setResult({
+      const next: CollectionRunResult = {
         ...partial,
         failed: true,
         ...(cancelled
@@ -797,12 +879,15 @@ export function useCollectionRunner({
           startedAt,
           !cancelled,
         ),
-      })
-      setPhase(cancelled ? "results" : "configure")
+      }
+      if (cancelled) finish(next)
+      else {
+        restoreRetained()
+        setPhase("configure")
+      }
     } finally {
       clearTimeout(publishTimer)
       if (current()) {
-        setResultDetails(new Map(details))
         setProgress(nextProgress)
         runningRef.current = false
         controllerRef.current = null
@@ -812,6 +897,9 @@ export function useCollectionRunner({
   }, [
     collection,
     collectionDir,
+    folderPath,
+    items,
+    snapshots,
     delayMs,
     dataPath,
     dataError,
@@ -836,6 +924,8 @@ export function useCollectionRunner({
     stopping,
     stop,
     isRunning,
+    executedConfiguration,
+    resultItems,
     scopeLabel: folderPath ? `Folder: ${folderPath}` : "Entire collection",
     items,
     requests,

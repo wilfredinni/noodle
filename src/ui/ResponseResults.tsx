@@ -1,3 +1,4 @@
+import { runnerResultSources, type RunnerSourceTarget } from "./runnerSource"
 import { useEffect, useState, type RefObject } from "react"
 import { stringWidth } from "bun"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
@@ -31,6 +32,7 @@ export function ResponseResults({
   focused = true,
   allowOverlayNavigation = false,
   onPaneFocus,
+  onSourceSelection,
 }: {
   execution?: ResponseExecutionResults
   request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
@@ -41,12 +43,16 @@ export function ResponseResults({
   focused?: boolean
   allowOverlayNavigation?: boolean
   onPaneFocus?: () => void
+  onSourceSelection?: (targets: RunnerSourceTarget[]) => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [selectedRowIdx, setSelectedRowIdx] = useState(0)
+  useEffect(() => {
+    onSourceSelection?.(runnerResultSources(execution, selectedRowIdx))
+  }, [execution, selectedRowIdx, onSourceSelection])
   const tests = execution?.tests
   const testResults = tests?.evaluated ? tests.results : []
   const testErrors = tests?.errors ?? (tests?.error ? [tests.error] : [])

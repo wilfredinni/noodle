@@ -1,3 +1,6 @@
+import { resolveRunnerSource, type RunnerSourceTarget } from "./runnerSource"
+import type { ScriptField } from "../scriptAuthoring"
+import type { RunnerSnapshot } from "../runnerSession"
 import type { SaveCollectionScripts } from "./settings/CollectionScripts"
 import { scriptEnvironmentKeys } from "./editor/scriptCompletion"
 import type { ScriptOrder } from "./overlays/ScriptOrderOverlay"
@@ -224,7 +227,9 @@ export function AppInner({
   onCollectionImported,
   mode = "empty",
   sidebarVisible: initialSidebarVisible = true,
+  runnerSession,
 }: {
+  runnerSession?: Map<string, RunnerSnapshot>
   appConfigDir: string
   collectionDir: string
   environmentsDir: string
@@ -374,6 +379,11 @@ export function AppInner({
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const exportPendingRef = useRef(false)
   const importCollectionPendingRef = useRef(false)
+  const [runnerDestination, setRunnerDestination] =
+    useState<ReturnType<typeof resolveRunnerSource>>(null)
+  const [runnerScriptPhase, setRunnerScriptPhase] = useState<
+    "pre" | "post" | "tests"
+  >("pre")
   const [runnerScope, setRunnerScope] = useState<string | null>(null)
   const [runnerResetKey, setRunnerResetKey] = useState(0)
   const runnerReturnFocusRef = useRef<Focus>("sidebar")
@@ -922,6 +932,7 @@ export function AppInner({
     systemProxy,
     insecure,
     resetKey: runnerResetKey,
+    session: runnerSession,
   })
   const runnerBusy = runner.phase === "running"
   const runnerRef = useRef(runner)
@@ -934,6 +945,11 @@ export function AppInner({
   }, [])
   const handleOpenRunner = useCallback(
     (scope: string | null, configure = false) => {
+      if (!runnerRef.current.isRunning()) {
+        if (eb.commitEdit() === false) return false
+        folderEb.commitEdit()
+        envEditor.commitEdit()
+      }
       if (
         runnerRef.current.isRunning() ||
         (!configure &&
@@ -946,9 +962,11 @@ export function AppInner({
             viewRef.current,
             focusRef.current,
           )
+        if (!runnerRef.current.isRunning() && runnerRef.current.result)
+          runnerRef.current.showResults()
         setView("runner")
         setFocus(
-          runnerRef.current.phase === "configure"
+          runnerRef.current.phase === "configure" && !runnerRef.current.result
             ? "runner-options"
             : "runner-requests",
         )
@@ -980,20 +998,84 @@ export function AppInner({
     setView("main")
     setFocus(runnerReturnFocusRef.current)
   }, [])
-  const handleOpenRunnerRequestTab = useCallback(
-    (requestId: string, tab: FieldKind) => {
+  const handleOpenRunnerSource = useCallback(
+    (requestId: string, target?: RunnerSourceTarget) => {
       if (runnerRef.current.isRunning()) return false
-      if (tab !== "assertions" && tab !== "captures") return false
-      return openRunnerRequestTab(
-        requestId,
-        tab,
-        revealRequest,
-        eb.enterBrowseAt,
-        setView,
-        setFocus,
-      )
+      const destination = resolveRunnerSource(collection, requestId, target)
+      if (!destination) {
+        showToast(
+          "Source unavailable: it may have been renamed or deleted",
+          "warning",
+        )
+        return false
+      }
+      if (eb.commitEdit() === false) return false
+      folderEb.commitEdit()
+      if (destination.scope === "collection") {
+        onSettingsScopeChange("collection")
+        onCollectionSettingsCategoryChange("scripts")
+        setRunnerScriptPhase(scriptPhase(destination.tab ?? "") ?? "pre")
+        setView("settings")
+        setFocus("settings-content")
+      } else if (destination.scope === "folder") {
+        revealFolder(destination.id)
+        setView("main")
+        setFocus("folder")
+        setRunnerDestination(destination)
+      } else if (destination.tab) {
+        openRunnerRequestTab(
+          destination.id,
+          destination.tab,
+          revealRequest,
+          () => setRunnerDestination(destination),
+          setView,
+          setFocus,
+        )
+      } else {
+        revealRequest(destination.id)
+        setView("main")
+        setFocus("urlbar")
+      }
+      return true
     },
-    [eb.enterBrowseAt, revealRequest],
+    [
+      collection,
+      eb.commitEdit,
+      eb.enterBrowseAt,
+      folderEb.commitEdit,
+      folderEb.enterBrowseAt,
+      revealRequest,
+      revealFolder,
+      onSettingsScopeChange,
+      onCollectionSettingsCategoryChange,
+    ],
+  )
+  useEffect(() => {
+    if (!runnerDestination?.tab) return
+    if (
+      runnerDestination.scope === "folder" &&
+      focusedFolderPath === runnerDestination.id
+    ) {
+      folderEb.enterBrowseAt(runnerDestination.tab as ScriptField)
+      setRunnerDestination(null)
+    } else if (
+      runnerDestination.scope === "request" &&
+      selectedRequest?.id === runnerDestination.id
+    ) {
+      eb.enterBrowseAt(runnerDestination.tab)
+      setRunnerDestination(null)
+    }
+  }, [
+    runnerDestination,
+    focusedFolderPath,
+    selectedRequest?.id,
+    folderEb.enterBrowseAt,
+    eb.enterBrowseAt,
+  ])
+  const handleOpenRunnerRequestTab = useCallback(
+    (requestId: string, tab: "assertions" | "captures") =>
+      handleOpenRunnerSource(requestId, { tab }),
+    [handleOpenRunnerSource],
   )
   const {
     collectionSwitcherVisible,
@@ -1096,15 +1178,12 @@ export function AppInner({
       const row = runnerRef.current.resultRows[index]
       if (!row || row.kind !== "result") return
       const detail = runnerRef.current.resultDetails.get(row.id)
-      const request = runnerRef.current.requests.find(
-        (candidate) => candidate.id === row.result.id,
-      )
-      if (!detail || !request) return
+      if (!detail) return
+      runnerRef.current.setResultIndex(index)
       overlays.setRunnerDetail({
         iteration: row.result.iteration,
         entry: detail.entry,
         execution: row.result,
-        request,
         warnings: row.result.warnings,
       })
     },
@@ -2227,6 +2306,7 @@ export function AppInner({
             onTlsProfileRemove={onTlsProfileRemove}
             onCollectionSettingsChange={onCollectionSettingsChange}
             onCollectionScriptsChange={onCollectionScriptsChange}
+            initialScriptPhase={runnerScriptPhase}
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}
@@ -2255,6 +2335,7 @@ export function AppInner({
           requests={requests}
           onFindRequest={findRequest}
           onEditRunnerRequestTab={handleOpenRunnerRequestTab}
+          onOpenRunnerSource={handleOpenRunnerSource}
           runner={runner}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}

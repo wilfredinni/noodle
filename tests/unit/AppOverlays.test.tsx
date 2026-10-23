@@ -1,15 +1,21 @@
 import { describe, expect, it } from "bun:test"
-import { act, createRef } from "react"
+import { act, createRef, useLayoutEffect } from "react"
 import { addDefaultParsers } from "@opentui/core"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { setupKeymap } from "./_helpers"
 import { makeOverlayState } from "./_overlayState"
 import { ThemeProvider } from "../../src/ui/theme"
 import { AppOverlays } from "../../src/ui/AppOverlays"
 import { bindingDefaults } from "../../src/ui/keybind"
-import type { OverlayState } from "../../src/ui/useOverlayState"
+import {
+  useOverlayState,
+  type OverlayState,
+} from "../../src/ui/useOverlayState"
+import { useModalKeyboardShield } from "../../src/ui/useModalKeyboardShield"
+import { MouseButtons } from "@opentui/core/testing"
+import type { RunnerSourceTarget } from "../../src/ui/runnerSource"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -122,6 +128,117 @@ async function renderOverlays(
 }
 
 describe("AppOverlays routing", () => {
+  it("selects inherited test error sources with a searchable picker and keeps failed navigation open", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let state!: OverlayState
+    let allowed = false
+    const selected: RunnerSourceTarget[] = []
+    const source = {
+      scope: "folder" as const,
+      scopeId: "folder",
+      path: "folder/folder.yml",
+    }
+    function Harness() {
+      state = useOverlayState({
+        previewIndex: null,
+        collectionSwitcherVisible: false,
+        collectionSwitchPending: null,
+        reloadPending: false,
+      })
+      useLayoutEffect(() => {
+        keymap.setData("app.overlay", state.activeOverlay)
+      }, [state.activeOverlay])
+      useModalKeyboardShield(state.activeOverlay)
+      return (
+        <AppOverlays
+          {...baseProps()}
+          overlays={state}
+          onOpenRunnerSource={(_id, target) => {
+            selected.push(target!)
+            return allowed
+          }}
+        />
+      )
+    }
+    const h = await act(async () =>
+      testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 24 },
+      ),
+    )
+    await act(async () =>
+      state.setRunnerDetail({
+        entry: {
+          timestamp: 1,
+          request: {
+            id: "request",
+            name: "Request",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+          },
+        },
+        execution: {
+          tests: {
+            evaluated: true,
+            results: [],
+            logs: [],
+            errors: [
+              {
+                name: "Error",
+                message: "root",
+                source: { scope: "collection", path: "settings.yml" },
+              },
+              { name: "Error", message: "folder", source },
+            ],
+          },
+        },
+      }),
+    )
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await act(async () => host.press("return"))
+    await waitForHookState(h, () =>
+      h.captureCharFrame().includes("collection: settings.yml"),
+    )
+    await act(async () => host.press("o"))
+    expect(state.activeOverlay).toBe("runner-source")
+    await act(async () => host.press("escape"))
+    expect(state.runnerSources).toBeNull()
+    await waitForHookState(h, () =>
+      h.captureCharFrame().includes("collection: settings.yml"),
+    )
+    await act(async () => host.press("o"))
+    expect(state.activeOverlay).toBe("runner-source")
+    await act(async () => {
+      await h.mockInput.typeText("folder")
+    })
+    await waitForHookState(
+      h,
+      () => !h.captureCharFrame().includes("collection: settings.yml"),
+    )
+    expect(h.captureCharFrame()).not.toContain("collection: settings.yml")
+    await act(async () => host.press("return"))
+    expect(selected).toEqual([{ tab: "tests", source }])
+    expect(state.runnerDetail).not.toBeNull()
+    expect(state.runnerSources).not.toBeNull()
+    allowed = true
+    const row = h.renderer.root.findDescendantById(
+      `picker-item-${JSON.stringify({ tab: "tests", source })}`,
+    )!
+    await act(async () =>
+      h.mockMouse.click(row.screenX + 2, row.screenY, MouseButtons.LEFT),
+    )
+    expect(state.runnerDetail).toBeNull()
+    expect(state.runnerSources).toBeNull()
+    cleanup()
+  })
+
   it("renders notification details from their own state", async () => {
     const { frame, cleanup } = await renderOverlays({
       activeOverlay: "notification",

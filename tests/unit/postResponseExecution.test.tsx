@@ -389,6 +389,7 @@ it("renders external scopes for manual sends and Runner, retaining configuration
     expect(
       runner!.result?.results[0]?.tests?.invocations?.[0]?.source?.scope,
     ).toBe("folder")
+    const retained = runner!.result
     await rm(join(dir, "tests.js"))
     complete = Promise.withResolvers<void>()
     await act(async () => manual!.trySend())
@@ -400,8 +401,9 @@ it("renders external scopes for manual sends and Runner, retaining configuration
       expect(manual!.state.execution?.scripts?.evaluated).toBe(false)
     }
     await act(async () => runner!.run())
-    expect(runner!.result?.failure?.category).toBe("configuration")
-    expect(runner!.result?.results).toEqual([])
+    expect(runner!.runError).toContain("tests.js")
+    expect(runner!.phase).toBe("configure")
+    expect(runner!.result).toBe(retained)
     expect(hits).toBe(2)
   } finally {
     server.stop(true)

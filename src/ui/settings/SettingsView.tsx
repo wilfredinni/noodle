@@ -1,3 +1,4 @@
+import type { ScriptPhase } from "../../preRequestScript"
 import {
   CollectionScripts,
   type SaveCollectionScripts,
@@ -139,6 +140,7 @@ export function SettingsView({
   tlsPassphrases = {},
   collectionScripts,
   collectionScriptDraft,
+  initialScriptPhase,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -193,6 +195,7 @@ export function SettingsView({
   collectionTls?: CollectionTlsSettings
   tlsPassphrases?: Record<string, string>
   collectionScripts?: ScriptFields
+  initialScriptPhase?: ScriptPhase
   collectionScriptDraft?: ScriptFields
   collectionName?: string
   collectionDescription?: string
@@ -947,6 +950,7 @@ export function SettingsView({
               <CollectionScripts
                 key={activeCollectionDir}
                 fields={collectionScripts ?? {}}
+                initialPhase={initialScriptPhase}
                 pendingFields={collectionScriptDraft}
                 focused={focus === "settings-content"}
                 onEditingChange={setScriptEditing}

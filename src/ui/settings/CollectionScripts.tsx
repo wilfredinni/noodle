@@ -20,12 +20,14 @@ export type SaveCollectionScripts = (
 export function CollectionScripts({
   fields,
   pendingFields,
+  initialPhase = "pre",
   focused,
   onFocus,
   onEditingChange,
   onChange,
 }: {
   fields: ScriptFields
+  initialPhase?: ScriptPhase
   pendingFields?: ScriptFields
   focused: boolean
   onFocus: () => void
@@ -37,7 +39,7 @@ export function CollectionScripts({
   const formattingTarget = useContext(CodeFormattingContext)
   const contextRef = useRef(context)
   contextRef.current = context
-  const [phase, setPhase] = useState<ScriptPhase>("pre")
+  const [phase, setPhase] = useState<ScriptPhase>(initialPhase)
   const [editing, setEditing] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
   const [draft, setDraft] = useState<ScriptFields>(
