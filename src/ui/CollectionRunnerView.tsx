@@ -1,3 +1,4 @@
+import type { RunnerDisplayItem } from "../runnerSession"
 import {
   useEffect,
   useLayoutEffect,
@@ -21,7 +22,7 @@ import type {
   UseCollectionRunnerResult,
 } from "../hooks/useCollectionRunner"
 import { RUNNER_RUN_OPTION_INDEX } from "../hooks/useCollectionRunner"
-import type { CollectionItem, Request } from "../schema"
+import type { Request } from "../schema"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
 import { FullBorder } from "./borders"
@@ -31,7 +32,6 @@ import { Select } from "./Select"
 import { COOKIE_CHEVRON_WIDTH, CookieRow } from "./CookieRow"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
-import { flattenRequests } from "./tree"
 import { ActionButton } from "./ActionButton"
 import { Badge } from "./Badge"
 import { SettingsField } from "./settings/SettingsField"
@@ -112,28 +112,36 @@ type RunnerListRow =
       requestIds: string[]
       depth: number
     }
-  | { kind: "request"; request: Request; index: number; depth: number }
+  | {
+      kind: "request"
+      request: Pick<Request, "id" | "name" | "method">
+      index: number
+      depth: number
+    }
 
 function flattenRunnerRows(
-  items: CollectionItem[],
+  items: RunnerDisplayItem[],
   requestIndexById: Map<string, number>,
   depth = 0,
 ): RunnerListRow[] {
   const rows: RunnerListRow[] = []
   for (const item of items) {
     if (item.type === "folder") {
+      const children = flattenRunnerRows(
+        item.data.children,
+        requestIndexById,
+        depth + 1,
+      )
       rows.push({
         kind: "folder",
         path: item.data.path,
         name: item.data.name,
-        requestIds: flattenRequests(item.data.children).map(
-          (request) => request.id,
+        requestIds: children.flatMap((row) =>
+          row.kind === "request" ? [row.request.id] : [],
         ),
         depth,
       })
-      rows.push(
-        ...flattenRunnerRows(item.data.children, requestIndexById, depth + 1),
-      )
+      rows.push(...children)
       continue
     }
     const index = requestIndexById.get(item.data.id)
@@ -174,6 +182,7 @@ export function CollectionRunnerView({
   )
   const previousPhaseRef = useRef<typeof runner.phase | null>(null)
   const [splitRatio, setSplitRatio] = useState(0.5)
+  const [resultsHeight, setResultsHeight] = useState(0)
   const [spinnerIndex, setSpinnerIndex] = useState(0)
 
   useEffect(() => {
@@ -202,7 +211,7 @@ export function CollectionRunnerView({
     detailScrollRef.current?.scrollChildIntoView(
       `runner-result-${runner.resultIndex}`,
     )
-  }, [runner.resultIndex])
+  }, [runner.resultIndex, width, resultsHeight])
 
   const paneDirection = stacked ? "column" : "row"
   const requestPaneWidth = stacked
@@ -216,6 +225,18 @@ export function CollectionRunnerView({
   const resultIndexById = new Map(
     runner.resultRows.map((row, index) => [row.id, index]),
   )
+  const resultRequestIds = new Map<string, number>()
+  for (const row of runner.result?.results ?? [])
+    resultRequestIds.set(row.id, resultRequestIds.size)
+  for (const row of runner.result?.skipped ?? [])
+    resultRequestIds.set(row.id, resultRequestIds.size)
+  // Live pending rows use the captured selection until completion events arrive.
+  for (const id of runner.executedConfiguration?.selectedIds ?? [])
+    if (!resultRequestIds.has(id))
+      resultRequestIds.set(id, resultRequestIds.size)
+  const executedRows = runner.resultItems
+    ? flattenRunnerRows(runner.resultItems, resultRequestIds)
+    : runnerRows
   const resultRunnerRows: (
     | (RunnerListRow & { iteration?: number })
     | { kind: "iteration"; iteration: number }
@@ -223,7 +244,7 @@ export function CollectionRunnerView({
   for (let index = 0; index < (runner.result?.iterations ?? 1); index++) {
     const iteration =
       runner.result?.iterations === undefined ? undefined : index
-    const rows = runnerRows.filter((row) =>
+    const rows = executedRows.filter((row) =>
       row.kind === "folder"
         ? row.requestIds.some((id) =>
             resultIndexById.has(runResultKey(id, iteration)),
@@ -871,12 +892,28 @@ export function CollectionRunnerView({
             ) : (
               <scrollbox
                 ref={detailScrollRef}
+                onSizeChange={() =>
+                  setResultsHeight(detailScrollRef.current?.height ?? 0)
+                }
                 scrollY
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <box style={{ flexDirection: "column", gap: 0 }}>
                   {runner.result ? (
                     <>
+                      {runner.executedConfiguration ? (
+                        <box flexDirection="column">
+                          <text
+                            fg={theme.textMuted}
+                          >{`Executed: ${runner.executedConfiguration.scope ? `Folder: ${runner.executedConfiguration.scope}` : "Entire collection"} · Environment: ${runner.executedConfiguration.environmentName ?? "Default"}`}</text>
+                          <text
+                            fg={theme.textMuted}
+                          >{`Include: ${runner.executedConfiguration.includeTags.join(", ") || "none"} · Exclude: ${runner.executedConfiguration.excludeTags.join(", ") || "none"} · Fail fast: ${runner.executedConfiguration.failFast ? "on" : "off"} · Delay: ${runner.executedConfiguration.delayMs}ms`}</text>
+                          <text
+                            fg={theme.textMuted}
+                          >{`Data: ${runner.executedConfiguration.dataPath || "none"}${runner.result.iterations !== undefined ? ` · ${runner.result.iterations} iterations` : ""} · Direct: ${runner.executedConfiguration.noProxy ? "on" : "off"} · Insecure: ${runner.executedConfiguration.insecure ? "on" : "off"}`}</text>
+                        </box>
+                      ) : null}
                       <box style={{ flexDirection: "row" }}>
                         <text
                           fg={
@@ -1036,7 +1073,10 @@ export function CollectionRunnerView({
                           onSelect={() => runner.setResultIndex(index)}
                           onActivate={
                             canOpen
-                              ? () => onOpenResultDetail(index)
+                              ? () => {
+                                  runner.setResultIndex(index)
+                                  onOpenResultDetail(index)
+                                }
                               : undefined
                           }
                           onHover={() => {}}

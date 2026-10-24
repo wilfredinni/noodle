@@ -446,7 +446,10 @@ export function openCollectionRunner(
 
 export function openRunnerRequestTab(
   requestId: string,
-  tab: Extract<FieldKind, "assertions" | "captures">,
+  tab: Extract<
+    FieldKind,
+    "assertions" | "captures" | "preScript" | "postScript" | "tests"
+  >,
   revealRequest: (requestId: string) => void,
   enterBrowseAt: (tab: FieldKind) => void,
   setView: (view: AppView) => void,

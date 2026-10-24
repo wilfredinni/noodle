@@ -477,7 +477,12 @@ describe("live Collection Runner", () => {
       expect(h.get().result?.cancelled).toBe(true)
       expect(h.get().result?.failure).toBeUndefined()
       expect(h.get().runError).toBeNull()
-      expect(h.get().result?.results).toEqual([successful])
+      expect(h.get().result?.results).toEqual([
+        {
+          ...successful,
+          response: { ...successful.response!, body: undefined },
+        },
+      ])
       expect(h.get().result?.summary.failureCategories).toEqual([])
       expect(h.get().resultDetails.get("first")).toEqual(detail)
     },
@@ -491,7 +496,10 @@ describe("live Collection Runner", () => {
     expect(h.aborted()).toBe(false)
     await h.firstDone()
     await h.finish()
-    expect(h.get().result?.results[0]).toEqual(successful)
+    expect(h.get().result?.results[0]).toEqual({
+      ...successful,
+      response: { ...successful.response!, body: undefined },
+    })
     expect(h.get().phase).toBe("results")
   })
 })

@@ -9,6 +9,7 @@ import {
 
 export interface OverlayProps {
   visible: boolean
+  hidden?: boolean
   width: number
   children: ReactNode
   onClose: () => void
@@ -20,6 +21,7 @@ export interface OverlayProps {
 
 export function Overlay({
   visible,
+  hidden = false,
   width,
   children,
   onClose,
@@ -52,6 +54,7 @@ export function Overlay({
         onClose()
       }}
       style={{
+        visible: !hidden,
         position: "absolute",
         left: 0,
         top: 0,

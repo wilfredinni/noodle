@@ -236,7 +236,17 @@ describe("useCollectionRunner", () => {
           args[10]?.({
             requestId: "root",
             iteration: result.iteration,
-            entry: { request: { url: result.url } } as never,
+            entry: {
+              timestamp: 1,
+              request: {
+                id: "root",
+                name: "Root",
+                method: "GET",
+                url: result.url,
+                headers: {},
+                params: [],
+              },
+            },
           })
         return {
           iterations: 2,

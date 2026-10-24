@@ -26,3 +26,4 @@ openapi.yml
 !.codex/agents/*.toml
 emptyfolder
 /noodle
+*.bun-build

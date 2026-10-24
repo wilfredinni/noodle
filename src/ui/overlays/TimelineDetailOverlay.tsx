@@ -1,9 +1,17 @@
+import type { RunnerSourceTarget } from "../runnerSource"
+import {
+  RUNNER_RETENTION_NOTICE,
+  type RunnerRetention,
+} from "../../runnerSession"
 import { ScriptConsole, scriptConsoleEntries } from "../ScriptConsole"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
-import type { Request, TimelineBodyRef, TimelineEntry } from "../../schema"
-import type { ResponseExecutionResults } from "../../executionResults"
+import type { TimelineBodyRef, TimelineEntry } from "../../schema"
+import type {
+  ResponseExecutionResults,
+  ResponseResultDeclarations,
+} from "../../executionResults"
 import { formatJson } from "../../lang/formatJson"
 import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
@@ -70,6 +78,7 @@ export function formatHeaderEntries(
 
 export function TimelineDetailOverlay({
   visible,
+  suspended = false,
   onStop,
   stopping = false,
   entry,
@@ -77,12 +86,14 @@ export function TimelineDetailOverlay({
   onClose,
   initialTab = "request",
   execution,
+  retention,
   request,
   showCaptures = false,
   captureLifetimeNote,
   warnings = [],
   onEditAssertions,
   onEditCaptures,
+  onOpenSources,
   envColors: _envColors,
   onLoadBody = async () => {
     throw new Error("No timeline body loader configured")
@@ -92,6 +103,7 @@ export function TimelineDetailOverlay({
   onExportBody = async () => {},
 }: {
   visible: boolean
+  suspended?: boolean
   onStop?: () => void
   stopping?: boolean
   iteration?: number
@@ -99,12 +111,14 @@ export function TimelineDetailOverlay({
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  retention?: RunnerRetention
+  request?: ResponseResultDeclarations
   showCaptures?: boolean
   captureLifetimeNote?: string
   warnings?: string[]
   onEditAssertions?: () => void
   onEditCaptures?: () => void
+  onOpenSources?: (targets: RunnerSourceTarget[]) => void
   envColors?: Record<string, string | undefined>
   onLoadBody?: (ref: TimelineBodyRef) => Promise<string>
   onCopyHeaders?: (headersText: string) => void
@@ -117,6 +131,7 @@ export function TimelineDetailOverlay({
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
+  const [sourceTargets, setSourceTargets] = useState<RunnerSourceTarget[]>([])
   const [activeTab, setActiveTab] = useState<DetailTab>(initialTab)
   const [loadedBody, setLoadedBody] = useState<string | null>(null)
   const [bodyError, setBodyError] = useState<string | null>(null)
@@ -136,16 +151,20 @@ export function TimelineDetailOverlay({
   )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
-  const resultExecution =
-    execution ??
-    (entry?.scripts || entry?.assertions || entry?.tests
-      ? {
-          scripts: entry.scripts,
-          assertions: entry.assertions,
-          tests: entry.tests,
-        }
-      : undefined)
+  const resultExecution = useMemo(
+    () =>
+      execution ??
+      (entry?.scripts || entry?.assertions || entry?.tests
+        ? {
+            scripts: entry.scripts,
+            assertions: entry.assertions,
+            tests: entry.tests,
+          }
+        : undefined),
+    [execution, entry],
+  )
   const hasResults = Boolean(
+    retention?.resultsOmitted ||
     resultExecution?.tests ||
     request?.tests !== undefined ||
     resultExecution?.scripts ||
@@ -167,7 +186,7 @@ export function TimelineDetailOverlay({
     entry && (activeTab === "request" || activeTab === "response")
       ? bodyInfo(entry, activeTab)
       : null
-  const isLarge = (info?.size ?? 0) > AUTO_RENDER_LIMIT
+  const isLarge = !info?.truncated && (info?.size ?? 0) > AUTO_RENDER_LIMIT
   const binaryResponse =
     activeTab === "response" && entry?.response?.bodyKind === "binary"
 
@@ -288,8 +307,12 @@ export function TimelineDetailOverlay({
     bodyEditorRef.current?.scrollTo(0)
   }, [renderedBody])
 
+  const openSource = useCallback(() => {
+    onOpenSources?.(activeTab === "results" ? sourceTargets : [])
+  }, [onOpenSources, activeTab, sourceTargets])
+
   useEffect(() => {
-    if (!visible || !entry) return
+    if (!visible || suspended || !entry) return
     return keymap.intercept(
       "key",
       (ctx) => {
@@ -297,6 +320,7 @@ export function TimelineDetailOverlay({
         key.preventDefault()
         key.stopPropagation()
         if (key.name === "s" && onStop && !stopping) onStop()
+        else if (key.name === "o" && onOpenSources) openSource()
         else if (key.name === "escape") onClose()
         else if (key.name === "left" || key.name === "right") {
           const ids = tabs.map((tab) => tab.id as DetailTab)
@@ -373,6 +397,7 @@ export function TimelineDetailOverlay({
     )
   }, [
     visible,
+    suspended,
     entry,
     keymap,
     onClose,
@@ -388,6 +413,8 @@ export function TimelineDetailOverlay({
     exportBody,
     onEditAssertions,
     onEditCaptures,
+    onOpenSources,
+    openSource,
     onStop,
     stopping,
   ])
@@ -415,6 +442,7 @@ export function TimelineDetailOverlay({
   return (
     <Overlay
       visible
+      hidden={suspended}
       width={70}
       height="80%"
       gap={1}
@@ -435,6 +463,11 @@ export function TimelineDetailOverlay({
             fg={theme.accent}
             flexShrink={0}
           >{`Iteration ${iteration + 1}`}</text>
+        ) : null}
+        {retention && activeTab !== "results" ? (
+          <text fg={theme.warning} flexShrink={0}>
+            {RUNNER_RETENTION_NOTICE}
+          </text>
         ) : null}
         <Tabs
           tabs={tabs}
@@ -459,7 +492,7 @@ export function TimelineDetailOverlay({
             <ScriptConsole
               key={`${entry.request.id}:${iteration ?? ""}`}
               execution={execution}
-              focused
+              focused={!suspended}
               allowOverlay
             />
           ) : activeTab === "network" ? (
@@ -476,8 +509,13 @@ export function TimelineDetailOverlay({
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <ResponseResults
+                  focused={!suspended}
                   showLogs={!execution}
                   execution={resultExecution}
+                  retention={retention}
+                  onSourceSelection={
+                    onOpenSources ? setSourceTargets : undefined
+                  }
                   request={request}
                   showCaptures={showCaptures}
                   captureLifetimeNote={captureLifetimeNote}
@@ -485,7 +523,7 @@ export function TimelineDetailOverlay({
                   allowOverlayNavigation
                 />
               </scrollbox>
-              {onEditAssertions || onEditCaptures ? (
+              {onOpenSources || onEditAssertions || onEditCaptures ? (
                 <box
                   style={{
                     flexDirection: "row",
@@ -494,6 +532,13 @@ export function TimelineDetailOverlay({
                     paddingTop: 1,
                   }}
                 >
+                  {onOpenSources ? (
+                    <ActionButton
+                      shortcut="o"
+                      label="Open source"
+                      onAction={openSource}
+                    />
+                  ) : null}
                   {onEditAssertions ? (
                     <ActionButton
                       shortcut="a"
@@ -603,12 +648,13 @@ export function TimelineDetailOverlay({
                 borderColor={theme.borderSubtle}
                 style={{ height: 1 }}
               />
+              {info?.truncated ? (
+                <text fg={theme.warning}>
+                  Body preview truncated; full body was not retained.
+                </text>
+              ) : null}
               {binaryResponse ? (
                 <text fg={theme.textMuted}>Binary body was not retained</text>
-              ) : info!.truncated ? (
-                <text fg={theme.warning}>
-                  Saved body was truncated by an older Noodle version.
-                </text>
               ) : loading ? (
                 <text fg={theme.textMuted}>Loading body…</text>
               ) : bodyError ? (
@@ -722,6 +768,13 @@ export function TimelineDetailOverlay({
               gap: 1,
             }}
           >
+            {onOpenSources ? (
+              <ActionButton
+                shortcut="o"
+                label="Open source"
+                onAction={openSource}
+              />
+            ) : null}
             <ActionButton
               shortcut="h"
               label="copy headers"

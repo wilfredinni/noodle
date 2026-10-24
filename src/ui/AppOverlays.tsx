@@ -1,3 +1,7 @@
+import { useState } from "react"
+import type { RunnerSourceTarget } from "./runnerSource"
+import { PickerOverlay } from "./overlays/PickerOverlay"
+import { scriptSourceLabel } from "../scriptInheritance"
 import type { UseCollectionRunnerResult } from "../hooks/useCollectionRunner"
 import type { RefObject } from "react"
 import { basename } from "node:path"
@@ -74,6 +78,10 @@ interface AppOverlaysProps {
   collection: Collection | null
   requests: NoodleRequest[]
   onFindRequest: (item: FinderItem) => void
+  onOpenRunnerSource?: (
+    requestId: string,
+    target?: RunnerSourceTarget,
+  ) => boolean
   onEditRunnerRequestTab: (
     requestId: string,
     tab: "assertions" | "captures",
@@ -149,6 +157,7 @@ export function AppOverlays({
   requests,
   onFindRequest,
   onEditRunnerRequestTab,
+  onOpenRunnerSource,
   runner,
   collectionSwitcherVisible,
   collectionPaths,
@@ -249,6 +258,15 @@ export function AppOverlays({
     setTimelineDetailEntry,
   } = overlays
 
+  const [sourceHighlight, setSourceHighlight] =
+    useState<RunnerSourceTarget | null>(null)
+  const openRunnerSource = (target?: RunnerSourceTarget) => {
+    if (!runnerDetail || !onOpenRunnerSource) return
+    if (onOpenRunnerSource(runnerDetail.entry.request.id, target)) {
+      overlays.setRunnerSources(null)
+      setRunnerDetail(null)
+    }
+  }
   const detailEntry = runnerDetail?.entry ?? timelineDetailEntry
 
   return (
@@ -597,9 +615,32 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
+      {overlays.runnerSources && (
+        <PickerOverlay
+          visible
+          title="Open source"
+          items={overlays.runnerSources}
+          keyExtractor={(target) => JSON.stringify(target)}
+          filter={(target, query) =>
+            (scriptSourceLabel(target.source) || `Request ${target.tab}`)
+              .toLowerCase()
+              .includes(query.toLowerCase())
+          }
+          renderItem={(target) => (
+            <text>
+              {scriptSourceLabel(target.source) || `Request ${target.tab}`}
+            </text>
+          )}
+          highlightedItem={sourceHighlight}
+          onHighlightChange={setSourceHighlight}
+          onSelect={openRunnerSource}
+          onClose={() => overlays.setRunnerSources(null)}
+        />
+      )}
       {detailEntry !== null && (
         <TimelineDetailOverlay
           visible
+          suspended={!!overlays.runnerSources}
           entry={detailEntry}
           iteration={runnerDetail?.iteration}
           onClose={() => {
@@ -607,6 +648,7 @@ export function AppOverlays({
             else setTimelineDetailEntry(null)
           }}
           execution={runnerDetail?.execution}
+          retention={runnerDetail?.retention}
           onStop={
             runnerDetail && runner?.phase === "running"
               ? runner.stop
@@ -623,6 +665,16 @@ export function AppOverlays({
               : undefined
           }
           warnings={runnerDetail?.warnings}
+          onOpenSources={
+            runnerDetail && !runner?.isRunning() && onOpenRunnerSource
+              ? (targets) => {
+                  if (targets.length > 1) {
+                    setSourceHighlight(null)
+                    overlays.setRunnerSources(targets)
+                  } else openRunnerSource(targets[0])
+                }
+              : undefined
+          }
           onEditAssertions={
             runnerDetail && !runner?.isRunning()
               ? () => {

@@ -1,11 +1,14 @@
+import { runnerResultSources, type RunnerSourceTarget } from "./runnerSource"
+import { RUNNER_RETENTION_NOTICE, type RunnerRetention } from "../runnerSession"
 import { useEffect, useState, type RefObject } from "react"
 import { stringWidth } from "bun"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import type { JsonValue, Request } from "../schema"
+import type { JsonValue } from "../schema"
 import {
   testsSucceeded,
   type ResponseExecutionResults,
+  type ResponseResultDeclarations,
 } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
 import { scriptSourceLabel } from "../scriptInheritance"
@@ -23,6 +26,7 @@ function formatValue(value: JsonValue | undefined): string {
 
 export function ResponseResults({
   execution,
+  retention,
   request,
   showLogs = true,
   showCaptures = true,
@@ -31,9 +35,11 @@ export function ResponseResults({
   focused = true,
   allowOverlayNavigation = false,
   onPaneFocus,
+  onSourceSelection,
 }: {
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  retention?: RunnerRetention
+  request?: ResponseResultDeclarations
   showLogs?: boolean
   showCaptures?: boolean
   captureLifetimeNote?: string
@@ -41,12 +47,18 @@ export function ResponseResults({
   focused?: boolean
   allowOverlayNavigation?: boolean
   onPaneFocus?: () => void
+  onSourceSelection?: (targets: RunnerSourceTarget[]) => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [selectedRowIdx, setSelectedRowIdx] = useState(0)
+  useEffect(() => {
+    onSourceSelection?.(
+      runnerResultSources(execution, selectedRowIdx, retention),
+    )
+  }, [execution, selectedRowIdx, onSourceSelection, retention])
   const tests = execution?.tests
   const testResults = tests?.evaluated ? tests.results : []
   const testErrors = tests?.errors ?? (tests?.error ? [tests.error] : [])
@@ -205,12 +217,26 @@ export function ResponseResults({
     showCaptures && (captures || activeCaptures.length > 0),
   )
 
+  if (retention?.resultsOmitted) {
+    return (
+      <box style={{ flexDirection: "column", gap: 1 }}>
+        <text fg={theme.warning}>{RUNNER_RETENTION_NOTICE}</text>
+        {retention.failure ? (
+          <text fg={theme.error}>{retention.failure}</text>
+        ) : null}
+      </box>
+    )
+  }
+
   if (!hasScripts && !hasAssertions && !hasCaptures && !hasTests) {
     return <text fg={theme.textMuted}>No execution results.</text>
   }
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
+      {retention ? (
+        <text fg={theme.warning}>{RUNNER_RETENTION_NOTICE}</text>
+      ) : null}
       {hasScripts ? (
         <box style={{ flexDirection: "column" }}>
           <box style={{ flexDirection: "row", gap: 1 }}>

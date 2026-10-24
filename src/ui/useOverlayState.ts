@@ -1,6 +1,10 @@
+import type { RunnerSourceTarget } from "./runnerSource"
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { Request, TimelineEntry } from "../schema"
-import type { ResponseExecutionResults } from "../executionResults"
+import type { TimelineEntry } from "../schema"
+import type {
+  ResponseExecutionResults,
+  ResponseResultDeclarations,
+} from "../executionResults"
 import type { YamlEditorState } from "./appState"
 import { initialYamlEditorState } from "./appState"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
@@ -37,10 +41,11 @@ export type TagEditPending =
     }
 
 export interface RunnerDetailOverlayState {
+  retention?: import("../runnerSession").RunnerRetention
   iteration?: number
   entry: TimelineEntry
   execution: ResponseExecutionResults
-  request: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  request?: ResponseResultDeclarations
   warnings?: string[]
 }
 
@@ -51,6 +56,7 @@ export type CookieDeletePending =
   | { kind: "reset" }
 
 export type ActiveOverlay =
+  | "runner-source"
   | "script-order"
   | "script-source-confirm"
   | "save-response"
@@ -100,6 +106,9 @@ export function useOverlayState({
   collectionSwitchPending,
   reloadPending,
 }: UseOverlayStateProps) {
+  const [runnerSources, setRunnerSources] = useState<
+    RunnerSourceTarget[] | null
+  >(null)
   const [scriptOrder, setScriptOrder] = useState<ScriptOrder | null>(null)
   const [scriptSourceConfirm, setScriptSourceConfirm] = useState<{
     confirm: () => void
@@ -177,6 +186,7 @@ export function useOverlayState({
   }, [cookieDeletePending])
 
   const activeOverlay = useMemo((): ActiveOverlay => {
+    if (runnerSources) return "runner-source"
     if (scriptSourceConfirm) return "script-source-confirm"
     if (scriptOrder) return "script-order"
     if (commandPaletteVisible) return "command-palette"
@@ -217,6 +227,7 @@ export function useOverlayState({
       return "timeline-detail"
     return "none"
   }, [
+    runnerSources,
     scriptOrder,
     scriptSourceConfirm,
     commandPaletteVisible,
@@ -256,6 +267,8 @@ export function useOverlayState({
 
   return {
     activeOverlay,
+    runnerSources,
+    setRunnerSources,
     scriptOrder,
     setScriptOrder,
     scriptSourceConfirm,

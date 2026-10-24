@@ -244,7 +244,17 @@ describe("CollectionRunnerView", () => {
         args[10]?.({
           requestId: "health",
           iteration: result.iteration,
-          entry: { request: { url: result.url } } as never,
+          entry: {
+            timestamp: 1,
+            request: {
+              id: "health",
+              name: "Health",
+              method: "GET",
+              url: result.url,
+              headers: {},
+              params: [],
+            },
+          },
         })
       return {
         iterations: 2,
@@ -333,12 +343,16 @@ describe("CollectionRunnerView", () => {
       })
     }
     expect(opened).toEqual(["https://example.com/0", "https://example.com/1"])
+    expect(current!.resultIndex).toBe(1)
     await act(async () => {
       render.resize(80, 30)
     })
     await act(async () => {
-      await render.renderOnce()
+      await render.flush()
     })
+    await waitForHookState(render, () =>
+      render.captureCharFrame().includes("Iteration 2/2"),
+    )
     expect(render.captureCharFrame()).toContain("Iteration 2/2")
   })
   it("keeps runner and run result rows compact", async () => {
@@ -1319,7 +1333,7 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 120, height: 32 })
     await render.renderOnce()
     await act(async () => current!.run())
-    await render.renderOnce()
+    await act(async () => render.renderOnce())
     const frame = render.captureCharFrame()
     expect(frame).toContain("Select")
     expect(frame).toContain("Results")
@@ -1372,7 +1386,7 @@ describe("CollectionRunnerView", () => {
         MouseButtons.LEFT,
       )
     })
-    await render.renderOnce()
+    await act(async () => render.renderOnce())
     expect(resultRow.width).toBeGreaterThan(initialResultRowWidth)
     expect(resultName.width).toBe(initialResultNameWidth)
     await act(async () =>
