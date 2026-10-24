@@ -41,6 +41,7 @@ export type TagEditPending =
     }
 
 export interface RunnerDetailOverlayState {
+  retention?: import("../runnerSession").RunnerRetention
   iteration?: number
   entry: TimelineEntry
   execution: ResponseExecutionResults

@@ -648,6 +648,7 @@ export function AppOverlays({
             else setTimelineDetailEntry(null)
           }}
           execution={runnerDetail?.execution}
+          retention={runnerDetail?.retention}
           onStop={
             runnerDetail && runner?.phase === "running"
               ? runner.stop

@@ -1,4 +1,8 @@
 import type { RunnerSourceTarget } from "../runnerSource"
+import {
+  RUNNER_RETENTION_NOTICE,
+  type RunnerRetention,
+} from "../../runnerSession"
 import { ScriptConsole, scriptConsoleEntries } from "../ScriptConsole"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
@@ -82,6 +86,7 @@ export function TimelineDetailOverlay({
   onClose,
   initialTab = "request",
   execution,
+  retention,
   request,
   showCaptures = false,
   captureLifetimeNote,
@@ -106,6 +111,7 @@ export function TimelineDetailOverlay({
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
   execution?: ResponseExecutionResults
+  retention?: RunnerRetention
   request?: ResponseResultDeclarations
   showCaptures?: boolean
   captureLifetimeNote?: string
@@ -155,6 +161,7 @@ export function TimelineDetailOverlay({
         }
       : undefined)
   const hasResults = Boolean(
+    retention?.resultsOmitted ||
     resultExecution?.tests ||
     request?.tests !== undefined ||
     resultExecution?.scripts ||
@@ -454,6 +461,11 @@ export function TimelineDetailOverlay({
             flexShrink={0}
           >{`Iteration ${iteration + 1}`}</text>
         ) : null}
+        {retention && activeTab !== "results" ? (
+          <text fg={theme.warning} flexShrink={0}>
+            {RUNNER_RETENTION_NOTICE}
+          </text>
+        ) : null}
         <Tabs
           tabs={tabs}
           activeId={activeTab}
@@ -497,6 +509,7 @@ export function TimelineDetailOverlay({
                   focused={!suspended}
                   showLogs={!execution}
                   execution={resultExecution}
+                  retention={retention}
                   onSourceSelection={
                     onOpenSources ? setSourceTargets : undefined
                   }

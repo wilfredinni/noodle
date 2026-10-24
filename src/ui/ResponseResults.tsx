@@ -1,4 +1,5 @@
 import { runnerResultSources, type RunnerSourceTarget } from "./runnerSource"
+import { RUNNER_RETENTION_NOTICE, type RunnerRetention } from "../runnerSession"
 import { useEffect, useState, type RefObject } from "react"
 import { stringWidth } from "bun"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
@@ -25,6 +26,7 @@ function formatValue(value: JsonValue | undefined): string {
 
 export function ResponseResults({
   execution,
+  retention,
   request,
   showLogs = true,
   showCaptures = true,
@@ -36,6 +38,7 @@ export function ResponseResults({
   onSourceSelection,
 }: {
   execution?: ResponseExecutionResults
+  retention?: RunnerRetention
   request?: ResponseResultDeclarations
   showLogs?: boolean
   showCaptures?: boolean
@@ -52,8 +55,10 @@ export function ResponseResults({
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [selectedRowIdx, setSelectedRowIdx] = useState(0)
   useEffect(() => {
-    onSourceSelection?.(runnerResultSources(execution, selectedRowIdx))
-  }, [execution, selectedRowIdx, onSourceSelection])
+    onSourceSelection?.(
+      runnerResultSources(execution, selectedRowIdx, retention),
+    )
+  }, [execution, selectedRowIdx, onSourceSelection, retention])
   const tests = execution?.tests
   const testResults = tests?.evaluated ? tests.results : []
   const testErrors = tests?.errors ?? (tests?.error ? [tests.error] : [])
@@ -212,12 +217,26 @@ export function ResponseResults({
     showCaptures && (captures || activeCaptures.length > 0),
   )
 
+  if (retention?.resultsOmitted) {
+    return (
+      <box style={{ flexDirection: "column", gap: 1 }}>
+        <text fg={theme.warning}>{RUNNER_RETENTION_NOTICE}</text>
+        {retention.failure ? (
+          <text fg={theme.error}>{retention.failure}</text>
+        ) : null}
+      </box>
+    )
+  }
+
   if (!hasScripts && !hasAssertions && !hasCaptures && !hasTests) {
     return <text fg={theme.textMuted}>No execution results.</text>
   }
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
+      {retention ? (
+        <text fg={theme.warning}>{RUNNER_RETENTION_NOTICE}</text>
+      ) : null}
       {hasScripts ? (
         <box style={{ flexDirection: "column" }}>
           <box style={{ flexDirection: "row", gap: 1 }}>

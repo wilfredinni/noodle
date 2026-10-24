@@ -244,7 +244,17 @@ describe("CollectionRunnerView", () => {
         args[10]?.({
           requestId: "health",
           iteration: result.iteration,
-          entry: { request: { url: result.url } } as never,
+          entry: {
+            timestamp: 1,
+            request: {
+              id: "health",
+              name: "Health",
+              method: "GET",
+              url: result.url,
+              headers: {},
+              params: [],
+            },
+          },
         })
       return {
         iterations: 2,

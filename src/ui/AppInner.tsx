@@ -1188,6 +1188,7 @@ export function AppInner({
       overlays.setRunnerDetail({
         iteration: row.result.iteration,
         entry: detail.entry,
+        retention: detail.retention,
         request: detail.request,
         execution: row.result,
         warnings: row.result.warnings,

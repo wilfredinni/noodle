@@ -1,4 +1,5 @@
 import type { Collection } from "../schema"
+import type { RunnerRetention } from "../runnerSession"
 import type { ResponseExecutionResults } from "../executionResults"
 import type { ScriptSource } from "../preRequestScript"
 import { SCRIPT_TABS, type ScriptField } from "../scriptAuthoring"
@@ -12,7 +13,22 @@ export interface RunnerSourceTarget {
 export function runnerResultSources(
   execution: ResponseExecutionResults | undefined,
   index: number,
+  retention?: RunnerRetention,
 ): RunnerSourceTarget[] {
+  if (retention?.resultsOmitted) {
+    const phase = retention.phase
+    return phase
+      ? [
+          {
+            tab:
+              phase === "assertions" || phase === "captures"
+                ? phase
+                : SCRIPT_TABS.find((tab) => tab.phase === phase)!.id,
+            source: retention.source,
+          },
+        ]
+      : []
+  }
   const scripts = execution?.scripts?.evaluated ? execution.scripts.results : []
   const assertions = execution?.assertions?.evaluated
     ? execution.assertions.results

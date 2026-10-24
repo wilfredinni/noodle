@@ -7,7 +7,14 @@ import {
   type RunnerDisplayItem,
   type RunnerSnapshot,
 } from "../runnerSession"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type { Collection, CollectionItem, Request } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import {
@@ -468,7 +475,9 @@ export function useCollectionRunner({
     ]
   }, [result, phase, liveRows])
 
-  selectedResultKeyRef.current = resultRows[resultIndex]?.id
+  useLayoutEffect(() => {
+    selectedResultKeyRef.current = resultRows[resultIndex]?.id
+  }, [resultRows, resultIndex])
   useEffect(() => {
     if (
       phase !== "results" ||
