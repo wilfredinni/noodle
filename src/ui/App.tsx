@@ -1,3 +1,4 @@
+import type { RunnerSnapshot } from "../runnerSession"
 import type { SaveCollectionScripts } from "./settings/CollectionScripts"
 import type { PrepareScriptFields } from "./editor/codeFormatting"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -194,6 +195,7 @@ export function App({
     useState(initialCollectionDir)
   const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
+  const runnerSession = useRef(new Map<string, RunnerSnapshot>())
   const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
   const [appProxyCredentials, setAppProxyCredentials] = useState(
     initialAppProxyCredentials,
@@ -1097,6 +1099,7 @@ export function App({
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <Toast />
       <AppInner
+        runnerSession={runnerSession.current}
         appConfigDir={CONFIG_DIR}
         key={`${activeCollectionDir}__${reloadKey}__${mode}`}
         collectionDir={activeCollectionDir}

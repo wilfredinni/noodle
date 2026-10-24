@@ -80,6 +80,30 @@ async function renderOverlay(
 }
 
 describe("TimelineDetailOverlay", () => {
+  it("shows a bounded retained body preview and labels truncated data", async () => {
+    const h = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "preview",
+          bodyTruncated: true,
+          size: 8 * 1024 * 1024,
+          timeMs: 1,
+        },
+      }),
+      () => {},
+      true,
+      { initialTab: "response" },
+    )
+    await act(async () => h.renderOnce())
+    expect(h.captureCharFrame()).toContain("Body preview truncated")
+    expect(h.captureCharFrame()).toContain("preview")
+    expect(h.captureCharFrame()).not.toContain("not rendered automatically")
+    h.cleanup()
+  })
+
   it("shows cancellation alongside a retained HTTP response", async () => {
     const h = await renderOverlay(
       makeEntry({

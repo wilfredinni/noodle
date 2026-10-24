@@ -599,7 +599,8 @@ describe("script workspaces", () => {
       await act(async () => {
         await runner.run()
       })
-      expect(JSON.stringify(runner.result)).toContain("SyntaxError")
+      expect(runner.runError).toContain("SyntaxError")
+      expect(runner.result).toBeNull()
       expect(send).not.toHaveBeenCalled()
     } finally {
       send.mockRestore()
