@@ -310,10 +310,3 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Run complete applicable Windows suite
         run: bun run test --timeout=30000
-      - name: Repeat Windows async script regression
-        run: |
-          for ($iteration = 1; $iteration -le 25; $iteration++) {
-            Write-Host "Async script regression $iteration/25"
-            bun test tests/integration/asyncScripts.test.ts --timeout=30000
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }

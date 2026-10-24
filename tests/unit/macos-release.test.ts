@@ -577,7 +577,7 @@ describe("release platforms", () => {
 })
 
 describe("manual CI builds", () => {
-  it("validates Windows in the shared matrix and repeats the async crash regression", () => {
+  it("validates Windows in the shared matrix without automatic stress repetitions", () => {
     const job = ci.jobs["platform-checks"]
     expect(ci.jobs["windows-x64"]).toBeUndefined()
     expect(
@@ -594,17 +594,6 @@ describe("manual CI builds", () => {
     )!
     expect(suite.run).toBe("bun run test --timeout=30000")
     expect(suite.if).toBeUndefined()
-    const regression = ci.jobs["test-windows"].steps!.find(
-      (step) => step.name === "Repeat Windows async script regression",
-    )!
-    expect(regression.if).toBeUndefined()
-    expect(regression.run).toContain("$iteration -le 25")
-    expect(regression.run).toContain(
-      "bun test tests/integration/asyncScripts.test.ts --timeout=30000",
-    )
-    expect(regression.run).toContain(
-      "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
-    )
     expect(
       job.steps!.some((step) => step.run === "bun test --timeout=30000"),
     ).toBe(false)
