@@ -52,6 +52,91 @@ const configuration: RunnerConfiguration = {
 }
 
 describe("Runner snapshots", () => {
+  it("shares one payload budget across results and detail previews while keeping every row", () => {
+    const body = "preview".repeat(1400)
+    const results: RequestRunResult[] = Array.from(
+      { length: 400 },
+      (_, iteration) => ({
+        id: request.id,
+        iteration,
+        method: "GET",
+        url: request.url,
+        ok: true,
+        failureCategories: [],
+        tests: {
+          evaluated: true,
+          results: [],
+          logs: [{ level: "log", message: body }],
+        },
+      }),
+    )
+    const entry = buildTimelineEntry(
+      { ...request, body, bodyType: "json" },
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 1,
+        },
+      },
+    )
+    const retained = retainRunnerSnapshot({
+      configuration,
+      items: runnerDisplayItems(collection.items),
+      selectedKey: "399:folder/request",
+      result: {
+        results,
+        skipped: [],
+        failed: false,
+        summary: summarizeRun(results, 400, 0, performance.now()),
+      },
+      details: new Map(
+        results.map((row) => [
+          `${row.iteration}:${row.id}`,
+          { requestId: row.id, iteration: row.iteration, entry },
+        ]),
+      ),
+    })
+    const payload =
+      JSON.stringify(
+        retained.result.results.map((row) => ({
+          scripts: row.scripts,
+          tests: row.tests,
+          captures: row.captures,
+          assertions: row.assertions,
+        })),
+      ) +
+      JSON.stringify(
+        [...retained.details.values()].map((detail) => ({
+          body: detail.entry.request.body,
+          response: detail.entry.response?.body,
+          network: detail.entry.network,
+        })),
+      )
+    expect(new TextEncoder().encode(payload).length).toBeLessThan(
+      5 * 1024 * 1024,
+    )
+    expect(retained.result.results).toHaveLength(400)
+    expect(retained.result.results[0]!.tests?.logs[0]?.message).toBe(body)
+    expect(retained.details.size).toBe(400)
+    expect(retained.details.get("399:folder/request")!.entry.request.id).toBe(
+      request.id,
+    )
+    expect(
+      retained.details.get("399:folder/request")!.entry.response?.status,
+    ).toBe(200)
+    expect(
+      retained.details.get("399:folder/request")!.entry.request.body,
+    ).toBeUndefined()
+    expect(
+      retained.details.get("399:folder/request")!.entry.response?.body,
+    ).toBeUndefined()
+    expect(retained.selectedKey).toBe("399:folder/request")
+  })
+
   it("retains redacted, bounded previews and diagnostics without live sources or duplicate bodies", () => {
     const body = "a".repeat(9999) + "😀" + "sensitive"
     const execution = {

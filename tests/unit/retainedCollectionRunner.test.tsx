@@ -15,7 +15,7 @@ import type { Collection } from "../../src/schema"
 import type { RunnerSnapshot } from "../../src/runnerSession"
 import { CollectionRunnerView } from "../../src/ui/CollectionRunnerView"
 import { ThemeProvider } from "../../src/ui/theme"
-import { createTestRender } from "../testRender"
+import { createTestRender, waitForHookState } from "../testRender"
 import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
@@ -67,11 +67,12 @@ async function harness() {
   let show!: (visible: boolean) => void
   let update!: (collection: Collection) => void
   let reset!: () => void
-  let runService = async () => completed()
+  let runService = async (_args: Parameters<typeof collectionRun>) =>
+    completed()
   const session = new Map<string, RunnerSnapshot>()
   const { keymap } = setupKeymap()
   const runCollection: typeof collectionRun = async (...args) => {
-    const result = await runService()
+    const result = await runService(args)
     for (const row of result.results)
       args[10]?.({
         requestId: row.id,
@@ -152,6 +153,33 @@ async function harness() {
 }
 
 describe("session-retained Runner", () => {
+  it("keeps the live selected iteration when completing and reopening a run", async () => {
+    const h = await harness()
+    const pending = Promise.withResolvers<CollectionRunResult>()
+    h.service(async (args) => {
+      args[14]?.onEvent?.({
+        type: "run-start",
+        requestIds: ["same"],
+        iterations: 2,
+      })
+      return pending.promise
+    })
+    let running!: Promise<void>
+    await act(async () => {
+      running = h.get().run()
+    })
+    await waitForHookState(h.render, () => h.get().resultRows.length === 2)
+    await act(async () => h.get().setResultIndex(1))
+    await act(async () => {
+      pending.resolve(completed())
+      await running
+    })
+    expect(h.get().resultRows[h.get().resultIndex]?.id).toBe("1:same")
+    await act(async () => h.switchCollection("/collection/b"))
+    await act(async () => h.switchCollection("/collection/a"))
+    expect(h.get().resultRows[h.get().resultIndex]?.id).toBe("1:same")
+  })
+
   it("survives reopen, collection remounts, config edits, source removal and repeated iterations", async () => {
     const h = await harness()
     await act(async () => {

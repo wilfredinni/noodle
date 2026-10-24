@@ -3,10 +3,11 @@ import { useEffect, useState, type RefObject } from "react"
 import { stringWidth } from "bun"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import type { JsonValue, Request } from "../schema"
+import type { JsonValue } from "../schema"
 import {
   testsSucceeded,
   type ResponseExecutionResults,
+  type ResponseResultDeclarations,
 } from "../executionResults"
 import { scriptExecutionSucceeded } from "../preRequestScript"
 import { scriptSourceLabel } from "../scriptInheritance"
@@ -35,7 +36,7 @@ export function ResponseResults({
   onSourceSelection,
 }: {
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  request?: ResponseResultDeclarations
   showLogs?: boolean
   showCaptures?: boolean
   captureLifetimeNote?: string

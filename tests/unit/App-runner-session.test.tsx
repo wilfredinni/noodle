@@ -67,6 +67,8 @@ it("retains results through App collection switches and navigates source owners 
           },
         ],
       },
+      assertions: { evaluated: false, results: [] },
+      captures: { evaluated: false, results: [] },
     }))
     for (const result of results)
       args[10]?.({
@@ -136,6 +138,11 @@ it("retains results through App collection switches and navigates source owners 
           initialSettings={{
             cookies: { enabled: false },
             timelineMaxEntries: 0,
+            scripts: {
+              pre: "./collection-pre.js",
+              post: "./collection-post.js",
+            },
+            tests: "test('collection', () => {})",
           }}
           noProxy
           systemProxy={{ bypass: [] }}
@@ -150,7 +157,7 @@ it("retains results through App collection switches and navigates source owners 
       await mkdir(join(dir, "folder"), { recursive: true })
       await writeFile(
         join(dir, "settings.yml"),
-        "cookies:\n  enabled: false\ntimeline_max_entries: 0\ntests: \"test('collection', () => {})\"\n",
+        "cookies:\n  enabled: false\ntimeline_max_entries: 0\nscripts:\n  pre: ./collection-pre.js\n  post: ./collection-post.js\ntests: \"test('collection', () => {})\"\n",
       )
       await writeFile(
         join(dir, "folder", "folder.yml"),
@@ -166,6 +173,15 @@ it("retains results through App collection switches and navigates source owners 
           params: [],
           timeout: 0,
           scripts: { post: "console.log('old')" },
+          assertions: [
+            {
+              expression: "status",
+              operator: "equals",
+              value: "private expected value",
+            },
+          ],
+          captures: { token: { value: "body.token", enabled: true } },
+          tests: "test('private source', () => {})",
         })
     }
     render = await act(async () =>
@@ -187,6 +203,19 @@ it("retains results through App collection switches and navigates source owners 
     await act(async () => runner.setResultIndex(1))
     await act(async () => host.press("return"))
     expect(modal.overlays.runnerDetail?.iteration).toBe(1)
+    expect(modal.overlays.runnerDetail?.request?.assertions).toEqual([
+      { expression: "status", operator: "equals", enabled: undefined },
+    ])
+    expect(modal.overlays.runnerDetail?.request?.captures).toEqual({
+      token: { value: "body.token", enabled: true },
+    })
+    expect(modal.overlays.runnerDetail?.request?.tests).toBe("")
+    expect(JSON.stringify(modal.overlays.runnerDetail?.request)).not.toContain(
+      "private",
+    )
+    expect(JSON.stringify(modal.overlays.runnerDetail?.request)).not.toContain(
+      "console.log",
+    )
     await act(async () => host.press("o"))
     expect(main.selectedId).toBe("folder/request")
     expect(keymap.getData("app.focus")).toBe("urlbar")
@@ -232,8 +261,29 @@ it("retains results through App collection switches and navigates source owners 
     expect(preferences.scope).toBe("collection")
     expect(preferences.category).toBe("scripts")
     expect(preferences.initialScriptPhase).toBe("tests")
+    await act(async () => {
+      modal.onOpenRunnerSource!("folder/request", {
+        tab: "postScript",
+        source: { scope: "collection", path: "settings.yml" },
+      })
+    })
+    expect(preferences.initialScriptPhase).toBe("post")
+    await act(async () => host.press("left"))
+    await act(async () => render!.renderOnce())
+    expect(render.captureCharFrame()).toContain("./collection-pre.js")
+    await act(async () => {
+      modal.onOpenRunnerSource!("folder/request", {
+        tab: "postScript",
+        source: { scope: "collection", path: "settings.yml" },
+      })
+    })
+    await act(async () => render!.renderOnce())
+    expect(render.captureCharFrame()).toContain("./collection-post.js")
     await act(async () => host.press("f5"))
     expect(runner.result).toBe(retained)
+    await act(async () => host.press("f4"))
+    expect(preferences.initialScriptPhase).toBe("pre")
+    await act(async () => host.press("f5"))
     await act(async () => app.onCollectionChange(b))
     await waitForHookState(
       render,
@@ -256,6 +306,9 @@ it("retains results through App collection switches and navigates source owners 
     await act(async () => host.press("f5"))
     await act(async () => host.press("return"))
     expect(modal.overlays.runnerDetail?.iteration).toBe(1)
+    expect(
+      modal.overlays.runnerDetail?.request?.assertions?.[0]?.expression,
+    ).toBe("status")
     await act(async () => host.press("o"))
     expect(notification).toHaveBeenLastCalledWith(
       "Source unavailable: it may have been renamed or deleted",

@@ -1,7 +1,10 @@
 import type { RunnerSourceTarget } from "./runnerSource"
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { Request, TimelineEntry } from "../schema"
-import type { ResponseExecutionResults } from "../executionResults"
+import type { TimelineEntry } from "../schema"
+import type {
+  ResponseExecutionResults,
+  ResponseResultDeclarations,
+} from "../executionResults"
 import type { YamlEditorState } from "./appState"
 import { initialYamlEditorState } from "./appState"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
@@ -41,7 +44,7 @@ export interface RunnerDetailOverlayState {
   iteration?: number
   entry: TimelineEntry
   execution: ResponseExecutionResults
-  request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  request?: ResponseResultDeclarations
   warnings?: string[]
 }
 

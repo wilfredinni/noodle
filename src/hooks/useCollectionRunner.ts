@@ -1,6 +1,8 @@
 import {
   retainRunnerSnapshot,
   runnerDisplayItems,
+  runnerRequestDeclarations,
+  type RunnerDetail,
   type RunnerConfiguration,
   type RunnerDisplayItem,
   type RunnerSnapshot,
@@ -14,7 +16,6 @@ import {
   selectCollectionRunRequests,
   summarizeRun,
   type CollectionRunResult,
-  type RequestRunDetail,
   type RequestRunResult,
 } from "../app/services"
 import { findFolderByPath, flattenRequests } from "../ui/tree"
@@ -78,7 +79,7 @@ export interface UseCollectionRunnerResult {
   requestIndex: number
   requestRowIndex: number
   resultIndex: number
-  resultDetails: Map<string, RequestRunDetail>
+  resultDetails: Map<string, RunnerDetail>
   selectOpen: boolean
   progress: { completed: number; total: number }
   result: CollectionRunResult | null
@@ -210,9 +211,9 @@ export function useCollectionRunner({
   const [requestIndex, setRequestIndexState] = useState(0)
   const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
-  const [resultDetails, setResultDetails] = useState<
-    Map<string, RequestRunDetail>
-  >(new Map())
+  const [resultDetails, setResultDetails] = useState<Map<string, RunnerDetail>>(
+    new Map(),
+  )
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [result, setResult] = useState<CollectionRunResult | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
@@ -221,6 +222,7 @@ export function useCollectionRunner({
   const generationRef = useRef(0)
   const [stopping, setStopping] = useState(false)
   const [liveRows, setLiveRows] = useState<RunnerResultRow[]>([])
+  const selectedResultKeyRef = useRef<string | undefined>(undefined)
   const isRunning = useCallback(() => runningRef.current, [])
   const stop = useCallback(() => {
     if (!runningRef.current || controllerRef.current?.signal.aborted) return
@@ -466,6 +468,7 @@ export function useCollectionRunner({
     ]
   }, [result, phase, liveRows])
 
+  selectedResultKeyRef.current = resultRows[resultIndex]?.id
   useEffect(() => {
     if (
       phase !== "results" ||
@@ -669,7 +672,13 @@ export function useCollectionRunner({
     let rows: RunnerResultRow[] = []
     const rowIndices = new Map<string, number>()
     let publishTimer: ReturnType<typeof setTimeout> | undefined
-    const details = new Map<string, RequestRunDetail>()
+    const details = new Map<string, RunnerDetail>()
+    const declarations = new Map(
+      nextRequests.map((request) => [
+        request.id,
+        runnerRequestDeclarations(request),
+      ]),
+    )
     let nextProgress = {
       completed: 0,
       total: nextRequests.length * iterationCount,
@@ -723,6 +732,7 @@ export function useCollectionRunner({
         items: displayItems,
         result: next,
         details,
+        selectedKey: selectedResultKeyRef.current,
       })
       retainedRef.current = retained
       snapshots.set(collectionDir, retained)
@@ -738,6 +748,7 @@ export function useCollectionRunner({
     setLiveRows([])
     setOptionIndexState(RUNNER_RUN_OPTION_INDEX)
     setResultIndex(0)
+    selectedResultKeyRef.current = undefined
     setResultDetails(new Map())
     setProgress({ completed: 0, total: ids.length * iterationCount })
     setPhase("running")
@@ -760,7 +771,10 @@ export function useCollectionRunner({
         failFast,
         (detail) => {
           if (!current()) return
-          details.set(runResultKey(detail.requestId, detail.iteration), detail)
+          details.set(runResultKey(detail.requestId, detail.iteration), {
+            ...detail,
+            request: declarations.get(detail.requestId),
+          })
           publish()
         },
         delayMs,

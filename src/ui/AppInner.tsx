@@ -384,6 +384,10 @@ export function AppInner({
   const [runnerScriptPhase, setRunnerScriptPhase] = useState<
     "pre" | "post" | "tests"
   >("pre")
+  const [runnerScriptPhaseRequest, setRunnerScriptPhaseRequest] = useState(0)
+  useEffect(() => {
+    if (view !== "settings") setRunnerScriptPhase("pre")
+  }, [view])
   const [runnerScope, setRunnerScope] = useState<string | null>(null)
   const [runnerResetKey, setRunnerResetKey] = useState(0)
   const runnerReturnFocusRef = useRef<Focus>("sidebar")
@@ -1015,6 +1019,7 @@ export function AppInner({
         onSettingsScopeChange("collection")
         onCollectionSettingsCategoryChange("scripts")
         setRunnerScriptPhase(scriptPhase(destination.tab ?? "") ?? "pre")
+        setRunnerScriptPhaseRequest((request) => request + 1)
         setView("settings")
         setFocus("settings-content")
       } else if (destination.scope === "folder") {
@@ -1183,6 +1188,7 @@ export function AppInner({
       overlays.setRunnerDetail({
         iteration: row.result.iteration,
         entry: detail.entry,
+        request: detail.request,
         execution: row.result,
         warnings: row.result.warnings,
       })
@@ -2307,6 +2313,7 @@ export function AppInner({
             onCollectionSettingsChange={onCollectionSettingsChange}
             onCollectionScriptsChange={onCollectionScriptsChange}
             initialScriptPhase={runnerScriptPhase}
+            scriptPhaseRequest={runnerScriptPhaseRequest}
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}

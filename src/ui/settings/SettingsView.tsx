@@ -141,6 +141,7 @@ export function SettingsView({
   collectionScripts,
   collectionScriptDraft,
   initialScriptPhase,
+  scriptPhaseRequest,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -196,6 +197,7 @@ export function SettingsView({
   tlsPassphrases?: Record<string, string>
   collectionScripts?: ScriptFields
   initialScriptPhase?: ScriptPhase
+  scriptPhaseRequest?: number
   collectionScriptDraft?: ScriptFields
   collectionName?: string
   collectionDescription?: string
@@ -951,6 +953,7 @@ export function SettingsView({
                 key={activeCollectionDir}
                 fields={collectionScripts ?? {}}
                 initialPhase={initialScriptPhase}
+                phaseRequest={scriptPhaseRequest}
                 pendingFields={collectionScriptDraft}
                 focused={focus === "settings-content"}
                 onEditingChange={setScriptEditing}

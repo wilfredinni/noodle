@@ -29,6 +29,14 @@ export interface ExecutionResultGroup<T> {
   results: T[]
 }
 
+export type ResponseResultDeclarations = Pick<Request, "tests" | "captures"> & {
+  scripts?: { pre?: string; post?: string }
+  assertions?: (Pick<
+    NonNullable<Request["assertions"]>[number],
+    "expression" | "operator" | "enabled"
+  > & { value?: JsonValue })[]
+}
+
 export interface TestExecutionGroup extends ExecutionResultGroup<TestResult> {
   cancelled?: true
   logs: ScriptLog[]

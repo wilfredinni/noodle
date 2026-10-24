@@ -3,8 +3,11 @@ import { ScriptConsole, scriptConsoleEntries } from "../ScriptConsole"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
-import type { Request, TimelineBodyRef, TimelineEntry } from "../../schema"
-import type { ResponseExecutionResults } from "../../executionResults"
+import type { TimelineBodyRef, TimelineEntry } from "../../schema"
+import type {
+  ResponseExecutionResults,
+  ResponseResultDeclarations,
+} from "../../executionResults"
 import { formatJson } from "../../lang/formatJson"
 import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
@@ -103,7 +106,7 @@ export function TimelineDetailOverlay({
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
   execution?: ResponseExecutionResults
-  request?: Pick<Request, "scripts" | "tests" | "assertions" | "captures">
+  request?: ResponseResultDeclarations
   showCaptures?: boolean
   captureLifetimeNote?: string
   warnings?: string[]

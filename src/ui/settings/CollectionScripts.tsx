@@ -21,6 +21,7 @@ export function CollectionScripts({
   fields,
   pendingFields,
   initialPhase = "pre",
+  phaseRequest,
   focused,
   onFocus,
   onEditingChange,
@@ -28,6 +29,7 @@ export function CollectionScripts({
 }: {
   fields: ScriptFields
   initialPhase?: ScriptPhase
+  phaseRequest?: number
   pendingFields?: ScriptFields
   focused: boolean
   onFocus: () => void
@@ -40,6 +42,10 @@ export function CollectionScripts({
   const contextRef = useRef(context)
   contextRef.current = context
   const [phase, setPhase] = useState<ScriptPhase>(initialPhase)
+  useEffect(() => {
+    setPhase(initialPhase)
+    setEditing(false)
+  }, [initialPhase, phaseRequest])
   const [editing, setEditing] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
   const [draft, setDraft] = useState<ScriptFields>(
