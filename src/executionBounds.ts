@@ -101,6 +101,7 @@ function boundedScriptResult(
             ...(request.status !== undefined ? { status: request.status } : {}),
             durationMs: request.durationMs,
             success: request.success,
+            ...(request.cancelled ? { cancelled: request.cancelled } : {}),
             failureCategories: request.failureCategories,
             error: boundedScriptError(request.error),
           })),
@@ -183,6 +184,8 @@ export function boundedExecutionResults(
           ...source.assertions,
           results: source.assertions.results.map((result) => ({
             ...result,
+            expression: boundedDiagnosticText(result.expression),
+            message: boundedDiagnosticText(result.message),
             ...(Object.hasOwn(result, "expected")
               ? { expected: boundedAssertionValue(result.expected!) }
               : {}),
