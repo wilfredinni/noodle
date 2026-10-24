@@ -1190,7 +1190,7 @@ export function AppInner({
         entry: detail.entry,
         retention: detail.retention,
         request: detail.request,
-        execution: row.result,
+        execution: detail.execution ?? row.result,
         warnings: row.result.warnings,
       })
     },

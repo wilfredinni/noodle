@@ -7,7 +7,10 @@ import type {
 import type { ScriptPhase, ScriptSource } from "./preRequestScript"
 import { scriptExecutionSucceeded } from "./preRequestScript"
 import { runResultKey } from "./iterationData"
-import type { ResponseResultDeclarations } from "./executionResults"
+import type {
+  ResponseExecutionResults,
+  ResponseResultDeclarations,
+} from "./executionResults"
 import {
   INLINE_BODY_LIMIT,
   boundedDiagnosticText,
@@ -55,6 +58,7 @@ export const RUNNER_RETENTION_NOTICE =
 
 export interface RunnerDetail extends RequestRunDetail {
   request?: ResponseResultDeclarations
+  execution?: ResponseExecutionResults
   retention?: RunnerRetention
 }
 
@@ -252,7 +256,7 @@ export function retainRunnerSnapshot(snapshot: RunnerSnapshot): RunnerSnapshot {
   const details = new Map<string, RunnerDetail>()
   for (const [key, detail] of snapshot.details) {
     const entry = detail.entry
-    const retention = summaries.get(key) ?? { resultsOmitted: true }
+    const retention = { ...(summaries.get(key) ?? { resultsOmitted: true }) }
     details.set(key, {
       requestId: detail.requestId,
       iteration: detail.iteration,
@@ -315,6 +319,7 @@ export function retainRunnerSnapshot(snapshot: RunnerSnapshot): RunnerSnapshot {
     remainingBytes -= extraBytes
     return full
   }
+  const omittedResults = new Map<string, RequestRunResult>()
   result.results = snapshot.result.results.map((row, index) => {
     const minimal = result.results[index]!
     const full = retain(minimal, {
@@ -326,19 +331,24 @@ export function retainRunnerSnapshot(snapshot: RunnerSnapshot): RunnerSnapshot {
       // The detail entry owns the sole retained body preview.
       response: row.response ? { ...row.response, body: undefined } : undefined,
     })
-    summaries.get(runResultKey(row.id, row.iteration))!.resultsOmitted =
-      full === minimal
+    if (full === minimal)
+      omittedResults.set(runResultKey(row.id, row.iteration), row)
     return full
   })
   for (const [key, detail] of snapshot.details) {
     const minimal = details.get(key)!
     const entry = detail.entry
+    const omittedResult = omittedResults.get(key)
+    if (omittedResult) minimal.retention!.resultsOmitted = true
     details.set(
       key,
       retain(minimal, {
         ...detail,
-        retention: minimal.retention?.resultsOmitted
-          ? minimal.retention
+        retention: omittedResult
+          ? { ...minimal.retention!, resultsOmitted: false }
+          : undefined,
+        execution: omittedResult
+          ? boundedExecutionResults(omittedResult)
           : undefined,
         entry: {
           ...entry,
@@ -364,7 +374,7 @@ export function retainRunnerSnapshot(snapshot: RunnerSnapshot): RunnerSnapshot {
   }
   if (
     ![...details.values()].some((detail) => detail.retention) &&
-    ![...summaries.values()].some((summary) => summary.resultsOmitted)
+    omittedResults.size === 0
   ) {
     result.warnings = snapshot.result.warnings?.map(boundedDiagnosticText)
   }
