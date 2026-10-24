@@ -46,7 +46,9 @@ const artifactNames: string[] = releaseTargets.map(
   ({ asset }) => `validated-${asset}`,
 )
 // Keep in sync with bun-version in .github/workflows/ci.yml and release.yml.
-export const bunVersion = "1.4.3"
+export function bunVersion(target: string): string {
+  return target === "win32-x64" ? "1.4.4" : "1.4.3"
+}
 
 function regularFile(path: string): Buffer {
   const stat = lstatSync(path)
@@ -76,7 +78,11 @@ export function recordArtifact(
 ) {
   identity(sha, version)
   const entry = releaseTargets.find((entry) => entry.target === target)
-  if (!entry || !/^\d+$/.test(runId) || producerBunVersion !== bunVersion)
+  if (
+    !entry ||
+    !/^\d+$/.test(runId) ||
+    producerBunVersion !== bunVersion(target)
+  )
     throw new Error("Invalid artifact producer")
   const binary = join(directory, entry.asset)
   const sha256 = hash(regularFile(binary))
@@ -132,7 +138,7 @@ export function verifyArtifacts(
       version,
       target: entry.target,
       asset: entry.asset,
-      bun: bunVersion,
+      bun: bunVersion(entry.target),
       runId,
     })) {
       if (metadata?.[key] !== expected)

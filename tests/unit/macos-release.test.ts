@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import { load } from "js-yaml"
+import { bunVersion } from "../../scripts/release-artifacts"
 
 const root = resolve(import.meta.dir, "../..")
 const signingScript = join(root, "scripts/sign-macos-binary.ts")
@@ -75,6 +76,34 @@ function releaseAsset(target: string) {
 }
 
 describe("release platforms", () => {
+  it("changes the Bun runtime only for Windows", () => {
+    expect(bunVersion("win32-x64")).toBe("1.4.4")
+    for (const target of [
+      "darwin-arm64",
+      "darwin-x64",
+      "linux-arm64",
+      "linux-x64",
+    ])
+      expect(bunVersion(target)).toBe("1.4.3")
+    for (const config of [ci, workflow]) {
+      for (const [name, job] of Object.entries(config.jobs)) {
+        for (const step of job.steps ?? []) {
+          if (!step.uses?.startsWith("oven-sh/setup-bun@")) continue
+          const expected =
+            name === "test-windows"
+              ? bunVersion("win32-x64")
+              : [
+                    "platform-checks",
+                    "validate-release-artifact",
+                    "recover-publication",
+                  ].includes(name)
+                ? "${{ runner.os == 'Windows' && '1.4.4' || '1.4.3' }}"
+                : "1.4.3"
+          expect(step.with?.["bun-version"]).toBe(expected)
+        }
+      }
+    }
+  })
   it.skipIf(process.platform === "win32")(
     "loads immutable workflow tools when the published tag predates them",
     () => {
@@ -548,7 +577,7 @@ describe("release platforms", () => {
 })
 
 describe("manual CI builds", () => {
-  it("validates Windows in the shared matrix without automatic stress repetitions", () => {
+  it("validates Windows in the shared matrix and repeats the async crash regression", () => {
     const job = ci.jobs["platform-checks"]
     expect(ci.jobs["windows-x64"]).toBeUndefined()
     expect(
@@ -565,6 +594,17 @@ describe("manual CI builds", () => {
     )!
     expect(suite.run).toBe("bun run test --timeout=30000")
     expect(suite.if).toBeUndefined()
+    const regression = ci.jobs["test-windows"].steps!.find(
+      (step) => step.name === "Repeat Windows async script regression",
+    )!
+    expect(regression.if).toBeUndefined()
+    expect(regression.run).toContain("$iteration -le 25")
+    expect(regression.run).toContain(
+      "bun test tests/integration/asyncScripts.test.ts --timeout=30000",
+    )
+    expect(regression.run).toContain(
+      "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+    )
     expect(
       job.steps!.some((step) => step.run === "bun test --timeout=30000"),
     ).toBe(false)
