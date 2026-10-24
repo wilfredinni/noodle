@@ -361,7 +361,7 @@ noodle collection run ./my-api users/ --data ./data/users.json --tag smoke --del
 the optional **Data file** path, check the iteration count, and select **Run**.
 Relative CLI paths start at the current directory; relative F5 paths start at
 the collection root. Both accept absolute paths. F5 revalidates at run start.
-The path and results stay in the current Runner workspace until a new run or workspace reset. Humans can inspect completed Results and Console while later requests run, press `s` or click Stop to cancel, leave with Escape, and return with F5. Execution-affecting edits stay locked until cleanup completes. There is no per-collection history or disk retention.
+Humans can inspect completed Results and Console while later requests run, press `s` or click Stop to cancel, leave with Escape, and return with F5. Execution-affecting edits stay locked until cleanup completes. The latest settled run per collection stays in memory until app exit, including its executed configuration and selected iteration/result, across reloads and collection switches. A later settled run replaces it; configuration edits and preflight failures preserve earlier results. In settled details, `o` opens the request or selected result's request/folder/collection source; multiple test origins offer a searchable picker. F5 returns to results. Text body previews stop at 10,000 UTF-8 bytes; diagnostic limits can omit details with an explicit notice while preserving failure summaries and source origins. Binary bodies remain metadata-only. No disk history is added.
 
 CSV uses a header row as variable names and keeps cells as strings, including
 quoted commas and multiline fields; a UTF-8 BOM is accepted. JSON requires a

@@ -4,6 +4,36 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-24
+
+Noodle 0.10.2 keeps each collection's latest Runner results available for the app session, even after reloading or switching collections. Open a result's request or inherited script source, make changes, and return to the same result with F5; retained results keep the configuration and labels used for that run.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-2-retained-runner-results/)
+
+### ✨ Features
+
+- Retain the latest settled run per collection in memory, including executed configuration, request labels, selected iteration/result, response previews, and redacted diagnostics. Preserve it across view changes, collection reloads/switches, configuration edits, and preflight failures until a later run settles or the app exits; do not write Runner history to disk.
+- Open a settled result's request or selected script, test, assertion, or capture source with `o`. Navigate to the owning request, folder, or collection script phase, offer a searchable picker for multiple test origins, warn when a source is unavailable, and return to the retained selection with F5.
+
+### 🐞 Fixes
+
+- Preserve failure summaries and source origins when retained-detail limits omit diagnostics, distinguish omitted results from checks that never ran, and label truncated body previews. Limit text body previews to 10,000 UTF-8 bytes and retain binary response metadata without body bytes.
+- Keep source selection stable and isolate source-picker search from underlying detail-overlay shortcuts, including repeated navigation to collection script phases.
+- Preserve cancellation, persistence, inherited-source, and child-request metadata when bounding Runner and timeline diagnostics.
+- Update the transitive `fast-uri` dependency to its patched version and regenerate the bundled schema validator.
+
+### 🔧 Refactors
+
+- Share diagnostic bounds between timeline storage and retained Runner snapshots.
+- Build and validate Windows artifacts with Bun 1.4.4 and target-specific producer metadata; other release targets remain on Bun 1.4.3. Remove the repeated Windows async-script stress pass while retaining the full applicable suite and native platform checks.
+- Refresh runtime and development dependencies while keeping OpenTUI pinned to 0.5.14.
+
+### 📚 Documentation
+
+- Update `noodle-dev` with per-collection session ownership, retention limits, shared diagnostic bounds, source navigation, and regression coverage.
+- Update `noodle-use` with retained Runner results, source-opening controls, preview limits, and session-only lifetime.
+- Synchronize the README, agent instructions, in-app tips, Runner and shortcut guides, agent-skill guidance, version examples, comparison, and release article.
+
 ## [0.10.1] - 2026-10-18
 
 Noodle 0.10.1 shows Collection Runner results as requests finish, so you can inspect completed responses, checks, and Console logs while the run continues. Stop an active run from the keyboard or mouse, browse elsewhere, and return to its partial or final results with F5.

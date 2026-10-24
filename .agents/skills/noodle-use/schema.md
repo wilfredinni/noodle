@@ -1299,7 +1299,11 @@ noodle collection run ./my-api users/ --data ./data/users.json --tag smoke --del
 the optional **Data file** path, check the iteration count, and select **Run**.
 Relative CLI paths start at the current directory; relative F5 paths start at
 the collection root. Both accept absolute paths. F5 revalidates at run start.
-The path and results are temporary Runner options.
+The latest settled run per collection retains its data-file path, executed
+configuration, selected iteration/result, and bounded redacted details for the
+app session, across reloads and collection switches. It does not retain dataset
+contents or add disk history. A later settled run replaces it; configuration
+edits and preflight failures preserve prior results.
 
 CSV uses a header row as variable names and keeps cells as strings, including
 quoted commas and multiline fields; a UTF-8 BOM is accepted. JSON requires a

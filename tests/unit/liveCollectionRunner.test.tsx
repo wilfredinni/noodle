@@ -395,7 +395,7 @@ describe("live Collection Runner", () => {
       expect(before).toContain("RUNNING")
       expect(before).toContain("PENDING")
       expect(before).toContain("s Stop 1/3")
-      expect(before).toContain("v0.10.1")
+      expect(before).toContain("v0.10.2")
       expect(before).toContain("Live acceptance")
       if (input === "detail") {
         await act(async () => h.host.press("return"))

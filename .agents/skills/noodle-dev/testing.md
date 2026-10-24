@@ -210,6 +210,15 @@ keyboard/mouse/focused/detail Stop, responsive navigation, failure focus, and
 keymap and command-palette suites. Repeat changed asynchronous files ten times
 without React act warnings. Capture the actual native rendered frame for visual QA.
 
+For session retention, keep `runnerSession.test.ts` and
+`retainedCollectionRunner.test.tsx` covering configuration/display snapshots,
+iteration selection, collection remounts, reloads, preflight failures,
+cancellation, redaction, and optional-detail budgets. `App-runner-session.test.tsx`
+covers source-owner navigation and F5 return through the production App;
+`RunnerRetentionOverlay.test.tsx` covers omitted-result failure summaries and
+source selection. Keep source-picker search isolated from underlying shortcuts,
+and preserve cancellation/persistence metadata in `executionBounds.test.ts`.
+
 Run `tests/integration/collectionCancellation.test.ts` and
 `collectionCancellationCli.test.ts` for pre-aborted signals, HTTP and OAuth,
 pre/post child calls, partial diagnostics, redaction, cancellable delay, dataset

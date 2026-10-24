@@ -70,7 +70,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **UI:** [OpenTUI](https://github.com/anomius/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
 - **Language:** TypeScript 7, strict mode, `"type": "module"`.
 - **Lint:** Oxlint 1 with ESLint and TypeScript plugins. `no-unused-vars` ignores `_`-prefixed args.
-- **Format:** Oxfmt 0.70; `semi: false`, `singleQuote: false`, `printWidth: 80`.
+- **Format:** Oxfmt 0.74; `semi: false`, `singleQuote: false`, `printWidth: 80`.
 - **Tests:** `bun:test` (not vitest/jest). `describe`, `it`, `expect`.
 - **Package manager:** Bun. `bun.lock` (not `yarn.lock`/`package-lock.json`).
 
@@ -80,6 +80,8 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 src/
 ├── assertions.ts  # Declarative response assertion evaluation
 ├── executionResults.ts # Async shared captures → post callback → assertions execution
+├── executionBounds.ts # Shared bounds for retained Runner and timeline diagnostics
+├── runnerSession.ts # Per-collection app-session Runner snapshots and bounded previews
 ├── preRequestScript.ts # Phase-aware pre/post/tests sandbox; thin pre entry point
 ├── scriptAsync.ts # Controlled Promise jobs, CPU/wall deadlines, cancellation
 ├── scriptInheritance.ts # Collection/folder/request blocks and diagnostic origins
@@ -480,6 +482,7 @@ Bulk fold and unfold actions are configurable in Shortcuts and unbound by defaul
 | `Enter` | Activate an option or expand a result row |
 | `r` | Start the configured run from options |
 | `s` | Stop the active run, including from its detail overlay |
+| `o` in settled result details | Open the request or selected result's source; choose an origin when needed |
 | `←` | Return from results to configuration |
 | `Esc` | Leave the Runner while the active run continues |
 
@@ -488,8 +491,19 @@ and cancelled states keyed by request and dataset iteration. Completed details
 remain inspectable during execution. Tab and scrolling stay available; the Run
 action becomes Stop, activated by click or focused Enter/Space. Stop remains in
 the stopping state until shared cancellation and cookie cleanup settle. F5
-resumes the current workspace's latest run without resetting it. No per-collection
-history or disk retention is added. Active runs block edits, sends, collection
+resumes live results or the collection's latest settled run. `App.tsx` owns a
+session map keyed by collection directory, retaining run configuration, display
+metadata, iteration/result selection, redacted diagnostics, and bounded body
+previews across view changes, reloads, and collection switches. Configuration
+edits do not relabel retained results, and preflight failures preserve the prior
+snapshot. A later settled run replaces it; app exit clears it. No disk history
+is added. `runnerSession.ts` reserves failure summaries and origins before optional
+details within a 5 MiB budget; required metadata can exceed that budget. Text body
+previews are limited to 10,000 UTF-8 bytes and binary bodies remain metadata-only.
+Omission notices distinguish missing retained details from unevaluated checks.
+`runnerSource.ts` resolves current request/folder/collection owners; unavailable
+sources warn without discarding the snapshot. Source navigation is available
+after cleanup, and F5 returns to the retained selection. Active runs block edits, sends, collection
 switch/reload, and environment/cookie/transport configuration changes across
 keyboard, palette, and mouse paths; read-only browsing and appearance remain available.
 
