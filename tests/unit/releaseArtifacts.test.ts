@@ -191,33 +191,36 @@ function fixture() {
       sha,
       "0.9.7",
       "123",
-      bunVersion,
+      bunVersion(entry.target),
     )
   }
   return { root, directory, output: join(root, "release-assets") }
 }
 
 describe("validated release artifacts", () => {
-  it("rejects a mismatched producer Bun version before writing", () => {
-    const root = mkdtempSync(join(tmpdir(), "noodle-producer-"))
-    const output = join(root, "validated-build")
-    try {
-      expect(() =>
-        recordArtifact(
-          root,
-          output,
-          releaseTargets[0].target,
-          sha,
-          "0.9.7",
-          "123",
-          "0.0.0",
-        ),
-      ).toThrow("Invalid artifact producer")
-      expect(existsSync(output)).toBe(false)
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
-  })
+  it.each(releaseTargets)(
+    "rejects a mismatched producer Bun version for $target before writing",
+    ({ target }) => {
+      const root = mkdtempSync(join(tmpdir(), "noodle-producer-"))
+      const output = join(root, "validated-build")
+      try {
+        expect(() =>
+          recordArtifact(
+            root,
+            output,
+            target,
+            sha,
+            "0.9.7",
+            "123",
+            target === "win32-x64" ? "1.4.3" : "1.4.4",
+          ),
+        ).toThrow("Invalid artifact producer")
+        expect(existsSync(output)).toBe(false)
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
+    },
+  )
   it("records and verifies artifacts again in existing output directories", () => {
     const { root, directory, output } = fixture()
     try {
@@ -229,7 +232,7 @@ describe("validated release artifacts", () => {
         sha,
         "0.9.7",
         "123",
-        bunVersion,
+        bunVersion(entry.target),
       )
       verifyArtifacts(directory, output, sha, "0.9.7", "123")
       writeFileSync(join(output, entry.asset), "stale")
