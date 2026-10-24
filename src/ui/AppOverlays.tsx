@@ -622,7 +622,7 @@ export function AppOverlays({
           items={overlays.runnerSources}
           keyExtractor={(target) => JSON.stringify(target)}
           filter={(target, query) =>
-            scriptSourceLabel(target.source)
+            (scriptSourceLabel(target.source) || `Request ${target.tab}`)
               .toLowerCase()
               .includes(query.toLowerCase())
           }

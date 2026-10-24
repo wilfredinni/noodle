@@ -151,15 +151,18 @@ export function TimelineDetailOverlay({
   )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
-  const resultExecution =
-    execution ??
-    (entry?.scripts || entry?.assertions || entry?.tests
-      ? {
-          scripts: entry.scripts,
-          assertions: entry.assertions,
-          tests: entry.tests,
-        }
-      : undefined)
+  const resultExecution = useMemo(
+    () =>
+      execution ??
+      (entry?.scripts || entry?.assertions || entry?.tests
+        ? {
+            scripts: entry.scripts,
+            assertions: entry.assertions,
+            tests: entry.tests,
+          }
+        : undefined),
+    [execution, entry],
+  )
   const hasResults = Boolean(
     retention?.resultsOmitted ||
     resultExecution?.tests ||

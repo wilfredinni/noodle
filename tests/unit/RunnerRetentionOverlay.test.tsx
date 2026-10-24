@@ -1,5 +1,6 @@
-import { expect, it } from "bun:test"
-import { act } from "react"
+import { expect, it, spyOn } from "bun:test"
+import { act, type ComponentProps } from "react"
+import * as results from "../../src/ui/ResponseResults"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
@@ -260,3 +261,85 @@ it.each([
     }
   },
 )
+
+it("settles source selection when execution is derived from a timeline entry", async () => {
+  const ActualResults = results.ResponseResults
+  let forward: ComponentProps<typeof ActualResults>["onSourceSelection"]
+  let notifications = 0
+  const notify = (targets: RunnerSourceTarget[]) => {
+    notifications++
+    // Bound the regression so a broken feedback loop cannot hang the test runner.
+    if (notifications <= 10) forward?.(targets)
+  }
+  using selectionSpy = spyOn(results, "ResponseResults").mockImplementation(
+    (props) => {
+      forward = props.onSourceSelection
+      return (
+        <ActualResults
+          {...props}
+          onSourceSelection={props.onSourceSelection ? notify : undefined}
+        />
+      )
+    },
+  )
+  const { keymap, host, cleanup } = setupKeymap()
+  let opened: RunnerSourceTarget[] = []
+  const h = await act(async () =>
+    testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TimelineDetailOverlay
+            visible
+            onClose={() => {}}
+            onOpenSources={(targets) => {
+              opened = targets
+            }}
+            entry={{
+              timestamp: 1,
+              request: {
+                id: "request",
+                name: "Request",
+                method: "GET",
+                url: "https://example.com",
+                headers: {},
+                params: [],
+              },
+              assertions: {
+                evaluated: true,
+                results: [
+                  {
+                    expression: "status",
+                    operator: "exists",
+                    passed: true,
+                    message: "Exists",
+                  },
+                ],
+              },
+              tests: { evaluated: true, results: [], logs: [] },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 40 },
+    ),
+  )
+  try {
+    await h.renderOnce()
+    await act(async () => host.press("right"))
+    await h.renderOnce()
+    await act(async () => host.press("right"))
+    await h.renderOnce()
+    expect(notifications).toBe(1)
+    expect(selectionSpy).toHaveBeenCalled()
+    await act(async () => host.press("o"))
+    expect(opened).toEqual([{ tab: "assertions" }])
+    await act(async () => host.press("down"))
+    await h.renderOnce()
+    expect(notifications).toBe(2)
+    await act(async () => host.press("o"))
+    expect(opened).toEqual([{ tab: "tests" }])
+  } finally {
+    cleanup()
+    act(() => h.renderer.destroy())
+  }
+})

@@ -195,6 +195,7 @@ describe("AppOverlays routing", () => {
                 source: { scope: "collection", path: "settings.yml" },
               },
               { name: "Error", message: "folder", source },
+              { name: "Error", message: "request" },
             ],
           },
         },
@@ -208,6 +209,13 @@ describe("AppOverlays routing", () => {
     )
     await act(async () => host.press("o"))
     expect(state.activeOverlay).toBe("runner-source")
+    await act(async () => h.mockInput.typeText("ReQuEsT TeStS"))
+    await waitForHookState(
+      h,
+      () => !h.captureCharFrame().includes("collection: settings.yml"),
+    )
+    expect(h.captureCharFrame()).toContain("Request tests")
+    expect(h.captureCharFrame()).not.toContain("folder: folder")
     await act(async () => host.press("escape"))
     expect(state.runnerSources).toBeNull()
     await waitForHookState(h, () =>
