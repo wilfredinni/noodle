@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from "bun:test"
-import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -167,6 +167,34 @@ it("skips main after setup failure but attempts teardown", async () => {
   ])
   expect(result.results.map((row) => row.ok)).toEqual([false, true])
   expect(result.failed).toBe(true)
+})
+it("keeps setup-failed for the started row and fail-fast for later rows", async () => {
+  await writeFile(join(dir, "rows.json"), "[{},{}]")
+  await save("setup", { scripts: { pre: 'throw Error("setup failed")' } })
+  await save("teardown")
+  const events: CollectionRunEvent[] = []
+  const result = await run({
+    failFast: true,
+    data: join(dir, "rows.json"),
+    event: (event) => events.push(event),
+  })
+  expect(hits).toEqual(["/teardown"])
+  expect(result.skipped).toEqual([
+    { id: "main", stage: "main", iteration: 0, reason: "setup-failed" },
+    { id: "setup", stage: "setup", iteration: 1, reason: "fail-fast" },
+    { id: "main", stage: "main", iteration: 1, reason: "fail-fast" },
+    { id: "teardown", stage: "teardown", iteration: 1, reason: "fail-fast" },
+  ])
+  expect(events.filter((event) => event.type === "request-skip")).toEqual(
+    result.skipped.map((skip) => ({ type: "request-skip", ...skip })),
+  )
+})
+it("audits hook references without rewriting requests missing timeout", async () => {
+  const path = join(dir, "setup.yml")
+  const source = (await readFile(path, "utf8")).replace(/^timeout:.*\n/m, "")
+  await writeFile(path, source)
+  expect((await collectionAudit(dir, false)).valid).toBe(true)
+  expect(await readFile(path, "utf8")).toBe(source)
 })
 it("attempts teardown after ordinary and fail-fast failures, retaining both failures", async () => {
   await save("main", { url: `http://127.0.0.1:${server.port}/fail-main` })

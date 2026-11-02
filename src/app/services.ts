@@ -538,7 +538,12 @@ async function auditFile(
         : {}
       if (settings.hooks)
         resolveCollectionHooks(
-          (await filestore.loadCollection(root, { loadScripts: false })).items,
+          (
+            await filestore.loadCollection(root, {
+              loadScripts: false,
+              readOnly: true,
+            })
+          ).items,
           settings.hooks,
         )
       await scriptSources.resolveBlocks([
@@ -1273,10 +1278,9 @@ export async function collectionRun(
             stage === "teardown" && rowStarted && stopped !== "cancelled"
           let skipReason = cleanup
             ? undefined
-            : (stopped ??
-              (setupFailed && stage === "main"
-                ? ("setup-failed" as const)
-                : undefined))
+            : setupFailed && stage === "main"
+              ? ("setup-failed" as const)
+              : stopped
           if (!skipReason && delayMs > 0 && results.length > 0) {
             try {
               await delay(delayMs, undefined, { signal })

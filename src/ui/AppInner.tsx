@@ -198,6 +198,7 @@ export function AppInner({
   collectionTls,
   tlsPassphrases,
   collectionHooks,
+  collectionSettingsPending = false,
   collectionScripts,
   collectionScriptDraft,
   collectionName,
@@ -270,6 +271,7 @@ export function AppInner({
   collectionTls?: CollectionTlsSettings
   tlsPassphrases: Record<string, string>
   collectionHooks?: CollectionSettings["hooks"]
+  collectionSettingsPending?: boolean
   collectionScripts?: Pick<CollectionSettings, "scripts" | "tests">
   collectionScriptDraft?: Pick<CollectionSettings, "scripts" | "tests">
   collectionName?: string
@@ -940,7 +942,7 @@ export function AppInner({
     folderPath: runnerScope,
     activeEnvironment: envState.activeName,
     environmentNames: envState.names,
-    hasUnsavedChanges,
+    hasUnsavedChanges: hasUnsavedChanges || collectionSettingsPending,
     noProxy,
     systemProxy,
     insecure,
@@ -1246,6 +1248,8 @@ export function AppInner({
   } = useCollectionFileActions({
     prepareFolder: formatOnSave ? prepareFolder : undefined,
     collection,
+    collectionHooks: collectionHooks ?? collection?.hooks,
+    collectionSettingsPending,
     collectionDir,
     updateCollection,
     selectedRequest,
@@ -2256,7 +2260,7 @@ export function AppInner({
           <CollectionRunnerView
             runner={runner}
             focus={focus}
-            hasUnsavedChanges={hasUnsavedChanges}
+            hasUnsavedChanges={hasUnsavedChanges || collectionSettingsPending}
             detailScrollRef={runnerDetailScrollRef}
             onPaneFocus={setFocus}
             onEditTagFilter={handleOpenRunnerTagFilter}

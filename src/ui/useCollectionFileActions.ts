@@ -21,11 +21,14 @@ import { syncParamsWithUrl, syncPathParamsWithUrl } from "./urlParams"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import type { PreparedSave } from "./editor/codeFormatting"
+import { showToast } from "./Toast"
 
 interface UseCollectionFileActionsOptions {
   prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
   collectionDir: string
   collection: Collection | null
+  collectionHooks?: Collection["hooks"]
+  collectionSettingsPending?: boolean
   updateCollection: Dispatch<SetStateAction<Collection | null>>
   selectedRequest: NoodleRequest | null
   requestDraftRef: MutableRefObject<UseRequestDraftResult>
@@ -55,6 +58,8 @@ export function useCollectionFileActions({
   prepareFolder,
   collectionDir,
   collection,
+  collectionHooks,
+  collectionSettingsPending = false,
   updateCollection,
   selectedRequest,
   requestDraftRef,
@@ -96,6 +101,26 @@ export function useCollectionFileActions({
       showSaveResult({ kind: "error", message: msg })
     },
     [showSaveResult],
+  )
+
+  const canRemovePath = useCallback(
+    (path: string, folder = false) => {
+      if (collectionSettingsPending) {
+        showToast("Wait for collection settings to finish saving", "warning")
+        return false
+      }
+      for (const [stage, id] of Object.entries(collectionHooks ?? {})) {
+        if (folder ? id?.startsWith(`${path}/`) : id === path) {
+          showToast(
+            `Unassign the ${stage} hook in Collection Settings first`,
+            "warning",
+          )
+          return false
+        }
+      }
+      return true
+    },
+    [collectionHooks, collectionSettingsPending],
   )
 
   const handleFolderSave = useCallback(async () => {
@@ -316,6 +341,7 @@ export function useCollectionFileActions({
   const handleFolderDeleteConfirm = useCallback(() => {
     const path = folderDeletePathRef.current
     if (!path) return
+    if (!canRemovePath(path, true)) return
 
     deleteFolder(collectionDir, path)
       .then(() => {
@@ -329,6 +355,7 @@ export function useCollectionFileActions({
       })
       .catch(showError)
   }, [
+    canRemovePath,
     collectionDir,
     folderDeletePathRef,
     setCollectionReloadToken,
@@ -356,6 +383,7 @@ export function useCollectionFileActions({
       const pathParams = syncPathParamsWithUrl(req.pathParams ?? [], url)
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
+      if (nameChanged && !canRemovePath(req.id)) return
       const changed =
         nameChanged ||
         method !== req.method ||
@@ -407,6 +435,7 @@ export function useCollectionFileActions({
         .catch(showError)
     },
     [
+      canRemovePath,
       collectionDir,
       expandFolder,
       selectedRequest,
@@ -422,6 +451,8 @@ export function useCollectionFileActions({
 
   const handleRequestDeleteConfirm = useCallback(() => {
     const errorFileId = requestDeleteFileRef.current
+    const id = errorFileId ?? selectedRequest?.id
+    if (id && !canRemovePath(id)) return
     if (errorFileId) {
       deleteRequest(collectionDir, errorFileId)
         .then(() => {
@@ -453,6 +484,7 @@ export function useCollectionFileActions({
       })
       .catch(showError)
   }, [
+    canRemovePath,
     collectionDir,
     requestDeleteFileRef,
     selectedRequest,

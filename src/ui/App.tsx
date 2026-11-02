@@ -1155,6 +1155,9 @@ export function App({
         onTlsPassphraseChange={handleTlsPassphraseChange}
         onTlsProfileRemove={handleTlsProfileRemove}
         collectionHooks={settings.hooks}
+        collectionSettingsPending={
+          settingsPersistence.pendingUpdates.current.length > 0
+        }
         collectionScripts={settings}
         collectionScriptDraft={collectionScriptDrafts[activeCollectionDir]}
         onCollectionSettingsChange={handleCollectionSettingsChange}

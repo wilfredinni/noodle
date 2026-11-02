@@ -59,8 +59,11 @@ const OPTION_DESCRIPTIONS = [
 ] as const
 
 function resultStatusLabel(row: RunnerResultRow): string {
-  if (row.kind === "skipped")
-    return row.reason === "fail-fast" ? "Fail-fast" : "Cancelled"
+  if (row.kind === "skipped") {
+    if (row.reason === "fail-fast") return "Fail-fast"
+    if (row.reason === "setup-failed") return "Setup failed"
+    return "Cancelled"
+  }
   if (row.kind !== "result")
     return row.kind === "running" ? "In progress" : "Waiting"
   if (row.result.cancelled) return "Cancelled"
