@@ -152,7 +152,7 @@ it("validates references and all sources before setup HTTP", async () => {
   await save("teardown", { scripts: { post: "./missing.js" } })
   expect((await run()).failure?.category).toBe("configuration")
   expect(hits).toEqual([])
-  await saveSettings(dir, { hooks: { setup: "missing" } })
+  await writeFile(join(dir, "settings.yml"), "hooks:\n  setup: missing\n")
   expect((await run()).failure?.message).toContain("missing request")
   expect(hits).toEqual([])
   expect((await collectionAudit(dir, false)).valid).toBe(false)

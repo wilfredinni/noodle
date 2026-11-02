@@ -28,7 +28,6 @@ it.each([false, true])(
       cookies: { enabled: false },
       hooks: { setup: "old" },
     }
-    await store.saveSettings(dir, initialSettings)
     for (const id of ["old", "new", "main"])
       await store.saveRequest(dir, {
         id,
@@ -39,6 +38,7 @@ it.each([false, true])(
         params: [],
         timeout: 0,
       })
+    await store.saveSettings(dir, initialSettings)
     const first = Promise.withResolvers<void>()
     const second = Promise.withResolvers<void>()
     const useRunner = hooks.useCollectionRunner

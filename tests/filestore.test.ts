@@ -626,6 +626,44 @@ describe("filestore.loadSettings", () => {
 })
 
 describe("filestore.saveSettings", () => {
+  it.each(["setup", "teardown"] as const)(
+    "rejects a deleted %s request without replacing settings",
+    async (stage) => {
+      await saveRequest(dir, makeReq({ id: "hook" }))
+      await saveSettings(dir, { name: "Keep me" })
+      const snapshot = await filestore.loadCollection(dir)
+      const original = await readFile(join(dir, "settings.yml"), "utf8")
+      await rm(join(dir, "hook.yml"))
+      expect(reqs(snapshot).some((request) => request.id === "hook")).toBe(true)
+      await expect(
+        saveSettings(dir, { hooks: { [stage]: "hook" } }),
+      ).rejects.toThrow(
+        `settings.yml: hooks.${stage} references a missing request`,
+      )
+      expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe(original)
+      expect(await readdir(dir)).toEqual(["settings.yml"])
+    },
+  )
+
+  it("validates nested hook files without rewriting requests or requiring unrelated valid YAML", async () => {
+    await saveRequest(dir, makeReq({ id: "nested/setup" }))
+    await saveRequest(dir, makeReq({ id: "teardown" }))
+    const path = join(dir, "nested/setup.yml")
+    const original = (await readFile(path, "utf8")).replace(
+      /^timeout:.*\n/m,
+      "",
+    )
+    await writeFile(path, original)
+    await writeFile(join(dir, "broken.yml"), "invalid: [")
+    const settings = {
+      hooks: { setup: "nested/setup", teardown: "teardown" },
+      environment: "dev",
+    }
+    await saveSettings(dir, settings)
+    expect(await loadSettings(dir)).toEqual(settings)
+    expect(await readFile(path, "utf8")).toBe(original)
+  })
+
   it("round-trips a collection credential namespace id", async () => {
     const collectionId = "123e4567-e89b-42d3-a456-426614174000"
     await saveSettings(dir, { collectionId })

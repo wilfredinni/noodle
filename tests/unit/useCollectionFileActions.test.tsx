@@ -192,6 +192,13 @@ describe("useCollectionFileActions", () => {
     "invalid-file",
     "folder",
     "pending",
+    "memory-only",
+    "disk-setup",
+    "disk-teardown",
+    "disk-rename",
+    "disk-move",
+    "disk-folder",
+    "unreadable-settings",
   ] as const)(
     "rejects %s for a hook request without changing files",
     async (operation) => {
@@ -206,10 +213,21 @@ describe("useCollectionFileActions", () => {
         operation === "invalid-file"
           ? "invalid: ["
           : lang.serializeRequest(request)
-      const hook = operation === "teardown" ? "teardown" : "setup"
-      const settings = `hooks:\n  ${hook}: api/get-user\n`
+      const hook =
+        operation === "teardown" || operation === "disk-teardown"
+          ? "teardown"
+          : "setup"
+      const settings =
+        operation === "unreadable-settings"
+          ? "invalid: ["
+          : operation === "memory-only"
+            ? "{}\n"
+            : `hooks:\n  ${hook}: api/get-user\n`
       await writeFile(path, source)
-      await writeFile(join(collectionDir, "settings.yml"), settings)
+      await writeFile(
+        join(collectionDir, "settings.yml"),
+        operation.startsWith("disk-") ? "{}\n" : settings,
+      )
       let edit!: (
         name: string,
         method: NoodleRequest["method"],
@@ -230,7 +248,11 @@ describe("useCollectionFileActions", () => {
           collectionDir={collectionDir}
           collectionLoaded={operation !== "invalid-file"}
           collectionHooks={
-            operation === "pending" ? undefined : { [hook]: request.id }
+            operation === "pending" ||
+            operation.startsWith("disk-") ||
+            operation === "unreadable-settings"
+              ? undefined
+              : { [hook]: request.id }
           }
           collectionSettingsPending={operation === "pending"}
           selectedRequest={request}
@@ -251,11 +273,14 @@ describe("useCollectionFileActions", () => {
         { width: 1, height: 1 },
       )
       await render.renderOnce()
+      if (operation.startsWith("disk-"))
+        await writeFile(join(collectionDir, "settings.yml"), settings)
       await act(async () => {
-        if (operation === "rename") edit("Renamed", "GET", request.url, "api")
-        else if (operation === "move")
+        if (operation === "rename" || operation === "disk-rename")
+          edit("Renamed", "GET", request.url, "api")
+        else if (operation === "move" || operation === "disk-move")
           edit("Get User", "GET", request.url, "other")
-        else if (operation === "folder") {
+        else if (operation === "folder" || operation === "disk-folder") {
           setFolder("api")
           deleteFolder()
         } else {
@@ -263,7 +288,11 @@ describe("useCollectionFileActions", () => {
           deleteRequest()
         }
         expect(await finished.promise).toContain(
-          operation === "pending" ? "finish saving" : `${hook} hook`,
+          operation === "pending"
+            ? "finish saving"
+            : operation === "unreadable-settings"
+              ? "Cannot read collection settings"
+              : `${hook} hook`,
         )
         expect(notify).toHaveBeenCalledTimes(1)
       })
@@ -500,10 +529,10 @@ describe("useCollectionFileActions", () => {
     expect(request.method).toBe("GET")
   })
 
-  it("deletes a request file that failed collection parsing", async () => {
+  it.each(["broken", "settings"])("repairs invalid %s", async (id) => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
     dirs.push(collectionDir)
-    await writeFile(join(collectionDir, "broken.yml"), "collection_id: nope\n")
+    await writeFile(join(collectionDir, `${id}.yml`), "collection_id: nope\n")
 
     let setDeleteFile: ((id: string) => void) | undefined
     let confirmDelete: (() => void) | undefined
@@ -529,11 +558,11 @@ describe("useCollectionFileActions", () => {
     await render.renderOnce()
     await render.renderOnce()
     await act(async () => {
-      setDeleteFile?.("broken")
+      setDeleteFile?.(id)
       confirmDelete?.()
     })
     await deleted
 
-    await expect(readFile(join(collectionDir, "broken.yml"))).rejects.toThrow()
+    await expect(readFile(join(collectionDir, `${id}.yml`))).rejects.toThrow()
   })
 })
