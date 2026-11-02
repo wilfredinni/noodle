@@ -105,7 +105,10 @@ to create a collection, send your first request, and inspect the response.
   Generate test data and timestamps with `$random` and `$time` placeholders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
-  iteration data, and JSON results. Interrupt CLI collection runs with Ctrl+C to
+  iteration data, and JSON results. Optional saved setup and teardown requests
+  surround each run or data row; configure them in Collection Settings > General.
+  Empty selections send nothing, and cancellation skips teardown.
+  Interrupt CLI collection runs with Ctrl+C to
   retain completed results and inspect what was cancelled or never started.
   In the TUI, inspect completed Results and Console while later requests run;
   press `s` or click Stop to cancel, and use F5 to return after browsing elsewhere.

@@ -197,6 +197,7 @@ export function AppInner({
   collectionProxyCredentials,
   collectionTls,
   tlsPassphrases,
+  collectionHooks,
   collectionScripts,
   collectionScriptDraft,
   collectionName,
@@ -268,6 +269,7 @@ export function AppInner({
   collectionProxyCredentials: ProxyCredentials
   collectionTls?: CollectionTlsSettings
   tlsPassphrases: Record<string, string>
+  collectionHooks?: CollectionSettings["hooks"]
   collectionScripts?: Pick<CollectionSettings, "scripts" | "tests">
   collectionScriptDraft?: Pick<CollectionSettings, "scripts" | "tests">
   collectionName?: string
@@ -295,6 +297,7 @@ export function AppInner({
       | "name"
       | "description"
       | "timelineMaxEntries"
+      | "hooks"
       | "tls"
       | "cookies"
       | "scripts"
@@ -414,11 +417,17 @@ export function AppInner({
       loadedCollection && collectionScripts
         ? {
             ...loadedCollection,
+            hooks: collectionHooks,
             scripts: collectionScripts.scripts,
             tests: collectionScripts.tests,
           }
         : loadedCollection,
-    [loadedCollection, collectionScripts?.scripts, collectionScripts?.tests],
+    [
+      loadedCollection,
+      collectionHooks,
+      collectionScripts?.scripts,
+      collectionScripts?.tests,
+    ],
   )
   const items = collection?.items ?? []
   const collectionErrorCount = error ? extractFileErrors(error).length : 0
@@ -1187,6 +1196,7 @@ export function AppInner({
       runnerRef.current.setResultIndex(index)
       overlays.setRunnerDetail({
         iteration: row.result.iteration,
+        stage: row.result.stage,
         entry: detail.entry,
         retention: detail.retention,
         request: detail.request,
@@ -2275,6 +2285,8 @@ export function AppInner({
             tlsPassphrases={tlsPassphrases}
             collectionScripts={collectionScripts ?? collection ?? undefined}
             collectionScriptDraft={collectionScriptDraft}
+            collectionHooks={collectionHooks}
+            hookRequests={requests}
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}

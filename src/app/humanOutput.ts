@@ -318,17 +318,22 @@ export function formatCollectionRun(data: CollectionRunResult): string {
       ...(result.iteration !== undefined
         ? [`Iteration ${result.iteration + 1}/${data.iterations}`]
         : []),
+      ...(result.stage ? [`Stage: ${result.stage}`] : []),
       ...formatRunResult(result).split("\n"),
     ]),
     ...data.skipped.map(
       (request) =>
-        `- ${request.iteration !== undefined ? `Iteration ${request.iteration + 1}: ` : ""}${request.id}  skipped (${request.reason})`,
+        `- ${request.iteration !== undefined ? `Iteration ${request.iteration + 1}: ` : ""}${request.stage ? `[${request.stage}] ` : ""}${request.id}  skipped (${request.reason})`,
     ),
     ...(data.failure
       ? [`${color("configuration error", "red")}: ${data.failure.message}`]
       : []),
     "",
     `Summary: ${color(`${summary.requestSuccesses} passed`, "green")}, ${summary.requestFailures ? color(`${summary.requestFailures} failed`, "red") : "0 failed"}, ${summary.executed}/${summary.selected} executed, ${summary.skipped} skipped, ${summary.durationMs}ms`,
+    ...Object.entries(summary.stages ?? {}).map(
+      ([stage, counts]) =>
+        `${stage}: ${counts.passed} passed, ${counts.failed} failed, ${counts.skipped} skipped, ${counts.cancelled} cancelled`,
+    ),
     ...(data.cancelled
       ? [
           `Cancellation: ${summary.completed} completed, ${summary.cancelled} cancelled, ${summary.unstarted} unstarted`,

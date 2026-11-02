@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { dirname, join } from "node:path"
 import * as yaml from "../yaml"
 import { lang } from "../lang"
+import { parseCollectionHooks } from "../collectionHooks"
 import type { CollectionSettings, Folder, Request } from "../schema"
 import {
   parseScripts,
@@ -129,6 +130,14 @@ export async function saveSettings(
   }
 
   const data: Record<string, unknown> = {}
+  if (settings.hooks !== undefined) {
+    const hooks = parseCollectionHooks(
+      Object.fromEntries(
+        Object.entries(settings.hooks).filter(([, id]) => id !== undefined),
+      ),
+    )
+    if (Object.keys(hooks).length) data.hooks = hooks
+  }
   if (settings.collectionId !== undefined) {
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(

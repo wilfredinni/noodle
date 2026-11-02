@@ -1494,3 +1494,48 @@ describe("CollectionRunnerView", () => {
     cleanup()
   })
 })
+
+it("counts hooks in the Run button and labels configured stages", async () => {
+  const { keymap, cleanup } = setupKeymap()
+  const hooked: Collection = {
+    ...multiRequestCollection,
+    hooks: { setup: "one", teardown: "three" },
+  }
+  function Harness() {
+    const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+    const runner = useCollectionRunner({
+      collection: hooked,
+      collectionDir: "/tmp/hooks-view",
+      folderPath: null,
+      activeEnvironment: null,
+      environmentNames: [],
+      hasUnsavedChanges: false,
+      noProxy: true,
+      insecure: false,
+      systemProxy: { bypass: [] },
+      resetKey: 1,
+    })
+    return (
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CollectionRunnerView
+            runner={runner}
+            focus="runner-options"
+            hasUnsavedChanges={false}
+            detailScrollRef={detailScrollRef}
+            onPaneFocus={() => {}}
+            onEditTagFilter={() => {}}
+            onOpenResultDetail={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>
+    )
+  }
+  const h = await testRender(<Harness />, { width: 110, height: 35 })
+  await h.renderOnce()
+  const frame = h.captureCharFrame()
+  expect(frame).toContain("Setup: one")
+  expect(frame).toContain("Teardown: three")
+  expect(frame).toContain("Run 3 requests")
+  cleanup()
+})

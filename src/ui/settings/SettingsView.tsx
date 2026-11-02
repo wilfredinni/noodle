@@ -142,6 +142,8 @@ export function SettingsView({
   collectionScriptDraft,
   initialScriptPhase,
   scriptPhaseRequest,
+  collectionHooks,
+  hookRequests = [],
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -199,6 +201,8 @@ export function SettingsView({
   initialScriptPhase?: ScriptPhase
   scriptPhaseRequest?: number
   collectionScriptDraft?: ScriptFields
+  collectionHooks?: CollectionSettings["hooks"]
+  hookRequests?: { id: string; name: string }[]
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -236,6 +240,7 @@ export function SettingsView({
       | "name"
       | "description"
       | "timelineMaxEntries"
+      | "hooks"
       | "tls"
       | "cookies"
       | "scripts"
@@ -482,6 +487,8 @@ export function SettingsView({
         "settings-timeline-max-entries",
         "settings-active-environment",
         "settings-cookies-enabled",
+        "settings-hook-setup",
+        "settings-hook-teardown",
       ][contentIndex]
       if (id) scrollRef.current?.scrollChildIntoView(id)
     }
@@ -624,9 +631,9 @@ export function SettingsView({
               event.name === "home"
                 ? 0
                 : event.name === "end"
-                  ? 4
+                  ? 6
                   : Math.min(
-                      4,
+                      6,
                       Math.max(
                         0,
                         contentIndex + (event.name === "up" ? -1 : 1),
@@ -638,7 +645,7 @@ export function SettingsView({
             event.stopPropagation()
             if (!commitCollectionGeneralField(contentIndex)) return
             const next = contentIndex + (event.shift ? -1 : 1)
-            if (next < 0 || next >= 5) onPaneFocus("settings-sidebar")
+            if (next < 0 || next >= 7) onPaneFocus("settings-sidebar")
             else setContentIndex(next)
           } else if (
             event.name === "return" &&
@@ -1398,6 +1405,61 @@ export function SettingsView({
                     <Checkbox checked={cookiesEnabled} theme={theme} />
                   </SettingLabel>
                 </box>
+                {(["setup", "teardown"] as const).map((stage, index) => (
+                  <box key={stage} id={`settings-hook-${stage}`}>
+                    <SettingLabel
+                      title={
+                        stage === "setup" ? "Setup request" : "Teardown request"
+                      }
+                      description={
+                        stage === "setup"
+                          ? "Run before selected requests, once per data row."
+                          : "Run after selected requests, including failures. Cancellation skips cleanup."
+                      }
+                      active={
+                        focus === "settings-content" &&
+                        contentIndex === index + 5
+                      }
+                    >
+                      <Select
+                        items={[
+                          { id: "", label: "None" },
+                          ...hookRequests
+                            .filter(
+                              (request) =>
+                                request.id !==
+                                collectionHooks?.[
+                                  stage === "setup" ? "teardown" : "setup"
+                                ],
+                            )
+                            .map((request) => ({
+                              id: request.id,
+                              label: `${request.name} (${request.id})`,
+                            })),
+                        ]}
+                        value={collectionHooks?.[stage] ?? ""}
+                        placeholder="None"
+                        fitContent
+                        focused={
+                          focus === "settings-content" &&
+                          contentIndex === index + 5
+                        }
+                        onActivate={() =>
+                          activateCollectionGeneralField(index + 5)
+                        }
+                        onOpenChange={setSelectOpen}
+                        onChange={(id) =>
+                          onCollectionSettingsChange({
+                            hooks: {
+                              ...collectionHooks,
+                              [stage]: id || undefined,
+                            },
+                          })
+                        }
+                      />
+                    </SettingLabel>
+                  </box>
+                ))}
               </>
             )}
             {message && section !== "keyboard" && (

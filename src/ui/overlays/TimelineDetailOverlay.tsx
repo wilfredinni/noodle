@@ -83,6 +83,7 @@ export function TimelineDetailOverlay({
   stopping = false,
   entry,
   iteration,
+  stage,
   onClose,
   initialTab = "request",
   execution,
@@ -107,6 +108,7 @@ export function TimelineDetailOverlay({
   onStop?: () => void
   stopping?: boolean
   iteration?: number
+  stage?: "setup" | "main" | "teardown"
   entry: TimelineEntry | null
   onClose: () => void
   initialTab?: Extract<DetailTab, "request" | "response">
@@ -458,6 +460,7 @@ export function TimelineDetailOverlay({
           minHeight: 0,
         }}
       >
+        {stage ? <text fg={theme.textMuted}>{`Stage: ${stage}`}</text> : null}
         {iteration !== undefined ? (
           <text
             fg={theme.accent}

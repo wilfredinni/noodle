@@ -284,6 +284,7 @@ export interface Request extends ScriptFields {
 }
 
 export interface Collection extends ScriptFields {
+  hooks?: { setup?: string; teardown?: string }
   id: string
   name: string
   items: CollectionItem[]
@@ -401,6 +402,7 @@ export interface TimelineBodyRef {
 }
 
 export interface CollectionSettings extends ScriptFields {
+  hooks?: { setup?: string; teardown?: string }
   collectionId?: string
   name?: string
   description?: string

@@ -25,7 +25,21 @@ export type RunnerDisplayItem =
       data: { name: string; path: string; children: RunnerDisplayItem[] }
     }
 
+export function orderedRunnerResults(result: CollectionRunResult) {
+  const entries = [...result.results, ...result.skipped]
+  if (entries.some((entry) => entry.stage)) {
+    const rank = { setup: 0, main: 1, teardown: 2 }
+    entries.sort(
+      (a, b) =>
+        (a.iteration ?? 0) - (b.iteration ?? 0) ||
+        rank[a.stage ?? "main"] - rank[b.stage ?? "main"],
+    )
+  }
+  return entries
+}
+
 export interface RunnerConfiguration {
+  hooks?: { setup?: string; teardown?: string }
   scope: string | null
   selectedIds: string[]
   environmentName: string | null
@@ -260,6 +274,7 @@ export function retainRunnerSnapshot(snapshot: RunnerSnapshot): RunnerSnapshot {
     details.set(key, {
       requestId: detail.requestId,
       iteration: detail.iteration,
+      ...(detail.stage ? { stage: detail.stage } : {}),
       request: compactDeclarations(detail.request),
       retention,
       entry: {

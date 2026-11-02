@@ -86,6 +86,11 @@ import {
   type ScriptSourceResolver,
 } from "../scriptSourceResolver"
 import { requestScriptBlocks } from "../scriptInheritance"
+import {
+  resolveCollectionHooks,
+  type RunStage,
+  type CollectionHooks,
+} from "../collectionHooks"
 import { validateId } from "../requestId"
 export { validateId } from "../requestId"
 import { effectiveRequestTags, isValidTag } from "../tags"
@@ -183,6 +188,7 @@ function filterRequests(
   requests: Request[],
   includeTags: readonly string[],
   excludeTags: readonly string[],
+  allowEmpty = false,
 ): Request[] {
   const includes = [...new Set(includeTags)]
   const excludes = [...new Set(excludeTags)]
@@ -202,7 +208,11 @@ function filterRequests(
       !excludes.some((tag) => effective.has(tag))
     )
   })
-  if ((includes.length > 0 || excludes.length > 0) && filtered.length === 0)
+  if (
+    !allowEmpty &&
+    (includes.length > 0 || excludes.length > 0) &&
+    filtered.length === 0
+  )
     throw new Error("no requests match the tag filters")
   return filtered
 }
@@ -212,12 +222,17 @@ export function selectCollectionRunRequests(
   targets: string[] = [],
   includeTags: readonly string[] = [],
   excludeTags: readonly string[] = [],
+  hooks?: CollectionHooks,
 ): Request[] {
+  const selected = requestsForTargets(items, targets).filter(
+    (request) => request.id !== hooks?.setup && request.id !== hooks?.teardown,
+  )
   return filterRequests(
     items,
-    requestsForTargets(items, targets),
+    selected,
     includeTags,
     excludeTags,
+    !!(hooks?.setup || hooks?.teardown),
   )
 }
 export type CollectionTreeItem =
@@ -521,6 +536,11 @@ async function auditFile(
       const settings = content.trim()
         ? parseCollectionSettings(yamlLoad(content))
         : {}
+      if (settings.hooks)
+        resolveCollectionHooks(
+          (await filestore.loadCollection(root, { loadScripts: false })).items,
+          settings.hooks,
+        )
       await scriptSources.resolveBlocks([
         { ...settings, source: { scope: "collection", path: "settings.yml" } },
       ])
@@ -665,6 +685,7 @@ async function environmentFor(
     : undefined
 }
 export interface RequestRunResult {
+  stage?: RunStage
   cancelled?: true
   iteration?: number
   tests?: ResponseExecutionResults["tests"]
@@ -715,6 +736,18 @@ export const RUN_FAILURE_CATEGORIES = [
 export type RunFailureCategory = (typeof RUN_FAILURE_CATEGORIES)[number]
 
 export interface CollectionRunSummary {
+  stages?: Partial<
+    Record<
+      RunStage,
+      {
+        executed: number
+        passed: number
+        failed: number
+        skipped: number
+        cancelled: number
+      }
+    >
+  >
   testPasses?: number
   testFailures?: number
   testScriptErrors?: number
@@ -738,7 +771,8 @@ export interface CollectionRunResult {
   results: RequestRunResult[]
   skipped: {
     id: string
-    reason: "fail-fast" | "cancelled"
+    stage?: RunStage
+    reason: "fail-fast" | "cancelled" | "setup-failed"
     iteration?: number
   }[]
   failed: boolean
@@ -747,19 +781,26 @@ export interface CollectionRunResult {
   warnings?: string[]
 }
 export type CollectionRunEvent =
-  | { type: "run-start"; requestIds: string[]; iterations?: number }
-  | { type: "request-start"; id: string; iteration?: number }
+  | {
+      type: "run-start"
+      requestIds: string[]
+      stages?: RunStage[]
+      iterations?: number
+    }
+  | { type: "request-start"; id: string; stage?: RunStage; iteration?: number }
   | {
       type: "request-complete"
       id: string
+      stage?: RunStage
       iteration?: number
       result: RequestRunResult
     }
   | {
       type: "request-skip"
       id: string
+      stage?: RunStage
       iteration?: number
-      reason: "fail-fast" | "cancelled"
+      reason: "fail-fast" | "cancelled" | "setup-failed"
     }
 export interface CollectionRunOptions {
   signal?: AbortSignal
@@ -767,6 +808,7 @@ export interface CollectionRunOptions {
 }
 export type RunProgress = (completed: number, total: number) => void
 export type RequestRunDetail = {
+  stage?: RunStage
   iteration?: number
   requestId: string
   entry: TimelineEntry
@@ -984,6 +1026,25 @@ async function runRequest(
   return result
 }
 
+export function stageSummary(
+  results: RequestRunResult[],
+  skipped: CollectionRunResult["skipped"],
+): Pick<CollectionRunSummary, "stages"> {
+  if (![...results, ...skipped].some((row) => row.stage)) return {}
+  const stages: NonNullable<CollectionRunSummary["stages"]> = {}
+  for (const stage of ["setup", "main", "teardown"] as const) {
+    const rows = results.filter((row) => row.stage === stage)
+    stages[stage] = {
+      executed: rows.length,
+      passed: rows.filter((row) => row.ok).length,
+      failed: rows.filter((row) => !row.ok && !row.cancelled).length,
+      cancelled: rows.filter((row) => row.cancelled).length,
+      skipped: skipped.filter((row) => row.stage === stage).length,
+    }
+  }
+  return { stages }
+}
+
 export function summarizeRun(
   results: RequestRunResult[],
   selected: number,
@@ -1077,19 +1138,52 @@ export async function collectionRun(
   let dir: string
   let collection: Collection
   let requests: Request[]
+  let settings: CollectionSettings
+  let hasHooks = false
+  let sequence: { request: Request; stage?: RunStage }[]
   let rows: Awaited<ReturnType<typeof loadIterationData>> | undefined
   try {
     if (!Number.isSafeInteger(delayMs) || delayMs < 0)
       throw new Error("delay must be a non-negative safe integer")
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir, { loadScripts: false })
+    try {
+      settings = await loadSettings(dir)
+    } catch (error) {
+      // Preserve selection-error precedence for existing collections.
+      selected = selectCollectionRunRequests(
+        collection.items,
+        targets,
+        includeTags,
+        excludeTags,
+      ).length
+      throw error
+    }
+    const hooks = resolveCollectionHooks(collection.items, settings.hooks)
     requests = selectCollectionRunRequests(
       collection.items,
       targets,
       includeTags,
       excludeTags,
+      settings.hooks,
     )
-    selected = requests.length
+    hasHooks = !!(hooks.setup || hooks.teardown)
+    sequence =
+      requests.length === 0
+        ? []
+        : [
+            ...(hooks.setup
+              ? [{ request: hooks.setup, stage: "setup" as const }]
+              : []),
+            ...requests.map((request) => ({
+              request,
+              ...(hasHooks ? { stage: "main" as const } : {}),
+            })),
+            ...(hooks.teardown
+              ? [{ request: hooks.teardown, stage: "teardown" as const }]
+              : []),
+          ]
+    selected = sequence.length
     if (dataPath !== undefined) {
       rows = await loadIterationData(dataPath)
       validateExecutionCount(selected, rows.length)
@@ -1110,19 +1204,20 @@ export async function collectionRun(
   try {
     onEvent?.({
       type: "run-start",
-      requestIds: requests.map((request) => request.id),
+      requestIds: sequence.map(({ request }) => request.id),
+      ...(sequence.some((entry) => entry.stage)
+        ? { stages: sequence.map((entry) => entry.stage!) }
+        : {}),
       ...(rows ? { iterations: rows.length } : {}),
     })
     try {
-      signal?.throwIfAborted()
-      const settings = await loadSettings(dir)
       signal?.throwIfAborted()
       collection = {
         ...collection,
         scripts: settings.scripts,
         tests: settings.tests,
       }
-      for (const request of requests) {
+      for (const { request } of sequence) {
         await scriptSources.resolveBlocks(
           requestScriptBlocks(request, collection),
         )
@@ -1151,7 +1246,7 @@ export async function collectionRun(
     onProgress?.(0, selected)
     let completed = 0
     for (let iteration = 0; iteration < (rows?.length ?? 1); iteration++) {
-      if (!stopped && signal?.aborted) stopped = "cancelled"
+      if ((!stopped || hasHooks) && signal?.aborted) stopped = "cancelled"
       const data = rows?.[iteration]
       const runScope = new RunScope(
         data ? { index: iteration, count: rows!.length, data } : null,
@@ -1164,11 +1259,25 @@ export async function collectionRun(
         : rows
           ? cookies?.cloneTransient()
           : cookies
+      const rowStarted = !stopped
+      let setupFailed = false
       try {
-        for (const request of requests) {
-          const identity = { id: request.id, ...(rows ? { iteration } : {}) }
-          if (!stopped && signal?.aborted) stopped = "cancelled"
-          if (!stopped && delayMs > 0 && results.length > 0) {
+        for (const { request, stage } of sequence) {
+          const identity = {
+            id: request.id,
+            ...(stage ? { stage } : {}),
+            ...(rows ? { iteration } : {}),
+          }
+          if ((!stopped || hasHooks) && signal?.aborted) stopped = "cancelled"
+          const cleanup =
+            stage === "teardown" && rowStarted && stopped !== "cancelled"
+          let skipReason = cleanup
+            ? undefined
+            : (stopped ??
+              (setupFailed && stage === "main"
+                ? ("setup-failed" as const)
+                : undefined))
+          if (!skipReason && delayMs > 0 && results.length > 0) {
             try {
               await delay(delayMs, undefined, { signal })
             } catch (error) {
@@ -1176,9 +1285,10 @@ export async function collectionRun(
               stopped = "cancelled"
             }
           }
-          if (!stopped && signal?.aborted) stopped = "cancelled"
-          if (stopped) {
-            const skip = { ...identity, reason: stopped }
+          if ((!stopped || hasHooks) && signal?.aborted) stopped = "cancelled"
+          if (stopped === "cancelled") skipReason = "cancelled"
+          if (skipReason) {
+            const skip = { ...identity, reason: skipReason }
             skipped.push(skip)
             onEvent?.({ type: "request-skip", ...skip })
             continue
@@ -1197,19 +1307,25 @@ export async function collectionRun(
               false,
               onDetail
                 ? (detail) =>
-                    onDetail({ ...detail, ...(rows ? { iteration } : {}) })
+                    onDetail({
+                      ...detail,
+                      ...(stage ? { stage } : {}),
+                      ...(rows ? { iteration } : {}),
+                    })
                 : undefined,
               undefined,
               scriptSources,
               syntaxPreflight,
               signal,
             )),
+            ...(stage ? { stage } : {}),
             ...(rows ? { iteration } : {}),
           }
           results.push(result)
           if (result.cancelled) stopped = "cancelled"
           else {
             completed++
+            if (stage === "setup" && !result.ok) setupFailed = true
             if (failFast && !result.ok) stopped = "fail-fast"
           }
           onEvent?.({ type: "request-complete", ...identity, result })
@@ -1231,7 +1347,10 @@ export async function collectionRun(
     results,
     skipped,
     failed: stopped === "cancelled" || results.some((result) => !result.ok),
-    summary: summarizeRun(results, selected, skipped.length, startedAt),
+    summary: {
+      ...summarizeRun(results, selected, skipped.length, startedAt),
+      ...stageSummary(results, skipped),
+    },
     ...(warnings.size ? { warnings: [...warnings] } : {}),
   }
 }

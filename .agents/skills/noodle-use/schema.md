@@ -1082,6 +1082,24 @@ api_key=
 - Public, disabled, and secret keys must match `^\w+$`; `_color` is reserved.
 - Values preserve everything after the first `=` exactly, including trailing spaces.
 
+## Collection setup and teardown
+
+Collection `settings.yml` can reference one saved setup request and one saved teardown request:
+
+```yaml
+hooks:
+  setup: auth/login
+  teardown: auth/logout
+```
+
+Either field is optional. IDs are collection-relative request paths without `.yml`; they must exist and must be different. Configure them in Collection Settings > General, or edit `settings.yml`. CLI `collection run` and the TUI Runner use the same settings. Manual sends and `request run` do not automatically run hooks.
+
+The runner resolves references and preflights applicable script/test sources before HTTP, then runs setup, selected main requests in collection order, and teardown. Each stage uses the normal request lifecycle, including inherited collection/folder/request scripts and tests. Targets and tags select only main requests; hook requests are excluded from that selection and run once in their assigned stage. When no main requests remain, no stage sends HTTP.
+
+A failed setup skips main requests with reason `setup-failed` and still attempts teardown. Ordinary failures and fail-fast also attempt teardown for the current row. Teardown records its own outcome without replacing earlier failures. Fail-fast prevents later dataset rows from starting. Explicit cancellation aborts active work and does not start teardown or other requests; HTTP effects already sent cannot be undone.
+
+With CSV/JSON data, the sequence runs once per row. Setup, main requests, and teardown share that row's RunScope and cookie jar; the next row gets a fresh scope and a transient copy of the initial cookie jar. Runner persistence remains suppressed. Configured delays apply between executed stages. Hooks count toward execution limits and progress totals. Results, skips, progress events, summaries, and TUI details identify `setup`, `main`, or `teardown`; collections without hooks retain their existing result shapes.
+
 ## Collection settings (`settings.yml`)
 
 Single file at collection root:

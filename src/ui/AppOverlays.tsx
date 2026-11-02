@@ -643,6 +643,7 @@ export function AppOverlays({
           suspended={!!overlays.runnerSources}
           entry={detailEntry}
           iteration={runnerDetail?.iteration}
+          stage={runnerDetail?.stage}
           onClose={() => {
             if (runnerDetail) setRunnerDetail(null)
             else setTimelineDetailEntry(null)

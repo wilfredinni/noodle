@@ -790,3 +790,103 @@ describe("useCollectionRunner", () => {
     })
   })
 })
+
+it("excludes hooks from main selection and retains their stage metadata", async () => {
+  const hooked: Collection = {
+    ...collection,
+    hooks: { setup: "root", teardown: "admin/second" },
+  }
+  let selected: string[] | undefined
+  const h = renderHook({
+    collection: hooked,
+    runCollection: async (...args) => {
+      selected = args[6]
+      args[14]?.onEvent?.({
+        type: "run-start",
+        requestIds: ["root", "admin/first", "admin/second"],
+        stages: ["setup", "main", "teardown"],
+      })
+      const results = (["root", "admin/first", "admin/second"] as const).map(
+        (id, index) => ({
+          id,
+          stage: (["setup", "main", "teardown"] as const)[index]!,
+          method: "GET" as const,
+          url: "https://example.com",
+          ok: true,
+          failureCategories: [],
+        }),
+      )
+      for (const result of results)
+        args[14]?.onEvent?.({
+          type: "request-complete",
+          id: result.id,
+          stage: result.stage,
+          result,
+        })
+      return {
+        results,
+        skipped: [],
+        failed: false,
+        summary: summarizeRun(results, 3, 0, performance.now()),
+      }
+    },
+  })
+  const render = await h.render
+  expect(h.get().requests.map((request) => request.id)).toEqual(["admin/first"])
+  await act(async () => h.get().run())
+  expect(selected).toEqual(["admin/first"])
+  expect(h.get().executedConfiguration?.hooks).toEqual(hooked.hooks)
+  expect(h.get().result?.results.map((result) => result.stage)).toEqual([
+    "setup",
+    "main",
+    "teardown",
+  ])
+  await act(async () => render.renderer.destroy())
+})
+
+it("navigates setup failure results in displayed stage order", async () => {
+  const h = renderHook({
+    collection: {
+      ...collection,
+      hooks: { setup: "root", teardown: "admin/second" },
+    },
+    runCollection: async () => {
+      const results = [
+        {
+          id: "root",
+          stage: "setup" as const,
+          method: "GET" as const,
+          url: "https://example.com",
+          ok: false,
+          failureCategories: ["script" as const],
+        },
+        {
+          id: "admin/second",
+          stage: "teardown" as const,
+          method: "GET" as const,
+          url: "https://example.com",
+          ok: true,
+          failureCategories: [],
+        },
+      ]
+      return {
+        results,
+        skipped: [{ id: "admin/first", stage: "main", reason: "setup-failed" }],
+        failed: true,
+        summary: summarizeRun(results, 3, 1, performance.now()),
+      }
+    },
+  })
+  const render = await h.render
+  await act(async () => h.get().run())
+  expect(h.get().resultRows.map((row) => row.id)).toEqual([
+    "root",
+    "admin/first",
+    "admin/second",
+  ])
+  await act(async () => h.get().resultDown())
+  expect(h.get().resultRows[h.get().resultIndex]?.kind).toBe("skipped")
+  await act(async () => h.get().resultLast())
+  expect(h.get().resultRows[h.get().resultIndex]?.stage).toBe("teardown")
+  await act(async () => render.renderer.destroy())
+})

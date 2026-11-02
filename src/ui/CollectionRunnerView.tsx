@@ -218,6 +218,10 @@ export function CollectionRunnerView({
     ? width
     : Math.floor((width - 1) * (1 - splitRatio))
   const requestContentWidth = Math.max(0, requestPaneWidth - 4)
+  const plannedCount = runner.matchedIds.size
+    ? runner.matchedIds.size +
+      Object.values(runner.hooks ?? {}).filter(Boolean).length
+    : 0
   const requestIndexById = new Map(
     runner.requests.map((request, index) => [request.id, index]),
   )
@@ -234,9 +238,41 @@ export function CollectionRunnerView({
   for (const id of runner.executedConfiguration?.selectedIds ?? [])
     if (!resultRequestIds.has(id))
       resultRequestIds.set(id, resultRequestIds.size)
-  const executedRows = runner.resultItems
+  const resultHooks = runner.executedConfiguration?.hooks
+  const stageLabel = (id: string) =>
+    resultHooks?.setup === id
+      ? "setup"
+      : resultHooks?.teardown === id
+        ? "teardown"
+        : "main"
+  for (const id of Object.values(resultHooks ?? {}))
+    if (id && !resultRequestIds.has(id))
+      resultRequestIds.set(id, resultRequestIds.size)
+  const treeRows = runner.resultItems
     ? flattenRunnerRows(runner.resultItems, resultRequestIds)
     : runnerRows
+  const executedRows =
+    resultHooks && Object.values(resultHooks).some(Boolean)
+      ? treeRows
+          .filter((row) => row.kind === "request")
+          .sort((a, b) => {
+            const rank = (id: string) =>
+              stageLabel(id) === "setup"
+                ? 0
+                : stageLabel(id) === "teardown"
+                  ? 2
+                  : 1
+            return rank(a.request.id) - rank(b.request.id)
+          })
+          .map((row) => ({
+            ...row,
+            depth: 0,
+            request: {
+              ...row.request,
+              name: `[${stageLabel(row.request.id)}] ${row.request.name}`,
+            },
+          }))
+      : treeRows
   const resultRunnerRows: (
     | (RunnerListRow & { iteration?: number })
     | { kind: "iteration"; iteration: number }
@@ -497,6 +533,15 @@ export function CollectionRunnerView({
               <text fg={theme.textMuted} wrapMode="word">
                 Configure and run requests from your collection.
               </text>
+              {Object.entries(runner.hooks ?? {})
+                .filter(([, id]) => id)
+                .map(([stage, id]) => (
+                  <text
+                    key={stage}
+                    fg={theme.textMuted}
+                    wrapMode="word"
+                  >{`${stage === "setup" ? "Setup" : "Teardown"}: ${id}`}</text>
+                ))}
               <box style={{ flexDirection: "column" }}>
                 <text fg={theme.text}>{`Scope: ${runner.scopeLabel}`}</text>
                 <text fg={theme.textMuted} wrapMode="word">
@@ -672,7 +717,7 @@ export function CollectionRunnerView({
               {runner.dataPath && runner.iterationCount !== null ? (
                 <text
                   fg={theme.textMuted}
-                >{`${runner.iterationCount} iterations · ${runner.matchedIds.size * runner.iterationCount} request executions`}</text>
+                >{`${runner.iterationCount} iterations · ${plannedCount * runner.iterationCount} request executions`}</text>
               ) : null}
             </box>
           </scrollbox>
@@ -687,7 +732,7 @@ export function CollectionRunnerView({
                 label={
                   running
                     ? `${runner.stopping ? "Stopping" : "Stop"} ${runner.progress.completed}/${runner.progress.total}`
-                    : `Run ${runner.matchedIds.size * (runner.iterationCount ?? 1)} request${runner.matchedIds.size * (runner.iterationCount ?? 1) === 1 ? "" : "s"}`
+                    : `Run ${plannedCount * (runner.iterationCount ?? 1)} request${plannedCount * (runner.iterationCount ?? 1) === 1 ? "" : "s"}`
                 }
                 disabled={running ? runner.stopping : !runner.canRun}
                 onAction={() => {
@@ -944,6 +989,14 @@ export function CollectionRunnerView({
                         content={t`${fg(theme.textMuted)(`${runner.result.summary.assertionPasses} assertion${runner.result.summary.assertionPasses === 1 ? "" : "s"} passed`)}${fg(theme.error)(runner.result.summary.assertionFailures > 0 ? ` · ${runner.result.summary.assertionFailures} failed` : "")}${fg(runner.result.summary.captureFailures > 0 ? theme.error : theme.textMuted)(runner.result.summary.captureFailures > 0 ? ` · ${runner.result.summary.captureFailures} capture failure${runner.result.summary.captureFailures === 1 ? "" : "s"}` : " · no capture failures")}${fg(theme.warning)(runner.result.summary.skipped > 0 ? ` · ${runner.result.summary.skipped} skipped` : "")}`}
                         style={{ marginBottom: 1 }}
                       />
+                      {Object.entries(runner.result.summary.stages ?? {}).map(
+                        ([stage, counts]) => (
+                          <text
+                            key={stage}
+                            fg={theme.textMuted}
+                          >{`${stage}: ${counts.passed} passed · ${counts.failed} failed · ${counts.skipped} skipped · ${counts.cancelled} cancelled`}</text>
+                        ),
+                      )}
                       {runner.result.summary.testPasses !== undefined ? (
                         <text
                           fg={

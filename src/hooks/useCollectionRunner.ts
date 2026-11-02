@@ -1,3 +1,4 @@
+import { orderedRunnerResults } from "../runnerSession"
 import {
   retainRunnerSnapshot,
   runnerDisplayItems,
@@ -19,6 +20,7 @@ import type { Collection, CollectionItem, Request } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import {
   collectionRun,
+  stageSummary,
   RUN_FAILURE_CATEGORIES,
   selectCollectionRunRequests,
   summarizeRun,
@@ -34,10 +36,17 @@ import { DATA_LIMITS, loadIterationData, runResultKey } from "../iterationData"
 
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerTagFilter = "include" | "exclude"
-export type RunnerResultRow =
+export type RunnerResultRow = {
+  stage?: import("../collectionHooks").RunStage
+} & (
   | { kind: "pending" | "running"; id: string }
   | { kind: "result"; id: string; result: RequestRunResult }
-  | { kind: "skipped"; id: string; reason: "fail-fast" | "cancelled" }
+  | {
+      kind: "skipped"
+      id: string
+      reason: "fail-fast" | "cancelled" | "setup-failed"
+    }
+)
 
 export interface UseCollectionRunnerOptions {
   collection: Collection | null
@@ -64,6 +73,7 @@ export interface UseCollectionRunnerResult {
   executedConfiguration?: RunnerConfiguration
   resultItems?: RunnerDisplayItem[]
   items: CollectionItem[]
+  hooks?: Collection["hooks"]
   requests: Request[]
   requestTags: Map<string, string[]>
   selectedIds: Set<string>
@@ -169,7 +179,15 @@ export function useCollectionRunner({
     if (!folderPath) return collection.items
     return findFolderByPath(collection.items, folderPath)?.children ?? []
   }, [collection, folderPath])
-  const requests = useMemo(() => flattenRequests(items), [items])
+  const requests = useMemo(
+    () =>
+      flattenRequests(items).filter(
+        (request) =>
+          request.id !== collection?.hooks?.setup &&
+          request.id !== collection?.hooks?.teardown,
+      ),
+    [items, collection?.hooks],
+  )
   const navigationRows = useMemo(() => {
     const requestIndexById = new Map(
       requests.map((request, index) => [request.id, index]),
@@ -325,7 +343,7 @@ export function useCollectionRunner({
     setResultItems(retained?.items ?? [])
     setExecutedConfiguration(retained?.configuration)
     const keys = retained
-      ? [...retained.result.results, ...retained.result.skipped].map((row) =>
+      ? orderedRunnerResults(retained.result).map((row) =>
           runResultKey(row.id, row.iteration),
         )
       : []
@@ -386,6 +404,7 @@ export function useCollectionRunner({
           requests.map((request) => request.id),
           includeTags,
           excludeTags,
+          collection.hooks,
         ).map((request) => request.id),
       )
     } catch {
@@ -403,6 +422,7 @@ export function useCollectionRunner({
         selectedRequestIds,
         includeTags,
         excludeTags,
+        collection.hooks,
       )
       return {
         ids: new Set(selected.map((request) => request.id)),
@@ -426,7 +446,12 @@ export function useCollectionRunner({
     : dataPreview.path !== dataPath
       ? "Validating data file…"
       : (dataPreview.error ??
-        ((iterationCount ?? 0) * preview.ids.size > DATA_LIMITS.executions
+        ((iterationCount ?? 0) *
+          (preview.ids.size +
+            (preview.ids.size
+              ? Object.values(collection?.hooks ?? {}).filter(Boolean).length
+              : 0)) >
+        DATA_LIMITS.executions
           ? "Data run exceeds 10,000 request executions"
           : null))
   const setDataPath = useCallback(
@@ -461,18 +486,21 @@ export function useCollectionRunner({
   const resultRows = useMemo(() => {
     if (runningRef.current) return liveRows
     if (!result) return []
-    return [
-      ...result.results.map((entry): RunnerResultRow => ({
-        kind: "result",
-        id: runResultKey(entry.id, entry.iteration),
-        result: entry,
-      })),
-      ...result.skipped.map((entry): RunnerResultRow => ({
-        kind: "skipped",
-        id: runResultKey(entry.id, entry.iteration),
-        reason: entry.reason,
-      })),
-    ]
+    return orderedRunnerResults(result).map((entry): RunnerResultRow =>
+      "reason" in entry
+        ? {
+            kind: "skipped",
+            stage: entry.stage,
+            id: runResultKey(entry.id, entry.iteration),
+            reason: entry.reason,
+          }
+        : {
+            kind: "result",
+            stage: entry.stage,
+            id: runResultKey(entry.id, entry.iteration),
+            result: entry,
+          },
+    )
   }, [result, phase, liveRows])
 
   useLayoutEffect(() => {
@@ -665,6 +693,7 @@ export function useCollectionRunner({
         selectedRequestIds,
         includeTags,
         excludeTags,
+        collection.hooks,
       )
     } catch {
       return
@@ -683,25 +712,24 @@ export function useCollectionRunner({
     let publishTimer: ReturnType<typeof setTimeout> | undefined
     const details = new Map<string, RunnerDetail>()
     const declarations = new Map(
-      nextRequests.map((request) => [
+      flattenRequests(collection.items).map((request) => [
         request.id,
         runnerRequestDeclarations(request),
       ]),
     )
+    const executionCount =
+      (nextRequests.length +
+        Object.values(collection.hooks ?? {}).filter(Boolean).length) *
+      iterationCount
     let nextProgress = {
       completed: 0,
-      total: nextRequests.length * iterationCount,
+      total: executionCount,
     }
     let partial: CollectionRunResult = {
       results: [],
       skipped: [],
       failed: false,
-      summary: summarizeRun(
-        [],
-        nextRequests.length * iterationCount,
-        0,
-        startedAt,
-      ),
+      summary: summarizeRun([], executionCount, 0, startedAt),
     }
     const publish = () => {
       if (publishTimer !== undefined) return
@@ -723,6 +751,7 @@ export function useCollectionRunner({
       }, 50)
     }
     const configuration: RunnerConfiguration = {
+      hooks: collection.hooks,
       scope: folderPath,
       selectedIds: [...selectedRequestIds],
       environmentName,
@@ -734,7 +763,7 @@ export function useCollectionRunner({
       noProxy,
       insecure,
     }
-    const displayItems = runnerDisplayItems(items)
+    const displayItems = runnerDisplayItems(collection.items)
     const finish = (next: CollectionRunResult) => {
       const retained = retainRunnerSnapshot({
         configuration,
@@ -759,7 +788,7 @@ export function useCollectionRunner({
     setResultIndex(0)
     selectedResultKeyRef.current = undefined
     setResultDetails(new Map())
-    setProgress({ completed: 0, total: ids.length * iterationCount })
+    setProgress({ completed: 0, total: executionCount })
     setPhase("running")
     try {
       const next = await runCollection(
@@ -803,8 +832,9 @@ export function useCollectionRunner({
               rows = Array.from(
                 { length: event.iterations ?? 1 },
                 (_, iteration) =>
-                  event.requestIds.map((id): RunnerResultRow => ({
+                  event.requestIds.map((id, index): RunnerResultRow => ({
                     kind: "pending",
+                    stage: event.stages?.[index],
                     id: runResultKey(
                       id,
                       event.iterations === undefined ? undefined : iteration,
@@ -864,13 +894,19 @@ export function useCollectionRunner({
                   id: event.id,
                   iteration: event.iteration,
                   reason: event.reason,
+                  ...(event.stage ? { stage: event.stage } : {}),
                 })
               }
+              row.stage = event.stage
               if (index !== undefined) rows[index] = row
               else {
                 rowIndices.set(id, rows.length)
                 rows.push(row)
               }
+            }
+            partial.summary = {
+              ...partial.summary,
+              ...stageSummary(partial.results, partial.skipped),
             }
             publish()
           },
@@ -943,6 +979,7 @@ export function useCollectionRunner({
 
   return {
     collectionDir,
+    hooks: collection?.hooks,
     phase,
     stopping,
     stop,
