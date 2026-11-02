@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -12,6 +12,7 @@ import type {
 import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import { useCollectionFileActions } from "../../src/ui/useCollectionFileActions"
 import { lang } from "../../src/lang"
+import * as toast from "../../src/ui/Toast"
 import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
 import {
   formatCodeFields,
@@ -50,6 +51,10 @@ function ActionsHarness({
   onNewReady,
   onCreateFailed,
   onDeleteReady,
+  onFolderDeleteReady,
+  collectionHooks,
+  collectionLoaded = true,
+  collectionSettingsPending = false,
   prepareFolder,
   draftFolder = savedFolder,
 }: {
@@ -74,8 +79,15 @@ function ActionsHarness({
       folderPath?: string,
     ) => void,
   ) => void
-  onCreateFailed?: () => void
+  onCreateFailed?: (message: string) => void
   onDeleteReady?: (setFile: (id: string) => void, confirm: () => void) => void
+  onFolderDeleteReady?: (
+    setPath: (path: string) => void,
+    confirm: () => void,
+  ) => void
+  collectionHooks?: Collection["hooks"]
+  collectionLoaded?: boolean
+  collectionSettingsPending?: boolean
   prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
   draftFolder?: Folder
 }) {
@@ -87,21 +99,24 @@ function ActionsHarness({
   const savingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestDeleteFileRef = useRef<string | null>(null)
+  const folderDeletePathRef = useRef<string | null>(null)
   const actions = useCollectionFileActions({
     prepareFolder,
     collectionDir,
     collection,
+    collectionHooks,
+    collectionSettingsPending,
     updateCollection,
     selectedRequest,
     requestDraftRef: useRef({ moveRequestDraft: () => {} } as never),
     folderDraftRef,
     newRequestFolderRef: useRef(null),
-    folderDeletePathRef: useRef(null),
+    folderDeletePathRef,
     setCollectionReloadToken: () => onEditSaved?.(),
     setFocus: () => {},
     setSaveState: (state) => {
       if (typeof state !== "function" && state.kind === "error") {
-        onCreateFailed?.()
+        onCreateFailed?.(state.message)
       }
     },
     savingRef,
@@ -121,8 +136,17 @@ function ActionsHarness({
   })
 
   useEffect(() => {
-    updateCollection({ id: "collection", name: "Collection", items: [] })
-  }, [updateCollection])
+    updateCollection(
+      collectionLoaded
+        ? {
+            id: "collection",
+            name: "Collection",
+            items: [],
+            hooks: collectionHooks,
+          }
+        : null,
+    )
+  }, [updateCollection, collectionHooks, collectionLoaded])
 
   useEffect(() => {
     onSaveReady(actions.handleFolderSave)
@@ -142,15 +166,148 @@ function ActionsHarness({
     }, actions.handleRequestDeleteConfirm)
   }, [actions.handleRequestDeleteConfirm, onDeleteReady])
 
+  useEffect(() => {
+    onFolderDeleteReady?.((path) => {
+      folderDeletePathRef.current = path
+    }, actions.handleFolderDeleteConfirm)
+  }, [actions.handleFolderDeleteConfirm, onFolderDeleteReady])
+
   return null
 }
 
 describe("useCollectionFileActions", () => {
   const dirs: string[] = []
+  let notification: { mockRestore: () => void } | undefined
 
   afterEach(async () => {
+    notification?.mockRestore()
     await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true })))
   })
+
+  it.each([
+    "rename",
+    "move",
+    "delete",
+    "teardown",
+    "invalid-file",
+    "folder",
+    "pending",
+    "memory-only",
+    "disk-setup",
+    "disk-teardown",
+    "disk-rename",
+    "disk-move",
+    "disk-folder",
+    "unreadable-settings",
+  ] as const)(
+    "rejects %s for a hook request without changing files",
+    async (operation) => {
+      const collectionDir = await mkdtemp(
+        join(tmpdir(), "noodle-hook-actions-"),
+      )
+      dirs.push(collectionDir)
+      await mkdir(join(collectionDir, "api"))
+      const request = { ...initialRequest, id: "api/get-user" }
+      const path = join(collectionDir, `${request.id}.yml`)
+      const source =
+        operation === "invalid-file"
+          ? "invalid: ["
+          : lang.serializeRequest(request)
+      const hook =
+        operation === "teardown" || operation === "disk-teardown"
+          ? "teardown"
+          : "setup"
+      const settings =
+        operation === "unreadable-settings"
+          ? "invalid: ["
+          : operation === "memory-only"
+            ? "{}\n"
+            : `hooks:\n  ${hook}: api/get-user\n`
+      await writeFile(path, source)
+      await writeFile(
+        join(collectionDir, "settings.yml"),
+        operation.startsWith("disk-") ? "{}\n" : settings,
+      )
+      let edit!: (
+        name: string,
+        method: NoodleRequest["method"],
+        url: string,
+        folderPath?: string,
+      ) => void
+      let deleteRequest!: () => void
+      let deleteFolder!: () => void
+      let setFile!: (id: string) => void
+      let setFolder!: (path: string) => void
+      const finished = Promise.withResolvers<string>()
+      const notify = spyOn(toast, "showToast").mockImplementation((message) =>
+        finished.resolve(message),
+      )
+      notification = notify
+      const render = await testRender(
+        <ActionsHarness
+          collectionDir={collectionDir}
+          collectionLoaded={operation !== "invalid-file"}
+          collectionHooks={
+            operation === "pending" ||
+            operation.startsWith("disk-") ||
+            operation === "unreadable-settings"
+              ? undefined
+              : { [hook]: request.id }
+          }
+          collectionSettingsPending={operation === "pending"}
+          selectedRequest={request}
+          onSaveReady={() => {}}
+          onMarkSaved={() => {}}
+          onEditReady={(handle) => (edit = handle)}
+          onDeleteReady={(set, handle) => {
+            setFile = set
+            deleteRequest = handle
+          }}
+          onFolderDeleteReady={(set, handle) => {
+            setFolder = set
+            deleteFolder = handle
+          }}
+          onCreateFailed={finished.resolve}
+          onEditSaved={() => finished.resolve("saved")}
+        />,
+        { width: 1, height: 1 },
+      )
+      await render.renderOnce()
+      if (operation.startsWith("disk-"))
+        await writeFile(join(collectionDir, "settings.yml"), settings)
+      await act(async () => {
+        if (operation === "rename" || operation === "disk-rename")
+          edit("Renamed", "GET", request.url, "api")
+        else if (operation === "move" || operation === "disk-move")
+          edit("Get User", "GET", request.url, "other")
+        else if (operation === "folder" || operation === "disk-folder") {
+          setFolder("api")
+          deleteFolder()
+        } else {
+          if (operation === "invalid-file") setFile(request.id)
+          deleteRequest()
+        }
+        expect(await finished.promise).toContain(
+          operation === "pending"
+            ? "finish saving"
+            : operation === "unreadable-settings"
+              ? "Cannot read collection settings"
+              : `${hook} hook`,
+        )
+        expect(notify).toHaveBeenCalledTimes(1)
+      })
+      expect(await readFile(path, "utf8")).toBe(source)
+      expect(await readFile(join(collectionDir, "settings.yml"), "utf8")).toBe(
+        settings,
+      )
+      expect(
+        await Bun.file(join(collectionDir, "api/renamed.yml")).exists(),
+      ).toBe(false)
+      expect(
+        await Bun.file(join(collectionDir, "other/get-user.yml")).exists(),
+      ).toBe(false)
+    },
+  )
 
   it("saves a folder after the collection loads", async () => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
@@ -249,6 +406,7 @@ describe("useCollectionFileActions", () => {
         onSaveReady={() => {}}
         onMarkSaved={() => {}}
         selectedRequest={initialRequest}
+        collectionHooks={{ setup: initialRequest.id }}
         onEditReady={(handleEdit) => (edit = handleEdit)}
         onEditSaved={() => resolveSaved?.()}
       />,
@@ -371,10 +529,10 @@ describe("useCollectionFileActions", () => {
     expect(request.method).toBe("GET")
   })
 
-  it("deletes a request file that failed collection parsing", async () => {
+  it.each(["broken", "settings"])("repairs invalid %s", async (id) => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
     dirs.push(collectionDir)
-    await writeFile(join(collectionDir, "broken.yml"), "collection_id: nope\n")
+    await writeFile(join(collectionDir, `${id}.yml`), "collection_id: nope\n")
 
     let setDeleteFile: ((id: string) => void) | undefined
     let confirmDelete: (() => void) | undefined
@@ -385,6 +543,7 @@ describe("useCollectionFileActions", () => {
     const render = await testRender(
       <ActionsHarness
         collectionDir={collectionDir}
+        collectionHooks={{ teardown: "unrelated" }}
         onSaveReady={() => {}}
         onMarkSaved={() => {}}
         onDeleteReady={(setFile, confirm) => {
@@ -399,11 +558,11 @@ describe("useCollectionFileActions", () => {
     await render.renderOnce()
     await render.renderOnce()
     await act(async () => {
-      setDeleteFile?.("broken")
+      setDeleteFile?.(id)
       confirmDelete?.()
     })
     await deleted
 
-    await expect(readFile(join(collectionDir, "broken.yml"))).rejects.toThrow()
+    await expect(readFile(join(collectionDir, `${id}.yml`))).rejects.toThrow()
   })
 })

@@ -9,6 +9,7 @@ import type {
   Folder,
   Request,
 } from "../schema"
+import { parseCollectionHooks } from "../collectionHooks"
 import { parseScripts, parseTests } from "../lang/scriptSource"
 import { parseCollectionProxyStrict } from "../proxy"
 import { parseCollectionTlsStrict } from "../tls"
@@ -314,6 +315,7 @@ export async function loadCollection(
     id,
     name: id,
     items,
+    ...(settings.hooks ? { hooks: settings.hooks } : {}),
     ...(settings.scripts ? { scripts: settings.scripts } : {}),
     ...(settings.tests !== undefined ? { tests: settings.tests } : {}),
   }
@@ -367,6 +369,7 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
   }
   const obj = value as Record<string, unknown>
   const allowed = new Set([
+    "hooks",
     "collection_id",
     "name",
     "description",
@@ -384,6 +387,9 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
   }
 
   const settings: CollectionSettings = {
+    ...(obj.hooks !== undefined
+      ? { hooks: parseCollectionHooks(obj.hooks) }
+      : {}),
     ...(obj.scripts !== undefined
       ? { scripts: parseScripts(obj.scripts, "settings.yml") }
       : {}),

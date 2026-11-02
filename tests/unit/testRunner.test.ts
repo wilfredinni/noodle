@@ -64,11 +64,13 @@ it("retains failures and continues through the remaining files", async () => {
     "a.test.ts":
       'import { it } from "bun:test"; it("fails", () => { throw Error("fixture failure") })',
     "nested/b.test.ts":
-      'import { it } from "bun:test"; it("still runs", () => {})',
+      'import { it } from "bun:test"; import { writeFileSync } from "node:fs"; it("still runs", () => { writeFileSync("continued.txt", "executed") })',
   })
   expect(result.exitCode).not.toBe(0)
   expect(result.output).toContain("fixture failure")
-  expect(result.output).toContain("still runs")
+  expect(
+    await Bun.file(join(directories.at(-1)!, "continued.txt")).text(),
+  ).toBe("executed")
 })
 
 it("retains signal termination and continues through the remaining files", async () => {
@@ -76,10 +78,12 @@ it("retains signal termination and continues through the remaining files", async
     "a.test.ts":
       'import { it } from "bun:test"; it("terminates", () => { process.kill(process.pid, "SIGTERM") })',
     "nested/b.test.ts":
-      'import { it } from "bun:test"; it("still runs", () => {})',
+      'import { it } from "bun:test"; import { writeFileSync } from "node:fs"; it("still runs", () => { writeFileSync("continued.txt", "executed") })',
   })
   expect(result.exitCode).not.toBe(0)
-  expect(result.output).toContain("still runs")
+  expect(
+    await Bun.file(join(directories.at(-1)!, "continued.txt")).text(),
+  ).toBe("executed")
 })
 
 it("fails when no test files are discovered", async () => {

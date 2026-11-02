@@ -811,6 +811,7 @@ export function App({
         | "name"
         | "description"
         | "timelineMaxEntries"
+        | "hooks"
         | "tls"
         | "cookies"
         | "scripts"
@@ -1153,6 +1154,10 @@ export function App({
         onProxyAuthDisable={handleProxyAuthDisable}
         onTlsPassphraseChange={handleTlsPassphraseChange}
         onTlsProfileRemove={handleTlsProfileRemove}
+        collectionHooks={settings.hooks}
+        collectionSettingsPending={
+          settingsPersistence.pendingUpdates.current.length > 0
+        }
         collectionScripts={settings}
         collectionScriptDraft={collectionScriptDrafts[activeCollectionDir]}
         onCollectionSettingsChange={handleCollectionSettingsChange}

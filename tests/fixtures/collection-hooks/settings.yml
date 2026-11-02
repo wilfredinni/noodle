@@ -1,0 +1,7 @@
+hooks:
+  setup: setup
+  teardown: teardown
+cookies:
+  enabled: false
+scripts:
+  pre: noodle.run.set("inherited", (noodle.run.get("inherited") || 0) + 1)

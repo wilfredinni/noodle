@@ -13,6 +13,7 @@ import {
   deleteRequest,
   saveFolder,
   deleteFolder,
+  loadSettings,
   ensureCollectionBootstrapped,
 } from "../filestore"
 import { slugify } from "./overlays/NewRequestOverlay"
@@ -21,11 +22,14 @@ import { syncParamsWithUrl, syncPathParamsWithUrl } from "./urlParams"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import type { PreparedSave } from "./editor/codeFormatting"
+import { showToast } from "./Toast"
 
 interface UseCollectionFileActionsOptions {
   prepareFolder?: (folder: Folder) => Promise<PreparedSave<Folder>>
   collectionDir: string
   collection: Collection | null
+  collectionHooks?: Collection["hooks"]
+  collectionSettingsPending?: boolean
   updateCollection: Dispatch<SetStateAction<Collection | null>>
   selectedRequest: NoodleRequest | null
   requestDraftRef: MutableRefObject<UseRequestDraftResult>
@@ -55,6 +59,8 @@ export function useCollectionFileActions({
   prepareFolder,
   collectionDir,
   collection,
+  collectionHooks,
+  collectionSettingsPending = false,
   updateCollection,
   selectedRequest,
   requestDraftRef,
@@ -96,6 +102,40 @@ export function useCollectionFileActions({
       showSaveResult({ kind: "error", message: msg })
     },
     [showSaveResult],
+  )
+
+  const canRemovePath = useCallback(
+    async (path: string, folder = false) => {
+      if (collectionSettingsPending) {
+        showToast("Wait for collection settings to finish saving", "warning")
+        return false
+      }
+      // The repair view must be able to remove an unreadable settings.yml.
+      if (!folder && path === "settings") return true
+      let currentHooks: Collection["hooks"]
+      try {
+        currentHooks = (await loadSettings(collectionDir)).hooks
+      } catch {
+        showToast(
+          "Cannot read collection settings; reload before changing files",
+          "error",
+        )
+        return false
+      }
+      for (const hooks of [collectionHooks, currentHooks]) {
+        for (const [stage, id] of Object.entries(hooks ?? {})) {
+          if (folder ? id?.startsWith(`${path}/`) : id === path) {
+            showToast(
+              `Unassign the ${stage} hook in Collection Settings first`,
+              "warning",
+            )
+            return false
+          }
+        }
+      }
+      return true
+    },
+    [collectionDir, collectionHooks, collectionSettingsPending],
   )
 
   const handleFolderSave = useCallback(async () => {
@@ -313,9 +353,10 @@ export function useCollectionFileActions({
     ],
   )
 
-  const handleFolderDeleteConfirm = useCallback(() => {
+  const handleFolderDeleteConfirm = useCallback(async () => {
     const path = folderDeletePathRef.current
     if (!path) return
+    if (!(await canRemovePath(path, true))) return
 
     deleteFolder(collectionDir, path)
       .then(() => {
@@ -329,6 +370,7 @@ export function useCollectionFileActions({
       })
       .catch(showError)
   }, [
+    canRemovePath,
     collectionDir,
     folderDeletePathRef,
     setCollectionReloadToken,
@@ -339,7 +381,7 @@ export function useCollectionFileActions({
   ])
 
   const handleEditRequestConfirm = useCallback(
-    (name: string, method: Method, url: string, folderPath?: string) => {
+    async (name: string, method: Method, url: string, folderPath?: string) => {
       const req = selectedRequest
       if (!req) return
       const baseId = slugify(name)
@@ -356,6 +398,7 @@ export function useCollectionFileActions({
       const pathParams = syncPathParamsWithUrl(req.pathParams ?? [], url)
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
+      if (nameChanged && !(await canRemovePath(req.id))) return
       const changed =
         nameChanged ||
         method !== req.method ||
@@ -407,6 +450,7 @@ export function useCollectionFileActions({
         .catch(showError)
     },
     [
+      canRemovePath,
       collectionDir,
       expandFolder,
       selectedRequest,
@@ -420,8 +464,10 @@ export function useCollectionFileActions({
     ],
   )
 
-  const handleRequestDeleteConfirm = useCallback(() => {
+  const handleRequestDeleteConfirm = useCallback(async () => {
     const errorFileId = requestDeleteFileRef.current
+    const id = errorFileId ?? selectedRequest?.id
+    if (id && !(await canRemovePath(id))) return
     if (errorFileId) {
       deleteRequest(collectionDir, errorFileId)
         .then(() => {
@@ -453,6 +499,7 @@ export function useCollectionFileActions({
       })
       .catch(showError)
   }, [
+    canRemovePath,
     collectionDir,
     requestDeleteFileRef,
     selectedRequest,

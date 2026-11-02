@@ -7,6 +7,24 @@ description: Teach agents to create, organize, maintain, evaluate, import, conve
 
 Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported non-interactive automation commands; use file-level operations for richer collection edits. No Bun dependency.
 
+## Collection setup and teardown
+
+Collection `settings.yml` can reference one saved setup request and one saved teardown request:
+
+```yaml
+hooks:
+  setup: auth/login
+  teardown: auth/logout
+```
+
+Either field is optional. IDs are collection-relative request paths without `.yml`; they must exist and must be different. Configure them in Collection Settings > General, or edit `settings.yml`. CLI `collection run` and the TUI Runner use the same settings. Manual sends and `request run` do not automatically run hooks.
+
+The runner resolves references and preflights applicable script/test sources before HTTP, then runs setup, selected main requests in collection order, and teardown. Each stage uses the normal request lifecycle, including inherited collection/folder/request scripts and tests. Targets and tags select only main requests; hook requests are excluded from that selection and run once in their assigned stage. When no main requests remain, no stage sends HTTP.
+
+A failed setup skips main requests with reason `setup-failed` and still attempts teardown. Ordinary failures and fail-fast also attempt teardown for the current row. Teardown records its own outcome without replacing earlier failures. Fail-fast prevents later dataset rows from starting. Explicit cancellation aborts active work and does not start teardown or other requests; HTTP effects already sent cannot be undone.
+
+With CSV/JSON data, the sequence runs once per row. Setup, main requests, and teardown share that row's RunScope and cookie jar; the next row gets a fresh scope and a transient copy of the initial cookie jar. Runner persistence remains suppressed. Configured delays apply between executed stages. Hooks count toward execution limits and progress totals. Results, skips, progress events, summaries, and TUI details identify `setup`, `main`, or `teardown`; collections without hooks retain their existing result shapes.
+
 ## Response files
 
 Use `noodle request run <id> --collection <dir> --output <file> --json` to download any response into a new file, preserving original transport bytes after normal HTTP decompression. Choose a user-authorized destination; existing files are never overwritten. Completed responses are saved even when HTTP or response checks fail, and the failures remain nonzero. Pre-script/transport failures create no output. Downloads contain original server data without redaction. Binary JSON results contain metadata only (`bodyKind`, `size`, `contentType`, optional `filename`, and successful `outputFile`); never expect body text, bytes, or base64. JSON body captures/assertions fail for binary responses; metadata expressions still work. Binary TUI history and Runner details retain metadata without a downloadable body. Humans use Save file (Save As, initially Downloads) and Open in default app; only PNG/JPEG/static WebP/GIF first frame have native previews, with explicit activation above 5 MiB. See [automation](workflows/automation.md) for exit and diagnostic behavior.

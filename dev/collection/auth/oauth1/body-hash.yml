@@ -2,6 +2,17 @@ name: body hash
 method: POST
 url: $base_url/auth/oauth1
 timeout: 5000
+followRedirects: true
+maxRedirects: 5
+body: |-
+  {
+    "local": true
+  }
+body_type: json
+assert:
+  - expression: status
+    operator: equals
+    value: 200
 auth:
   type: oauth1
   consumer_key: $oauth_consumer_key
@@ -9,11 +20,13 @@ auth:
   access_token: $oauth_token
   access_token_secret: $oauth_token_secret
   signature_method: HMAC-SHA256
+  private_key: ''
+  private_key_type: text
+  callback_url: ''
+  verifier: ''
+  timestamp: ''
+  nonce: ''
+  version: '1.0'
+  realm: ''
   placement: header
   include_body_hash: true
-body_type: json
-body: '{"local":true}'
-assert:
-  - expression: status
-    operator: equals
-    value: 200

@@ -1167,7 +1167,8 @@ describe("CollectionRunnerView", () => {
     cleanup()
   })
 
-  it("opens executed result details without expanding the result row", async () => {
+  const skipReasons = ["fail-fast", "setup-failed", "cancelled"] as const
+  it.each(skipReasons)("labels %s skips", async (reason) => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
     let current: UseCollectionRunnerResult | null = null
@@ -1275,7 +1276,7 @@ describe("CollectionRunnerView", () => {
             },
           },
         ],
-        skipped: [{ id: "status/skipped", reason: "fail-fast" as const }],
+        skipped: [{ id: "status/skipped", reason }],
         failed: false,
         summary: {
           selected: 2,
@@ -1342,6 +1343,13 @@ describe("CollectionRunnerView", () => {
       "1 assertion passed · no capture failures · 1 skipped",
     )
     expect(frame).toMatch(/PASS\s+GET\s+Health\s+200 OK\s+7ms/)
+    expect(frame).toContain(
+      {
+        "fail-fast": "Fail-fast",
+        "setup-failed": "Setup failed",
+        cancelled: "Cancelled",
+      }[reason],
+    )
     const folderLine = frame
       .split("\n")
       .find((line) => line.includes("FOLDER"))!
@@ -1493,4 +1501,49 @@ describe("CollectionRunnerView", () => {
     expect(currentFocus as Focus).toBe("runner-options")
     cleanup()
   })
+})
+
+it("counts hooks in the Run button and labels configured stages", async () => {
+  const { keymap, cleanup } = setupKeymap()
+  const hooked: Collection = {
+    ...multiRequestCollection,
+    hooks: { setup: "one", teardown: "three" },
+  }
+  function Harness() {
+    const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+    const runner = useCollectionRunner({
+      collection: hooked,
+      collectionDir: "/tmp/hooks-view",
+      folderPath: null,
+      activeEnvironment: null,
+      environmentNames: [],
+      hasUnsavedChanges: false,
+      noProxy: true,
+      insecure: false,
+      systemProxy: { bypass: [] },
+      resetKey: 1,
+    })
+    return (
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CollectionRunnerView
+            runner={runner}
+            focus="runner-options"
+            hasUnsavedChanges={false}
+            detailScrollRef={detailScrollRef}
+            onPaneFocus={() => {}}
+            onEditTagFilter={() => {}}
+            onOpenResultDetail={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>
+    )
+  }
+  const h = await testRender(<Harness />, { width: 110, height: 35 })
+  await h.renderOnce()
+  const frame = h.captureCharFrame()
+  expect(frame).toContain("Setup: one")
+  expect(frame).toContain("Teardown: three")
+  expect(frame).toContain("Run 3 requests")
+  cleanup()
 })

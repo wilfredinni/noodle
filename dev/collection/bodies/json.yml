@@ -2,10 +2,14 @@ name: json
 method: POST
 url: $base_url/echo
 timeout: 5000
-auth:
-  type: none
+followRedirects: true
+maxRedirects: 5
+body: |-
+  {
+    "message": "$message",
+    "number": 42
+  }
 body_type: json
-body: '{"message":"$message","number":42}'
 assert:
   - expression: status
     operator: equals

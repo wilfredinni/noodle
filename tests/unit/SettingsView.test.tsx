@@ -99,6 +99,11 @@ function Harness({
       appProxyCredentials={{ username: "alice", password: "secret" }}
       collectionProxy={{ mode: "inherit" }}
       collectionScripts={collectionSettings}
+      collectionHooks={collectionSettings.hooks}
+      hookRequests={[
+        { id: "setup", name: "Setup" },
+        { id: "teardown", name: "Teardown" },
+      ]}
       collectionName={collectionSettings.name}
       collectionDescription={collectionSettings.description}
       timelineMaxEntries={collectionSettings.timelineMaxEntries}
@@ -1178,4 +1183,41 @@ describe("SettingsView", () => {
     expect(patches.at(-1)?.tests).toBe(tests)
     expect(patches.at(-1)?.scripts?.pre).toBe('console.info("settings")')
   })
+})
+
+it("selects and clears a collection teardown request by keyboard", async () => {
+  const { keymap, host, cleanup } = setupKeymap()
+  const patches: CollectionSettings[] = []
+  const h = await testRender(
+    <KeymapProvider keymap={keymap}>
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness
+          initialScope="collection"
+          initialCategory="general"
+          initialFocus="settings-content"
+          initialCollectionSettings={{ hooks: { setup: "setup" } }}
+          onCollectionSettingsChange={(patch) => {
+            patches.push(patch)
+            return true
+          }}
+        />
+      </ThemeProvider>
+    </KeymapProvider>,
+    { width: 100, height: 40 },
+  )
+  await act(async () => host.press("end"))
+  await h.renderOnce()
+  expect(h.captureCharFrame()).toContain("Teardown request")
+  await act(async () => host.press("return"))
+  await act(async () => host.press("down"))
+  await act(async () => host.press("return"))
+  expect(patches.at(-1)?.hooks).toEqual({
+    setup: "setup",
+    teardown: "teardown",
+  })
+  await act(async () => host.press("return"))
+  await act(async () => host.press("up"))
+  await act(async () => host.press("return"))
+  expect(patches.at(-1)?.hooks).toEqual({ setup: "setup", teardown: undefined })
+  cleanup()
 })
