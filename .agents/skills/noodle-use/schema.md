@@ -1133,6 +1133,7 @@ tls:
 - `collection_id`: generated UUID used to keep OS-vault accounts stable when the collection moves; preserve it and do not copy one collection's ID into another
 - `scripts`: optional inline `pre` and/or `post` blocks inherited by every request
 - `tests`: optional inline tests inherited by every request
+- `hooks`: optional `setup` and `teardown` saved request IDs; see [collection setup and teardown](#collection-setup-and-teardown)
 - `name`: optional display name; falls back to the collection directory name
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
@@ -1334,8 +1335,9 @@ non-empty array of objects and preserves JSON value types:
 The entire file is validated before requests are sent. Empty files, invalid or
 unsafe variable names, duplicate CSV headers, and inconsistent CSV rows fail.
 Names use letters, digits, or underscores. Limits are 5 MiB per file, 1,000
-rows, and 10,000 selected request executions. Rows must fit the existing
-256 KiB/depth-32 bridge limits, including the iteration wrapper.
+rows, and 10,000 request executions, including configured hooks for each row.
+Rows must fit the existing 256 KiB/depth-32 bridge limits, including the iteration
+wrapper.
 
 Each row runs every selected request in collection order. Its variables
 override environment values for `$name` substitution and `noodle.run.get`;
@@ -1347,7 +1349,8 @@ with child requests. JavaScript objects in `data` retain their JSON types.
 
 Each row starts with fresh variables and an in-memory copy of the same initial
 cookie jar. Cookies change within that row only and are never persisted.
-Fail-fast skips every remaining request and row. Delay applies between all
+Fail-fast skips remaining main requests and later rows, but still attempts
+the started row's teardown unless cancelled. Delay applies between all
 consecutive executions, including row boundaries. Results, skips, and details
 carry zero-based `iteration`; the collection result adds `iterations`. F5 groups
 results by iteration and counts progress across all executions. Human labels

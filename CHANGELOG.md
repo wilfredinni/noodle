@@ -4,6 +4,28 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-02
+
+Noodle 0.10.3 adds saved setup and teardown requests around collection runs, including each CSV or JSON data row. Configure them once in Collection Settings and use the same workflow in the CLI and TUI Runner, with stage labels and results that keep preparation, main requests, and cleanup easy to inspect. Teardown is attempted after failures, including fail-fast, while cancellation stops without starting cleanup requests.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-3-collection-setup-and-teardown/)
+
+### ✨ Features
+
+- Add optional `hooks.setup` and `hooks.teardown` saved request IDs in collection `settings.yml`, editable in Collection Settings > General. Run setup, selected main requests, and teardown through the shared request lifecycle with inherited scripts and tests, sharing variables and cookies within each run or data row. Exclude hook requests from target/tag selection, send nothing for an empty main selection, skip mains after setup failure, and count hooks toward data-run execution limits and stage-aware results, summaries, and progress.
+
+### 🐞 Fixes
+
+- Validate hook IDs and script/test sources before HTTP, check referenced requests on disk before saving settings, and keep collection audits from rewriting requests while checking hook references.
+- Wait for pending collection settings saves before starting the Runner or changing referenced files, and require unassigning hooks before renaming or deleting their requests or deleting a containing folder in the TUI.
+- Preserve setup, main, and teardown order when showing settled Runner results, including skipped mains, and retain stage labels and the executed hook configuration in session results and details.
+
+### 📚 Documentation
+
+- Update `noodle-dev` with shared hook validation, execution ordering, preflight, cancellation, row isolation, and integration responsibilities.
+- Update `noodle-use` with hook configuration, cleanup and cancellation rules, stage results, execution limits, and the fail-fast and empty-selection exceptions in its automation guidance.
+- Synchronize the README and agent instructions, collection format, Settings, Runner, CLI automation and agent guides, in-app tips, version examples, and release article.
+
 ## [0.10.2] - 2026-10-24
 
 Noodle 0.10.2 keeps each collection's latest Runner results available for the app session, even after reloading or switching collections. Open a result's request or inherited script source, make changes, and return to the same result with F5; retained results keep the configuration and labels used for that run.

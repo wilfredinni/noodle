@@ -29,6 +29,8 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 
 ## Rules
 
+- Optional `hooks.setup` and `hooks.teardown` in collection `settings.yml` reference distinct existing saved requests. They surround each nonempty main selection or data row, share that row's variables and cookies, and are excluded from target/tag selection. Setup failure skips mains but still attempts teardown; cancellation starts no further HTTP. Hook-enabled rows carry `stage: "setup" | "main" | "teardown"`, and `data.summary.stages` counts executed, passed, failed, skipped, and cancelled executions per stage. Manual sends and `request run` do not automatically run hooks. See [the hook contract](../schema.md#collection-setup-and-teardown).
+
 - Interrupt `collection run` with Ctrl+C (SIGINT) or SIGTERM to return a partial result and exit `130`. Completed request rows stay in `data.results`; an interrupted row has `cancelled: true`, and unstarted executions appear in `data.skipped` with reason `cancelled`. `data.cancelled` identifies the cancelled run. Summary `completed`, `cancelled`, and `unstarted` satisfy `selected = completed + cancelled + unstarted` and `executed = completed + cancelled`. Cancelled executions are excluded from request failure counts. Finished response diagnostics survive, unfinished script writes roll back, and later phases remain unevaluated. Timeouts remain ordinary failures; exit codes `0`, `1`, and `2` retain their existing meanings. Cancellation cannot undo HTTP effects already sent.
 
 - `request run --output/-o <file>` downloads original received bytes (after normal HTTP decompression), without diagnostic redaction. Use a user-authorized destination. Missing parents are created; existing files are never overwritten. Invalid/existing paths exit `2` before sending. Completed HTTP, post-script, capture, assertion, or test failures still save the body and retain exit `1`; pre-script and transport failures create no file. Write failures preserve response diagnostics and exit `1`. Successful downloads report `data.result.response.outputFile`.
@@ -41,9 +43,9 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - Request IDs are relative paths without `.yml`, such as `users/list`. Use forward slashes even on Windows; do not use traversal, empty segments, or hidden segments. On Windows, request, folder, collection, and environment names also reject forbidden filename characters, trailing dots/spaces, and reserved device names.
 - `collection run <dir> [<target>...]` accepts bare request IDs and folder paths ending in `/`. Folders include nested requests. Overlapping targets run once in collection order; omit targets to run the whole collection.
 - Each repeated `--tag <tag>` requires that effective request tag, so Include tags use AND matching. Each repeated `--exclude-tag <tag>` removes matching requests, so Exclude tags use OR matching and win when both filters match. Targets resolve first, then include and exclude filters run before environment, proxy, TLS, cookie, or request setup. Tag values and YAML tags are case-sensitive; duplicate filters have no additional effect.
-- Request tags combine with all ancestor folder tags. Duplicates have no additional effect, tags cannot be removed downstream, and root `folder.yml` remains ignored. A tag-filtered selection with no requests is a configuration failure. An empty collection or explicitly selected empty folder still succeeds when no tag filter is present.
-- `--fail-fast` stops after the first failed request. Read executed requests from ordered `data.results` and the remaining selected IDs from ordered `data.skipped` entries with `reason: "fail-fast"`. Filtered requests appear in neither array and cannot change RunScope captures.
-- `--delay <milliseconds>` accepts a non-negative safe integer and waits after a completed request only when another selected request remains. Failed requests are followed by the delay when execution continues; fail-fast skips the delay.
+- Request tags combine with all ancestor folder tags. Duplicates have no additional effect, tags cannot be removed downstream, and root `folder.yml` remains ignored. A tag-filtered selection with no requests is a configuration failure unless setup or teardown is configured; hook-enabled empty main selections succeed without HTTP. An empty collection or explicitly selected empty folder still succeeds when no tag filter is present.
+- `--fail-fast` stops main requests after the first failure, but still attempts teardown for the started row unless cancelled. Setup failure skips that row's mains with `setup-failed`; later rows use `fail-fast`. Read executed requests from ordered `data.results` and the remaining selected IDs from ordered `data.skipped` entries with `reason: "fail-fast"` or `"setup-failed"` as applicable. Filtered main requests appear in neither array and cannot change RunScope captures.
+- `--delay <milliseconds>` accepts a non-negative safe integer and waits after a completed request only when another selected request remains. Failed requests are followed by the delay when execution continues, including teardown after fail-fast; skipped requests add no delay.
 - Every request result has `failureCategories` in fixed order. Categories are `configuration`, `execution`, `script`, `transport`, `http`, `capture`, `assertion`, and `test`; completed-response `script`, `http`, `capture`, `assertion`, and `test` failures may coexist. Human output labels these as configuration error, request error, script failure, transport error, HTTP error, capture failure, assertion failure, and test failure. Collection results include `failed`, optional configuration `failure`, and `summary` counts for selection, execution, skips, request outcomes, assertions, captures, duration, and unique failure categories. Pre/post scripts have no aggregate counters; test groups add the test counters described below.
 - A configured request timeout and a redirect refused by Noodle's network-safety checks are `transport` failures. Caller-triggered collection cancellation marks the interrupted result `cancelled: true` instead of a failure category and returns a partial run result. Cross-origin redirects strip sensitive and known-secret headers, disable request auth, and stop before forwarding a preserved body containing a known secret; redirects that discard the body may proceed.
 - Every target is validated before the first request is sent. An HTTP status of
@@ -150,8 +152,9 @@ non-empty array of objects and preserves JSON value types:
 The entire file is validated before requests are sent. Empty files, invalid or
 unsafe variable names, duplicate CSV headers, and inconsistent CSV rows fail.
 Names use letters, digits, or underscores. Limits are 5 MiB per file, 1,000
-rows, and 10,000 selected request executions. Rows must fit the existing
-256 KiB/depth-32 bridge limits, including the iteration wrapper.
+rows, and 10,000 request executions, including configured hooks for each row.
+Rows must fit the existing 256 KiB/depth-32 bridge limits, including the iteration
+wrapper.
 
 Each row runs every selected request in collection order. Its variables
 override environment values for `$name` substitution and `noodle.run.get`;
@@ -163,7 +166,8 @@ with child requests. JavaScript objects in `data` retain their JSON types.
 
 Each row starts with fresh variables and an in-memory copy of the same initial
 cookie jar. Cookies change within that row only and are never persisted.
-Fail-fast skips every remaining request and row. Delay applies between all
+Fail-fast skips remaining main requests and later rows, but still attempts
+the started row's teardown unless cancelled. Delay applies between all
 consecutive executions, including row boundaries. Results, skips, and details
 carry zero-based `iteration`; the collection result adds `iterations`. F5 groups
 results by iteration and counts progress across all executions. Human labels

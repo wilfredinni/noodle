@@ -274,7 +274,7 @@ auth:
 ### Collection settings
 `settings.yml` at collection root supports generated `collection_id` plus optional
 `name`, multiline `description`, `timeline_max_entries`, `environment`, `cookies`,
-`proxy`, and `tls` fields.
+`proxy`, `tls`, and `hooks` fields. See [setup and teardown](#collection-setup-and-teardown) for saved request IDs.
 Timeline retention defaults to 50 responses per request; `0` disables history.
 Collection proxy mode is `inherit`, `off`, or `custom`. A custom proxy uses a
 credential-free HTTP(S) URL plus an optional bypass list. Authentication is
@@ -392,8 +392,9 @@ non-empty array of objects and preserves JSON value types:
 The entire file is validated before requests are sent. Empty files, invalid or
 unsafe variable names, duplicate CSV headers, and inconsistent CSV rows fail.
 Names use letters, digits, or underscores. Limits are 5 MiB per file, 1,000
-rows, and 10,000 selected request executions. Rows must fit the existing
-256 KiB/depth-32 bridge limits, including the iteration wrapper.
+rows, and 10,000 request executions, including configured hooks for each row.
+Rows must fit the existing 256 KiB/depth-32 bridge limits, including the iteration
+wrapper.
 
 Each row runs every selected request in collection order. Its variables
 override environment values for `$name` substitution and `noodle.run.get`;
@@ -405,7 +406,8 @@ with child requests. JavaScript objects in `data` retain their JSON types.
 
 Each row starts with fresh variables and an in-memory copy of the same initial
 cookie jar. Cookies change within that row only and are never persisted.
-Fail-fast skips every remaining request and row. Delay applies between all
+Fail-fast skips remaining main requests and later rows, but still attempts
+the started row's teardown unless cancelled. Delay applies between all
 consecutive executions, including row boundaries. Results, skips, and details
 carry zero-based `iteration`; the collection result adds `iterations`. F5 groups
 results by iteration and counts progress across all executions. Human labels

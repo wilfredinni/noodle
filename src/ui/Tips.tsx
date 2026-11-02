@@ -58,6 +58,8 @@ const TIPS = [
   "download original response bytes to a new file with {noodle request run <id> --collection <path> --output <file>}",
   "add {--body}, {--headers}, or {--cookies} to {noodle request run} for redacted response details",
   "open or resume the collection Runner with {F5}; configure requests, filters, a delay, or a CSV/JSON data file before running",
+  "choose saved setup and teardown requests in {F4} → collection {General}; they run around each main selection or data row",
+  "teardown runs after collection failures, including fail-fast; stopping a run skips teardown",
   "inspect completed Runner Results and Console while other requests run; {s} stops the run",
   "leave an active Runner with {Esc}; after cleanup, its latest results survive collection switches until app exit",
   "in settled Runner details, press {o} to open the request or selected result's source; {F5} returns to results",
