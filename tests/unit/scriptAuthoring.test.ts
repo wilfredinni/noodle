@@ -104,6 +104,32 @@ describe("script authoring contract", () => {
     ).toBeNull()
   })
 
+  it("identifies the script tab, owner, and script coordinates in syntax errors", async () => {
+    const resolver = createScriptSourceResolver(undefined, true)
+    for (const [phase, label, scope, scopeId, path] of [
+      [
+        "pre",
+        "Pre Script",
+        "request",
+        "negative/syntax",
+        "negative/syntax.yml",
+      ],
+      ["post", "Post Script", "folder", "negative", "negative/folder.yml"],
+      ["tests", "Tests", "collection", "development", "settings.yml"],
+    ] as const) {
+      await expect(
+        resolver.resolveBlocks([
+          {
+            ...withScript({}, phase, "const broken = ;"),
+            source: { scope, scopeId, path },
+          },
+        ]),
+      ).rejects.toThrow(
+        `${label} in ${scope}: ${scopeId}\nSyntaxError at script line 1, column 16: unexpected token in expression: ';'`,
+      )
+    }
+  })
+
   it("derives phase-aware global, member and matcher completions from the runtime contract", () => {
     for (const phase of ["pre", "post", "tests"] as const) {
       const requestMembers = completions("noodle.request.", phase).map(
@@ -200,7 +226,9 @@ describe("script authoring contract", () => {
     ).rejects.toThrow("SyntaxError")
     await expect(
       resolver.resolveBlocks([{ source: origin, tests: "./invalid.js" }]),
-    ).rejects.toThrow("1:")
+    ).rejects.toThrow(
+      "Tests in request: script (./invalid.js)\nSyntaxError at script line 1, column 16: unexpected token in expression: ';'",
+    )
     await writeFile(join(outside, "private.js"), "// outside the collection")
     await symlink(join(outside, "private.js"), join(dir, "outside.js"))
     await expect(resolver.resolveFile("./outside.js", origin)).rejects.toThrow(

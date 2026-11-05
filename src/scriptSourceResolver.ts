@@ -11,6 +11,7 @@ import {
   type ScriptSource,
 } from "./preRequestScript"
 import { requestScriptBlocks, scriptSourceLabel } from "./scriptInheritance"
+import { SCRIPT_TABS } from "./scriptAuthoring"
 
 export class ScriptSourceError extends Error {
   override name = "ScriptSourceError"
@@ -146,7 +147,7 @@ export function createScriptSourceResolver(
     }
   }
   const syntax = new Map<string, ReturnType<typeof validateScriptSyntax>>()
-  const validate = async (resolved: ResolvedScriptSource) => {
+  const validate = async (resolved: ResolvedScriptSource, label: string) => {
     let parsed = syntax.get(resolved.text)
     if (!parsed) {
       parsed = validateScriptSyntax(resolved.text)
@@ -155,7 +156,7 @@ export function createScriptSourceResolver(
     const error = await parsed
     if (error)
       throw new ScriptSourceError(
-        `${scriptSourceLabel(resolved.source)}: ${error.name} at ${error.line ?? 1}:${error.column ?? 1}: ${error.message}`,
+        `${label} in ${scriptSourceLabel(resolved.source)}\n${error.name} at script line ${error.line ?? 1}, column ${error.column ?? 1}: ${error.message}`,
       )
   }
   return {
@@ -184,12 +185,12 @@ export function createScriptSourceResolver(
       const resolved: ResolvedScriptBlock[] = []
       for (const block of blocks) {
         const result: ResolvedScriptBlock = {}
-        for (const phase of ["pre", "post", "tests"] as const) {
+        for (const { phase, label } of SCRIPT_TABS) {
           const source =
             phase === "tests" ? block.tests : block.scripts?.[phase]
           if (source !== undefined) {
             result[phase] = await resolveSource(source, block.source)
-            if (syntaxPreflight) await validate(result[phase]!)
+            if (syntaxPreflight) await validate(result[phase]!, label)
           }
         }
         resolved.push(result)

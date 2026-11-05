@@ -83,6 +83,7 @@ import {
 } from "../requestLifecycle"
 import {
   createScriptSourceResolver,
+  ScriptSourceError,
   type ScriptSourceResolver,
 } from "../scriptSourceResolver"
 import { requestScriptBlocks } from "../scriptInheritance"
@@ -1110,7 +1111,10 @@ function configurationRunResult(
 ): CollectionRunResult {
   const failure = {
     category: "configuration" as const,
-    message: errorMessage(error),
+    message:
+      error instanceof ScriptSourceError
+        ? `Run not started. No requests were sent.\n${error.message}`
+        : errorMessage(error),
   }
   return {
     results: [],

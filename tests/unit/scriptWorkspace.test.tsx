@@ -1,6 +1,6 @@
 import { createScriptDiagnostics } from "../../src/ui/editor/scriptDiagnostics"
 import { afterEach, describe, expect, it, spyOn } from "bun:test"
-import { act, useState } from "react"
+import { act, useRef, useState } from "react"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -15,6 +15,7 @@ import {
   type ScriptOrder,
 } from "../../src/ui/overlays/ScriptOrderOverlay"
 import { CollectionScripts } from "../../src/ui/settings/CollectionScripts"
+import { CollectionRunnerView } from "../../src/ui/CollectionRunnerView"
 import {
   queueCollectionSettingsSave,
   type CollectionSettingsPersistence,
@@ -563,7 +564,9 @@ describe("script workspaces", () => {
     let manual!: UseResponseResult
     let runner!: UseCollectionRunnerResult
     const complete = Promise.withResolvers<void>()
+    const { keymap, cleanup } = setupKeymap()
     function Harness() {
+      const detailScrollRef = useRef(null)
       manual = useResponse(
         { ...request, scripts: { post: "./broken.js" } },
         undefined,
@@ -587,23 +590,49 @@ describe("script workspaces", () => {
         insecure: false,
         resetKey: 1,
       })
-      return null
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-options"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditTagFilter={() => {}}
+              onOpenResultDetail={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
     }
     try {
-      await testRender(<Harness />, { width: 20, height: 5 })
+      const render = await testRender(<Harness />, { width: 80, height: 24 })
       await act(async () => manual.trySend())
       await act(async () => {
         await complete.promise
       })
       expect(manual.state.status).toBe("error")
+      if (manual.state.status === "error")
+        expect(manual.state.error.message).toBe(
+          "Post Script in request: a (./broken.js)\nSyntaxError at script line 1, column 16: unexpected token in expression: ';'",
+        )
       await act(async () => {
         await runner.run()
       })
-      expect(runner.runError).toContain("SyntaxError")
+      expect(runner.runError).toBe(
+        "Run not started. No requests were sent.\nTests in request: b (./broken.js)\nSyntaxError at script line 1, column 16: unexpected token in expression: ';'",
+      )
       expect(runner.result).toBeNull()
       expect(send).not.toHaveBeenCalled()
+      await act(async () => render.renderOnce())
+      const frame = render.captureCharFrame()
+      expect(frame).toContain("Run not started. No requests were sent.")
+      expect(frame).toContain("Tests in request: b (./broken.js)")
+      expect(frame).toContain("SyntaxError at script line 1, column 16")
     } finally {
       send.mockRestore()
+      cleanup()
     }
   })
 })
