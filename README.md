@@ -105,7 +105,10 @@ to create a collection, send your first request, and inspect the response.
   Generate test data and timestamps with `$random` and `$time` placeholders.
 - ⚡ **[Collection runner and automation](https://noodlerest.dev/docs/guides/automation/):**
   Run requests or folders with tag filters, fail-fast behavior, delays, CSV/JSON
-  iteration data, and JSON results. Optional saved setup and teardown requests
+  iteration data, and JSON results. Save collection reports with
+  `--json --output results.json` or `--reporter junit --output results.xml`.
+  See the [automation contract and CI example](.agents/skills/noodle-use/workflows/automation.md#collection-report-files).
+  Optional saved setup and teardown requests
   surround each run or data row; configure them in Collection Settings > General.
   Empty selections send nothing, and cancellation skips teardown.
   Interrupt CLI collection runs with Ctrl+C to

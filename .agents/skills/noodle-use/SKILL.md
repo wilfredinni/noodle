@@ -31,6 +31,8 @@ Use `noodle request run <id> --collection <dir> --output <file> --json` to downl
 
 For human-readable single-request inspection, add `--body`, `--headers`, or `--cookies` to `noodle request run`. These details use the redacted result, escape terminal control characters, and mask received-cookie values. `--json` remains one envelope and includes received-cookie metadata; binary bodies are never printed.
 
+Collection runs can save the existing JSON envelope with `--json --output results.json` or a JUnit report with `--reporter junit --output results.xml`. Stdout is unchanged; existing destinations are rejected before HTTP. Failed and cancelled runs still produce reports. See the [automation contract and CI example](workflows/automation.md#collection-report-files).
+
 ## Quick routing
 
 | Intent | Read |

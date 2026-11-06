@@ -85,6 +85,223 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `secret set` creates or updates the blank `# @secret KEY` declaration and stores the value in the OS vault. Prefer masked TTY input for humans; use `--stdin` only when automation can supply the value without exposing it in arguments or logs. `environment set` refuses declared secret keys.
 - `collection audit --fix` writes canonical forms for valid files. Obtain user authorization before running it.
 
+## Collection report files
+
+```bash
+noodle collection run ./api --env ci
+noodle collection run ./api --env ci --json
+noodle collection run ./api --env ci --json --output results.json
+noodle collection run ./api --env ci --reporter junit --output results.xml
+```
+
+`--output/-o` saves the sanitized collection result. With `--json`, stdout and
+the file contain the same compact JSON envelope and trailing newline. With
+`--reporter junit`, stdout keeps the existing human result and the file contains
+JUnit XML. Human progress uses stderr only when it is a TTY; JSON has no progress
+output. Completed-run warnings remain in the result and human output.
+
+The only reporter name is `junit`, and it requires `--output`. Reject
+`--json --reporter junit`, an unknown reporter, `--output` without a format, and
+invalid or existing destinations before HTTP. These errors use exit `2`, an
+error envelope with `data: null` in JSON mode, or `configuration error:` on stderr
+in human mode. Relative destinations start at the working directory; `@/` starts
+at the home directory. Missing parents are created when saving. Existing files,
+directories, and symlinks are never overwritten, including concurrent creations.
+
+Reports are written for successful, failed, cancelled, and pre-run configuration
+results when the format and destination are valid. The output directory is pinned before HTTP. Native publication uses a private
+sibling staging directory on POSIX and a protected staging file handle on
+Windows; only a complete report is published, without replacement. Handled failures
+clean up the temporary file; unsupported atomic publication fails without a
+partial destination. A hard kill or second interruption can prevent reporting
+and leave a temporary file, but cannot publish a partial report.
+
+A report-write failure leaves execution diagnostics intact. JSON emits one
+envelope with `status: "error"` and an appended `Unable to write collection report`
+message; `data.failed` still describes execution. Human mode keeps the normal
+result on stdout and emits the write error on stderr. A successful run becomes
+exit `1`; an already nonzero code, including `2` or `130`, is preserved. Report
+serialization and writing are excluded from runner timings.
+
+### JSON automation contract
+
+The envelope always has `status: "success" | "error"`, `data`, and `errors: string[]`.
+Success uses `errors: []`; ordinary completed failures retain `["command failed"]`.
+Configuration failures use their diagnostic message, and cancellation uses
+`["Collection run cancelled"]`. `data` is the collection result below, or `null`
+when command validation/unexpected failure prevents producing that result.
+Error strings are diagnostics, not identifiers to parse.
+
+Fields marked optional are omitted when unavailable, not filled with `null`.
+Values explicitly described as JSON values can themselves be `null`. Object key
+order is not significant. Numeric durations are milliseconds unless stated
+otherwise and need not be integers. Arrays have the ordering specified below.
+
+| Collection result field | Type and meaning |
+| --- | --- |
+| `results` | Ordered array of started top-level request executions, including an interrupted execution. Child requests remain in script diagnostics. |
+| `skipped` | Ordered array of unstarted selected executions: `{ id: string, reason: "fail-fast" | "cancelled" | "setup-failed", iteration?: number, stage?: "setup" | "main" | "teardown" }`. |
+| `failed` | Boolean; true for execution failure, configuration failure, or cancellation. Independent of report-write failure. |
+| `failure` | Optional `{ category: "configuration", message: string }` for failure before execution. `results` and `skipped` are empty, even if a selection count is known. |
+| `cancelled` | Optional literal `true` when the run was cancelled; absent otherwise. |
+| `iterations` | Optional dataset row count, present for data-driven runs that reach execution preparation. Row data is never included. |
+| `summary` | Required counters and aggregate timing, described below. |
+| `warnings` | Optional array of non-fatal diagnostic strings. |
+
+Within each dataset row, the order is setup, selected main requests in collection
+order, then teardown. Each array preserves its own execution/skip order; they are
+not one combined timeline. Results and skips are identified by `(id, iteration,
+stage)`. `iteration` is zero-based and absent without `--data`. `stage` is present
+for all selected stages when hooks exist, and absent for hook-free runs. Filtering
+excludes requests from both arrays. Setup failure skips that row's mains while
+attempting teardown; fail-fast prevents later rows. Cancellation starts no cleanup.
+
+| Request result field | Type and meaning |
+| --- | --- |
+| `id`, `method`, `url` | Required strings: collection-relative ID without `.yml`, HTTP method, and sanitized prepared URL when preparation succeeded (otherwise original URL). |
+| `ok` | Required boolean; false for failure or cancellation. |
+| `failureCategories` | Required ordered array of categories below; cancellation itself adds no category. Earlier completed failures can remain on a cancelled result. |
+| `durationMs` | Optional non-negative number; emitted for each current collection execution, including pre-script/transport failures and cancellation. Measures the entire request lifecycle, excluding inter-request delay. Absent in older results and single `request run` results. |
+| `iteration`, `stage`, `cancelled` | Optional identity and cancellation fields as described above; `cancelled` is literal `true`. |
+| `response` | Optional completed HTTP response, retained even if a later phase fails or is cancelled. |
+| `error` | Optional sanitized diagnostic string for execution/transport errors or cancellation. |
+| `warnings` | Optional string array of request warnings. |
+| `scripts`, `captures`, `assertions`, `tests` | Optional execution groups, described below. |
+
+`response` requires `status: number`, `statusText: string`,
+`headers: Record<string, string>`, and `timeMs: number` (HTTP duration, not complete
+lifecycle duration). Text responses have sanitized `body: string`. Binary
+responses omit `body` and expose `bodyKind: "binary"`, `size: number`,
+`contentType: string`, and optional `filename: string`. No binary bytes/base64 are
+included. Optional `cookies` contains `{ name, value, expires, secure, httpOnly }`,
+optional string `domain` and `path`, and optional `sameSite: "strict" | "lax" | "none"`.
+Cookie `value` is masked, `expires` is a string or `null`, and the flags are booleans.
+The shared response type also has optional `outputFile: string` for single-request
+body downloads; collection report paths are not added to response metadata.
+
+Execution groups require `evaluated: boolean` and ordered `results` arrays. An
+absent group means no applicable enabled declaration; `evaluated: false` with
+empty results means applicable work was not evaluated. A partially cancelled
+group can retain completed results. No outcomes are invented for unexecuted
+blocks. Disabled assertions/captures do not produce rows.
+
+- `assertions.results`: `{ expression: string, operator: string, expected?: JsonValue, actual?: JsonValue, passed: boolean, message: string }`. Declaration order; absent actual/expected differs from explicit JSON `null`. Operators follow the [assertion schema](../schema.md).
+- `captures.results`: success rows have `{ variable: string, expression: string, success: true, type: "null" | "boolean" | "number" | "string" | "array" | "object", value: JsonValue, persisted?: "secret" | "environment" }`. Failure rows instead have `success: false`, `failureReason: "missing" | "resolution_error" | "persistence_error"`, and `message: string`. Collection runs never persist captures. Rows retain declaration order.
+- `scripts.results`: ordered pre then post invocations, each in collection, outer-folder, inner-folder, request order. Fields: `phase: "pre" | "post" | "tests"`, `scope: "collection" | "folder" | "request"`, `sourceKind: "inline" | "external"`, `success: boolean`, `durationMs: number`, `logs: Log[]`, optional `source: Source`, `error: ScriptError`, `cancelled: true`, `persistence: PersistenceOutcome[]`, and `requests: ChildRequest[]`.
+- `tests`: also requires `logs: Log[]`; each result has `{ name: string, passed: boolean, message: string, durationMs: number, source?: Source }` in declaration order across inherited blocks. Optional `invocations` uses the script invocation shape, including blocks declaring zero tests. Optional `errors: ScriptError[]` retains every block error; legacy `error: ScriptError` remains the first. Optional `cancelled: true` identifies interruption. Callback failures are rows; top-level errors are block errors.
+- `Source`: `{ scope: "collection" | "folder" | "request", path: string, scopeId?: string, sourceKind?: "inline" | "external", sourcePath?: string }`. `path` names the declaring YAML file; external `sourcePath` is collection-relative. No source code is included.
+- `ScriptError`: `{ name: string, message: string, source?: Source, line?: number, column?: number }`. Locations are available when the runtime can identify them.
+- `Log`: `{ level: "log" | "info" | "warn" | "error", message: string, source?: Source, timeMs?: number }`. Arrays preserve emission order. Relative timing is optional; bounds can replace text with `[TRUNCATED]`.
+- `PersistenceOutcome`: `{ variable: string, operation: "set" | "unset", target: "environment" | "secret", status: "saved" | "transient" | "failed", error?: ScriptError }`. Collection runs suppress persistence and report transient outcomes; values/intents are not exposed.
+- `ChildRequest`: `{ kind: "saved" | "http", requestId?: string, depth: number, method: string, url: string, status?: number, durationMs: number, success: boolean, failureCategories: string[], error?: ScriptError, cancelled?: true }`. Ordered child summaries contain sanitized metadata, not bodies.
+
+`summary` always contains non-negative integer counts `selected`, `executed`,
+`completed`, `cancelled`, `unstarted`, `skipped`, `requestSuccesses`,
+`requestFailures`, `assertionPasses`, `assertionFailures`, and `captureFailures`;
+`durationMs` is the rounded wall duration including preparation, waits and cleanup.
+`failureCategories` is the ordered union of result categories, plus configuration
+when applicable. Optional `testPasses`, `testFailures`, and `testScriptErrors`
+appear together when at least one test group exists. Optional `stages` maps
+`setup`, `main`, and `teardown` to `{ executed, passed, failed, skipped, cancelled }`
+counts when stage rows exist.
+
+Accounting: `selected = completed + cancelled + unstarted`,
+`executed = completed + cancelled`, and
+`completed = requestSuccesses + requestFailures`. Cancelled executions are not
+request failures. Assertion/capture/test counters retain completed diagnostics,
+including those from an interrupted execution. Normally `skipped = unstarted`;
+pre-run configuration failure may know selected/unstarted counts without having
+skip rows. Stage counts count hook executions, not inherited script blocks.
+
+| Failure category, in fixed order | Meaning |
+| --- | --- |
+| `configuration` | Pre-run collection, selection, data, environment, transport-policy or external-source validation failure. |
+| `execution` | Request preparation/substitution or other request execution failure. |
+| `script` | Failed pre/post invocation or persistence operation. |
+| `transport` | Failed HTTP transport, network-safety refusal or request timeout. |
+| `http` | HTTP status at least 400, even if assertions pass. |
+| `capture` | Failed response capture. |
+| `assertion` | Failed declarative response assertion. |
+| `test` | Failed test callback or test-block error. |
+
+Categories can coexist; do not infer outcome from HTTP status alone. Explicit
+cancellation retains partial response phases and rolls back unfinished script
+writes; it is not a timeout or a new failure category.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Successful run and requested report saved. |
+| `1` | Completed request failure, unexpected execution failure, or report-write failure after an otherwise successful run. |
+| `2` | Pre-run configuration failure or invalid report options/destination. |
+| `130` | Graceful SIGINT/SIGTERM cancellation; a second signal forces immediate exit. |
+
+This contract applies after entering the command handler. CLI-parser usage
+errors (for example, missing required positional arguments) retain the existing
+parser diagnostics and exit behavior rather than returning a result envelope.
+Reports cannot be guaranteed after force termination.
+
+Known secrets, ordinary JSON-escaped secret strings, credential headers, and
+cookie values are redacted in the shared result before reporting. Unknown server
+content and deliberately transformed secrets can remain visible. JSON retains
+sanitized response bodies; treat artifacts according to their contents.
+
+Patch releases preserve existing field types, meanings and omission behavior.
+New optional fields may be added; readers must tolerate unknown fields and handle
+unknown future category values conservatively. Breaking contract changes require
+an explicitly documented version boundary, not a silent patch. Diagnostic text,
+human formatting, timing values and JSON object-key order are not parsing APIs.
+No schema version field or reporter-specific JSON wrapper is introduced.
+
+### JUnit mapping
+
+The XML contains one `testsuites` root and one `testsuite`. Each selected
+execution has one `testcase` named with its ID and, when present, one-based
+iteration and stage; classname is `noodle.collection`. Assertions and scripted
+tests are diagnostics within that case, not additional cases. Cases follow row,
+stage and collection order. Filtered requests are omitted.
+
+- Passed execution: no outcome child.
+- HTTP, capture, assertion or test callback failure: one `failure` child.
+- Configuration, execution, pre/post script, transport or top-level test-block error: one `error` child. Errors take precedence when categories coexist; all diagnostics remain in that child.
+- Unstarted execution: `skipped` with `fail-fast`, `setup-failed` or `cancelled`.
+- Interrupted execution: `skipped` with `cancelled`; completed failure diagnostics remain in `system-err`, logs in `system-out`. The suite also records the cancellation property, including cancellation before HTTP.
+- Pre-run configuration failure: one synthetic `Collection configuration` error case, without inventing request executions. A successful empty selection produces zero cases.
+
+Counts come from emitted cases and are mutually exclusive. Times are seconds:
+complete lifecycle duration per execution, zero for unstarted cases, and total
+runner wall duration for the suite/root. Suite time includes waits/preparation
+and need not equal the sum of case times. Older results without `durationMs`
+fall back to HTTP duration or zero. A synthetic configuration case has zero time.
+
+The reporter uses sanitized messages, source origins, expected/actual assertion
+values and bounded logs. It excludes response bodies, headers, full capture
+values and datasets. XML text/attributes are escaped and invalid XML 1.0 code
+points become U+FFFD. JUnit skipped counts include interrupted executions, unlike
+JSON `summary.skipped`, which counts only unstarted skip rows. The process exit
+code remains authoritative for CI failure/cancellation.
+
+### GitHub Actions artifact upload
+
+After installing Noodle and checking out the API collection, add:
+
+```yaml
+- name: Run API tests
+  run: noodle collection run ./api --env ci --reporter junit --output results.xml
+
+- name: Upload API report
+  if: ${{ always() }}
+  uses: actions/upload-artifact@v7
+  with:
+    name: api-results
+    path: results.xml
+    if-no-files-found: error
+```
+
+The API test step retains its failure status. `always()` allows the artifact step
+to run after failure or cancellation; no `continue-on-error` is needed. Use a fresh
+report path for each invocation. See [upload-artifact](https://github.com/actions/upload-artifact)
+and [GitHub status checks](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#always).
+
 ## Fall back to files
 
 Use direct YAML/dotenv/JavaScript edits when the CLI cannot express the change: folders and inheritance, request headers, params, auth, bodies, form data, inline or external pre/post scripts and tests, captures, assertions, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request sequence.
