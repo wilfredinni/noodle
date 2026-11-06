@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import pkg from "../../package.json" with { type: "json" }
 import { act, useLayoutEffect, useRef, useState } from "react"
 import { KeymapProvider, useBindings } from "@opentui/keymap/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
@@ -395,7 +396,7 @@ describe("live Collection Runner", () => {
       expect(before).toContain("RUNNING")
       expect(before).toContain("PENDING")
       expect(before).toContain("s Stop 1/3")
-      expect(before).toContain("v0.10.3")
+      expect(before).toContain(`v${pkg.version}`)
       expect(before).toContain("Live acceptance")
       if (input === "detail") {
         await act(async () => h.host.press("return"))

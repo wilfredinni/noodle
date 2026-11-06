@@ -59,6 +59,22 @@ prompts. Ordinary-account and interactive terminal testing remains pending.
 For prerelease testing, manually dispatched CI runs provide a Windows beta ZIP
 containing `noodle.exe`, checksums, and build information.
 
+### GitHub Actions
+
+After checking out your collection, install Noodle and run it in a separate step:
+
+```yaml
+- uses: wilfredinni/setup-noodle@v1
+  with:
+    version: v0.10.4
+- run: noodle collection run ./api --reporter junit --output results.xml
+```
+
+`@v1` selects the setup action. The required `version` selects the exact Noodle
+CLI release. The action verifies the binary's SHA-256 checksum before adding it
+to the runner's PATH. See [setup-noodle](https://github.com/wilfredinni/setup-noodle)
+and the [CI workflow with report upload](https://noodlerest.dev/docs/guides/automation/#run-in-github-actions-ci).
+
 ## Quick start
 
 Follow the [quick start guide](https://noodlerest.dev/docs/getting-started/quick-start/)

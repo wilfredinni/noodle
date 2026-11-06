@@ -4,6 +4,33 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-06
+
+Noodle 0.10.4 lets you save a collection run as JSON for scripts or JUnit XML for a CI test viewer. On GitHub Actions, install the CLI with `setup-noodle`, run your collection, and keep the report even when an API check fails.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-10-4-collection-reports-in-ci/)
+
+### ✨ Features
+
+- Save a collection run with `--json --output results.json` for an exact copy of JSON stdout, or `--reporter junit --output results.xml` to keep the human-readable summary in the terminal. JUnit records one case per selected execution with its duration, applicable iteration and stage, warnings, and any failure or skip reason. Noodle checks the destination before sending requests and writes a complete file without overwriting an existing one. Failed and gracefully cancelled runs can write reports and retain their exit codes.
+- Install an exact Noodle CLI release on GitHub Actions with [`wilfredinni/setup-noodle@v1`](https://github.com/wilfredinni/setup-noodle). The companion action verifies the release binary against its SHA-256 checksum and makes `noodle` available to subsequent steps.
+
+### 🐞 Fixes
+
+- Mask known secrets in JSON-escaped text, including values containing quotes, backslashes, or newlines.
+- Identify the script tab, source, line, and column when syntax preflight fails before a TUI send or Runner execution.
+- Give user scripts their full CPU allowance by excluding sandbox initialization from the CPU budget while enforcing the wall-clock deadline.
+
+### 🔧 Refactors
+
+- Align the native file writer and its CI checks with the five release targets: macOS and Linux glibc on x64 and arm64, and Windows x64.
+
+### 📚 Documentation
+
+- Update `noodle-dev` with the CLI report contract, exclusive file publication, and supported native targets.
+- Update `noodle-use` with JSON fields, JUnit mappings, exit codes, and a GitHub Actions example that installs Noodle and uploads the report.
+- Document the setup action and collection reports in the README, installation and CLI guides, and client comparison.
+
 ## [0.10.3] - 2026-11-02
 
 Noodle 0.10.3 adds saved setup and teardown requests around collection runs, including each CSV or JSON data row. Configure them once in Collection Settings and use the same workflow in the CLI and TUI Runner, with stage labels and results that keep preparation, main requests, and cleanup easy to inspect. Teardown is attempted after failures, including fail-fast, while cancellation stops without starting cleanup requests.

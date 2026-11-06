@@ -282,9 +282,16 @@ code remains authoritative for CI failure/cancellation.
 
 ### GitHub Actions artifact upload
 
-After installing Noodle and checking out the API collection, add:
+After checking out a repository containing the `./api` collection and its `ci`
+environment, install the exact CLI release with
+[`setup-noodle`](https://github.com/wilfredinni/setup-noodle). The action verifies
+the binary checksum and adds Noodle to PATH for the following steps.
 
 ```yaml
+- uses: wilfredinni/setup-noodle@v1
+  with:
+    version: v0.10.4
+
 - name: Run API tests
   run: noodle collection run ./api --env ci --reporter junit --output results.xml
 
