@@ -40,9 +40,7 @@ in beta.
 See [installation options](https://noodlerest.dev/docs/getting-started/installation/)
 for Homebrew and source builds.
 
-Homebrew controls upgrades: `noodle update` prints `brew upgrade noodle`, and the
-TUI reports available versions without installing them. Run `noodle agent install`
-after a brew upgrade to refresh an installed skill. If you used `wilfredinni/noodle`,
+Run `noodle agent install` after a brew upgrade to refresh an installed skill. If you used `wilfredinni/noodle`,
 follow the [tap migration instructions](https://noodlerest.dev/docs/getting-started/installation/#migrate-from-the-old-tap).
 
 ### Windows x64 (beta)
@@ -55,11 +53,7 @@ irm https://noodlerest.dev/install.ps1 | iex
 
 The installer verifies the release checksum, installs to
 `%LOCALAPPDATA%\Programs\Noodle\noodle.exe`, and updates your user PATH.
-Open a new terminal after installation. Windows ARM64 is not supported.
-Set `NOODLE_VERSION`, `NOODLE_INSTALL_DIR`, or `NOODLE_SKIP_PATH_UPDATE=1`
-before running the script to override the version, destination, or PATH update.
 
-Run `noodle update` to stage an update, then close and reopen Noodle to apply it.
 Windows executables are unsigned; browser downloads may trigger Windows trust
 prompts. Ordinary-account and interactive terminal testing remains pending.
 For prerelease testing, manually dispatched CI runs provide a Windows beta ZIP
