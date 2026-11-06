@@ -142,6 +142,19 @@ describe("JUnit report", () => {
     })
   }
 
+  it("retains warnings on a successful testcase", () => {
+    const warnings = ["OAuth <storage> unavailable", "Legacy auth & signing"]
+    const report = renderJUnitReport(run([request({ warnings }), request()]))
+    const [warned, quiet] = reportCases(report)
+    expect(warned!.children).toHaveLength(1)
+    expect(warned!.children[0]).toMatchObject({
+      name: "system-err",
+      text: warnings.join("\n"),
+    })
+    expect(quiet!.children).toHaveLength(0)
+    expect(parseReport(report).attributes.failures).toBe("0")
+  })
+
   it("retains all diagnostics in one error, including inherited test errors and child summaries", () => {
     const source = {
       scope: "folder" as const,

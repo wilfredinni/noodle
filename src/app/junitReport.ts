@@ -132,6 +132,10 @@ export function renderJUnitReport(data: CollectionRunResult): string {
       content.push(
         `<${tag} type="${xml(categories)}" message="${xml(result.error ?? categories)}">${xml(diagnostics(result))}</${tag}>`,
       )
+    } else if (result?.warnings?.length) {
+      content.push(
+        `<system-err>${xml(result.warnings.join("\n"))}</system-err>`,
+      )
     }
     if (result) {
       const logs = [
