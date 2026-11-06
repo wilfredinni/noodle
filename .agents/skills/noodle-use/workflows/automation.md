@@ -140,7 +140,7 @@ otherwise and need not be integers. Arrays have the ordering specified below.
 | Collection result field | Type and meaning |
 | --- | --- |
 | `results` | Ordered array of started top-level request executions, including an interrupted execution. Child requests remain in script diagnostics. |
-| `skipped` | Ordered array of unstarted selected executions: `{ id: string, reason: "fail-fast" | "cancelled" | "setup-failed", iteration?: number, stage?: "setup" | "main" | "teardown" }`. |
+| `skipped` | Ordered array of unstarted selected executions: `{ id: string, reason: "fail-fast" \| "cancelled" \| "setup-failed", iteration?: number, stage?: "setup" \| "main" \| "teardown" }`. |
 | `failed` | Boolean; true for execution failure, configuration failure, or cancellation. Independent of report-write failure. |
 | `failure` | Optional `{ category: "configuration", message: string }` for failure before execution. `results` and `skipped` are empty, even if a selection count is known. |
 | `cancelled` | Optional literal `true` when the run was cancelled; absent otherwise. |
