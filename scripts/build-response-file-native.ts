@@ -10,9 +10,6 @@ const targets: Record<string, string> = {
   "darwin-x64": "x86_64-macos.13.0",
   "linux-arm64": "aarch64-linux-gnu.2.17",
   "linux-x64": "x86_64-linux-gnu.2.17",
-  "linux-arm64-musl": "aarch64-linux-musl",
-  "linux-x64-musl": "x86_64-linux-musl",
-  "win32-arm64": "aarch64-windows-gnu",
   "win32-x64": "x86_64-windows-gnu",
 }
 const sha256 = (bytes: Uint8Array) =>
@@ -59,7 +56,7 @@ if (args.includes("--check")) {
       throw new Error(
         `Response native prebuild integrity check failed: ${name}`,
       )
-  console.log("Response native source and eight prebuild hashes verified.")
+  console.log("Response native source and five prebuild hashes verified.")
   process.exit(0)
 }
 
@@ -75,6 +72,9 @@ if (!args.includes("--manifest")) {
   const selected = args.includes("--all")
     ? Object.keys(targets)
     : [requested ?? host]
+  for (const name of selected)
+    if (!Object.hasOwn(targets, name))
+      throw new Error(`Unknown response native target: ${name}`)
   const zig = process.env.NOODLE_ZIG ?? "zig"
   if (hostCompiler && !["darwin", "linux"].includes(process.platform))
     throw new Error("Host compiler builds support macOS and Linux only")
@@ -91,8 +91,7 @@ if (!args.includes("--manifest")) {
     join(tmpdir(), "noodle-response-native-build")
   await mkdir(cache, { recursive: true })
   for (const name of selected) {
-    const target = targets[name]
-    if (!target) throw new Error(`Unknown response native target: ${name}`)
+    const target = targets[name]!
     const flags = [
       ...(hostCompiler ? [] : ["cc", "-target", target]),
       "-std=c11",

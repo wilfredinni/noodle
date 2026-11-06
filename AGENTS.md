@@ -250,14 +250,14 @@ partial-file cleanup, and direct platform-opener argument handling.
 CLI downloads pin an existing output directory before HTTP; TUI Save As pins it
 during confirmation. The private Node-API addon creates new components relative to
 that directory without following symlinks; existing directory aliases are
-resolved during preparation. Maintain all eight native prebuilds and their
+resolved during preparation. Maintain the five release-target native prebuilds and their
 manifest together (`bun scripts/build-response-file-native.ts --all`, then
 `--check`); maintainer regeneration uses Zig 0.15.2, while normal installs and
 binary builds require no extra tools. Native response-file CI tests shipped
 prebuilds in source and standalone modes and independently rebuilds the native
 source on the five release targets: macOS x64/arm64, Linux glibc x64/arm64,
-and Windows x64 (beta). Linux musl and Windows arm64 prebuilds remain available
-and hash-checked, without release-binary or CI execution coverage.
+and Windows x64 (beta). Linux musl and Windows ARM64 are unsupported; reject
+them explicitly rather than loading an addon for a different platform.
 
 Save As state pins the selected Response; saved paths use response identity.
 TUI Save As suggests and saves to an available filename, adding compact `(1)`,

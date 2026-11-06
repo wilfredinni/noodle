@@ -7,9 +7,6 @@
     "darwin-x64.node": "84688a66e2ec7d242f14d96d1d1516358284f7520e8eeea0a4f7639aaeb04685",
     "linux-arm64.node": "47d03a23defff7d0ca20914a0e5a16824a21ad1cc7de24165fcdcec4c520b48c",
     "linux-x64.node": "c29612a4a06294156bb80a87871c40e4c8186ba9a416d7f1e645e08d270dec84",
-    "linux-arm64-musl.node": "61c470f3c0c0627c2ac44185d7f3c9da278273ef42a325b893a2ff5baa418f90",
-    "linux-x64-musl.node": "bf6f14526084ae172839ef1dd0cd8e804d1b0c84bbaf1feb60b5581733a4fca9",
-    "win32-arm64.node": "84ef05456b9007700f0af09d3d784728b96dc0282530c36c62fcf125813607f1",
     "win32-x64.node": "2592f24d15859ff747512ee2aaba7cc11706e2a9e20dbb72ebe2a95bdb2e14ff"
   }
 }

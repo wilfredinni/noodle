@@ -14,11 +14,12 @@ Windows keeps the staging file handle protected against concurrent writes or
 deletion and renames it through that handle without replacement. Handled failures
 remove staging data; forced termination may leave an unpublished temporary.
 
-Prebuilds are checked into this repository for the same eight targets as OpenTUI:
-macOS and Windows x64/arm64, and Linux x64/arm64 with glibc/musl. Literal requires
+Prebuilds are checked into this repository for Noodle's five release targets:
+macOS x64/arm64, Linux glibc x64/arm64, and Windows x64. Literal requires
 in the loader allow Bun to embed the addons in standalone executables. Normal
 installation, development and binary builds require no extra tools or downloads.
 No pathname-based fallback is used.
+Windows ARM64 and Linux musl are unsupported and have no bundled addon.
 
 Maintainers regenerate prebuilds with Zig **0.15.2**:
 
@@ -33,7 +34,7 @@ the compiler executable; `NOODLE_NATIVE_BUILD_DIR` may select its temporary buil
 cache. Windows resolves Node-API functions from the current host executable,
 including renamed standalone binaries, without requiring a Node installation.
 The four vendored Node-API headers are from Node 25.2.1; their license accompanies
-them. The source and eight artifact hashes are recorded in `prebuilds/manifest.json`.
+them. The source and five artifact hashes are recorded in `prebuilds/manifest.json`.
 
 CI tests shipped prebuilds in source and standalone modes, and independently
 rebuilds and tests the native source, on the five release targets: macOS
@@ -41,7 +42,7 @@ x64/arm64, Linux glibc x64/arm64, and Windows x64. Windows runs its full suite
 in a separate job. After the platform checks pass, CI retains each signed (on
 macOS), tested executable with commit, version, target, Bun version, and SHA-256
 metadata for seven days. Release reuses these binaries from a successful push
-CI on the exact main commit; missing or expired artifacts trigger one CI run. All eight prebuilds remain available and
+CI on the exact main commit; missing or expired artifacts trigger one CI run. All five prebuilds remain available and
 their hashes are verified by `--check`.
 
 ## Homebrew source builds

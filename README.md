@@ -35,7 +35,7 @@ Or use the standalone installer:
 curl -LsSf https://noodlerest.dev/install.sh | sh
 ```
 
-Prebuilt binaries support macOS and Linux on arm64 and x86_64, plus Windows x64
+Prebuilt binaries support macOS and Linux (glibc) on arm64 and x86_64, plus Windows x64
 in beta.
 See [installation options](https://noodlerest.dev/docs/getting-started/installation/)
 for Homebrew and source builds.
