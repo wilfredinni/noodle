@@ -32,6 +32,22 @@ describe("request redaction", () => {
 })
 
 describe("response redaction", () => {
+  it("redacts ordinary JSON escaping without changing non-secret body structure", () => {
+    for (const secret of [
+      'token"quoted',
+      "token\\path",
+      "token\nline\tend",
+      "token\0end",
+    ]) {
+      const body = JSON.stringify({ [secret]: secret, public: "unchanged" })
+      expect(JSON.parse(redactKnownSecrets(body, [secret]))).toEqual({
+        "[REDACTED]": "[REDACTED]",
+        public: "unchanged",
+      })
+      expect(redactKnownSecrets(secret, [secret])).toBe("[REDACTED]")
+    }
+  })
+
   it("redacts primitive query values without replacing IDs or URL paths", () => {
     expect(
       redactKnownSecrets(
