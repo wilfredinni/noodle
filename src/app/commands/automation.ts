@@ -1,6 +1,11 @@
 import { defineCommand } from "citty"
 import { parseArgs } from "node:util"
-import { emitCommand } from "../commandResult"
+import { emitCommand, serializeCommandResult } from "../commandResult"
+import { renderJUnitReport } from "../junitReport"
+import {
+  prepareResponseOutput,
+  type PreparedResponseOutput,
+} from "../../responseFile"
 import {
   createRunProgressReporter,
   formatCollectionAudit,
@@ -274,11 +279,22 @@ const collection = defineCommand({
           description:
             "CSV or JSON iteration data file (relative to the current directory)",
         },
+        reporter: {
+          type: "string",
+          description:
+            "Report format: junit (requires --output; conflicts with --json)",
+        },
+        output: {
+          type: "string",
+          alias: "o",
+          description:
+            "Save a JSON or JUnit report to a new file; stdout is unchanged",
+        },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
         json: jsonArg,
       },
-      run: ({ args, rawArgs }) => {
+      run: async ({ args, rawArgs }) => {
         const { values } = parseArgs({
           args: rawArgs,
           options: {
@@ -288,6 +304,29 @@ const collection = defineCommand({
           allowPositionals: true,
           strict: false,
         })
+        let output: PreparedResponseOutput | undefined
+        try {
+          if (args.reporter !== undefined && args.reporter !== "junit")
+            throw new Error("reporter must be junit")
+          if (args.reporter && args.json)
+            throw new Error("--reporter and --json cannot be combined")
+          if (args.reporter && args.output === undefined)
+            throw new Error("--reporter junit requires --output")
+          if (args.output !== undefined) {
+            if (!args.json && !args.reporter)
+              throw new Error("--output requires --json or --reporter junit")
+            output = await prepareResponseOutput(args.output, { atomic: true })
+          }
+        } catch (error) {
+          return emitCommand(
+            args.json,
+            async () => {
+              throw error
+            },
+            undefined,
+            2,
+          )
+        }
         return emitCommand(
           args.json,
           async () => {
@@ -320,7 +359,7 @@ const collection = defineCommand({
                 false,
                 { signal: controller.signal },
               )
-              return {
+              const result = {
                 data,
                 failed: data.failed,
                 ...(data.cancelled
@@ -333,10 +372,37 @@ const collection = defineCommand({
                     }
                   : {}),
               }
+              if (output) {
+                try {
+                  await output.save(
+                    new TextEncoder().encode(
+                      args.json
+                        ? serializeCommandResult(result)
+                        : renderJUnitReport(data),
+                    ),
+                  )
+                } catch {
+                  const message = "Unable to write collection report"
+                  result.errors = [
+                    ...(result.failed
+                      ? (result.errors ?? ["command failed"])
+                      : []),
+                    message,
+                  ]
+                  result.failed = true
+                  result.exitCode ??= 1
+                  if (!args.json) {
+                    progress?.finish()
+                    process.stderr.write(`error: ${message}\n`)
+                  }
+                }
+              }
+              return result
             } finally {
               process.off("SIGINT", cancel)
               process.off("SIGTERM", cancel)
               progress?.finish()
+              await output?.close()
             }
           },
           formatCollectionRun,

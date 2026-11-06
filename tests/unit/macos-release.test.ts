@@ -263,7 +263,7 @@ describe("release platforms", () => {
       for (const step of job.steps ?? [])
         expect(step.run ?? "").not.toMatch(/--rerun-each|--parallel/)
   })
-  it("tests response downloads against the exact release binary before upload", () => {
+  it("tests response downloads and collection reports against the exact release binary before upload", () => {
     const steps = ci.jobs["platform-checks"].steps!
     const smoke = steps.findIndex(
       (step) => step.name === "Test Unix standalone executable",
@@ -274,7 +274,7 @@ describe("release platforms", () => {
     expect(smoke).toBeGreaterThanOrEqual(0)
     expect(smoke).toBeLessThan(upload)
     expect(steps[smoke]!.run).toContain(
-      'NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts --timeout=30000',
+      'NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts tests/integration/collectionReports.test.ts --timeout=30000',
     )
   })
   it.each([["CI", ci.jobs["platform-checks"]]] as const)(

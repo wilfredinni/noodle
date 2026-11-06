@@ -691,6 +691,8 @@ async function environmentFor(
     : undefined
 }
 export interface RequestRunResult {
+  /** Complete collection execution time; absent in older and single-request results. */
+  durationMs?: number
   stage?: RunStage
   cancelled?: true
   iteration?: number
@@ -1302,6 +1304,7 @@ export async function collectionRun(
             continue
           }
           onEvent?.({ type: "request-start", ...identity })
+          const executionStartedAt = performance.now()
           const result = {
             ...(await runRequest(
               dir,
@@ -1326,6 +1329,7 @@ export async function collectionRun(
               syntaxPreflight,
               signal,
             )),
+            durationMs: Math.max(0, performance.now() - executionStartedAt),
             ...(stage ? { stage } : {}),
             ...(rows ? { iteration } : {}),
           }
