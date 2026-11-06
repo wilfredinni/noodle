@@ -7,6 +7,13 @@ resolved during preparation; new directories and files are created only when a
 completed response is saved. The native I/O uses asynchronous work so it does not
 block the terminal UI.
 
+Collection reports prepare the same pinned output before HTTP and use
+`writeReport` for atomic exclusive publication. POSIX stages in a private `0700`
+sibling directory and links the complete file between pinned directories.
+Windows keeps the staging file handle protected against concurrent writes or
+deletion and renames it through that handle without replacement. Handled failures
+remove staging data; forced termination may leave an unpublished temporary.
+
 Prebuilds are checked into this repository for the same eight targets as OpenTUI:
 macOS and Windows x64/arm64, and Linux x64/arm64 with glibc/musl. Literal requires
 in the loader allow Bun to embed the addons in standalone executables. Normal

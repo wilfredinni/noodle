@@ -5,6 +5,12 @@ export interface ResponseFileNative {
   descend(parent: Handle, name: string): Promise<Handle>
   create(parent: Handle, name: string): Promise<Handle>
   write(file: Handle, bytes: Uint8Array): Promise<void>
+  writeReport(
+    parent: Handle,
+    name: string,
+    temporary: string,
+    bytes: Uint8Array,
+  ): Promise<void>
   cleanup(file: Handle): Promise<void>
   matches(directory: Handle, path: string): Promise<boolean>
   close(handle: Handle): void
