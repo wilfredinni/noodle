@@ -23,7 +23,7 @@ export class ScriptScheduler {
   private readonly onAbort: () => void
   private readonly checkRejections: QuickJSHandle
   private cpuUsed = 0
-  private sliceStarted = 0
+  private sliceStarted?: number
 
   constructor(
     private readonly context: QuickJSContext,
@@ -65,11 +65,12 @@ export class ScriptScheduler {
       () =>
         this.signal.aborted ||
         Date.now() >= this.deadline ||
-        this.cpuUsed + performance.now() - this.sliceStarted >= cpuLimit,
+        (this.sliceStarted !== undefined &&
+          this.cpuUsed + performance.now() - this.sliceStarted >= cpuLimit),
     )
   }
 
-  run<T>(operation: () => T): T {
+  private run<T>(operation: () => T): T {
     this.sliceStarted = performance.now()
     try {
       return operation()

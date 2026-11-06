@@ -7,6 +7,14 @@ export interface CommandResult<T> {
 
 export type HumanFormatter<T> = (data: T) => string
 
+export function serializeCommandResult<T>(result: CommandResult<T>): string {
+  return `${JSON.stringify({
+    status: result.failed ? "error" : "success",
+    data: result.data,
+    errors: result.failed ? (result.errors ?? ["command failed"]) : [],
+  })}\n`
+}
+
 export async function emitCommand<T>(
   json: boolean,
   action: () => Promise<CommandResult<T>>,
@@ -15,11 +23,7 @@ export async function emitCommand<T>(
 ): Promise<void> {
   try {
     const result = await action()
-    const status = result.failed ? "error" : "success"
-    if (json)
-      process.stdout.write(
-        `${JSON.stringify({ status, data: result.data, errors: result.failed ? (result.errors ?? ["command failed"]) : [] })}\n`,
-      )
+    if (json) process.stdout.write(serializeCommandResult(result))
     else if (formatHuman) process.stdout.write(`${formatHuman(result.data)}\n`)
     else
       process.stdout.write(

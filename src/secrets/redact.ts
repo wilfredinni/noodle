@@ -60,6 +60,9 @@ export function redactKnownSecrets(
   })
   for (const secret of secrets) {
     if (typeof secret === "string") {
+      const jsonEscaped = JSON.stringify(secret).slice(1, -1)
+      if (jsonEscaped !== secret)
+        output = output.split(jsonEscaped).join(REDACTED)
       output = output.split(secret).join(REDACTED)
       continue
     }

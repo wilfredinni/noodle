@@ -17,9 +17,6 @@
 #include "windows_node_api.h"
 typedef HANDLE file_handle;
 #define INVALID_FILE INVALID_HANDLE_VALUE
-typedef NTSTATUS (NTAPI *nt_create_file)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
-  PIO_STATUS_BLOCK, PLARGE_INTEGER, ULONG, ULONG, ULONG, ULONG, PVOID, ULONG);
-static nt_create_file create_relative;
 
 static wchar_t *wide(const char *s) {
   int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
@@ -67,20 +64,17 @@ static file_handle relative_handle(file_handle parent, const char *name, int dir
     .ObjectName = &text, .Attributes = OBJ_CASE_INSENSITIVE};
   IO_STATUS_BLOCK status;
   file_handle fd = INVALID_FILE;
-  NTSTATUS result = create_relative(&fd,
-    (directory ? FILE_TRAVERSE : FILE_GENERIC_WRITE) | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+  NTSTATUS result = NtCreateFile(&fd,
+    (directory ? FILE_TRAVERSE : FILE_GENERIC_WRITE) | FILE_READ_ATTRIBUTES | SYNCHRONIZE |
+      (create == 2 ? DELETE : 0),
     &attributes, &status, NULL, FILE_ATTRIBUTE_NORMAL,
-    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+    create == 2 ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
     create ? (directory ? FILE_OPEN_IF : FILE_CREATE) : FILE_OPEN,
     (directory ? FILE_DIRECTORY_FILE : FILE_NON_DIRECTORY_FILE) |
       FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
   free(value);
   if (result < 0) {
-    typedef ULONG (WINAPI *nt_error)(NTSTATUS);
-    nt_error translate;
-    FARPROC function = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlNtStatusToDosError");
-    memcpy(&translate, &function, sizeof(translate));
-    errno = windows_error(translate(result));
+    errno = windows_error(RtlNtStatusToDosError(result));
     return INVALID_FILE;
   }
   FILE_ATTRIBUTE_TAG_INFO info;
@@ -156,7 +150,7 @@ static void remove_partial(file_handle parent, const char *name, file_handle ori
   OBJECT_ATTRIBUTES attributes = {.Length = sizeof(attributes), .RootDirectory = parent,
     .ObjectName = &text, .Attributes = OBJ_CASE_INSENSITIVE};
   IO_STATUS_BLOCK status; HANDLE current = INVALID_FILE;
-  NTSTATUS result = create_relative(&current, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+  NTSTATUS result = NtCreateFile(&current, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
     &attributes, &status, NULL, FILE_ATTRIBUTE_NORMAL,
     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN,
     FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
@@ -168,6 +162,40 @@ static void remove_partial(file_handle parent, const char *name, file_handle ori
     close_handle(current);
   }
   free(value);
+}
+static int write_report(file_handle parent, const char *name, const char *temporary,
+                        const unsigned char *bytes, size_t length) {
+  // Keep the staging handle non-shareable for writes/deletion until the handle-based rename.
+  file_handle file = relative_handle(parent, temporary, 0, 2);
+  if (file == INVALID_FILE) return -1;
+  int error = 0;
+  if (write_bytes(file, bytes, length)) error = errno;
+  else if (!FlushFileBuffers(file)) error = windows_error(GetLastError());
+  wchar_t *target = error ? NULL : wide(name);
+  if (!error && !target) error = errno;
+  if (target) {
+    size_t size = sizeof(FILE_RENAME_INFORMATION) + wcslen(target) * sizeof(wchar_t);
+    FILE_RENAME_INFORMATION *info = calloc(1, size);
+    if (!info) error = ENOMEM;
+    else {
+      info->ReplaceIfExists = FALSE;
+      // A single NT filename with no root renames within the file's own directory.
+      info->FileNameLength = (DWORD)(wcslen(target) * sizeof(wchar_t));
+      memcpy(info->FileName, target, info->FileNameLength);
+      IO_STATUS_BLOCK status;
+      NTSTATUS result = NtSetInformationFile(file, &status, info, (ULONG)size, FileRenameInformation);
+      if (result < 0) error = windows_error(RtlNtStatusToDosError(result));
+      free(info);
+    }
+    free(target);
+  }
+  if (error) {
+    FILE_DISPOSITION_INFO disposition = {TRUE};
+    SetFileInformationByHandle(file, FileDispositionInfo, &disposition, sizeof(disposition));
+  }
+  close_handle(file);
+  errno = error;
+  return error ? -1 : 0;
 }
 #else
 #include <fcntl.h>
@@ -234,6 +262,47 @@ static void remove_partial(file_handle parent, const char *name, file_handle ori
       file.st_dev == current.st_dev && file.st_ino == current.st_ino)
     unlinkat(parent, name, 0);
 }
+static int write_report(file_handle parent, const char *name, const char *temporary,
+                        const unsigned char *bytes, size_t length) {
+  // A private pinned staging directory keeps output-directory writers away from the source.
+  if (mkdirat(parent, temporary, 0700)) return -1;
+  struct stat directory, current;
+  if (fstatat(parent, temporary, &directory, AT_SYMLINK_NOFOLLOW)) return -1;
+  if (!S_ISDIR(directory.st_mode) || directory.st_uid != geteuid() || (directory.st_mode & 077)) {
+    errno = EACCES; return -1;
+  }
+  file_handle staging = relative_handle(parent, temporary, 1, 0);
+  int error = 0;
+  if (staging == INVALID_FILE || fstat(staging, &current)) {
+    error = errno;
+    // Without a verified handle, only clean up where other users cannot swap our entry.
+    struct stat owner;
+    if (fstat(parent, &owner) || (owner.st_uid != geteuid() && owner.st_uid != 0) ||
+        ((owner.st_mode & 0022) && !(owner.st_mode & S_ISVTX))) {
+      close_handle(staging); errno = error; return -1;
+    }
+    goto cleanup;
+  }
+  if (directory.st_dev != current.st_dev || directory.st_ino != current.st_ino ||
+      current.st_uid != geteuid() || (current.st_mode & 077)) {
+    close_handle(staging); errno = ESTALE; return -1;
+  }
+  file_handle file = relative_handle(staging, "report", 0, 1);
+  if (file == INVALID_FILE) error = errno;
+  if (!error && (write_bytes(file, bytes, length) || fsync(file))) error = errno;
+  if (!error && linkat(staging, "report", parent, name, 0)) error = errno;
+  if (file != INVALID_FILE) {
+    remove_partial(staging, "report", file);
+    close_handle(file);
+  }
+cleanup:
+  if (!fstatat(parent, temporary, &current, AT_SYMLINK_NOFOLLOW) &&
+      directory.st_dev == current.st_dev && directory.st_ino == current.st_ino)
+    unlinkat(parent, temporary, AT_REMOVEDIR);
+  close_handle(staging);
+  errno = error;
+  return error ? -1 : 0;
+}
 #endif
 
 typedef struct resource {
@@ -294,14 +363,14 @@ static char *get_string(napi_env env, napi_value value, int component) {
   }
   return text;
 }
-enum operation {ANCHOR, DESCEND, CREATE, WRITE, CLEANUP, CHECK};
+enum operation {ANCHOR, DESCEND, CREATE, WRITE, CLEANUP, CHECK, REPORT};
 typedef struct task {
   enum operation operation;
   resource *input, *output;
   napi_ref reference;
   napi_async_work work;
   napi_deferred deferred;
-  char *name;
+  char *name, *temporary;
   unsigned char *bytes;
   size_t length;
   int error, matches;
@@ -316,6 +385,9 @@ static void execute(napi_env env, void *value) {
     case CREATE: fd = relative_handle(t->input->fd, t->name, 0, 1); break;
     case WRITE:
       if (write_bytes(t->input->fd, t->bytes, t->length)) t->error = errno;
+      return;
+    case REPORT:
+      if (write_report(t->input->fd, t->name, t->temporary, t->bytes, t->length)) t->error = errno;
       return;
     case CLEANUP: remove_partial(t->input->parent, t->input->name, t->input->fd); return;
     case CHECK:
@@ -343,6 +415,9 @@ static const char *error_code(int error) {
     case ENOTDIR: return "ENOTDIR"; case ELOOP: return "ELOOP";
     case ESTALE: return "ESTALE"; case ENOSPC: return "ENOSPC";
     case ENOMEM: return "ENOMEM"; case EACCES: return "EACCES";
+#ifndef _WIN32
+    case EMFILE: return "EMFILE"; case ENFILE: return "ENFILE";
+#endif
     default: return "EIO";
   }
 }
@@ -371,14 +446,14 @@ static void complete(napi_env env, napi_status status, void *value) {
   }
   if (t->reference) napi_delete_reference(env, t->reference);
   napi_delete_async_work(env, t->work);
-  free(t->name); free(t->bytes); free(t);
+  free(t->name); free(t->temporary); free(t->bytes); free(t);
 }
 static napi_value schedule(napi_env env, napi_callback_info info) {
-  napi_value args[2], label, promise;
-  size_t argc = 2; void *data;
+  napi_value args[4], label, promise;
+  size_t argc = 4; void *data;
   napi_get_cb_info(env, info, &argc, args, NULL, &data);
   enum operation operation = (enum operation)(uintptr_t)data;
-  if (argc != (operation == ANCHOR || operation == CLEANUP ? 1u : 2u)) {
+  if (argc != (operation == REPORT ? 4u : operation == ANCHOR || operation == CLEANUP ? 1u : 2u)) {
     napi_throw_type_error(env, NULL, "Invalid response file arguments"); return NULL;
   }
   task *t = calloc(1, sizeof(task));
@@ -391,18 +466,23 @@ static napi_value schedule(napi_env env, napi_callback_info info) {
       free(t); napi_throw_error(env, "EBUSY", "Response file handle is closed or in use"); return NULL;
     }
   }
-  if (operation == ANCHOR || operation == DESCEND || operation == CREATE || operation == CHECK) {
+  if (operation == ANCHOR || operation == DESCEND || operation == CREATE || operation == CHECK || operation == REPORT) {
     t->name = get_string(env, args[operation == ANCHOR ? 0 : 1], operation != ANCHOR && operation != CHECK);
     if (!t->name) { free(t); return NULL; }
-  } else if (operation == WRITE) {
+  }
+  if (operation == REPORT) {
+    t->temporary = get_string(env, args[2], 1);
+    if (!t->temporary) { free(t->name); free(t); return NULL; }
+  }
+  if (operation == WRITE || operation == REPORT) {
     napi_typedarray_type type; void *bytes; napi_value buffer; size_t offset;
-    if (napi_get_typedarray_info(env, args[1], &type, &t->length, &bytes, &buffer, &offset) != napi_ok ||
+    if (napi_get_typedarray_info(env, args[operation == REPORT ? 3 : 1], &type, &t->length, &bytes, &buffer, &offset) != napi_ok ||
         type != napi_uint8_array) {
-      free(t); napi_throw_type_error(env, NULL, "Expected response bytes"); return NULL;
+      free(t->name); free(t->temporary); free(t); napi_throw_type_error(env, NULL, "Expected response bytes"); return NULL;
     }
     // Own a snapshot: the caller may mutate or detach the Uint8Array during async I/O.
     t->bytes = malloc(t->length ? t->length : 1);
-    if (!t->bytes) { free(t); napi_throw_error(env, "ENOMEM", "Unable to allocate response snapshot"); return NULL; }
+    if (!t->bytes) { free(t->name); free(t->temporary); free(t); napi_throw_error(env, "ENOMEM", "Unable to allocate response snapshot"); return NULL; }
     if (t->length) memcpy(t->bytes, bytes, t->length);
   }
   napi_create_string_utf8(env, "noodle.response-file", NAPI_AUTO_LENGTH, &label);
@@ -413,7 +493,7 @@ static napi_value schedule(napi_env env, napi_callback_info info) {
   if (status != napi_ok) {
     if (t->reference) napi_delete_reference(env, t->reference);
     if (t->work) napi_delete_async_work(env, t->work);
-    free(t->name); free(t->bytes); free(t);
+    free(t->name); free(t->temporary); free(t->bytes); free(t);
     napi_throw_error(env, "EIO", "Unable to schedule response file operation"); return NULL;
   }
   if (t->input) t->input->busy = 1;
@@ -431,12 +511,9 @@ static napi_value close_resource(napi_env env, napi_callback_info info) {
 NAPI_MODULE_INIT() {
 #ifdef _WIN32
   if (!InitOnceExecuteOnce(&host_api_once, bind_host_api, NULL, NULL)) return NULL;
-  FARPROC function = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtCreateFile");
-  memcpy(&create_relative, &function, sizeof(create_relative));
-  if (!create_relative) { napi_throw_error(env, "ENOSYS", "NtCreateFile is unavailable"); return NULL; }
 #endif
-  const char *names[] = {"openAnchor", "descend", "create", "write", "cleanup", "matches"};
-  for (uintptr_t i = 0; i < 6; i++) {
+  const char *names[] = {"openAnchor", "descend", "create", "write", "cleanup", "matches", "writeReport"};
+  for (uintptr_t i = 0; i < 7; i++) {
     napi_value fn;
     napi_create_function(env, names[i], NAPI_AUTO_LENGTH, schedule, (void *)i, &fn);
     napi_set_named_property(env, exports, names[i], fn);

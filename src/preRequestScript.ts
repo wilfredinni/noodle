@@ -1448,29 +1448,29 @@ export async function runRequestScript(
       context.setProp(context.global, "__noodleBridge", bridge)
       bridge.dispose()
 
-      const bootstrap = scheduler.run(() =>
-        context!.evalCode(
-          bootstrapSource(
-            SCRIPT_API_CONTRACT.filter((descriptor) => {
-              const namespace = descriptor.member.split(".")[0]
-              return (
-                (descriptor.global === "noodle" ||
-                  descriptor.global === "console") &&
-                (!(namespace === "runRequest" || namespace === "sendRequest") ||
-                  phase !== "tests") &&
-                (namespace !== "response" || phase !== "pre") &&
-                (namespace !== "cookies" || cookies)
-              )
-            }),
-            filename,
-            phase === "tests",
-          ),
-          "noodle-script-api.js",
-          { type: "global" },
+      // Trusted API setup observes the wall deadline, but user code gets its full CPU budget.
+      const bootstrap = context.evalCode(
+        bootstrapSource(
+          SCRIPT_API_CONTRACT.filter((descriptor) => {
+            const namespace = descriptor.member.split(".")[0]
+            return (
+              (descriptor.global === "noodle" ||
+                descriptor.global === "console") &&
+              (!(namespace === "runRequest" || namespace === "sendRequest") ||
+                phase !== "tests") &&
+              (namespace !== "response" || phase !== "pre") &&
+              (namespace !== "cookies" || cookies)
+            )
+          }),
+          filename,
+          phase === "tests",
         ),
+        "noodle-script-api.js",
+        { type: "global" },
       )
       if (bootstrap.error) {
         bootstrap.error.dispose()
+        scheduler.check()
         return failure({
           name: "ScriptRuntimeError",
           message: "Failed to initialize the script sandbox",

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
+import { QuickJSContext } from "quickjs-emscripten-core"
 import { lang } from "../../src/lang"
 import {
   runRequestScript,
@@ -36,6 +37,28 @@ const run = (source: string, scope = new RunScope(), body = response.body) =>
     scope,
     { response: { ...response, body } },
   )
+
+it("gives tests their execution budget after a slow sandbox bootstrap", async () => {
+  let elapsed = 0
+  const now = spyOn(performance, "now").mockImplementation(() => elapsed)
+  const evalCode = QuickJSContext.prototype.evalCode
+  const evaluate = spyOn(
+    QuickJSContext.prototype,
+    "evalCode",
+  ).mockImplementation(function (this: QuickJSContext, ...args) {
+    if (args[1] === "noodle-script-api.js")
+      elapsed += SCRIPT_LIMITS.deadlineMs + 1
+    return evalCode.apply(this, args)
+  })
+  try {
+    const result = await run('test("body", () => expect(1).toBe(1))')
+    expect(result.result.error).toBeUndefined()
+    expect(result.tests).toMatchObject([{ name: "body", passed: true }])
+  } finally {
+    evaluate.mockRestore()
+    now.mockRestore()
+  }
+})
 
 const cases = [
   ["toBe", "NaN", "NaN", "1"],

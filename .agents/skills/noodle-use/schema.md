@@ -1360,3 +1360,7 @@ in results or history.
 Exit codes remain `0` for success, `1` for execution/response validation failure,
 and `2` for configuration or invalid data. Without `--data`, behavior and result
 shapes remain unchanged.
+
+## Automation result contract
+
+The [automation workflow](workflows/automation.md#json-automation-contract) specifies the JSON envelope, result fields, optionality, ordering, failure categories, cancellation, exit codes, report files and compatibility policy. Current collection executions add optional `durationMs` for the complete lifecycle; `response.timeMs` remains HTTP-only.

@@ -1,4 +1,5 @@
 import { lstat, stat } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import {
   basename,
   dirname,
@@ -69,7 +70,10 @@ export interface PreparedResponseOutput {
 
 export async function prepareResponseOutput(
   value: string,
-  { unique = false }: { unique?: boolean } = {},
+  {
+    unique = false,
+    atomic = false,
+  }: { unique?: boolean; atomic?: boolean } = {},
 ): Promise<PreparedResponseOutput> {
   const path = await validateResponseOutput(value, { unique })
   const native = responseFileNative()
@@ -111,6 +115,15 @@ export async function prepareResponseOutput(
           const child = await native.descend(directory, component)
           if (directory !== anchor) native.close(directory)
           directory = child
+        }
+        if (atomic) {
+          await native.writeReport(
+            directory,
+            filename,
+            `.noodle-report-${randomUUID()}.tmp`,
+            bytes,
+          )
+          return join(dirname(path), filename)
         }
         let file: Awaited<ReturnType<typeof native.create>>
         while (true) {

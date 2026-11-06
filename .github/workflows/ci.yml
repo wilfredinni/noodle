@@ -72,7 +72,7 @@ jobs:
       - name: Check bundled script type libraries
         run: bun scripts/build-script-type-libraries.ts --check
       - name: Test shipped addon and diagnostics
-        run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
+        run: bun test tests/unit/responseFile.test.ts tests/unit/reportFile.test.ts tests/integration/binaryResponse.test.ts tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
       - name: Test native Windows Credential Manager
         if: runner.os == 'Windows'
         env:
@@ -94,7 +94,7 @@ jobs:
             echo "Compiled binary reported $actual, expected $expected" >&2
             exit 1
           }
-          NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts --timeout=30000
+          NOODLE_TEST_BINARY="$PWD/$ASSET_NAME" bun test tests/integration/binaryResponse.test.ts tests/integration/collectionReports.test.ts --timeout=30000
       - name: Test Windows standalone executable
         if: runner.os == 'Windows'
         run: |
@@ -105,14 +105,14 @@ jobs:
           bun scripts/compiled-script-smoke.ts "./$env:ASSET_NAME"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:NOODLE_TEST_BINARY = Join-Path $PWD $env:ASSET_NAME
-          bun test tests/integration/binaryResponse.test.ts tests/integration/postResponseCli.test.ts tests/integration/inlineTestsCli.test.ts --timeout=30000
+          bun test tests/integration/binaryResponse.test.ts tests/integration/collectionReports.test.ts tests/integration/postResponseCli.test.ts tests/integration/inlineTestsCli.test.ts --timeout=30000
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: 0.15.2
       - name: Independently rebuild native source
         run: bun scripts/build-response-file-native.ts --target=${{ matrix.target }}
       - name: Test independently rebuilt native downloads
-        run: bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
+        run: bun test tests/unit/responseFile.test.ts tests/unit/reportFile.test.ts tests/integration/binaryResponse.test.ts --timeout=30000
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         if: runner.os != 'Windows'
         with:
@@ -132,7 +132,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           rm -rf node_modules
           bun run build:homebrew --offline --opentui-source "$source_dir/opentui-0.5.14" --zig "$(command -v zig)" --outfile "$source_dir/noodle-source"
-          NOODLE_TEST_BINARY="$source_dir/noodle-source" bun test tests/unit/responseFile.test.ts tests/integration/binaryResponse.test.ts tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
+          NOODLE_TEST_BINARY="$source_dir/noodle-source" bun test tests/unit/responseFile.test.ts tests/unit/reportFile.test.ts tests/integration/binaryResponse.test.ts tests/integration/scriptDiagnosticsBundle.test.ts --timeout=30000
       - name: Record validated binary metadata
         run: bun scripts/release-artifacts.ts record "${{ matrix.target }}"
       - name: Upload validated binary
