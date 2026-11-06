@@ -1,12 +1,12 @@
 {
   "nodeApiVersion": 8,
   "zigVersion": "0.15.2",
-  "sourceHash": "01388c6c817b5f43947f120211b44ab0b6694e9bce7d8a478b3ff610c50bbd6e",
+  "sourceHash": "9eb6f81da1ad52a9789f5c44e76158cd98a0d376150369b08259731be69c6e62",
   "files": {
-    "darwin-arm64.node": "534f46fe226c59e3ae9ed98981e4b73672c6f586139c65eaea06fba0b6a2c4a4",
-    "darwin-x64.node": "84688a66e2ec7d242f14d96d1d1516358284f7520e8eeea0a4f7639aaeb04685",
-    "linux-arm64.node": "47d03a23defff7d0ca20914a0e5a16824a21ad1cc7de24165fcdcec4c520b48c",
-    "linux-x64.node": "c29612a4a06294156bb80a87871c40e4c8186ba9a416d7f1e645e08d270dec84",
-    "win32-x64.node": "2592f24d15859ff747512ee2aaba7cc11706e2a9e20dbb72ebe2a95bdb2e14ff"
+    "darwin-arm64.node": "59532b7ec9ececa75c2f9e021a0429b825201f6f6c37984882dbae4fa9d4cdaa",
+    "darwin-x64.node": "a703aac6230f8a5de3532782b601b6e606d6e23e4f7d6ccdd6d242e356467a78",
+    "linux-arm64.node": "79350f2127fa9d7fa21a5cb471002c0d62aaeee9588599f6206f7cdbc2eb0ec9",
+    "linux-x64.node": "3a525817817b7dfcfd5ffacd18d13c50dcfee50c89dca59d03fe25a25e436c8b",
+    "win32-x64.node": "d07a29086d1564b18569e9474f3b31b3f5198e2d9a9c58c95f1b904347c7dafa"
   }
 }

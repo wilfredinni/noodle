@@ -79,6 +79,35 @@ it("publishes complete private reports, creates parents, and refuses existing fi
   expect((await fs.readdir(dir)).sort()).toEqual(["linked.xml", "nested"])
 })
 
+it.skipIf(process.platform === "win32")(
+  "cleans up when opening staging exhausts file descriptors",
+  async () => {
+    const child = Bun.spawnSync([
+      "sh",
+      "-c",
+      'ulimit -n 128 && exec "$@"',
+      "sh",
+      process.execPath,
+      "-e",
+      `import { openSync } from "node:fs"
+     import { responseFileNative } from "./src/responseFileNative"
+     const native = responseFileNative()
+     const anchor = await native.openAnchor(process.argv[1])
+     try {
+       for (;;) openSync("/dev/null", "r")
+     } catch (error) { if (error.code !== "EMFILE") throw error }
+     try {
+       await native.writeReport(anchor, "result.xml", "staging", new Uint8Array())
+       throw Error("expected writeReport to fail")
+     } catch (error) { if (error.code !== "EMFILE") throw error }`,
+      dir,
+    ])
+    expect(child.stderr.toString()).toBe("")
+    expect(child.exitCode).toBe(0)
+    expect(await fs.readdir(dir)).toEqual([])
+  },
+)
+
 it("leaves no partial report after native writing fails", async () => {
   const native = responseFileNative()
   const failing = spyOn(native, "writeReport").mockRejectedValue(

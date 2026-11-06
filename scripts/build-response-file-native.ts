@@ -106,7 +106,7 @@ if (!args.includes("--manifest")) {
     if (name.startsWith("darwin")) flags.push("-Wl,-undefined,dynamic_lookup")
     else if (name.startsWith("linux")) flags.push("-fPIC")
     else {
-      flags.push("-DBUILDING_NODE_EXTENSION")
+      flags.push("-DBUILDING_NODE_EXTENSION", "-lntdll")
     }
     flags.push(
       join(root, "response_file.c"),

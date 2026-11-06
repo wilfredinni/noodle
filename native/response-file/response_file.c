@@ -17,9 +17,6 @@
 #include "windows_node_api.h"
 typedef HANDLE file_handle;
 #define INVALID_FILE INVALID_HANDLE_VALUE
-typedef NTSTATUS (NTAPI *nt_create_file)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
-  PIO_STATUS_BLOCK, PLARGE_INTEGER, ULONG, ULONG, ULONG, ULONG, PVOID, ULONG);
-static nt_create_file create_relative;
 
 static wchar_t *wide(const char *s) {
   int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
@@ -67,7 +64,7 @@ static file_handle relative_handle(file_handle parent, const char *name, int dir
     .ObjectName = &text, .Attributes = OBJ_CASE_INSENSITIVE};
   IO_STATUS_BLOCK status;
   file_handle fd = INVALID_FILE;
-  NTSTATUS result = create_relative(&fd,
+  NTSTATUS result = NtCreateFile(&fd,
     (directory ? FILE_TRAVERSE : FILE_GENERIC_WRITE) | FILE_READ_ATTRIBUTES | SYNCHRONIZE |
       (create == 2 ? DELETE : 0),
     &attributes, &status, NULL, FILE_ATTRIBUTE_NORMAL,
@@ -77,11 +74,7 @@ static file_handle relative_handle(file_handle parent, const char *name, int dir
       FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
   free(value);
   if (result < 0) {
-    typedef ULONG (WINAPI *nt_error)(NTSTATUS);
-    nt_error translate;
-    FARPROC function = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlNtStatusToDosError");
-    memcpy(&translate, &function, sizeof(translate));
-    errno = windows_error(translate(result));
+    errno = windows_error(RtlNtStatusToDosError(result));
     return INVALID_FILE;
   }
   FILE_ATTRIBUTE_TAG_INFO info;
@@ -157,7 +150,7 @@ static void remove_partial(file_handle parent, const char *name, file_handle ori
   OBJECT_ATTRIBUTES attributes = {.Length = sizeof(attributes), .RootDirectory = parent,
     .ObjectName = &text, .Attributes = OBJ_CASE_INSENSITIVE};
   IO_STATUS_BLOCK status; HANDLE current = INVALID_FILE;
-  NTSTATUS result = create_relative(&current, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+  NTSTATUS result = NtCreateFile(&current, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
     &attributes, &status, NULL, FILE_ATTRIBUTE_NORMAL,
     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN,
     FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
@@ -181,16 +174,17 @@ static int write_report(file_handle parent, const char *name, const char *tempor
   wchar_t *target = error ? NULL : wide(name);
   if (!error && !target) error = errno;
   if (target) {
-    size_t size = sizeof(FILE_RENAME_INFO) + wcslen(target) * sizeof(wchar_t);
-    FILE_RENAME_INFO *info = calloc(1, size);
+    size_t size = sizeof(FILE_RENAME_INFORMATION) + wcslen(target) * sizeof(wchar_t);
+    FILE_RENAME_INFORMATION *info = calloc(1, size);
     if (!info) error = ENOMEM;
     else {
       info->ReplaceIfExists = FALSE;
-      info->RootDirectory = parent;
+      // A single NT filename with no root renames within the file's own directory.
       info->FileNameLength = (DWORD)(wcslen(target) * sizeof(wchar_t));
       memcpy(info->FileName, target, info->FileNameLength);
-      if (!SetFileInformationByHandle(file, FileRenameInfo, info, (DWORD)size))
-        error = windows_error(GetLastError());
+      IO_STATUS_BLOCK status;
+      NTSTATUS result = NtSetInformationFile(file, &status, info, (ULONG)size, FileRenameInformation);
+      if (result < 0) error = windows_error(RtlNtStatusToDosError(result));
       free(info);
     }
     free(target);
@@ -272,21 +266,36 @@ static int write_report(file_handle parent, const char *name, const char *tempor
                         const unsigned char *bytes, size_t length) {
   // A private pinned staging directory keeps output-directory writers away from the source.
   if (mkdirat(parent, temporary, 0700)) return -1;
+  struct stat directory, current;
+  if (fstatat(parent, temporary, &directory, AT_SYMLINK_NOFOLLOW)) return -1;
+  if (!S_ISDIR(directory.st_mode) || directory.st_uid != geteuid() || (directory.st_mode & 077)) {
+    errno = EACCES; return -1;
+  }
   file_handle staging = relative_handle(parent, temporary, 1, 0);
-  if (staging == INVALID_FILE) return -1;
-  struct stat directory;
-  if (fstat(staging, &directory) || directory.st_uid != geteuid() || (directory.st_mode & 077)) {
-    close_handle(staging); errno = EACCES; return -1;
+  int error = 0;
+  if (staging == INVALID_FILE || fstat(staging, &current)) {
+    error = errno;
+    // Without a verified handle, only clean up where other users cannot swap our entry.
+    struct stat owner;
+    if (fstat(parent, &owner) || (owner.st_uid != geteuid() && owner.st_uid != 0) ||
+        ((owner.st_mode & 0022) && !(owner.st_mode & S_ISVTX))) {
+      close_handle(staging); errno = error; return -1;
+    }
+    goto cleanup;
+  }
+  if (directory.st_dev != current.st_dev || directory.st_ino != current.st_ino ||
+      current.st_uid != geteuid() || (current.st_mode & 077)) {
+    close_handle(staging); errno = ESTALE; return -1;
   }
   file_handle file = relative_handle(staging, "report", 0, 1);
-  int error = file == INVALID_FILE ? errno : 0;
+  if (file == INVALID_FILE) error = errno;
   if (!error && (write_bytes(file, bytes, length) || fsync(file))) error = errno;
   if (!error && linkat(staging, "report", parent, name, 0)) error = errno;
   if (file != INVALID_FILE) {
     remove_partial(staging, "report", file);
     close_handle(file);
   }
-  struct stat current;
+cleanup:
   if (!fstatat(parent, temporary, &current, AT_SYMLINK_NOFOLLOW) &&
       directory.st_dev == current.st_dev && directory.st_ino == current.st_ino)
     unlinkat(parent, temporary, AT_REMOVEDIR);
@@ -406,6 +415,9 @@ static const char *error_code(int error) {
     case ENOTDIR: return "ENOTDIR"; case ELOOP: return "ELOOP";
     case ESTALE: return "ESTALE"; case ENOSPC: return "ENOSPC";
     case ENOMEM: return "ENOMEM"; case EACCES: return "EACCES";
+#ifndef _WIN32
+    case EMFILE: return "EMFILE"; case ENFILE: return "ENFILE";
+#endif
     default: return "EIO";
   }
 }
@@ -499,9 +511,6 @@ static napi_value close_resource(napi_env env, napi_callback_info info) {
 NAPI_MODULE_INIT() {
 #ifdef _WIN32
   if (!InitOnceExecuteOnce(&host_api_once, bind_host_api, NULL, NULL)) return NULL;
-  FARPROC function = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtCreateFile");
-  memcpy(&create_relative, &function, sizeof(create_relative));
-  if (!create_relative) { napi_throw_error(env, "ENOSYS", "NtCreateFile is unavailable"); return NULL; }
 #endif
   const char *names[] = {"openAnchor", "descend", "create", "write", "cleanup", "matches", "writeReport"};
   for (uintptr_t i = 0; i < 7; i++) {
