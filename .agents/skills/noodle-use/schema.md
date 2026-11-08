@@ -34,6 +34,9 @@ Noodle rejects HTTPS-to-HTTP redirects. On an origin change it disables request
 auth, strips sensitive headers and headers containing known secret values, and
 refuses a redirect that would preserve a body containing a known secret.
 Redirect responses that switch to `GET` and discard the body may continue.
+Body checks match literal text and form fields/filenames, not binary or multipart
+file contents or every encoded representation. Review destinations before sending
+sensitive uploads; these checks are not general data-loss prevention.
 Caller-triggered cancellation propagates instead of being reported as a timeout.
 
 ### Params
@@ -1052,7 +1055,10 @@ If both define the same key, the request's value wins. Folder value is NOT appli
 
 ### Auth inheritance
 
-When a request has `auth: { type: inherit }`, walk up the directory tree. Use the auth from the nearest ancestor folder that defines an auth override. Example:
+When a request has `auth: { type: inherit }`, use the nearest ancestor folder
+with a non-`none` auth override. Folder `type: none` and omitted folder auth do
+not stop the search. Folders cannot declare `type: inherit`; omitted request auth
+or request `type: none` disables auth for that request. Example:
 
 ```
 api/

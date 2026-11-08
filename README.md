@@ -56,6 +56,9 @@ The installer verifies the release checksum, installs to
 
 Windows executables are unsigned; browser downloads may trigger Windows trust
 prompts. Ordinary-account and interactive terminal testing remains pending.
+The [v0.10.1 Defender report](https://github.com/wilfredinni/noodle/issues/279)
+remains unresolved; it is not a confirmed false positive or evidence about every
+later build. See the [Windows support statement](SECURITY.md#windows-support).
 For prerelease testing, manually dispatched CI runs provide a Windows beta ZIP
 containing `noodle.exe`, checksums, and build information.
 
