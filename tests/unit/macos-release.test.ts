@@ -325,7 +325,7 @@ describe("release platforms", () => {
           if (step.uses) expect(step.uses).toMatch(/@[a-f0-9]{40}$/)
           if (
             step.uses?.startsWith("actions/checkout@") &&
-            step.with?.repository !== "wilfredinni/noodle-site"
+            step.with?.repository !== "noodle-rest/noodle-site"
           ) {
             expect(step.with?.["persist-credentials"]).toBe(false)
           }

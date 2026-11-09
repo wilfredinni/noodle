@@ -428,7 +428,7 @@ jobs:
         run: bun .release-tools/scripts/release-artifacts.ts manifest SHA256SUMS update.json
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: wilfredinni/noodle-site
+          repository: noodle-rest/noodle-site
           ref: main
           token: ${{ secrets.NOODLE_SITE_TOKEN }}
           path: noodle-site
