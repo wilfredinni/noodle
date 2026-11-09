@@ -67,7 +67,7 @@ containing `noodle.exe`, checksums, and build information.
 After checking out your collection, install Noodle and run it in a separate step:
 
 ```yaml
-- uses: wilfredinni/setup-noodle@v1
+- uses: noodle-rest/setup-noodle@v1
   with:
     version: v0.10.4
 - run: noodle collection run ./api --reporter junit --output results.xml
@@ -75,7 +75,7 @@ After checking out your collection, install Noodle and run it in a separate step
 
 `@v1` selects the setup action. The required `version` selects the exact Noodle
 CLI release. The action verifies the binary's SHA-256 checksum before adding it
-to the runner's PATH. See [setup-noodle](https://github.com/wilfredinni/setup-noodle)
+to the runner's PATH. See [setup-noodle](https://github.com/noodle-rest/setup-noodle)
 and the [CI workflow with report upload](https://noodlerest.dev/docs/guides/automation/#run-in-github-actions-ci).
 
 ## Quick start
