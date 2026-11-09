@@ -2,7 +2,7 @@
 & {
 $ErrorActionPreference = "Stop"
 
-$repo = "wilfredinni/noodle"
+$repo = "noodle-rest/noodle"
 $version = if ($env:NOODLE_VERSION) { $env:NOODLE_VERSION } else { "latest" }
 $installDirectory = if ($env:NOODLE_INSTALL_DIR) {
   [IO.Path]::GetFullPath($env:NOODLE_INSTALL_DIR)

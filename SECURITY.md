@@ -150,13 +150,13 @@ but ordinary-account interactive terminal validation remains pending. Neither
 checksums nor passing CI establish antivirus acceptance or publisher identity.
 
 As of 2026-11-08, the current published release is
-[v0.10.4](https://github.com/wilfredinni/noodle/releases/tag/v0.10.4).
-Its [Windows test job](https://github.com/wilfredinni/noodle/actions/runs/42148815536/job/127666734573)
-and [downloaded release artifact verification](https://github.com/wilfredinni/noodle/actions/runs/42150087253/job/127671293567)
+[v0.10.4](https://github.com/noodle-rest/noodle/releases/tag/v0.10.4).
+Its [Windows test job](https://github.com/noodle-rest/noodle/actions/runs/42148815536/job/127666734573)
+and [downloaded release artifact verification](https://github.com/noodle-rest/noodle/actions/runs/42150087253/job/127671293567)
 passed. The latter checks checksum/version, compiled scripting, and binary-response
 integration; it is not a recorded Defender scan or an interactive-user test.
 
-[Issue #279](https://github.com/wilfredinni/noodle/issues/279) reports Defender
+[Issue #279](https://github.com/noodle-rest/noodle/issues/279) reports Defender
 blocking **v0.10.1** on Windows 11 build 10.0.26200. Attached screenshots identify
 `Trojan:Win32/Ulthar.A!ml`, a blocked download and a quarantined executable, with
 security intelligence `1.461.144.0`, client `4.18.26090.9`, and engine `1.1.26090.9`.
@@ -182,7 +182,7 @@ supports changing them; do not bypass antivirus protection to validate a build.
 
 ## Reporting Security Issues
 
-We appreciate responsible disclosure. To report a security issue, use the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/wilfredinni/noodle/security/advisories/new) tab.
+We appreciate responsible disclosure. To report a security issue, use the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/noodle-rest/noodle/security/advisories/new) tab.
 
 Include:
 - A clear description of the issue

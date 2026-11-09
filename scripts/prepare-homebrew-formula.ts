@@ -22,7 +22,7 @@ const checksum = createHash("sha256")
   .digest("hex")
 const url = values.local
   ? pathToFileURL(archive).href
-  : `https://github.com/wilfredinni/noodle/archive/refs/tags/v${pkg.version}.tar.gz`
+  : `https://github.com/noodle-rest/noodle/archive/refs/tags/v${pkg.version}.tar.gz`
 const template = await readFile(
   resolve(import.meta.dir, "../packaging/homebrew/noodle.rb.in"),
   "utf8",

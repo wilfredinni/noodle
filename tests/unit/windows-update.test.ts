@@ -179,7 +179,7 @@ describe("Windows update staging", () => {
     expect(result.data.status).toBe("restart_required")
     expect(result.failed).toBeUndefined()
     expect(urls[1]).toBe(
-      "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-windows-x86_64.exe",
+      "https://github.com/noodle-rest/noodle/releases/download/v99.0.0/noodle-windows-x86_64.exe",
     )
     expect(await readFile(executable, "utf8")).toBe("old")
   })

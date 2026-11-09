@@ -4,9 +4,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before you start:** Read [CONTRIBUTING.md](https://github.com/wilfredinni/noodle/blob/main/CONTRIBUTING.md).
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/noodle-rest/noodle/blob/main/CONTRIBUTING.md).
 
-        Issues for bugs only. Feature requests use the feature request template. Questions and ideas belong in [Discussions](https://github.com/wilfredinni/noodle/discussions).
+        Issues for bugs only. Feature requests use the feature request template. Questions and ideas belong in [Discussions](https://github.com/noodle-rest/noodle/discussions).
 
         Keep it short. Write in your own voice. Do not add root cause analysis, proposed fixes, or AI-generated walls of text unless a maintainer asks.
 

@@ -27,7 +27,7 @@ export function isNewerVersion(current: string, latest: string): boolean {
 }
 
 export function getReleaseDownloadUrl(tag: string, name: string): string {
-  return `https://github.com/wilfredinni/noodle/releases/download/${tag}/${name}`
+  return `https://github.com/noodle-rest/noodle/releases/download/${tag}/${name}`
 }
 
 interface UpdateManifest {

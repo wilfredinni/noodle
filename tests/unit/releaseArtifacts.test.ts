@@ -24,7 +24,7 @@ import {
 } from "../../scripts/release-artifacts"
 
 const sha = "a".repeat(40)
-const repo = "wilfredinni/noodle"
+const repo = "noodle-rest/noodle"
 const run = {
   id: 123,
   head_sha: sha,

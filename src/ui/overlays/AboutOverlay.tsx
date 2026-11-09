@@ -113,13 +113,13 @@ export function AboutOverlay({
         <box style={{ flexDirection: "row", alignItems: "center" }}>
           <AboutLink
             label="GitHub"
-            href="https://github.com/wilfredinni/noodle"
+            href="https://github.com/noodle-rest/noodle"
             onOpen={openLink}
           />
           <text fg={theme.textMuted}> · </text>
           <AboutLink
             label="Releases"
-            href="https://github.com/wilfredinni/noodle/releases"
+            href="https://github.com/noodle-rest/noodle/releases"
             onOpen={openLink}
           />
           <text fg={theme.textMuted}> · </text>

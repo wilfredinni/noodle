@@ -13,7 +13,7 @@ Noodle 0.10.4 lets you save a collection run as JSON for scripts or JUnit XML fo
 ### ✨ Features
 
 - Save a collection run with `--json --output results.json` for an exact copy of JSON stdout, or `--reporter junit --output results.xml` to keep the human-readable summary in the terminal. JUnit records one case per selected execution with its duration, applicable iteration and stage, warnings, and any failure or skip reason. Noodle checks the destination before sending requests and writes a complete file without overwriting an existing one. Failed and gracefully cancelled runs can write reports and retain their exit codes.
-- Install an exact Noodle CLI release on GitHub Actions with [`wilfredinni/setup-noodle@v1`](https://github.com/wilfredinni/setup-noodle). The companion action verifies the release binary against its SHA-256 checksum and makes `noodle` available to subsequent steps.
+- Install an exact Noodle CLI release on GitHub Actions with [`noodle-rest/setup-noodle@v1`](https://github.com/noodle-rest/setup-noodle). The companion action verifies the release binary against its SHA-256 checksum and makes `noodle` available to subsequent steps.
 
 ### 🐞 Fixes
 
@@ -228,7 +228,7 @@ Noodle 0.9.6 preserves compatible Postman and Insomnia scripts during import wit
 
 Noodle 0.9.5 brings script and test authoring into the terminal with dedicated editors, phase-aware completion, diagnostics, folding, and formatting. A Console tab makes logs easier to read, while execution-order inspection and external-file shortcuts connect request, folder, and collection scripts.
 
-![Noodle showing the Tests editor and eleven passing scripted tests in Results](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/test-results.png)
+![Noodle showing the Tests editor and eleven passing scripted tests in Results](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/test-results.png)
 
 [Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-5-script-editors-and-console/)
 
@@ -266,7 +266,7 @@ Noodle 0.9.5 brings script and test authoring into the terminal with dedicated e
 
 Noodle 0.9.4 adds reusable JavaScript files and random and time placeholders for request bodies, with searchable completion menus to help author them. Post-response scripts now run from the request outward to the collection, while clearer import warnings, source diagnostics, and notification details make problems easier to inspect.
 
-![Noodle showing random body placeholder completion with method descriptions and examples](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/random_body_templates.png)
+![Noodle showing random body placeholder completion with method descriptions and examples](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/random_body_templates.png)
 
 [Read the full release article.](https://noodlerest.dev/blog/noodle-0-9-4-external-scripts-and-body-templates/)
 
@@ -363,7 +363,7 @@ Noodle 0.9.2 adds script time helpers for timestamps, timezone formatting, and e
 
 ## [0.9.1] - 2026-09-18
 
-![Noodle binary view](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/binary.png)
+![Noodle binary view](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/binary.png)
 
 
 Noodle 0.9.1 extends inline scripting with post-response processing, explicit environment and secret persistence, seeded test data, and redacted diagnostics in timeline history. Image and binary responses now preserve their received bytes for downloads and supported terminal previews. Existing scripts must add the `noodle.` prefix to Noodle API accesses.
@@ -450,7 +450,7 @@ Noodle 0.8.7 keeps your place while the sidebar changes: toggling it now preserv
 
 ## [0.8.6] - 2026-09-11
 
-![Noodle Visual response view with expandable JSON rows](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/visual-response.png)
+![Noodle Visual response view with expandable JSON rows](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/visual-response.png)
 
 Noodle 0.8.6 adds a Visual response view for exploring JSON and XML through expandable rows, compact tables, and text search. A collapsible sidebar gives the response more room, with updated copy shortcuts keeping common actions close at hand.
 
@@ -460,7 +460,7 @@ Noodle 0.8.6 adds a Visual response view for exploring JSON and XML through expa
 
 - Switch between Source and Visual from the response footer or with `m` while the Body tab is focused. Visual renders JSON and XML as expandable trees, compact object previews, and tables where the data fits; expand rows with Return, Space, or a click.
 - Search Visual response labels and values with `/`. Case-insensitive literal matches are highlighted with their surrounding structure, and Escape clears the filter. Source keeps its JSONPath filtering, while copying from Visual returns the original response body.
-- Hide or show the main sidebar with `Ctrl+B` or Toggle Sidebar in the command palette. Tab navigation skips the hidden sidebar, and `g` then `s` reopens and focuses it. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#218](https://github.com/wilfredinni/noodle/pull/218).
+- Hide or show the main sidebar with `Ctrl+B` or Toggle Sidebar in the command palette. Tab navigation skips the hidden sidebar, and `g` then `s` reopens and focuses it. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#218](https://github.com/noodle-rest/noodle/pull/218).
 - Move the default response-body and cookie-copy shortcuts to `Ctrl+Alt+B` to make room for sidebar toggling.
 
 ### 📚 Documentation
@@ -521,7 +521,7 @@ Noodle 0.8.4 adds paced collection runs in both the CLI and TUI Runner, with F5 
 - Keep request execution and timeline redaction bound to the environment selected at dispatch, reject unresolved variables before network activity even without an active environment, and keep environment rename, deletion, refresh, and rapid selection state consistent.
 - Prevent new, cloned, or renamed environments from overwriting existing files; validate every environment key with the shared `^\w+$` grammar; preserve own-property names such as `__proto__`; and retain `.env` value content exactly after the first `=`.
 - Treat `$$` as a literal-dollar escape across sending, previews, validation, search, generated code, and OpenAPI/Postman conversion. Existing `$$NAME` content now produces literal `$NAME`; Postman dynamic, dotted, and hyphenated placeholders are rejected before import writes.
-- Preserve the URL bar's editable empty state after clearing its value, so users can keep typing instead of seeing the no-request state. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#204](https://github.com/wilfredinni/noodle/pull/204).
+- Preserve the URL bar's editable empty state after clearing its value, so users can keep typing instead of seeing the no-request state. Thanks to [@cturner8](https://github.com/cturner8) for contributing [#204](https://github.com/noodle-rest/noodle/pull/204).
 - Generate client code for incomplete scheme-bearing URLs without corrupting matching user text, and remove deprecated URL parsing from the generation path.
 - Keep Path-tab value commits tied to the URL-derived parameter name, and commit an active request-field edit before opening the Runner.
 - Keep selection on a request after deleting the active request, including when the fallback is inside a collapsed folder.
@@ -540,7 +540,7 @@ Noodle 0.8.4 adds paced collection runs in both the CLI and TUI Runner, with F5 
 
 ## [0.8.3] - 2026-08-31
 
-![Noodle Assert and Results tabs with ten passing assertions](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/assertions.png)
+![Noodle Assert and Results tabs with ten passing assertions](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/assertions.png)
 
 Noodle 0.8.3 brings response assertions, captures, and collection execution into the TUI. Requests now have dedicated Assert and Capture authoring, manual sends show Results and can persist captures, and the collection Runner provides a transient workspace for selecting and inspecting ordered runs. The release also sharpens tag filtering, response-expression completion, and several response and overlay interactions.
 
@@ -637,7 +637,7 @@ Noodle 0.8.1 adds declarative response capture, so one request can pass typed re
 
 ## [0.8.0] - 2026-08-24
 
-![Noodle Theme](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/noodle-claude.png)
+![Noodle Theme](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/noodle-claude.png)
 
 Noodle 0.8.0 adds declarative response assertions to automation runs, with checks for status, timing, headers, and JSON body values stored beside each request. Collection runs can also select request IDs and folders, while the Claude Code palette expands the built-in theme catalog to 34 choices.
 
@@ -656,7 +656,7 @@ Noodle 0.8.0 adds declarative response assertions to automation runs, with check
 
 ## [0.7.7] - 2026-08-19
 
-![Noodle Theme](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/noodle-noodle.png)
+![Noodle Theme](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/noodle-noodle.png)
 
 Noodle 0.7.7 gives the terminal client a Noodle theme drawn from the website palette and makes it the default for configurations without a saved theme. Agent skill installation also gains an explicit `--force` recovery path with backup-backed rollback if any target fails.
 
@@ -757,7 +757,7 @@ Noodle 0.7.4 adds first-class OAuth 1.0a signing and OAuth 2.0 token workflows t
 
 ## [0.7.3] - 2026-08-14
 
-![Noodle aws sig](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/cookie-tab.png)
+![Noodle aws sig](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/cookie-tab.png)
 
 Noodle 0.7.3 adds a persistent cookie jar to each collection, including automatic cookie handling across redirects, collection and request controls, a dedicated TUI workspace, and automation commands. Cookie storage prefers OS-vault-backed encryption, exposes clear health warnings, and preserves unreadable state before an explicit reset.
 
@@ -784,7 +784,7 @@ Noodle 0.7.3 adds a persistent cookie jar to each collection, including automati
 
 ## [0.7.2] - 2026-08-12
 
-![Noodle aws sig](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/aws-auth.png)
+![Noodle aws sig](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/aws-auth.png)
 
 Noodle 0.7.2 adds NTLMv2 and AWS Signature Version 4 request authentication, with clear controls for their required credentials and secure environment-variable workflows. It also preserves those configurations in supported imports and exports while keeping connection-bound and signed requests safe across redirects.
 
@@ -811,7 +811,7 @@ Noodle 0.7.2 adds NTLMv2 and AWS Signature Version 4 request authentication, wit
 
 ## [0.7.1] - 2026-08-11
 
-![Noodle secrets](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/secrets.png)
+![Noodle secrets](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/secrets.png)
 
 Noodle 0.7.1 adds TLS and mutual-TLS controls plus OS-backed secret storage for environment values, proxy authentication, and encrypted client-key passphrases. It also hardens settings validation and redirects, while making secret-aware request history and automation practical from both the TUI and CLI.
 
@@ -875,7 +875,7 @@ Noodle adds a unified Settings workspace for global preferences and collection c
 
 ## [0.6.2] - 2026-08-07
 
-![Export collection overlay](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/import-overlay.png)
+![Export collection overlay](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/import-overlay.png)
 
 Noodle now brings collection import and export into the terminal UI, so a collection can move between supported formats without leaving the workspace. Home-relative upload paths and editor state are more dependable, with safer exports and more stable completion, focus, and import behavior.
 
@@ -904,7 +904,7 @@ Noodle now brings collection import and export into the terminal UI, so a collec
 
 ## [0.6.1] - 2026-08-06
 
-![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/response_folding.png)
+![path_params](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/response_folding.png)
 
 Noodle makes environment switching more direct with searchable selection, in-place context, and a dedicated creation flow. Response and request JSON handling gains foldable, scrollable rendering and source-accurate validation, alongside focused interaction and layout fixes.
 
@@ -990,7 +990,7 @@ Collections can now be formatted from the automation CLI, giving imported and ex
 
 ## [0.5.6] - 2026-08-02
 
-![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/path.png)
+![path_params](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/path.png)
 
 Path parameters, live network traces, mouse-first controls, and faster focus jumps make request work more direct, while stronger draft safety and improved theme contrast keep the workflow dependable.
 
@@ -1078,7 +1078,7 @@ Path parameters, live network traces, mouse-first controls, and faster focus jum
 
 ## [0.5.2] - 2026-07-25
 
-![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/jumpmode.png)
+![timeline](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/jumpmode.png)
 
 ### ✨ Features
 
@@ -1137,7 +1137,7 @@ Path parameters, live network traces, mouse-first controls, and faster focus jum
 
 ## [0.5.0] - 2026-07-19
 
-![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/findrequest.png)
+![timeline](https://raw.githubusercontent.com/noodle-rest/noodle/main/assets/findrequest.png)
 
 ### ✨ Features
 
@@ -1204,27 +1204,27 @@ Path parameters, live network traces, mouse-first controls, and faster focus jum
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.9.4...HEAD
-[0.9.4]: https://github.com/wilfredinni/noodle/compare/v0.9.3...v0.9.4
-[0.9.3]: https://github.com/wilfredinni/noodle/compare/v0.9.2...v0.9.3
-[0.9.2]: https://github.com/wilfredinni/noodle/compare/v0.9.1...v0.9.2
-[0.9.1]: https://github.com/wilfredinni/noodle/compare/v0.9.0...v0.9.1
-[0.7.5]: https://github.com/wilfredinni/noodle/compare/v0.7.4...v0.7.5
-[0.7.4]: https://github.com/wilfredinni/noodle/compare/v0.7.3...v0.7.4
-[0.7.3]: https://github.com/wilfredinni/noodle/compare/v0.7.2...v0.7.3
-[0.7.2]: https://github.com/wilfredinni/noodle/compare/v0.7.1...v0.7.2
-[0.7.1]: https://github.com/wilfredinni/noodle/compare/v0.7.0...v0.7.1
-[0.7.0]: https://github.com/wilfredinni/noodle/compare/v0.6.2...v0.7.0
-[0.6.2]: https://github.com/wilfredinni/noodle/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/wilfredinni/noodle/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/wilfredinni/noodle/compare/v0.5.7...v0.6.0
-[0.5.7]: https://github.com/wilfredinni/noodle/compare/v0.5.6...v0.5.7
-[0.5.6]: https://github.com/wilfredinni/noodle/compare/v0.5.5...v0.5.6
-[0.5.5]: https://github.com/wilfredinni/noodle/compare/v0.5.4...v0.5.5
-[0.5.4]: https://github.com/wilfredinni/noodle/compare/v0.5.3...v0.5.4
-[0.5.3]: https://github.com/wilfredinni/noodle/compare/v0.5.2...v0.5.3
-[0.5.2]: https://github.com/wilfredinni/noodle/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/wilfredinni/noodle/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/wilfredinni/noodle/compare/v0.4.8...v0.5.0
-[0.4.8]: https://github.com/wilfredinni/noodle/compare/v0.4.7...v0.4.8
-[0.4.7]: https://github.com/wilfredinni/noodle/compare/v0.4.6...v0.4.7
+[Unreleased]: https://github.com/noodle-rest/noodle/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/noodle-rest/noodle/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/noodle-rest/noodle/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/noodle-rest/noodle/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/noodle-rest/noodle/compare/v0.9.0...v0.9.1
+[0.7.5]: https://github.com/noodle-rest/noodle/compare/v0.7.4...v0.7.5
+[0.7.4]: https://github.com/noodle-rest/noodle/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/noodle-rest/noodle/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/noodle-rest/noodle/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/noodle-rest/noodle/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/noodle-rest/noodle/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/noodle-rest/noodle/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/noodle-rest/noodle/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/noodle-rest/noodle/compare/v0.5.7...v0.6.0
+[0.5.7]: https://github.com/noodle-rest/noodle/compare/v0.5.6...v0.5.7
+[0.5.6]: https://github.com/noodle-rest/noodle/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/noodle-rest/noodle/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/noodle-rest/noodle/compare/v0.5.3...v0.5.4
+[0.5.3]: https://github.com/noodle-rest/noodle/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/noodle-rest/noodle/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/noodle-rest/noodle/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/noodle-rest/noodle/compare/v0.4.8...v0.5.0
+[0.4.8]: https://github.com/noodle-rest/noodle/compare/v0.4.7...v0.4.8
+[0.4.7]: https://github.com/noodle-rest/noodle/compare/v0.4.6...v0.4.7

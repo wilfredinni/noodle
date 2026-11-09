@@ -914,7 +914,7 @@ describe("checkForUpdates", () => {
       ) {
         expect(status.latestVersion).toBe("v99.0.0")
         expect(status.assetUrl).toBe(
-          "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-macos-arm64",
+          "https://github.com/noodle-rest/noodle/releases/download/v99.0.0/noodle-macos-arm64",
         )
         expect(status.expectedSha256).toBe("a".repeat(64))
         expect(typeof status.currentVersion).toBe("string")
@@ -943,7 +943,7 @@ describe("checkForUpdates", () => {
       ) {
         expect(status.latestVersion).toBe("v99.0.0")
         expect(status.assetUrl).toBe(
-          "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-macos-arm64",
+          "https://github.com/noodle-rest/noodle/releases/download/v99.0.0/noodle-macos-arm64",
         )
         expect(status.expectedSha256).toBe("a".repeat(64))
       }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
-REPO="wilfredinni/noodle"
+REPO="noodle-rest/noodle"
 BIN_NAME="noodle"
 INSTALL_DIR="${NOODLE_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${NOODLE_VERSION:-latest}"

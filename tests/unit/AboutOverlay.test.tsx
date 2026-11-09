@@ -142,6 +142,6 @@ describe("AboutOverlay", () => {
       )
     })
 
-    expect(opened).toBe("https://github.com/wilfredinni/noodle")
+    expect(opened).toBe("https://github.com/noodle-rest/noodle")
   })
 })

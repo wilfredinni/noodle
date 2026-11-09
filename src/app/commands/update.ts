@@ -156,7 +156,7 @@ export async function runUpdate(
     if (!asset) {
       output(`No prebuilt binary for ${platform} in update manifest.`)
       output(
-        "Build from source: git clone https://github.com/wilfredinni/noodle.git",
+        "Build from source: git clone https://github.com/noodle-rest/noodle.git",
       )
       return { data: { status: "asset_missing", platform }, failed: true }
     }

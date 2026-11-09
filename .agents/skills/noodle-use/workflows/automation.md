@@ -284,11 +284,11 @@ code remains authoritative for CI failure/cancellation.
 
 After checking out a repository containing the `./api` collection and its `ci`
 environment, install the exact CLI release with
-[`setup-noodle`](https://github.com/wilfredinni/setup-noodle). The action verifies
+[`setup-noodle`](https://github.com/noodle-rest/setup-noodle). The action verifies
 the binary checksum and adds Noodle to PATH for the following steps.
 
 ```yaml
-- uses: wilfredinni/setup-noodle@v1
+- uses: noodle-rest/setup-noodle@v1
   with:
     version: v0.10.4
 
