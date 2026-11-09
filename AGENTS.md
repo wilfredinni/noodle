@@ -80,7 +80,7 @@ otherwise it exits 1. The field contract and CI artifact example live in
 ## Stack
 
 - **Runtime:** Bun (not Node). `bun run`, `bun test`.
-- **UI:** [OpenTUI](https://github.com/anomius/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
+- **UI:** [OpenTUI](https://github.com/anomalyco/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
 - **Language:** TypeScript 7, strict mode, `"type": "module"`.
 - **Lint:** Oxlint 1 with ESLint and TypeScript plugins. `no-unused-vars` ignores `_`-prefixed args.
 - **Format:** Oxfmt 0.74; `semi: false`, `singleQuote: false`, `printWidth: 80`.
@@ -278,9 +278,9 @@ Text history remains compatible. Add no request YAML fields for response handlin
 
 | Method | Command |
 |--------|---------|
-| **curl** | `curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh \| sh` |
+| **curl** | `curl -LsSf https://raw.githubusercontent.com/noodle-rest/noodle/main/scripts/install.sh \| sh` |
 | **Homebrew** | `brew install noodle` |
-| **PowerShell (Windows x64 beta)** | `irm https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.ps1 \| iex` |
+| **PowerShell (Windows x64 beta)** | `irm https://raw.githubusercontent.com/noodle-rest/noodle/main/scripts/install.ps1 \| iex` |
 | **Source** | `bun install && bun run build:bin` |
 
 - Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases

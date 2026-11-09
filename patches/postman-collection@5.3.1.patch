@@ -1,5 +1,5 @@
 diff --git a/lib/superstring/dynamic-variables.js b/lib/superstring/dynamic-variables.js
-index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398ff1d6fd16 100644
+index 83424a3b19f797ed0272aceef06f759959440393..6bee2d929964a338510ddd2ab0eacae8cf1c9f7f 100644
 --- a/lib/superstring/dynamic-variables.js
 +++ b/lib/superstring/dynamic-variables.js
 @@ -1,4 +1,4 @@
@@ -166,26 +166,19 @@ index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398f
          },
          $randomPrice: {
              description: 'A random price between 0.00 and 1000.00',
-@@ -371,66 +376,92 @@ var faker = require('@faker-js/faker/locale/en'),
+@@ -371,66 +376,83 @@ var faker = require('@faker-js/faker/locale/en'),
  
          $randomAvatarImage: {
              description: 'A random avatar image',
 -            generator: () => {
-+            generator: function () {
-+                const avatarUrls = [
-+                    'https://cloudflare-ipfs.com/ipfs/Qmd3W5DuhgHirLHGVixi6V76LhCkZUz6pnFt5AJBiyvHye/' +
-+                    `avatar/${faker.number.int(1249)}.jpg`,
-+                    `https://avatars.githubusercontent.com/u/${faker.number.int(100000000)}`
-+                ];
-+
-                 // ref: https://github.com/faker-js/faker/blob/v8.4.1/src/modules/image/index.ts#L61
+-                // ref: https://github.com/faker-js/faker/blob/v8.4.1/src/modules/image/index.ts#L61
 -                return faker.random.arrayElement([
 -                    // eslint-disable-next-line @stylistic/js/max-len
 -                    `https://cloudflare-ipfs.com/ipfs/Qmd3W5DuhgHirLHGVixi6V76LhCkZUz6pnFt5AJBiyvHye/avatar/${faker.datatype.number(1249)}.jpg`,
 -                    `https://avatars.githubusercontent.com/u/${faker.datatype.number(100000000)}`
 -                ]);
-+                return faker.helpers.arrayElement(avatarUrls);
-             }
+-            }
++            generator: faker.image.avatar
          },
          $randomImageUrl: {
              description: 'A URL for a random image',
@@ -278,7 +271,7 @@ index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398f
          },
          $randomImageDataUri: {
              description: 'A random image data URI',
-@@ -447,7 +478,7 @@ var faker = require('@faker-js/faker/locale/en'),
+@@ -447,7 +469,7 @@ var faker = require('@faker-js/faker/locale/en'),
          },
          $randomUserName: {
              description: 'A random username',
@@ -287,7 +280,7 @@ index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398f
          },
          $randomProtocol: {
              description: 'A random internet protocol',
-@@ -483,7 +514,7 @@ var faker = require('@faker-js/faker/locale/en'),
+@@ -483,7 +505,7 @@ var faker = require('@faker-js/faker/locale/en'),
          },
          $randomHexColor: {
              description: 'A random hex value',
@@ -296,7 +289,7 @@ index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398f
          },
          $randomMACAddress: {
              description: 'A random MAC address',
-@@ -533,44 +564,44 @@ var faker = require('@faker-js/faker/locale/en'),
+@@ -533,44 +555,44 @@ var faker = require('@faker-js/faker/locale/en'),
  
          $randomFirstName: {
              description: 'A random first name',
@@ -351,7 +344,7 @@ index 83424a3b19f797ed0272aceef06f759959440393..93433df9abfc245a61a66b4f1702398f
          },
          $randomBoolean: {
              description: 'A random boolean value (true/false)',
-@@ -578,11 +609,11 @@ var faker = require('@faker-js/faker/locale/en'),
+@@ -578,11 +600,11 @@ var faker = require('@faker-js/faker/locale/en'),
          },
          $randomWord: {
              description: 'A random word',

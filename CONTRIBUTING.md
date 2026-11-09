@@ -35,7 +35,7 @@ Keep it short. Write in your own voice. Do not paste AI-generated implementation
 ## Development
 
 ```bash
-git clone https://github.com/wilfredinni/noodle
+git clone https://github.com/noodle-rest/noodle
 cd noodle
 bun install
 bun run dev
@@ -66,7 +66,7 @@ src/
 └── ui/            # React components, hooks, themes
 ```
 
-Noodle uses [OpenTUI](https://github.com/anomius/opentui) (`@opentui/react`) for terminal rendering. JSX renders to a TUI. This is not standard React DOM. Read `.agents/skills/opentui/SKILL.md` before working on UI code.
+Noodle uses [OpenTUI](https://github.com/anomalyco/opentui) (`@opentui/react`) for terminal rendering. JSX renders to a TUI. This is not standard React DOM. Read `.agents/skills/opentui/SKILL.md` before working on UI code.
 
 Key conventions:
 - TypeScript 7, strict mode, `"type": "module"`
@@ -133,4 +133,4 @@ Optionally include scope: `fix(filestore):`, `feat(env):`
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/wilfredinni/noodle/discussions).
+Open a [GitHub Discussion](https://github.com/noodle-rest/noodle/discussions).
