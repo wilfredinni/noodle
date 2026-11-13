@@ -126,10 +126,22 @@ describe("OpenAPI 3.1 request bodies", () => {
           { schema: node },
           { schemas: { Node, ...components.schemas } },
         ),
-      ).toEqual({
-        body: { next: null },
-        warnings: undefined,
-      })
+      ).toEqual(
+        keyword === "anyOf"
+          ? {
+              body: { next: null },
+              warnings: undefined,
+            }
+          : {
+              body: undefined,
+              warnings: [
+                expect.objectContaining({
+                  field: "requestBody",
+                  message: expect.stringContaining("oneOf"),
+                }),
+              ],
+            },
+      )
       expect(
         requestBody({
           schema: {
@@ -142,6 +154,85 @@ describe("OpenAPI 3.1 request bodies", () => {
       })
     },
   )
+
+  it("uses a recursive oneOf null fallback only when exactly one branch allows it", () => {
+    const node = { $ref: "#/components/schemas/Node" }
+    const Node = {
+      type: "object",
+      required: ["next"],
+      properties: { next: { oneOf: [node, { type: "null" }] } },
+    }
+    expect(requestBody({ schema: node }, { schemas: { Node } })).toEqual({
+      body: { next: null },
+      warnings: undefined,
+    })
+    const ambiguous = requestBody(
+      { schema: node },
+      {
+        schemas: {
+          Node: { ...Node, type: ["object", "null"] },
+        },
+      },
+    )
+    expect(ambiguous.body).toBeUndefined()
+    expect(ambiguous.warnings).toMatchObject([
+      { field: "requestBody", message: expect.stringContaining("oneOf") },
+    ])
+    for (const branches of [
+      [{ type: "null" }, { type: ["null"] }],
+      [{ type: "null", not: {} }],
+    ]) {
+      const result = requestBody({ schema: { oneOf: branches } })
+      expect(result.body).toBeUndefined()
+      expect(result.warnings).toMatchObject([
+        { field: "requestBody", message: expect.stringContaining("oneOf") },
+      ])
+    }
+  })
+
+  it("warns for dynamic schema references without exposing reference locations", () => {
+    for (const schema of [
+      { $dynamicRef: "#private-value" },
+      { properties: { nested: { $dynamicRef: "https://private-value" } } },
+    ]) {
+      const result = requestBody({ schema })
+      expect(result.body).toBeUndefined()
+      expect(result.warnings).toMatchObject([{ field: "requestBody" }])
+      expect(JSON.stringify(result.warnings)).not.toContain("private-value")
+    }
+    expect(
+      requestBody({
+        schema: { $dynamicRef: "#node" },
+        example: { name: "Ada" },
+      }),
+    ).toEqual({
+      body: { name: "Ada" },
+      warnings: undefined,
+    })
+  })
+
+  it("omits forbidden optional properties and rejects forbidden required properties", () => {
+    const properties = {
+      old: false,
+      referenced: { $ref: "#/components/schemas/Forbidden" },
+      name: { type: "string" },
+    }
+    const components = { schemas: { Forbidden: false } }
+    expect(
+      requestBody({ schema: { type: "object", properties } }, components),
+    ).toEqual({
+      body: { name: "" },
+      warnings: undefined,
+    })
+    for (const field of ["old", "referenced"]) {
+      const result = requestBody(
+        { schema: { type: "object", properties, required: [field] } },
+        components,
+      )
+      expect(result.body).toBeUndefined()
+      expect(result.warnings).toMatchObject([{ field: "requestBody" }])
+    }
+  })
 
   it("uses items to infer arrays only when no explicit type is given", () => {
     const items = { type: "integer" }

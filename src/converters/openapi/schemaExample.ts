@@ -67,6 +67,10 @@ export function jsonBody31(
     for (const key of ["example", "const", "default"])
       if (Object.hasOwn(schema, key)) return schema[key]
     if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0]
+    if (Object.hasOwn(schema, "$dynamicRef"))
+      throw new TemplateError(
+        "Dynamic schema reference requires a body example. Edit the body.",
+      )
 
     const unionKey = schema.anyOf != null ? "anyOf" : "oneOf"
     const union = schema[unionKey]
@@ -98,16 +102,44 @@ export function jsonBody31(
           const types = Array.isArray(option.type) ? option.type : [option.type]
           return !types.length || types.some((type) => type !== "null")
         })
-        if (!options.length && union.length) return null
+        const nullFallback = () => {
+          if (unionKey === "oneOf") {
+            const matches = union.map((branch) => {
+              const option = resolve(branch, "template")
+              if (typeof option === "boolean") return option
+              if (!isMapping(option)) return undefined
+              const types = Array.isArray(option.type)
+                ? option.type
+                : [option.type]
+              if (
+                option.type !== undefined &&
+                types.length &&
+                !types.includes("null")
+              )
+                return false
+              return hasSchemaSiblings(option, "type") ? undefined : true
+            })
+            if (
+              matches.includes(undefined) ||
+              matches.filter(Boolean).length !== 1
+            )
+              throw new TemplateError(
+                "Cannot select an exclusive oneOf null alternative. Add a body example.",
+              )
+          }
+          return null
+        }
+        if (!options.length && union.length) return nullFallback()
         if (options.length === 1) {
           try {
-            return sample(options[0])
+            const value = sample(options[0])
+            return value === null ? nullFallback() : value
           } catch (error) {
             if (
               error instanceof RecursiveSchema &&
               options.length < union.length
             )
-              return null
+              return nullFallback()
             throw error
           }
         }
@@ -141,15 +173,14 @@ export function jsonBody31(
         const entries: [string, unknown][] = []
         for (const [name, property] of Object.entries(schema.properties)) {
           const resolved = resolve(property, true)
+          const required =
+            Array.isArray(schema.required) && schema.required.includes(name)
           if (isMapping(resolved) && resolved.readOnly === true) continue
+          if (resolved === false && !required) continue
           try {
             entries.push([name, sample(property)])
           } catch (error) {
-            if (
-              !(error instanceof RecursiveSchema) ||
-              (Array.isArray(schema.required) && schema.required.includes(name))
-            )
-              throw error
+            if (!(error instanceof RecursiveSchema) || required) throw error
           }
         }
         return Object.fromEntries(entries)
