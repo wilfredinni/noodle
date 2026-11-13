@@ -2,6 +2,7 @@ import type {
   AuditIssue,
   CollectionInspectResult,
   CollectionListResult,
+  CollectionRunPreview,
   CollectionRunResult,
   CollectionTreeItem,
   RequestRunResult,
@@ -308,6 +309,20 @@ export function formatRequestRun(
       `Body:\n${response.bodyKind === "binary" ? "Binary response; use --output <file> to save the original bytes." : escapeTerminalControls(response.body || "(empty)")}`,
     )
   return sections.join("\n\n")
+}
+
+export function formatCollectionRunPreview(data: CollectionRunPreview): string {
+  return [
+    "Dry run",
+    `Environment: ${data.environment === null ? "(none)" : escapeTerminalControls(JSON.stringify(data.environment))}`,
+    ...data.sequence.map(
+      ({ id, stage }) =>
+        `  [${stage}] ${escapeTerminalControls(JSON.stringify(id))}`,
+    ),
+    `Executions per iteration: ${data.sequence.length}`,
+    `Iterations: ${data.iterations}`,
+    `Total planned executions: ${data.totalExecutions}`,
+  ].join("\n")
 }
 
 export function formatCollectionRun(data: CollectionRunResult): string {

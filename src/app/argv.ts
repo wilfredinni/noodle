@@ -16,7 +16,7 @@ export function getUserArgsStart(argv: string[]): number {
 }
 
 // Citty accepts undeclared switches. Check the selected command before its handler runs.
-export async function unknownCliOption(command: CommandDef, argv: string[]) {
+export async function invalidCliArgument(command: CommandDef, argv: string[]) {
   let args = argv
   while (command.subCommands) {
     const children = await (typeof command.subCommands === "function"
@@ -45,7 +45,7 @@ export async function unknownCliOption(command: CommandDef, argv: string[]) {
       if (type === "boolean") options[`no-${key}`] = { type }
     }
   }
-  const { tokens, values } = parseArgs({
+  const { tokens, values, positionals } = parseArgs({
     args,
     options,
     allowPositionals: true,
@@ -56,7 +56,8 @@ export async function unknownCliOption(command: CommandDef, argv: string[]) {
     values.json !== undefined &&
     values.json !== "false" &&
     values["no-json"] === undefined
-  const exitCode = argv[0] === "collection" && argv[1] === "run" ? 2 : 1
+  const collectionRun = argv[0] === "collection" && argv[1] === "run"
+  const exitCode = collectionRun ? 2 : 1
   for (const token of tokens) {
     if (token.kind !== "option") continue
     if (args[token.index] === "-h" || args[token.index] === "--help") continue
@@ -74,4 +75,16 @@ export async function unknownCliOption(command: CommandDef, argv: string[]) {
         exitCode,
       }
   }
+  const dryRun = values["dry-run"] ?? values.dryRun
+  if (
+    collectionRun &&
+    dryRun !== undefined &&
+    dryRun !== "false" &&
+    values["no-dry-run"] === undefined &&
+    values["no-dryRun"] === undefined &&
+    positionals.length === 0 &&
+    !args.includes("-h") &&
+    !args.includes("--help")
+  )
+    return { message: "Collection path is required", json, exitCode }
 }
