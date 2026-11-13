@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs"
 import { writeFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
+import { publishImportFiles } from "../../src/app/importFiles"
 
 describe("import — integration", () => {
   const tempDirs: string[] = []
@@ -23,6 +24,38 @@ describe("import — integration", () => {
     tempDirs.push(dir)
     return dir
   }
+
+  it.each([false, true])(
+    "rolls back earlier files after an installed target disappears (replaced: %s)",
+    async (replaced) => {
+      const root = tempDir()
+      const stage = tempDir()
+      const paths = ["first.yml", "second.yml"]
+      for (const path of paths) {
+        await writeFile(join(root, path), "original " + path)
+        await writeFile(join(stage, path), "imported")
+      }
+      const second = join(root, "second.yml")
+      await expect(
+        publishImportFiles(stage, root, paths, true, async () => {
+          await rm(second)
+          if (replaced) await writeFile(second, "concurrent")
+          throw new Error("settings failed")
+        }),
+      ).rejects.toThrow(replaced ? "Backups retained" : "settings failed")
+      expect(readFileSync(join(root, "first.yml"), "utf8")).toBe(
+        "original first.yml",
+      )
+      expect(readFileSync(second, "utf8")).toBe(
+        replaced ? "concurrent" : "original second.yml",
+      )
+      if (replaced)
+        expect(readFileSync(join(stage, ".original-2"), "utf8")).toBe(
+          "original second.yml",
+        )
+      else expect(existsSync(stage)).toBe(false)
+    },
+  )
 
   it("imports OpenAPI spec with tags and servers, writes .yml files + folder.yml + .env", async () => {
     const outDir = tempDir()

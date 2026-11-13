@@ -11,6 +11,10 @@ import {
 } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
+function ignoreMissing(error: NodeJS.ErrnoException): void {
+  if (error.code !== "ENOENT") throw error
+}
+
 export async function publishImportFiles(
   stage: string,
   root: string,
@@ -49,11 +53,7 @@ export async function publishImportFiles(
       }
       changes.push(change)
       if (overwrite) {
-        const stat = await lstat(target).catch(
-          (error: NodeJS.ErrnoException) => {
-            if (error.code !== "ENOENT") throw error
-          },
-        )
+        const stat = await lstat(target).catch(ignoreMissing)
         if (stat) {
           if (!stat.isFile())
             throw new Error(`Import target is not a regular file: ${path}`)
@@ -68,21 +68,32 @@ export async function publishImportFiles(
     }
     await finish()
   } catch (error) {
+    let conflict: string | undefined
     for (const { target, staged, backup, installed } of changes.reverse()) {
       if (installed) {
         const [current, ours] = await Promise.all([
-          lstat(target),
+          lstat(target).catch(ignoreMissing),
           lstat(staged),
         ])
-        if (current.dev !== ours.dev || current.ino !== ours.ino)
-          throw new Error(
-            `Import target changed during rollback: ${target}. Backups retained in ${stage}`,
-            { cause: error },
-          )
-        await unlink(target)
+        if (current) {
+          if (current.dev !== ours.dev || current.ino !== ours.ino) {
+            conflict = target
+            continue
+          }
+          await unlink(target).catch(ignoreMissing)
+        }
       }
-      if (backup) await link(backup, target)
+      if (backup)
+        await link(backup, target).catch((err: NodeJS.ErrnoException) => {
+          if (err.code !== "EEXIST") throw err
+          conflict = target
+        })
     }
+    if (conflict)
+      throw new Error(
+        `Import target changed during rollback: ${conflict}. Backups retained in ${stage}`,
+        { cause: error },
+      )
     for (const dir of [...directories].reverse())
       await rmdir(dir).catch((err: NodeJS.ErrnoException) => {
         if (err.code !== "ENOTEMPTY" && err.code !== "EEXIST") throw err
