@@ -5,7 +5,7 @@ import {
   realpathSync,
   statSync,
 } from "node:fs"
-import { mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import {
   basename,
   dirname,
@@ -24,6 +24,7 @@ import {
   supportedFormats,
   type ImportResult,
   type ImportWarning,
+  formatImportWarning,
 } from "../converters/index"
 import {
   loadSettings,
@@ -31,6 +32,7 @@ import {
   saveFolder,
   saveSettings,
 } from "../filestore"
+import { publishImportFiles } from "./importFiles"
 import { formatJson } from "../lang/formatJson"
 import type {
   Collection,
@@ -359,10 +361,6 @@ export async function runImport(options: ImportOptions): Promise<{
       throw new Error(`import target is not a directory: ${collDir}`)
     }
     overwrite = false
-    const conflicts = findConflicts(collDir, plannedPaths, true)
-    if (conflicts.length > 0) {
-      throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
-    }
   } else if (options.destination?.kind === "new") {
     validateCollectionId(result.collection.id)
     const parentDir = options.destination.parentDir
@@ -372,20 +370,18 @@ export async function runImport(options: ImportOptions): Promise<{
     if (existsSync(collDir)) {
       throw new Error(`import target already exists: ${collDir}`)
     }
-    const conflicts = findConflicts(collDir, plannedPaths, false)
-    if (conflicts.length > 0) {
-      throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
-    }
   }
 
-  for (const path of plannedPaths) {
-    validateImportPath(collDir, path)
-  }
+  const conflicts = findConflicts(collDir, plannedPaths, !overwrite)
+  if (conflicts.length)
+    throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
 
   let removePartialImport = false
   const newCollection =
     options.destination?.kind !== "current" && !existsSync(collDir)
   const initializeCollectionId = options.destination?.kind !== "current"
+  let stage: string | undefined
+  let publishing = false
   try {
     if (newCollection || options.destination?.kind === "new" || hasScripts) {
       if (!options.destination)
@@ -395,15 +391,24 @@ export async function runImport(options: ImportOptions): Promise<{
       await ensureCollectionGitignore(collDir)
     }
 
+    if (!removePartialImport) {
+      if (
+        options.destination?.kind !== "current" &&
+        !lstatSync(collDir).isDirectory()
+      )
+        throw new Error("Import target is not a directory")
+      stage = await mkdtemp(join(collDir, ".noodle-import-"))
+    }
+    const output = stage ?? collDir
     try {
-      await writeCollection(collDir, result.collection, overwrite)
+      await writeCollection(output, result.collection, overwrite)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       throw new Error(`failed to write collection: ${msg}`, { cause: e })
     }
 
     if (result.environments.length > 0) {
-      const envDir = join(collDir, ".environments")
+      const envDir = join(output, ".environments")
       await mkdir(envDir, { recursive: true })
       for (const env of result.environments) {
         await writeFile(
@@ -414,7 +419,9 @@ export async function runImport(options: ImportOptions): Promise<{
       }
     }
 
-    if (initializeCollectionId) {
+    const finish = async () => {
+      if (!initializeCollectionId) return
+      validateImportPath(collDir, "settings.yml")
       const settings = await loadSettings(collDir)
       await saveSettings(collDir, {
         ...settings,
@@ -424,7 +431,18 @@ export async function runImport(options: ImportOptions): Promise<{
           : {}),
       })
     }
+    if (stage) {
+      publishing = true
+      await publishImportFiles(
+        stage,
+        resolve(collDir),
+        plannedPaths,
+        overwrite,
+        finish,
+      )
+    } else await finish()
   } catch (e) {
+    if (stage && !publishing) await rm(stage, { recursive: true, force: true })
     if (removePartialImport) {
       try {
         await rm(collDir, { recursive: true, force: true })
@@ -445,7 +463,7 @@ export async function runImport(options: ImportOptions): Promise<{
 
   if (!options.silent)
     process.stdout.write(
-      `Imported ${result.collection.name} → ${collDir}\n${(result.warnings ?? []).map((warning) => `Warning: ${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(warning.phase)}): ${warning.message}\n`).join("")}`,
+      `Imported ${result.collection.name} → ${collDir}\n${(result.warnings ?? []).map((warning) => `Warning: ${formatImportWarning(warning)}\n`).join("")}`,
     )
   return {
     path: collDir,

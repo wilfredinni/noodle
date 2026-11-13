@@ -6,7 +6,13 @@ export const openApiImporter = {
   type: "openapi",
   detect: detectOpenApi,
   import(content: string) {
-    return mapCollection(parseSpec(content))
+    const spec = parseSpec(content)
+    const result = mapCollection(spec)
+    if (spec.resolveRef && !result.collection.items.length)
+      throw new Error(
+        "Nothing to import: this OpenAPI 3.1 document has no supported path operations. Components and webhooks alone do not define outgoing requests.",
+      )
+    return result
   },
 }
 

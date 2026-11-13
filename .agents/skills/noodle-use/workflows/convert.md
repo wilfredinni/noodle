@@ -1,6 +1,6 @@
 # Convert unsupported formats (file-level)
 
-Use `noodle import` for OpenAPI 3.0, Swagger 2.0, Postman, and Insomnia v4/v5 JSON exports. Do not reimplement those importers by hand.
+Use `noodle import` for OpenAPI 3.0 or 3.1, Swagger 2.0, Postman, and Insomnia v4/v5 JSON exports. Do not reimplement those importers by hand.
 
 ```bash
 noodle import <source-path> --format <openapi|swagger|postman|insomnia> --output <target-dir> --json

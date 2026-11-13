@@ -1,6 +1,6 @@
 # Import workflow (CLI)
 
-Import OpenAPI 3.0, Swagger 2.0, Postman, and Insomnia collections into noodle format, or export a Noodle collection as OpenAPI 3.0.3 or Postman Collection v2.1.
+Import OpenAPI 3.0 or 3.1, Swagger 2.0, Postman, and Insomnia collections into noodle format, or export a Noodle collection as OpenAPI 3.0.3 or Postman Collection v2.1.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ If `noodle` is not found, guide the user to [installation instructions](https://
 ### Step 1: Identify the source file
 
 Get the file path from the user. Common extensions:
-- `.yaml` / `.yml` / `.json` → OpenAPI 3.0 or Swagger 2.0
+- `.yaml` / `.yml` / `.json` → OpenAPI 3.0 or 3.1, or Swagger 2.0
 - `.postman_collection.json` → Postman
 - Insomnia v4/v5 JSON export → Insomnia
 
@@ -87,7 +87,7 @@ After import, run the evaluate checks (see [evaluate.md](evaluate.md)) on the im
 
 ## Format-specific notes
 
-OpenAPI 3.0 imports map:
+OpenAPI 3.0 and 3.1 imports map:
 - `info.title` → collection root name
 - `servers[].url` → `$base_url` in environment
 - `paths` → request `.yml` files, one per operation
@@ -108,7 +108,20 @@ through `x-noodle-oauth2-grant-type` and
 OAuth 1.0a has no OpenAPI 3.0 security-scheme representation and is not imported
 from OpenAPI.
 
-Multiple servers in the spec create multiple environments.
+Multiple servers in the spec create multiple environments. A 3.1 document
+without servers gets a default environment with an empty `base_url`. Set it
+before sending a request, for example:
+
+```bash
+noodle environment set base_url http://127.0.0.1:8000 --env default --collection ./collections/inventory
+```
+
+For 3.1 JSON bodies, the importer uses a media example, the first usable named
+example, a schema example, or an editable template derived from the schema.
+Local JSON Pointers resolve within the document. External references require
+manual configuration. Inspect `data.warnings` for the operation, field, and
+reason, including unsupported security requirements, callbacks, and webhooks.
+At least one supported outgoing path operation is required.
 
 Swagger 2.0 imports convert the specification to the same request model,
 including JSON and XML request bodies, paths, supported parameters, and

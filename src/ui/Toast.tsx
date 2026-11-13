@@ -12,15 +12,15 @@ type ToastVariant = "info" | "success" | "warning" | "error"
 
 let showToastFn: ((message: string, variant?: ToastVariant) => void) | null =
   null
-let takeToastMessageFn: (() => string | null) | null = null
+let takeToastMessageFn: ((message?: string) => string | null) | null = null
 
 export function showToast(message: string, variant?: ToastVariant) {
   showToastFn?.(message, variant)
 }
 
-// Dismiss the transient toast and retrieve its last message for the detail view.
-export function takeToastMessage(): string | null {
-  return takeToastMessageFn?.() ?? null
+// Dismiss the toast and retain the message being opened in the detail view.
+export function takeToastMessage(message?: string): string | null {
+  return takeToastMessageFn?.(message) ?? message ?? null
 }
 
 export function Toast() {
@@ -49,7 +49,8 @@ export function Toast() {
       }))
       dismissLater()
     }
-    const takeMessage = () => {
+    const takeMessage = (message?: string) => {
+      if (message !== undefined) lastMessage = message
       clearTimeout(timerRef.current)
       setState(null)
       return lastMessage
