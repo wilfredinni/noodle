@@ -94,7 +94,9 @@ export function jsonBody31(
       if (Array.isArray(union)) {
         const options = union.filter((branch) => {
           const option = resolve(branch, "template")
-          return !(isMapping(option) && option.type === "null")
+          if (!isMapping(option)) return true
+          const types = Array.isArray(option.type) ? option.type : [option.type]
+          return !types.length || types.some((type) => type !== "null")
         })
         if (!options.length && union.length) return null
         if (options.length === 1) {
@@ -122,7 +124,7 @@ export function jsonBody31(
         )
       const type = types[0]
       if (!types.length || type === "null") return null
-      if (type === "array" || schema.items) {
+      if (type === "array" || (type === undefined && schema.items)) {
         if (schema.items === undefined || schema.items === false) return []
         try {
           return [sample(schema.items)]

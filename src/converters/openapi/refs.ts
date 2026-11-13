@@ -53,27 +53,34 @@ export function localReferenceResolver(root: Record<string, unknown>) {
   return (value: unknown, schema: boolean | "template" = false): unknown => {
     const seen = new Set<object>()
     const annotations: Record<string, unknown> = {}
-    let composition: Record<string, unknown> | undefined
+    const siblings: Record<string, unknown>[] = []
+    let composition = false
     while (isMapping(value) && typeof value.$ref === "string") {
       if (!value.$ref.startsWith("#/") || seen.has(value)) return undefined
       seen.add(value)
-      if (schema && !composition) {
-        for (const key of schemaAnnotations) {
-          if (Object.hasOwn(value, key) && !Object.hasOwn(annotations, key))
-            annotations[key] = value[key]
-        }
-        // Keep the conjunction explicit so generating a template cannot drop its siblings.
-        if (schema === "template" && hasSchemaSiblings(value, "$ref")) {
-          const { $ref, ...siblings } = value
-          composition = { allOf: [{ $ref }, siblings], ...annotations }
-        }
+      if (schema) {
+        if (schema === "template" && !composition)
+          for (const key of schemaAnnotations) {
+            if (Object.hasOwn(value, key) && !Object.hasOwn(annotations, key))
+              annotations[key] = value[key]
+          }
+        const adjacent = { ...value }
+        delete adjacent.$ref
+        siblings.push(adjacent)
+        composition ||= hasSchemaSiblings(value, "$ref")
       }
       value = resolvePointer(root, value.$ref)
     }
-    if (composition && (isMapping(value) || value === true)) return composition
-    return isMapping(value) && Object.keys(annotations).length
-      ? { ...value, ...annotations }
-      : value
+    if (schema && siblings.length && (isMapping(value) || value === true)) {
+      const allOf = [value, ...siblings]
+      if (schema === "template" && composition) return { allOf, ...annotations }
+      let resolved = isMapping(value) ? value : {}
+      for (const adjacent of siblings.toReversed())
+        resolved = { ...resolved, ...adjacent }
+      // Keep every constraint alongside the fields read by import metadata consumers.
+      return composition ? { ...resolved, allOf } : resolved
+    }
+    return value
   }
 }
 

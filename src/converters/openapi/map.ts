@@ -201,6 +201,11 @@ function collectBody(
     return { body: "{}", bodyType: "json" }
   }
 
+  if (resolve && schema.allOf) {
+    warn?.("requestBody", "Composed form schema requires manual configuration.")
+    return {}
+  }
+
   if (mediaType === "multipart/form-data") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }

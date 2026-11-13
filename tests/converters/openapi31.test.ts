@@ -96,6 +96,145 @@ describe("OpenAPI 3.1 request bodies", () => {
     })
   })
 
+  it.each(["anyOf", "oneOf"])(
+    "recognizes null type arrays in %s, including recursive and referenced branches",
+    (keyword) => {
+      const nullable = { $ref: "#/components/schemas/Null" }
+      const components = { schemas: { Null: { type: ["null"] } } }
+      expect(
+        requestBody(
+          { schema: { [keyword]: [nullable, { type: "integer" }] } },
+          components,
+        ),
+      ).toEqual({
+        body: 0,
+        warnings: undefined,
+      })
+      expect(
+        requestBody({ schema: { [keyword]: [{ type: ["null"] }] } }),
+      ).toEqual({
+        body: null,
+        warnings: undefined,
+      })
+      const node = { $ref: "#/components/schemas/Node" }
+      const Node = {
+        properties: { next: { [keyword]: [node, nullable] } },
+        required: ["next"],
+      }
+      expect(
+        requestBody(
+          { schema: node },
+          { schemas: { Node, ...components.schemas } },
+        ),
+      ).toEqual({
+        body: { next: null },
+        warnings: undefined,
+      })
+      expect(
+        requestBody({
+          schema: {
+            [keyword]: [{ type: ["string", "null"] }, { type: ["null"] }],
+          },
+        }),
+      ).toEqual({
+        body: "",
+        warnings: undefined,
+      })
+    },
+  )
+
+  it("uses items to infer arrays only when no explicit type is given", () => {
+    const items = { type: "integer" }
+    for (const [schema, body] of [
+      [{ type: "string", items }, ""],
+      [
+        { type: "object", items, properties: { id: { type: "integer" } } },
+        { id: 0 },
+      ],
+      [{ items }, [0]],
+      [{ type: "array", items }, [0]],
+    ] as const)
+      expect(requestBody({ schema })).toEqual({ body, warnings: undefined })
+  })
+
+  it("keeps format siblings on multipart file references across a chain", () => {
+    const field = { $ref: "#/components/schemas/Alias", description: "upload" }
+    const result = openApiImporter.import(
+      spec(
+        {
+          "/upload": {
+            post: {
+              requestBody: {
+                content: {
+                  "multipart/form-data": {
+                    schema: { properties: { file: field } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          components: {
+            schemas: {
+              Alias: { $ref: "#/components/schemas/Bytes", format: "binary" },
+              Bytes: { type: "string" },
+            },
+          },
+        },
+      ),
+    )
+    expect(result.collection.items[0]?.data).toMatchObject({
+      bodyType: "multipart",
+      formData: [{ name: "file", value: "", type: "file", enabled: true }],
+    })
+    expect(result.warnings).toBeUndefined()
+  })
+
+  it.each(["multipart/form-data", "application/x-www-form-urlencoded"])(
+    "warns when %s properties need composition instead of silently dropping fields",
+    (mediaType) => {
+      const result = openApiImporter.import(
+        spec(
+          {
+            "/items": {
+              post: {
+                requestBody: {
+                  content: {
+                    [mediaType]: {
+                      schema: {
+                        $ref: "#/components/schemas/Base",
+                        properties: { note: { type: "string" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          {
+            components: {
+              schemas: {
+                Base: {
+                  type: "object",
+                  required: ["file"],
+                  properties: { file: { type: "string", format: "binary" } },
+                },
+              },
+            },
+          },
+        ),
+      )
+      expect(result.collection.items[0]?.data).not.toHaveProperty("formData")
+      expect(result.warnings).toMatchObject([
+        {
+          field: "requestBody",
+          message: expect.stringContaining("Composed form schema"),
+        },
+      ])
+    },
+  )
+
   it("terminates recursive models at nullable, optional or empty array branches", () => {
     const node = { $ref: "#/components/schemas/Node" }
     const Node = {
