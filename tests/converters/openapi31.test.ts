@@ -525,6 +525,32 @@ components:
     }
   })
 
+  it("accepts an anonymous security alternative after unusable alternatives", () => {
+    const result = openApiImporter.import(
+      spec(
+        {
+          "/optional": {
+            get: {
+              security: [{ missing: [] }, { cookie: [] }, {}, { bearer: [] }],
+            },
+          },
+        },
+        {
+          components: {
+            securitySchemes: {
+              cookie: { type: "apiKey", in: "cookie", name: "session" },
+              bearer: { type: "http", scheme: "bearer" },
+            },
+          },
+        },
+      ),
+    )
+    expect(result.collection.items[0]?.data).toMatchObject({
+      auth: { type: "none" },
+    })
+    expect(result.warnings).toBeUndefined()
+  })
+
   it("reports skipped incoming operations, TRACE and unresolved paths alongside usable operations", () => {
     const paths = {
       "/orders": {
