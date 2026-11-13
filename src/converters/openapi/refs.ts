@@ -26,29 +26,51 @@ export function isMapping(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+const schemaAnnotations = new Set([
+  "examples",
+  "example",
+  "default",
+  "title",
+  "description",
+  "readOnly",
+  "writeOnly",
+  "deprecated",
+  "$comment",
+])
+
+export function hasSchemaSiblings(
+  schema: Record<string, unknown>,
+  keyword: string,
+) {
+  return Object.keys(schema).some(
+    (key) =>
+      key !== keyword && !schemaAnnotations.has(key) && !key.startsWith("x-"),
+  )
+}
+
 // Resolve only references at OpenAPI object or schema positions. Examples are data.
 export function localReferenceResolver(root: Record<string, unknown>) {
-  return (value: unknown, schema = false): unknown => {
+  return (value: unknown, schema: boolean | "template" = false): unknown => {
     const seen = new Set<object>()
     const annotations: Record<string, unknown> = {}
+    let composition: Record<string, unknown> | undefined
     while (isMapping(value) && typeof value.$ref === "string") {
       if (!value.$ref.startsWith("#/") || seen.has(value)) return undefined
       seen.add(value)
-      if (schema) {
-        for (const key of [
-          "examples",
-          "example",
-          "default",
-          "title",
-          "description",
-          "readOnly",
-        ]) {
+      if (schema && !composition) {
+        for (const key of schemaAnnotations) {
           if (Object.hasOwn(value, key) && !Object.hasOwn(annotations, key))
             annotations[key] = value[key]
+        }
+        // Keep the conjunction explicit so generating a template cannot drop its siblings.
+        if (schema === "template" && hasSchemaSiblings(value, "$ref")) {
+          const { $ref, ...siblings } = value
+          composition = { allOf: [{ $ref }, siblings], ...annotations }
         }
       }
       value = resolvePointer(root, value.$ref)
     }
+    if (composition && (isMapping(value) || value === true)) return composition
     return isMapping(value) && Object.keys(annotations).length
       ? { ...value, ...annotations }
       : value

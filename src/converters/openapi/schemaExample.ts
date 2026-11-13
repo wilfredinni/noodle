@@ -1,4 +1,8 @@
-import { isMapping, type localReferenceResolver } from "./refs"
+import {
+  hasSchemaSiblings,
+  isMapping,
+  type localReferenceResolver,
+} from "./refs"
 
 export type ResolveRef = ReturnType<typeof localReferenceResolver>
 class TemplateError extends Error {}
@@ -40,7 +44,7 @@ export function jsonBody31(
   let count = 0
   const active = new Set<object>()
   const sample = (value: unknown): unknown => {
-    const schema = resolve(value, true)
+    const schema = resolve(value, "template")
     if (++count > 10000 || active.size >= 64)
       throw new TemplateError(
         "Schema exceeds the body template limit. Edit the body.",
@@ -64,16 +68,32 @@ export function jsonBody31(
       if (Object.hasOwn(schema, key)) return schema[key]
     if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0]
 
-    if (active.has(schema))
+    const unionKey = schema.anyOf != null ? "anyOf" : "oneOf"
+    const union = schema[unionKey]
+    if (
+      schema.allOf ||
+      (Array.isArray(union) && hasSchemaSiblings(schema, unionKey))
+    )
+      throw new TemplateError(
+        "Composed schema requires a body example. Edit the body.",
+      )
+    // Follow the pointer without annotations to identify the same model across uses.
+    const identity =
+      isMapping(value) && typeof value.$ref === "string"
+        ? (resolve(value) as object)
+        : schema
+    if (active.has(identity)) {
+      if (Array.isArray(schema.type) && schema.type.includes("null"))
+        return null
       throw new RecursiveSchema(
         "Recursive schema needs a finite body example. Edit the body.",
       )
-    active.add(schema)
+    }
+    active.add(identity)
     try {
-      const union = schema.anyOf ?? schema.oneOf
       if (Array.isArray(union)) {
         const options = union.filter((branch) => {
-          const option = resolve(branch, true)
+          const option = resolve(branch, "template")
           return !(isMapping(option) && option.type === "null")
         })
         if (!options.length && union.length) return null
@@ -93,10 +113,6 @@ export function jsonBody31(
           "Multiple schema alternatives require a body example. Edit the body.",
         )
       }
-      if (schema.allOf)
-        throw new TemplateError(
-          "Composed schema requires a body example. Edit the body.",
-        )
       const types = Array.isArray(schema.type)
         ? schema.type.filter((type) => type !== "null")
         : [schema.type]
@@ -141,7 +157,7 @@ export function jsonBody31(
       if (type === "string") return ""
       return {}
     } finally {
-      active.delete(schema)
+      active.delete(identity)
     }
   }
   try {

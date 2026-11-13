@@ -114,6 +114,81 @@ describe("OpenAPI 3.1 request bodies", () => {
     })
   })
 
+  it("warns when a local reference adds constraints to its target", () => {
+    const schema = {
+      $ref: "#/components/schemas/Base",
+      required: ["name"],
+      properties: { name: { type: "string" } },
+    }
+    const components = { schemas: { Base: { type: "object", example: {} } } }
+    const result = requestBody({ schema }, components)
+    expect(result.body).toBeUndefined()
+    expect(result.warnings).toMatchObject([
+      {
+        field: "requestBody",
+        message: expect.stringContaining("Composed schema"),
+      },
+    ])
+    const supplied = { ...schema, example: { name: "Ada" } }
+    for (const candidate of [supplied, { anyOf: [supplied, { type: "null" }] }])
+      expect(requestBody({ schema: candidate }, components)).toEqual({
+        body: { name: "Ada" },
+        warnings: undefined,
+      })
+    for (const Base of [false, undefined]) {
+      const invalid = requestBody({ schema: supplied }, { schemas: { Base } })
+      expect(invalid.body).toBeUndefined()
+      expect(invalid.warnings).toMatchObject([{ field: "requestBody" }])
+    }
+  })
+
+  it.each(["anyOf", "oneOf"])(
+    "warns when %s has surrounding constraints",
+    (keyword) => {
+      const schema = {
+        type: "object",
+        properties: { id: { type: "integer" } },
+        required: ["id"],
+        [keyword]: [{ type: "object" }],
+      }
+      const result = requestBody({ schema })
+      expect(result.body).toBeUndefined()
+      expect(result.warnings).toMatchObject([
+        {
+          field: "requestBody",
+          message: expect.stringContaining("Composed schema"),
+        },
+      ])
+    },
+  )
+
+  it("omits an optional annotated reference back to the same model", () => {
+    const node = { $ref: "#/components/schemas/Node" }
+    const Node = {
+      properties: {
+        id: { type: "integer" },
+        next: { ...node, description: "next" },
+      },
+    }
+    expect(requestBody({ schema: node }, { schemas: { Node } })).toEqual({
+      body: { id: 0 },
+      warnings: undefined,
+    })
+  })
+
+  it("terminates a required recursive reference with a nullable type array", () => {
+    const node = { $ref: "#/components/schemas/Node" }
+    const Node = {
+      type: ["object", "null"],
+      required: ["next"],
+      properties: { next: node },
+    }
+    expect(requestBody({ schema: node }, { schemas: { Node } })).toEqual({
+      body: { next: null },
+      warnings: undefined,
+    })
+  })
+
   it("keeps requests when the body cannot be generated and omits reference targets from warnings", () => {
     for (const schema of [
       { oneOf: [{ type: "string" }, { type: "integer" }] },
