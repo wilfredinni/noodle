@@ -16,6 +16,7 @@ import {
 } from "../lang/scriptSource"
 import { collectionTlsToYaml } from "../tls"
 import { parseCollectionProxyStrict } from "../proxy"
+import { validateRequestBasename } from "../requestId"
 import { validateFilenameSegment } from "../userPath"
 
 function validatePathId(id: string | undefined): void {
@@ -43,8 +44,9 @@ export async function saveRequest(
   req: Request,
   options?: { overwrite?: boolean },
 ): Promise<void> {
-  const id = (req as { id?: string }).id
+  const id = req.id
   validatePathId(id)
+  validateRequestBasename(id)
 
   const filePath = join(dir, `${id}.yml`)
   const parentDir = dirname(filePath)
@@ -143,7 +145,6 @@ export async function saveSettings(
     if (Object.keys(hooks).length) {
       const collection = await loadCollection(dir, {
         loadScripts: false,
-        readOnly: true,
         tolerant: true,
       })
       resolveCollectionHooks(collection.items, hooks)

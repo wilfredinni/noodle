@@ -8,6 +8,7 @@ import type {
 } from "./schema"
 import type { ResponseExecutionResults } from "./executionResults"
 import {
+  responseExecutionSucceeded,
   redactExecutionValue,
   redactScriptExecutionResult,
   redactTestExecution,
@@ -237,7 +238,16 @@ export function buildTimelineEntry(
   return {
     id: randomUUID(),
     timestamp: Date.now(),
-    ...(result.status === "cancelled" ? { cancelled: true as const } : {}),
+    ...(result.status === "cancelled"
+      ? { cancelled: true as const }
+      : {
+          ok:
+            result.status === "done" &&
+            responseExecutionSucceeded(
+              result.response.status,
+              result.execution,
+            ),
+        }),
     envName,
     scripts: result.execution?.scripts
       ? {

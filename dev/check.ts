@@ -72,7 +72,14 @@ export async function checkCollection(
       await setStoredSecret(root, "development", key, value)
     }
     const audit = await collectionAudit(root, false)
-    if (!audit.valid)
+    const [issue] = audit.issues
+    // The development collection deliberately includes one script with invalid syntax.
+    if (
+      audit.valid ||
+      audit.issues.length !== 1 ||
+      issue?.path !== "negative/syntax.yml" ||
+      !issue.message.includes("SyntaxError at script line")
+    )
       throw Error(
         `Development collection audit failed: ${JSON.stringify(audit.issues)}`,
       )

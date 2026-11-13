@@ -8,12 +8,13 @@ import {
   type ResponseExpression,
 } from "./response"
 import { evaluateCaptures, type CaptureResult, RunScope } from "./runScope"
-import type {
-  ScriptExecutionResult,
-  ScriptExecutionError,
-  ScriptLog,
-  TestResult,
-  ScriptSource,
+import {
+  scriptExecutionSucceeded,
+  type ScriptExecutionResult,
+  type ScriptExecutionError,
+  type ScriptLog,
+  type TestResult,
+  type ScriptSource,
 } from "./preRequestScript"
 import {
   environmentSecretValues,
@@ -140,6 +141,21 @@ export interface ResponseExecutionResults {
   scripts?: ExecutionResultGroup<ScriptExecutionResult>
   assertions?: ExecutionResultGroup<AssertionResult>
   captures?: ExecutionResultGroup<CaptureResult>
+}
+
+export function responseExecutionSucceeded(
+  status: number,
+  execution?: ResponseExecutionResults,
+): boolean {
+  return (
+    status < 400 &&
+    testsSucceeded(execution?.tests) &&
+    (execution?.scripts?.results.every(scriptExecutionSucceeded) ?? true) &&
+    (execution?.captures?.results.every((capture) => capture.success) ??
+      true) &&
+    (execution?.assertions?.results.every((assertion) => assertion.passed) ??
+      true)
+  )
 }
 
 export function executionSecretValues(

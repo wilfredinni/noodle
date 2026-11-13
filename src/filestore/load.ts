@@ -1,4 +1,4 @@
-import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises"
+import { lstat, readdir, readFile, realpath } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, sep } from "node:path"
 import * as yaml from "../yaml"
 import { lang } from "../lang"
@@ -7,7 +7,6 @@ import type {
   CollectionItem,
   CollectionSettings,
   Folder,
-  Request,
 } from "../schema"
 import { parseCollectionHooks } from "../collectionHooks"
 import { parseScripts, parseTests } from "../lang/scriptSource"
@@ -103,7 +102,6 @@ const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
 export interface LoadOptions {
   loadScripts?: boolean
-  readOnly?: boolean
   tolerant?: boolean
 }
 
@@ -215,9 +213,8 @@ async function walk(
 
       const reqName = entry.name.slice(0, -4)
       const reqId = relPath ? `${relPath}/${reqName}` : reqName
-      let req: Request
       try {
-        req = lang.parseRequest(reqId, content)
+        const req = lang.parseRequest(reqId, content)
         requests.push({
           item: { type: "request", data: req },
           name: entry.name,
@@ -227,21 +224,6 @@ async function walk(
         const msg = e instanceof Error ? e.message : String(e)
         const relFileName = relPath ? `${relPath}/${entry.name}` : entry.name
         fileErrors.push(parseUserFriendlyFileError(relFileName, msg))
-      }
-
-      if (requests.length > 0 && !opts.readOnly) {
-        const lastReq = requests[requests.length - 1].item.data as Request
-        if (lastReq.id === reqId && !/^timeout:\s/m.test(content)) {
-          try {
-            await writeFile(
-              join(absDir, entry.name),
-              lang.serializeRequest(lastReq),
-              "utf8",
-            )
-          } catch {
-            /* migration non-critical */
-          }
-        }
       }
     }
   }
@@ -326,7 +308,6 @@ export async function loadCollectionBrowse(dir: string): Promise<Collection> {
   try {
     const root = await realpath(dir)
     const items = await walk(dir, "", new Set(), root, {
-      readOnly: true,
       tolerant: true,
     })
     return { id, name: id, items }

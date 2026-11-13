@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { TimelineEntry, Method, Folder } from "../schema"
+import { responseExecutionSucceeded } from "../executionResults"
 import { loadTimeline } from "../filestore"
 
 export interface RequestActivityStats {
@@ -29,17 +30,25 @@ export function computeFolderActivity(
   const requests: RequestActivityStats[] = childRequests.map((req) => {
     const entries = timelines.get(req.id) ?? []
     const completed = entries.filter((entry) => !entry.cancelled)
-    const successEntries = completed.filter(
+    const timedEntries = completed.filter(
       (e) => e.response && e.response.status >= 200 && e.response.status < 400,
+    )
+    const successful = completed.filter(
+      (entry) =>
+        entry.ok ??
+        (!entry.error &&
+          entry.response &&
+          entry.response.status >= 200 &&
+          responseExecutionSucceeded(entry.response.status, entry)),
     )
     const callCount = entries.length
     const successRate =
-      completed.length > 0 ? successEntries.length / completed.length : null
+      completed.length > 0 ? successful.length / completed.length : null
     const avgTimeMs =
-      successEntries.length > 0
+      timedEntries.length > 0
         ? Math.round(
-            successEntries.reduce((s, e) => s + (e.response?.timeMs ?? 0), 0) /
-              successEntries.length,
+            timedEntries.reduce((s, e) => s + (e.response?.timeMs ?? 0), 0) /
+              timedEntries.length,
           )
         : null
     const lastSent = entries.length > 0 ? entries[0]!.timestamp : null

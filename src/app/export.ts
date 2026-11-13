@@ -135,9 +135,7 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
 
   const collectionPath = resolve(options.collection)
   const outputPath = resolve(options.output)
-  const collection = await filestore.loadCollection(collectionPath, {
-    readOnly: true,
-  })
+  const collection = await filestore.loadCollection(collectionPath)
   const collectionRoot = await realpath(collectionPath)
   if (isWithin(collectionRoot, await resolvedOutputPath(outputPath))) {
     throw new Error("export output must be outside the collection directory")
