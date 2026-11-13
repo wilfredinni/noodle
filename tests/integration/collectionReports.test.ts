@@ -12,6 +12,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { lang } from "../../src/lang"
 import { collection } from "../../src/app/commands/automation"
+import { previewCollectionRun } from "../../src/app/services"
 import { responseFileNative } from "../../src/responseFileNative"
 import type { Request } from "../../src/schema"
 import { parseReport, reportCases } from "../unit/_junit"
@@ -135,7 +136,7 @@ it("rejects unknown options before scripts, HTTP or report preparation", async (
       pre: `await noodle.sendRequest({ method: "GET", url: "http://127.0.0.1:${server.port}/pre" })`,
     },
   })
-  for (const option of ["--dry-run", "--dry-rnu=private-value"]) {
+  for (const option of ["--dry-rnu", "--dry-rnu=private-value"]) {
     const result = await run(["a", "--json", "-o", report, option])
     expect(result.code).toBe(2)
     expect(JSON.parse(result.stdout)).toEqual({
@@ -156,6 +157,198 @@ it("rejects unknown options before scripts, HTTP or report preparation", async (
   }
   expect((await run(["--json", "--", "a"])).code).toBe(0)
   expect(hits).toEqual(["/pre", "/a"])
+})
+
+it("previews hooks and ordered requests once, without scripts, HTTP or file changes", async () => {
+  await writeFile(
+    join(dir, "settings.yml"),
+    "cookies:\n  enabled: false\nhooks:\n  setup: a\n  teardown: cleanup\n",
+  )
+  await mkdir(join(dir, "users"))
+  await writeFile(join(dir, "users/folder.yml"), "tags: [smoke]\n")
+  await save("users/01-create", {
+    name: "Z create",
+    method: "POST",
+    scripts: {
+      pre: `await noodle.sendRequest({ method: "GET", url: "http://127.0.0.1:${server.port}/pre" })`,
+    },
+  })
+  await save("users/02-fetch", { name: "A fetch" })
+  await save("users/draft", { tags: ["draft"] })
+  await save("cleanup")
+  await writeFile(
+    join(dir, "rows.csv"),
+    "token\nprivate-row-1\nprivate-row-2\n",
+  )
+  const args = [
+    "users/02-fetch",
+    "users/",
+    "--tag",
+    "smoke",
+    "--exclude-tag",
+    "draft",
+    "--data",
+    "rows.csv",
+    "--fail-fast",
+  ]
+  const snapshot = async () => {
+    const files = await readdir(dir, { recursive: true, withFileTypes: true })
+    return Object.fromEntries(
+      await Promise.all(
+        files.map(async (file) => {
+          const path = join(file.parentPath, file.name)
+          return [
+            path,
+            file.isDirectory()
+              ? null
+              : (await readFile(path)).toString("base64"),
+          ]
+        }),
+      ),
+    )
+  }
+  const before = await snapshot()
+  const preview = await run([...args, "--dry-run", "--json"])
+  expect(preview.code).toBe(0)
+  expect(preview.stderr).toBe("")
+  const sequence = [
+    { id: "a", stage: "setup" },
+    { id: "users/01-create", stage: "main" },
+    { id: "users/02-fetch", stage: "main" },
+    { id: "cleanup", stage: "teardown" },
+  ]
+  expect(JSON.parse(preview.stdout)).toEqual({
+    status: "success",
+    data: {
+      dryRun: true,
+      environment: "ci",
+      sequence,
+      iterations: 2,
+      totalExecutions: 8,
+    },
+    errors: [],
+  })
+  const human = await run([...args, "--delay", "60000", "--dry-run"])
+  expect(human.code).toBe(0)
+  expect(human.stdout).toContain('Environment: "ci"')
+  expect(human.stdout.match(/users\/01-create/g)).toHaveLength(1)
+  expect(human.stdout).toContain(
+    "Executions per iteration: 4\nIterations: 2\nTotal planned executions: 8",
+  )
+  expect(human.stderr).toBe("")
+  expect(hits).toEqual([])
+  expect(await snapshot()).toEqual(before)
+
+  const real = await run([...args, "--json"])
+  expect(real.code).toBe(0)
+  const results = JSON.parse(real.stdout).data.results
+  expect(
+    results.map(({ id, stage }: { id: string; stage: string }) => ({
+      id,
+      stage,
+    })),
+  ).toEqual([...sequence, ...sequence])
+  const paths = [
+    "/a",
+    "/pre",
+    "/users/01-create",
+    "/users/02-fetch",
+    "/cleanup",
+  ]
+  expect(hits).toEqual([...paths, ...paths])
+})
+
+it("rejects invalid dry-run configuration before creating a report", async () => {
+  await writeFile(join(dir, "invalid.json"), "[]")
+  await writeFile(join(dir, "large.json"), JSON.stringify(Array(1001).fill({})))
+  const output = join(dir, "new", "plan.json")
+  for (const args of [
+    ["missing"],
+    ["--tag", "absent"],
+    ["--delay=-1"],
+    ["--data", "invalid.json"],
+    ["--data", "large.json"],
+    ["-o", output],
+    ["--reporter", "junit"],
+    ["--reporter", "junit", "--output", output],
+  ]) {
+    const result = await run(["--dry-run", "--json", ...args])
+    expect(result.code).toBe(2)
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: "error",
+      data: null,
+      errors: [expect.any(String)],
+    })
+    expect(result.stderr).toBe("")
+  }
+  expect(await readdir(dir)).not.toContain("new")
+  await writeFile(join(dir, "settings.yml"), "hooks:\n  setup: missing\n")
+  const hook = await run(["--dry-run"])
+  expect(hook.code).toBe(2)
+  expect(hook.stderr).toContain("hooks.setup references a missing request")
+  expect(hook.stdout).toBe("")
+  expect(hits).toEqual([])
+})
+
+it("plans from local declarations with missing external scripts and environment files", async () => {
+  await save("a", { scripts: { pre: "./missing.js" } })
+  await writeFile(join(dir, "settings.yml"), "environment: unconfigured\n")
+  expect(await previewCollectionRun(dir, {})).toEqual({
+    dryRun: true,
+    environment: "unconfigured",
+    sequence: [{ id: "a", stage: "main" }],
+    iterations: 1,
+    totalExecutions: 1,
+  })
+  const explicit = await run(["--dry-run", "--json"])
+  expect(JSON.parse(explicit.stdout).data.environment).toBe("ci")
+  await writeFile(join(dir, "settings.yml"), "{}")
+  await rm(join(dir, "a.yml"))
+  expect(await previewCollectionRun(dir, {})).toEqual({
+    dryRun: true,
+    environment: null,
+    sequence: [],
+    iterations: 1,
+    totalExecutions: 0,
+  })
+  expect(hits).toEqual([])
+})
+
+it("keeps invalid YAML contents out of preview errors and reports a missing path as configuration", async () => {
+  const missing = Bun.spawnSync([
+    ...command,
+    "collection",
+    "run",
+    "--dry-run",
+    "--json",
+  ])
+  expect(missing.exitCode).toBe(2)
+  expect(JSON.parse(missing.stdout.toString())).toMatchObject({
+    status: "error",
+    data: null,
+  })
+  for (const file of ["a.yml", "settings.yml"]) {
+    await writeFile(join(dir, file), "token: credential-marker\nbroken: [\n")
+    const result = await run(["--dry-run", "--json"])
+    expect(result.code).toBe(2)
+    expect(JSON.parse(result.stdout).errors[0]).toContain(file)
+    expect(result.stdout).not.toContain("credential-marker")
+    expect(result.stderr).toBe("")
+    if (file === "a.yml") await save("a")
+  }
+  expect(hits).toEqual([])
+})
+
+it("includes hooks when validating the dry-run dataset execution limit", async () => {
+  await writeFile(join(dir, "settings.yml"), "hooks:\n  setup: a\n")
+  for (let index = 0; index < 10; index++) await save(`main-${index}`)
+  await writeFile(join(dir, "rows.json"), JSON.stringify(Array(1000).fill({})))
+  const result = await run(["--dry-run", "--json", "--data", "rows.json"])
+  expect(result.code).toBe(2)
+  expect(JSON.parse(result.stdout).errors).toEqual([
+    "Data run exceeds 10,000 request executions",
+  ])
+  expect(hits).toEqual([])
 })
 
 it("retains JSON and human output compatibility when writing reports", async () => {

@@ -7,7 +7,7 @@ import importCommand from "./commands/import"
 import updateCommand from "./commands/update"
 import agentCommand from "./commands/agent"
 import { emitCommand } from "./commandResult"
-import { getUserArgsStart, unknownCliOption } from "./argv"
+import { getUserArgsStart, invalidCliArgument } from "./argv"
 import {
   workspace,
   collection,
@@ -62,7 +62,7 @@ if (
 ) {
   args.unshift("noodle")
 }
-const invalid = await unknownCliOption(main, args)
+const invalid = await invalidCliArgument(main, args)
 if (invalid) {
   await emitCommand(
     invalid.json,

@@ -15,6 +15,7 @@ import {
   formatCollectionInit,
   formatCollectionList,
   formatCollectionRun,
+  formatCollectionRunPreview,
   formatCookieClear,
   formatCookieList,
   formatEnvironmentSet,
@@ -34,6 +35,7 @@ import {
   collectionInspect,
   collectionList,
   collectionRun,
+  previewCollectionRun,
   cookieClear,
   cookieList,
   environmentSet,
@@ -269,6 +271,12 @@ const collection = defineCommand({
           default: false,
           description: "Stop after the first failed request",
         },
+        "dry-run": {
+          type: "boolean",
+          default: false,
+          description:
+            "Preview request order, hooks, and iteration counts without sending requests",
+        },
         delay: {
           type: "string",
           default: "0",
@@ -304,6 +312,28 @@ const collection = defineCommand({
           allowPositionals: true,
           strict: false,
         })
+        const selection = {
+          environmentName: args.env,
+          targets: args._.slice(1),
+          includeTags: (values.tag ?? []) as string[],
+          excludeTags: (values["exclude-tag"] ?? []) as string[],
+          delayMs: args.delay.trim() === "" ? Number.NaN : Number(args.delay),
+          dataPath: args.data,
+        }
+        if (args["dry-run"]) {
+          return emitCommand(
+            args.json,
+            async () => {
+              if (args.output !== undefined || args.reporter !== undefined)
+                throw new Error(
+                  "--dry-run cannot be combined with --output or --reporter",
+                )
+              return { data: await previewCollectionRun(args.path, selection) }
+            },
+            formatCollectionRunPreview,
+            2,
+          )
+        }
         let output: PreparedResponseOutput | undefined
         try {
           if (args.reporter !== undefined && args.reporter !== "junit")
@@ -344,18 +374,18 @@ const collection = defineCommand({
             try {
               const data = await collectionRun(
                 args.path,
-                args.env,
+                selection.environmentName,
                 progress?.update,
                 args.noproxy,
                 takeSystemProxyFromEnv(),
                 args.insecure,
-                args._.slice(1),
-                (values.tag ?? []) as string[],
-                (values["exclude-tag"] ?? []) as string[],
+                selection.targets,
+                selection.includeTags,
+                selection.excludeTags,
                 args["fail-fast"],
                 undefined,
-                args.delay.trim() === "" ? Number.NaN : Number(args.delay),
-                args.data,
+                selection.delayMs,
+                selection.dataPath,
                 false,
                 { signal: controller.signal },
               )

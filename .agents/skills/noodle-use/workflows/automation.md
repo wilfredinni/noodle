@@ -26,6 +26,22 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Inspect redacted response details | `noodle request run <id> --collection <dir> --body --headers --cookies` |
 | Download an original response body | `noodle request run <id> --collection <dir> --output <file> --json` |
 | Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] [--tag <tag>]... [--exclude-tag <tag>]... [--fail-fast] [--delay <milliseconds>] [--data <csv-or-json>] ... --json` |
+| Preview the selected requests | `noodle collection run ./api users/ --tag smoke --data rows.csv --dry-run --json` |
+
+## Preview a collection run
+
+Use `--dry-run` to inspect the selection before running it. The command reads
+collection declarations and the dataset and sends no requests. A successful
+JSON envelope contains `data.dryRun: true`, the selected `environment` name
+(or `null`), an ordered `sequence` of `{ id, stage }` entries for one iteration,
+the number of `iterations`, and `totalExecutions`. Stages are `setup`, `main`,
+and `teardown`. With no dataset, the sequence runs once.
+
+The total counts planned top-level requests, including hooks for each row.
+Failures can shorten a real run and scripts can send additional requests.
+The preview does not read environment values or external scripts.
+Use stdout redirection to save it. Combining `--dry-run` with `--output` or
+`--reporter` is a configuration error (exit `2`).
 
 ## Rules
 

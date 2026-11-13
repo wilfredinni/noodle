@@ -22,6 +22,7 @@ import {
   ensureCollectionBootstrapped,
 } from "../filestore"
 import { formatJson } from "../lang/formatJson"
+import { extractFileErrors } from "../filestore/load"
 import { lang } from "../lang"
 import { withDefaultHttpsScheme } from "../requests/url"
 import {
@@ -674,10 +675,8 @@ export async function collectionAudit(
 
 async function environmentFor(
   dir: string,
-  settings: CollectionSettings,
-  name?: string,
+  environmentName: string | null | undefined,
 ): Promise<Environment | undefined> {
-  const environmentName = name ?? settings.environment
   return environmentName
     ? env.loadEnvironment(join(dir, ".environments"), environmentName)
     : undefined
@@ -1113,6 +1112,139 @@ function configurationRunResult(
   }
 }
 
+interface CollectionRunSelection {
+  environmentName?: string
+  targets?: string[]
+  includeTags?: readonly string[]
+  excludeTags?: readonly string[]
+  delayMs?: number
+  dataPath?: string
+}
+
+async function prepareCollectionRun(
+  path: string,
+  {
+    environmentName,
+    targets,
+    includeTags,
+    excludeTags,
+    delayMs = 0,
+    dataPath,
+  }: CollectionRunSelection,
+) {
+  let selected = 0
+  try {
+    if (!Number.isSafeInteger(delayMs) || delayMs < 0)
+      throw new Error("delay must be a non-negative safe integer")
+    const dir = await requireCollectionRoot(path)
+    const collection = await filestore.loadCollection(dir, {
+      loadScripts: false,
+    })
+    let settings: CollectionSettings
+    try {
+      settings = await loadSettings(dir)
+    } catch (error) {
+      // Preserve selection-error precedence for existing collections.
+      selected = selectCollectionRunRequests(
+        collection.items,
+        targets,
+        includeTags,
+        excludeTags,
+      ).length
+      throw error
+    }
+    const hooks = resolveCollectionHooks(collection.items, settings.hooks)
+    const requests = selectCollectionRunRequests(
+      collection.items,
+      targets,
+      includeTags,
+      excludeTags,
+      settings.hooks,
+    )
+    const hasHooks = !!(hooks.setup || hooks.teardown)
+    const sequence =
+      requests.length === 0
+        ? []
+        : [
+            ...(hooks.setup
+              ? [{ request: hooks.setup, stage: "setup" as const }]
+              : []),
+            ...requests.map((request) => ({
+              request,
+              ...(hasHooks ? { stage: "main" as const } : {}),
+            })),
+            ...(hooks.teardown
+              ? [{ request: hooks.teardown, stage: "teardown" as const }]
+              : []),
+          ]
+    selected = sequence.length
+    const rows =
+      dataPath === undefined ? undefined : await loadIterationData(dataPath)
+    if (rows) {
+      validateExecutionCount(selected, rows.length)
+      selected *= rows.length
+    }
+    return {
+      ok: true as const,
+      dir,
+      collection: {
+        ...collection,
+        scripts: settings.scripts,
+        tests: settings.tests,
+      },
+      settings,
+      environment: (environmentName ?? settings.environment) || null,
+      hasHooks,
+      sequence,
+      rows,
+      selected,
+    }
+  } catch (error) {
+    return { ok: false as const, error, selected }
+  }
+}
+
+export interface CollectionRunPreview {
+  dryRun: true
+  environment: string | null
+  sequence: { id: string; stage: RunStage }[]
+  iterations: number
+  totalExecutions: number
+}
+
+export async function previewCollectionRun(
+  path: string,
+  options: CollectionRunSelection,
+): Promise<CollectionRunPreview> {
+  const plan = await prepareCollectionRun(path, options)
+  if (!plan.ok) {
+    // Parser diagnostics can quote request bodies, headers or settings.
+    const error = plan.error
+    if (error instanceof Error && "fileErrors" in error) {
+      const files = extractFileErrors(error).map(({ file }) =>
+        JSON.stringify(file),
+      )
+      throw new Error(`Invalid collection files: ${files.join(", ")}`)
+    }
+    if (
+      error instanceof Error &&
+      error.message.startsWith("filestore.loadSettings:")
+    )
+      throw new Error("Invalid or unreadable settings.yml")
+    throw error
+  }
+  return {
+    dryRun: true,
+    environment: plan.environment,
+    sequence: plan.sequence.map(({ request, stage }) => ({
+      id: request.id,
+      stage: stage ?? "main",
+    })),
+    iterations: plan.rows?.length ?? 1,
+    totalExecutions: plan.selected,
+  }
+}
+
 export async function collectionRun(
   path: string,
   environmentName?: string,
@@ -1131,64 +1263,17 @@ export async function collectionRun(
   { signal, onEvent }: CollectionRunOptions = {},
 ): Promise<CollectionRunResult> {
   const startedAt = performance.now()
-  let selected = 0
-  let dir: string
-  let collection: Collection
-  let requests: Request[]
-  let settings: CollectionSettings
-  let hasHooks = false
-  let sequence: { request: Request; stage?: RunStage }[]
-  let rows: Awaited<ReturnType<typeof loadIterationData>> | undefined
-  try {
-    if (!Number.isSafeInteger(delayMs) || delayMs < 0)
-      throw new Error("delay must be a non-negative safe integer")
-    dir = await requireCollectionRoot(path)
-    collection = await filestore.loadCollection(dir, { loadScripts: false })
-    try {
-      settings = await loadSettings(dir)
-    } catch (error) {
-      // Preserve selection-error precedence for existing collections.
-      selected = selectCollectionRunRequests(
-        collection.items,
-        targets,
-        includeTags,
-        excludeTags,
-      ).length
-      throw error
-    }
-    const hooks = resolveCollectionHooks(collection.items, settings.hooks)
-    requests = selectCollectionRunRequests(
-      collection.items,
-      targets,
-      includeTags,
-      excludeTags,
-      settings.hooks,
-    )
-    hasHooks = !!(hooks.setup || hooks.teardown)
-    sequence =
-      requests.length === 0
-        ? []
-        : [
-            ...(hooks.setup
-              ? [{ request: hooks.setup, stage: "setup" as const }]
-              : []),
-            ...requests.map((request) => ({
-              request,
-              ...(hasHooks ? { stage: "main" as const } : {}),
-            })),
-            ...(hooks.teardown
-              ? [{ request: hooks.teardown, stage: "teardown" as const }]
-              : []),
-          ]
-    selected = sequence.length
-    if (dataPath !== undefined) {
-      rows = await loadIterationData(dataPath)
-      validateExecutionCount(selected, rows.length)
-      selected *= rows.length
-    }
-  } catch (error) {
-    return configurationRunResult(error, selected, startedAt)
-  }
+  const plan = await prepareCollectionRun(path, {
+    environmentName,
+    targets,
+    includeTags,
+    excludeTags,
+    delayMs,
+    dataPath,
+  })
+  if (!plan.ok)
+    return configurationRunResult(plan.error, plan.selected, startedAt)
+  const { dir, collection, settings, hasHooks, sequence, rows, selected } = plan
   const results: RequestRunResult[] = []
   const skipped: CollectionRunResult["skipped"] = []
   const warnings = new Set<string>()
@@ -1209,18 +1294,13 @@ export async function collectionRun(
     })
     try {
       signal?.throwIfAborted()
-      collection = {
-        ...collection,
-        scripts: settings.scripts,
-        tests: settings.tests,
-      }
       for (const { request } of sequence) {
         await scriptSources.resolveBlocks(
           requestScriptBlocks(request, collection),
         )
         signal?.throwIfAborted()
       }
-      environment = await environmentFor(dir, settings, environmentName)
+      environment = await environmentFor(dir, plan.environment)
       signal?.throwIfAborted()
       policy = await proxyPolicyFor(
         dir,
@@ -1413,7 +1493,7 @@ export async function requestRun(
         collection,
         request,
         new RunScope(),
-        await environmentFor(dir, settings, environmentName),
+        await environmentFor(dir, environmentName ?? settings.environment),
         await proxyPolicyFor(
           dir,
           settings,
