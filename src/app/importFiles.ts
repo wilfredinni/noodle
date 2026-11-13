@@ -103,7 +103,7 @@ export async function publishImportFiles(
           if (
             current.dev !== ours.dev ||
             current.ino !== ours.ino ||
-            (await contentHash(staged)) !== hash
+            (await contentHash(staged).catch(() => undefined)) !== hash
           ) {
             conflict = target
             continue
@@ -119,7 +119,7 @@ export async function publishImportFiles(
     }
     if (conflict)
       throw new Error(
-        `Import target changed during rollback: ${conflict}. Backups retained in ${stage}`,
+        `Import target could not be safely rolled back: ${conflict}. Backups retained in ${stage}`,
         { cause: error },
       )
     for (const dir of [...directories].reverse())

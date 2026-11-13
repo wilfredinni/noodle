@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test"
 import { mkdtempSync, readFileSync, existsSync } from "node:fs"
-import { writeFile, rm, mkdir, symlink, lstat } from "node:fs/promises"
+import { writeFile, rm, mkdir, symlink, lstat, chmod } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { publishImportFiles } from "../../src/app/importFiles"
@@ -25,6 +25,42 @@ describe("import — integration", () => {
     tempDirs.push(dir)
     return dir
   }
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "continues rollback when an installed file cannot be read for verification",
+    async () => {
+      const root = tempDir()
+      const stage = tempDir()
+      const paths = ["first.yml", "second.yml"]
+      for (const path of paths) {
+        await writeFile(join(root, path), "original " + path)
+        await writeFile(join(stage, path), "imported")
+      }
+      const second = join(root, "second.yml")
+      await chmod(second, 0o200)
+      const failure = new Error("settings failed")
+      const error = await publishImportFiles(
+        stage,
+        root,
+        paths,
+        true,
+        async () => {
+          throw failure
+        },
+      ).catch((error: unknown) => error)
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).cause).toBe(failure)
+      expect((error as Error).message).toContain("Backups retained")
+      expect(readFileSync(join(root, "first.yml"), "utf8")).toBe(
+        "original first.yml",
+      )
+      const backup = join(stage, ".original-2")
+      await chmod(second, 0o600)
+      await chmod(backup, 0o600)
+      expect(readFileSync(second, "utf8")).toBe("imported")
+      expect(readFileSync(backup, "utf8")).toBe("original second.yml")
+    },
+  )
 
   it("preserves an in-place saved edit when a failed import rolls back", async () => {
     const root = tempDir()
