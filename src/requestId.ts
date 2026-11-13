@@ -13,3 +13,8 @@ export function validateId(id: string): void {
     throw new Error(`invalid request id "${id}"`)
   for (const segment of id.split("/")) validateFilenameSegment(segment)
 }
+
+export function validateRequestBasename(id: string): void {
+  if (/(?:^|\/)(?:settings|folder)$/i.test(id))
+    throw new Error(`reserved request filename: ${id}.yml`)
+}

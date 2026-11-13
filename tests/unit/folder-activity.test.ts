@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test"
+import { buildTimelineEntry } from "../../src/timelineEntry"
 import { computeFolderActivity } from "../../src/ui/useFolderActivity"
 import type { TimelineEntry, Method } from "../../src/schema"
 
@@ -75,6 +76,61 @@ describe("computeFolderActivity", () => {
       })
     })
   }
+
+  it("counts failed execution checks while preserving timing, including old history", () => {
+    const request = { ...makeEntry().request, timeout: 0 }
+    const response = { ...makeEntry().response!, body: "{}" }
+    const failed = buildTimelineEntry(request, {
+      status: "done",
+      response,
+      execution: {
+        captures: {
+          evaluated: true,
+          results: [
+            {
+              variable: "id",
+              expression: "body.id",
+              success: false,
+              failureReason: "missing",
+              message: "missing",
+            },
+          ],
+        },
+      },
+    })
+    expect(failed.ok).toBe(false)
+    expect(failed).not.toHaveProperty("captures")
+    const legacyFailed = {
+      assertions: {
+        evaluated: true,
+        results: [
+          {
+            expression: "status",
+            operator: "equals" as const,
+            expected: 201,
+            actual: 200,
+            passed: false,
+            message: "failed",
+          },
+        ],
+      },
+    }
+    for (const entry of [failed, legacyFailed]) {
+      const stats = computeFolderActivity(
+        [request],
+        makeTimeline(request.id, [
+          { response: { ...response, timeMs: 80 } },
+          entry,
+          { cancelled: true },
+        ]),
+      )
+      expect(stats.requests[0]).toMatchObject({
+        callCount: 3,
+        successRate: 0.5,
+        avgTimeMs: 100,
+      })
+    }
+  })
 
   it("counts only 2xx/3xx as success, not 4xx/5xx", () => {
     const timeline = makeTimeline("user/list", [

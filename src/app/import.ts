@@ -40,7 +40,8 @@ import type {
 } from "../schema"
 import { validateEnvironment } from "../env/save"
 import { validateFilenameSegment } from "../userPath"
-import { validateId } from "../requestId"
+import { ensureCollectionGitignore } from "../filestore/bootstrap"
+import { validateId, validateRequestBasename } from "../requestId"
 
 function serializeEnv(env: Environment): string {
   let out = ""
@@ -134,6 +135,7 @@ function importPaths(
     for (const item of children) {
       if (item.type === "request") {
         validateId(item.data.id)
+        validateRequestBasename(item.data.id)
         paths.push(`${item.data.id}.yml`)
       } else {
         validateId(item.data.path)
@@ -381,13 +383,16 @@ export async function runImport(options: ImportOptions): Promise<{
   }
 
   let removePartialImport = false
+  const newCollection =
+    options.destination?.kind !== "current" && !existsSync(collDir)
   const initializeCollectionId = options.destination?.kind !== "current"
   try {
-    if (options.destination?.kind === "new" || hasScripts) {
+    if (newCollection || options.destination?.kind === "new" || hasScripts) {
       if (!options.destination)
         await mkdir(dirname(collDir), { recursive: true })
       await mkdir(collDir)
       removePartialImport = true
+      await ensureCollectionGitignore(collDir)
     }
 
     try {

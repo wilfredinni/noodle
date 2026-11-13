@@ -9,7 +9,6 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { basename, dirname, join, relative, resolve, sep } from "node:path"
-import { randomUUID } from "node:crypto"
 import { load as yamlLoad } from "../yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
 import { env } from "../env"
@@ -67,7 +66,7 @@ import type { AssertionResult } from "../assertions"
 import { RunScope, type CaptureResult } from "../runScope"
 import { loadIterationData, validateExecutionCount } from "../iterationData"
 import {
-  testsSucceeded,
+  responseExecutionSucceeded,
   type ResponseExecutionResults,
 } from "../executionResults"
 import {
@@ -92,7 +91,7 @@ import {
   type RunStage,
   type CollectionHooks,
 } from "../collectionHooks"
-import { validateId } from "../requestId"
+import { validateId, validateRequestBasename } from "../requestId"
 export { validateId } from "../requestId"
 import { effectiveRequestTags, isValidTag } from "../tags"
 import { buildTimelineEntry } from "../timelineEntry"
@@ -364,15 +363,9 @@ export async function collectionCreate(
   validateCollectionName(name)
   const path = resolve(output, name)
   if (existsSync(path)) throw new Error(`collection already exists: ${path}`)
-  await mkdir(join(path, ".environments"), { recursive: true })
-  await saveSettings(path, {
-    collectionId: randomUUID(),
-    environment: "development",
-  })
-  await env.saveEnvironment(join(path, ".environments"), {
-    name: "development",
-    vars: {},
-  })
+  await mkdir(resolve(output), { recursive: true })
+  await mkdir(path)
+  await ensureCollectionBootstrapped(path)
   await saveRequest(path, {
     id: "example",
     name: "Example",
@@ -542,7 +535,6 @@ async function auditFile(
           (
             await filestore.loadCollection(root, {
               loadScripts: false,
-              readOnly: true,
             })
           ).items,
           settings.hooks,
@@ -653,7 +645,7 @@ export async function collectionAudit(
   const root = await realpath(resolve(path))
   await requireCollectionRoot(root)
   const issues: AuditIssue[] = []
-  const scriptSources = createScriptSourceResolver(root)
+  const scriptSources = createScriptSourceResolver(root, true)
   async function walk(dir: string): Promise<void> {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
@@ -928,8 +920,6 @@ async function runRequest(
         /unavailable|session only|legacy|not recommended/i.test(event.message),
     )
     .map((event) => event.message)
-  const captureResults = execution.captures?.results
-  const assertionResults = execution.assertions?.results
   const responseSecretValues = [
     ...lifecycle.secretValues,
     ...runScope.secretValues(),
@@ -985,11 +975,7 @@ async function runRequest(
     },
     ok:
       lifecycle.status !== "cancelled" &&
-      testsSucceeded(execution.tests) &&
-      (execution.scripts?.results.every(scriptExecutionSucceeded) ?? true) &&
-      response.status < 400 &&
-      (captureResults?.every((capture) => capture.success) ?? true) &&
-      (assertionResults?.every((assertion) => assertion.passed) ?? true),
+      responseExecutionSucceeded(response.status, execution),
     failureCategories,
     ...execution,
     ...(authWarnings.length > 0
@@ -1373,20 +1359,25 @@ export async function requestCreate(
   collectionDir: string,
 ): Promise<{ id: string; path: string }> {
   validateId(id)
+  validateRequestBasename(id)
   if (!url) throw new Error("url is required")
   new URL(withDefaultHttpsScheme(url))
   const dir = await requireCollectionRoot(collectionDir)
   const path = join(dir, `${id}.yml`)
   if (existsSync(path)) throw new Error(`request already exists: ${id}`)
-  await saveRequest(dir, {
-    id,
-    name: basename(id),
-    method,
-    url,
-    timeout: 30000,
-    headers: {},
-    params: [],
-  })
+  await saveRequest(
+    dir,
+    {
+      id,
+      name: basename(id),
+      method,
+      url,
+      timeout: 30000,
+      headers: {},
+      params: [],
+    },
+    { overwrite: false },
+  )
   return { id, path }
 }
 export async function requestRun(

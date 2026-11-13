@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { lang } from "../../src/lang"
 import { collection } from "../../src/app/commands/automation"
 import { responseFileNative } from "../../src/responseFileNative"
@@ -18,7 +18,7 @@ import { parseReport, reportCases } from "../unit/_junit"
 
 const command = process.env.NOODLE_TEST_BINARY
   ? [process.env.NOODLE_TEST_BINARY]
-  : [process.execPath, "src/app/cli.ts"]
+  : [process.execPath, resolve("src/app/cli.ts")]
 const secret = 'report-secret<&"-719284'
 let dir: string
 let server: ReturnType<typeof Bun.serve>
@@ -103,6 +103,7 @@ function start(args: string[]) {
   const child = Bun.spawn(
     [...command, "collection", "run", dir, "--env", "ci", "--noproxy", ...args],
     {
+      cwd: dir,
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
@@ -125,6 +126,37 @@ const flags = (format: (typeof formats)[number], output: string) =>
   format === "json"
     ? ["--json", "--output", output]
     : ["--reporter", "junit", "--output", output]
+
+it("rejects unknown options before scripts, HTTP or report preparation", async () => {
+  const report = join(dir, "report.json")
+  await save("a", {
+    method: "POST",
+    scripts: {
+      pre: `await noodle.sendRequest({ method: "GET", url: "http://127.0.0.1:${server.port}/pre" })`,
+    },
+  })
+  for (const option of ["--dry-run", "--dry-rnu=private-value"]) {
+    const result = await run(["a", "--json", "-o", report, option])
+    expect(result.code).toBe(2)
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: "error",
+      data: null,
+      errors: [`Unknown option: ${option.split("=")[0]}`],
+    })
+    expect(result.stderr).toBe("")
+    expect(hits).toEqual([])
+    expect(await Bun.file(report).exists()).toBe(false)
+  }
+  for (const option of ["--dry-run", "-?"]) {
+    const ambiguous = await run(["a", "--json=true", "-o", option])
+    expect(ambiguous.code).toBe(2)
+    expect(JSON.parse(ambiguous.stdout).data).toBeNull()
+    expect(hits).toEqual([])
+    expect(await Bun.file(join(dir, option)).exists()).toBe(false)
+  }
+  expect((await run(["--json", "--", "a"])).code).toBe(0)
+  expect(hits).toEqual(["/pre", "/a"])
+})
 
 it("retains JSON and human output compatibility when writing reports", async () => {
   const plainJson = await run(["--json"])

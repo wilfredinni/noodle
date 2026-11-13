@@ -390,6 +390,41 @@ describe("useCollectionFileActions", () => {
     },
   )
 
+  it("preserves the original file when a rename uses a reserved request name", async () => {
+    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
+    dirs.push(collectionDir)
+    const path = join(collectionDir, "get-user.yml")
+    const source = lang.serializeRequest(initialRequest)
+    await writeFile(path, source)
+    const finished = Promise.withResolvers<string>()
+    let edit!: (
+      name: string,
+      method: NoodleRequest["method"],
+      url: string,
+    ) => void
+    const render = await testRender(
+      <ActionsHarness
+        collectionDir={collectionDir}
+        selectedRequest={initialRequest}
+        onSaveReady={() => {}}
+        onMarkSaved={() => {}}
+        onEditReady={(handle) => (edit = handle)}
+        onEditSaved={() => finished.resolve("saved")}
+        onCreateFailed={finished.resolve}
+      />,
+      { width: 1, height: 1 },
+    )
+    await render.renderOnce()
+    await act(async () => {
+      edit("Settings", "GET", initialRequest.url)
+      expect(await finished.promise).toMatch(/reserved/i)
+    })
+    expect(await readFile(path, "utf8")).toBe(source)
+    expect(await Bun.file(join(collectionDir, "settings.yml")).exists()).toBe(
+      false,
+    )
+  })
+
   it("synchronizes renamed path params when saving an edited URL", async () => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
     dirs.push(collectionDir)
