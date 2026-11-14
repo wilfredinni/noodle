@@ -22,12 +22,13 @@ export function explicitExample(
 ): unknown {
   if (Object.hasOwn(object, "example")) return object.example
   if (isMapping(object.examples)) {
-    for (const entry of Object.values(object.examples)) {
+    const examples = Object.values(object.examples)
+    for (const entry of examples) {
       const example = resolve(entry)
       if (isMapping(example) && Object.hasOwn(example, "value"))
         return example.value
-      unavailable()
     }
+    if (examples.length) unavailable()
   }
   return undefined
 }

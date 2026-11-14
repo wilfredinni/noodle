@@ -59,6 +59,63 @@ describe("OpenAPI 3.1 request bodies", () => {
       expect(requestBody({ schema: { example } }).body).toBe(example)
   })
 
+  it("uses a later named example without warning when an earlier reference is unavailable", () => {
+    for (const value of [false, 0, "", null, { name: "Ada" }])
+      expect(
+        requestBody({
+          examples: {
+            unavailable: { $ref: "#/components/examples/missing" },
+            usable: { value },
+          },
+        }),
+      ).toEqual({ body: value, warnings: undefined })
+    const invalid = requestBody({
+      examples: {
+        missing: { $ref: "#/components/examples/missing" },
+        external: { externalValue: "./private-value" },
+      },
+      schema: { type: "string" },
+    })
+    expect(invalid.body).toBe("")
+    expect(invalid.warnings).toMatchObject([{ field: "requestBody" }])
+    expect(invalid.warnings).toHaveLength(1)
+    expect(requestBody({ examples: {}, schema: { type: "string" } })).toEqual({
+      body: "",
+      warnings: undefined,
+    })
+  })
+
+  it("uses later XML and parameter examples through the shared selector", () => {
+    const examples = {
+      missing: { $ref: "#/components/examples/missing" },
+      usable: { value: 0 },
+    }
+    const result = openApiImporter.import(
+      spec({
+        "/items": {
+          post: {
+            parameters: [{ name: "limit", in: "query", examples }],
+            requestBody: {
+              content: {
+                "application/xml": {
+                  examples: {
+                    ...examples,
+                    usable: { value: "<item/>" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(result.collection.items[0]?.data).toMatchObject({
+      body: "<item/>",
+      params: [{ name: "limit", value: "0" }],
+    })
+    expect(result.warnings).toBeUndefined()
+  })
+
   it("uses escaped JSON pointers and keeps sibling annotations local to each use", () => {
     const ref = { $ref: "#/components/schemas/A~1B~0C" }
     const schema = {
