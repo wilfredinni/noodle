@@ -5,6 +5,8 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { publishImportFiles } from "../../src/app/importFiles"
 import { saveRequest } from "../../src/filestore"
+import { formatImport } from "../../src/app/humanOutput"
+import { formatCollectionImportMessage } from "../../src/ui/collectionImport"
 
 describe("import — integration", () => {
   const tempDirs: string[] = []
@@ -25,6 +27,49 @@ describe("import — integration", () => {
     tempDirs.push(dir)
     return dir
   }
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "keeps a committed import successful when stage cleanup fails",
+    async () => {
+      const root = tempDir()
+      const stage = join(root, ".noodle-import-test")
+      await mkdir(stage)
+      await writeFile(join(root, "request.yml"), "original")
+      await writeFile(join(stage, "request.yml"), "imported")
+      try {
+        const warning = await publishImportFiles(
+          stage,
+          root,
+          ["request.yml"],
+          true,
+          async () => {
+            await writeFile(join(root, "settings.yml"), "committed")
+            await chmod(stage, 0o500)
+          },
+        )
+        expect(readFileSync(join(root, "request.yml"), "utf8")).toBe("imported")
+        expect(readFileSync(join(root, "settings.yml"), "utf8")).toBe(
+          "committed",
+        )
+        expect(warning).toMatchObject({
+          code: "import-cleanup-failed",
+          itemPath: [".noodle-import-test"],
+          field: "cleanup",
+        })
+        if (!warning) throw new Error("Expected a cleanup warning")
+        for (const message of [
+          formatImport({ path: root, name: "Test", warnings: [warning] }),
+          formatCollectionImportMessage([warning]),
+        ]) {
+          expect(message).toContain(".noodle-import-test")
+          expect(message).toContain("manually")
+          expect(message).not.toContain("script")
+        }
+      } finally {
+        await chmod(stage, 0o700)
+      }
+    },
+  )
 
   it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     "continues rollback when an installed file cannot be read for verification",

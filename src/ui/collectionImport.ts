@@ -26,7 +26,11 @@ export function formatCollectionImportMessage(
   warnings: CollectionImportResult["warnings"],
 ): string {
   if (!warnings?.length) return "Collection imported"
-  if (!warnings.every((warning) => warning.format !== "openapi"))
+  if (
+    !warnings.every(
+      (warning) => warning.code === "foreign-script-not-converted",
+    )
+  )
     return [
       `Imported with ${warnings.length} warning(s).`,
       ...warnings.map(formatImportWarning),

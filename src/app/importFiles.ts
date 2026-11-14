@@ -14,6 +14,7 @@ import {
   stat,
 } from "node:fs/promises"
 import { dirname, isAbsolute, join, relative, sep } from "node:path"
+import type { ImportCleanupWarning } from "../converters"
 
 async function contentHash(path: string): Promise<string> {
   return createHash("sha256")
@@ -31,7 +32,7 @@ export async function publishImportFiles(
   paths: string[],
   overwrite: boolean,
   finish: () => Promise<void>,
-): Promise<void> {
+): Promise<ImportCleanupWarning | undefined> {
   const changes: {
     target: string
     staged: string
@@ -129,5 +130,16 @@ export async function publishImportFiles(
     await rm(stage, { recursive: true, force: true })
     throw error
   }
-  await rm(stage, { recursive: true, force: true })
+  try {
+    await rm(stage, { recursive: true, force: true })
+  } catch {
+    return {
+      code: "import-cleanup-failed",
+      format: "import",
+      itemPath: [relative(root, stage)],
+      field: "cleanup",
+      message:
+        "Import completed. Remove this retained temporary directory manually.",
+    }
+  }
 }

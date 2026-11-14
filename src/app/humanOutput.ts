@@ -429,7 +429,9 @@ export function formatImport(data: {
     `  ${data.path}`,
     ...(data.warnings?.length
       ? [
-          data.warnings.some((warning) => warning.format === "openapi")
+          data.warnings.some(
+            (warning) => warning.code !== "foreign-script-not-converted",
+          )
             ? `  ${data.warnings.length} import warning(s)`
             : `  ${data.warnings.length} script warning(s); unconverted scripts were omitted`,
         ]

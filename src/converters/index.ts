@@ -22,10 +22,21 @@ export interface OpenApiImportWarning {
   message: string
 }
 
-export type ImportWarning = ScriptImportWarning | OpenApiImportWarning
+export interface ImportCleanupWarning {
+  code: "import-cleanup-failed"
+  format: "import"
+  itemPath: string[]
+  field: "cleanup"
+  message: string
+}
+
+export type ImportWarning =
+  | ScriptImportWarning
+  | OpenApiImportWarning
+  | ImportCleanupWarning
 
 export function formatImportWarning(warning: ImportWarning): string {
-  const field = warning.format === "openapi" ? warning.field : warning.phase
+  const field = "phase" in warning ? warning.phase : warning.field
   return `${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(field)}): ${warning.message}`
 }
 

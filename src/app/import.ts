@@ -433,13 +433,15 @@ export async function runImport(options: ImportOptions): Promise<{
     }
     if (stage) {
       publishing = true
-      await publishImportFiles(
+      const cleanupWarning = await publishImportFiles(
         stage,
         resolve(collDir),
         plannedPaths,
         overwrite,
         finish,
       )
+      if (cleanupWarning)
+        result.warnings = [...(result.warnings ?? []), cleanupWarning]
     } else await finish()
   } catch (e) {
     if (stage && !publishing) await rm(stage, { recursive: true, force: true })
