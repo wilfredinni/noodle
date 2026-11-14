@@ -1,4 +1,5 @@
 import { parseJsonOrYaml } from "../shared"
+import { isMapping } from "./refs"
 
 export function detectOpenApi(content: string): boolean {
   let doc: unknown
@@ -15,8 +16,9 @@ export function detectOpenApi(content: string): boolean {
   if (typeof version !== "string") return false
 
   return (
-    typeof root.paths === "object" &&
-    root.paths !== null &&
-    !Array.isArray(root.paths)
+    isMapping(root.paths) ||
+    (version.startsWith("3.1.") &&
+      root.paths === undefined &&
+      (isMapping(root.webhooks) || isMapping(root.components)))
   )
 }

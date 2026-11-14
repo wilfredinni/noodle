@@ -1,8 +1,12 @@
 import { describe, it, expect, afterEach } from "bun:test"
 import { mkdtempSync, readFileSync, existsSync } from "node:fs"
-import { writeFile, rm } from "node:fs/promises"
+import { writeFile, rm, mkdir, symlink, lstat, chmod } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
+import { publishImportFiles } from "../../src/app/importFiles"
+import { saveRequest } from "../../src/filestore"
+import { formatImport } from "../../src/app/humanOutput"
+import { formatCollectionImportMessage } from "../../src/ui/collectionImport"
 
 describe("import — integration", () => {
   const tempDirs: string[] = []
@@ -23,6 +27,210 @@ describe("import — integration", () => {
     tempDirs.push(dir)
     return dir
   }
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "keeps a committed import successful when stage cleanup fails",
+    async () => {
+      const root = tempDir()
+      const stage = join(root, ".noodle-import-test")
+      await mkdir(stage)
+      await writeFile(join(root, "request.yml"), "original")
+      await writeFile(join(stage, "request.yml"), "imported")
+      try {
+        const warning = await publishImportFiles(
+          stage,
+          root,
+          ["request.yml"],
+          true,
+          async () => {
+            await writeFile(join(root, "settings.yml"), "committed")
+            await chmod(stage, 0o500)
+          },
+        )
+        expect(readFileSync(join(root, "request.yml"), "utf8")).toBe("imported")
+        expect(readFileSync(join(root, "settings.yml"), "utf8")).toBe(
+          "committed",
+        )
+        expect(warning).toMatchObject({
+          code: "import-cleanup-failed",
+          itemPath: [".noodle-import-test"],
+          field: "cleanup",
+        })
+        if (!warning) throw new Error("Expected a cleanup warning")
+        for (const message of [
+          formatImport({ path: root, name: "Test", warnings: [warning] }),
+          formatCollectionImportMessage([warning]),
+        ]) {
+          expect(message).toContain(".noodle-import-test")
+          expect(message).toContain("manually")
+          expect(message).not.toContain("script")
+        }
+      } finally {
+        await chmod(stage, 0o700)
+      }
+    },
+  )
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "continues rollback when an installed file cannot be read for verification",
+    async () => {
+      const root = tempDir()
+      const stage = tempDir()
+      const paths = ["first.yml", "second.yml"]
+      for (const path of paths) {
+        await writeFile(join(root, path), "original " + path)
+        await writeFile(join(stage, path), "imported")
+      }
+      const second = join(root, "second.yml")
+      await chmod(second, 0o200)
+      const failure = new Error("settings failed")
+      const error = await publishImportFiles(
+        stage,
+        root,
+        paths,
+        true,
+        async () => {
+          throw failure
+        },
+      ).catch((error: unknown) => error)
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).cause).toBe(failure)
+      expect((error as Error).message).toContain("Backups retained")
+      expect(readFileSync(join(root, "first.yml"), "utf8")).toBe(
+        "original first.yml",
+      )
+      const backup = join(stage, ".original-2")
+      await chmod(second, 0o600)
+      await chmod(backup, 0o600)
+      expect(readFileSync(second, "utf8")).toBe("imported")
+      expect(readFileSync(backup, "utf8")).toBe("original second.yml")
+    },
+  )
+
+  it("preserves an in-place saved edit when a failed import rolls back", async () => {
+    const root = tempDir()
+    const stage = tempDir()
+    for (const path of ["first.yml", "second.yml"]) {
+      await writeFile(join(root, path), "original " + path)
+      await writeFile(join(stage, path), "imported")
+    }
+    let saved: string | undefined
+    await expect(
+      publishImportFiles(
+        stage,
+        root,
+        ["first.yml", "second.yml"],
+        true,
+        async () => {
+          const target = join(root, "second.yml")
+          const before = await lstat(target)
+          await saveRequest(root, {
+            id: "second",
+            name: "Saved edit",
+            method: "GET",
+            url: "https://example.test",
+            timeout: 0,
+            headers: {},
+            params: [],
+          })
+          expect((await lstat(target)).ino).toBe(before.ino)
+          saved = readFileSync(target, "utf8")
+          throw new Error("settings failed")
+        },
+      ),
+    ).rejects.toThrow("Backups retained")
+    expect(readFileSync(join(root, "second.yml"), "utf8")).toBe(saved!)
+    expect(readFileSync(join(root, "first.yml"), "utf8")).toBe(
+      "original first.yml",
+    )
+    expect(readFileSync(join(stage, ".original-2"), "utf8")).toBe(
+      "original second.yml",
+    )
+  })
+
+  it.each([false, true])(
+    "publishes through a confined folder alias (late failure: %s)",
+    async (fail) => {
+      const root = tempDir()
+      const stage = tempDir()
+      await mkdir(join(root, "storage"))
+      await symlink(
+        join(root, "storage"),
+        join(root, "alias"),
+        process.platform === "win32" ? "junction" : "dir",
+      )
+      await mkdir(join(stage, "alias"))
+      await writeFile(join(stage, "alias/request.yml"), "imported")
+      const publication = publishImportFiles(
+        stage,
+        root,
+        ["alias/request.yml"],
+        false,
+        async () => {
+          if (fail) throw new Error("settings failed")
+        },
+      )
+      if (fail) await expect(publication).rejects.toThrow("settings failed")
+      else await publication
+      expect((await lstat(join(root, "alias"))).isSymbolicLink()).toBe(true)
+      expect(existsSync(join(root, "storage/request.yml"))).toBe(!fail)
+    },
+  )
+
+  it("rejects a folder alias that escapes the collection during publication", async () => {
+    const root = tempDir()
+    const stage = tempDir()
+    const outside = tempDir()
+    await symlink(
+      outside,
+      join(root, "alias"),
+      process.platform === "win32" ? "junction" : "dir",
+    )
+    await mkdir(join(stage, "alias"))
+    await writeFile(join(stage, "alias/request.yml"), "imported")
+    await expect(
+      publishImportFiles(
+        stage,
+        root,
+        ["alias/request.yml"],
+        false,
+        async () => {},
+      ),
+    ).rejects.toThrow()
+    expect(existsSync(join(outside, "request.yml"))).toBe(false)
+  })
+
+  it.each([false, true])(
+    "rolls back earlier files after an installed target disappears (replaced: %s)",
+    async (replaced) => {
+      const root = tempDir()
+      const stage = tempDir()
+      const paths = ["first.yml", "second.yml"]
+      for (const path of paths) {
+        await writeFile(join(root, path), "original " + path)
+        await writeFile(join(stage, path), "imported")
+      }
+      const second = join(root, "second.yml")
+      await expect(
+        publishImportFiles(stage, root, paths, true, async () => {
+          await rm(second)
+          if (replaced) await writeFile(second, "concurrent")
+          throw new Error("settings failed")
+        }),
+      ).rejects.toThrow(replaced ? "Backups retained" : "settings failed")
+      expect(readFileSync(join(root, "first.yml"), "utf8")).toBe(
+        "original first.yml",
+      )
+      expect(readFileSync(second, "utf8")).toBe(
+        replaced ? "concurrent" : "original second.yml",
+      )
+      if (replaced)
+        expect(readFileSync(join(stage, ".original-2"), "utf8")).toBe(
+          "original second.yml",
+        )
+      else expect(existsSync(stage)).toBe(false)
+    },
+  )
 
   it("imports OpenAPI spec with tags and servers, writes .yml files + folder.yml + .env", async () => {
     const outDir = tempDir()

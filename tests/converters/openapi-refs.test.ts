@@ -1,5 +1,26 @@
 import { describe, it, expect } from "bun:test"
 import { parseSpec } from "../../src/converters/openapi/parse"
+import { localReferenceResolver } from "../../src/converters/openapi/refs"
+
+describe("OpenAPI 3.1 schema reference siblings", () => {
+  it("retains keywords from every wrapper alongside the referenced schema", () => {
+    const Base = { type: "string" }
+    const Middle = { $ref: "#/Base", format: "binary", minLength: 1 }
+    const outer = { $ref: "#/Middle", maxLength: 32 }
+    const resolve = localReferenceResolver({ Base, Middle })
+    expect(resolve(outer, true)).toMatchObject({
+      type: "string",
+      format: "binary",
+      minLength: 1,
+      maxLength: 32,
+      allOf: [Base, { maxLength: 32 }, { format: "binary", minLength: 1 }],
+    })
+    expect(resolve(outer, "template")).toEqual({
+      allOf: [Base, { maxLength: 32 }, { format: "binary", minLength: 1 }],
+    })
+    expect(resolve(outer)).toBe(Base)
+  })
+})
 
 describe("$ref resolution in parseSpec", () => {
   it("resolves a simple $ref to components/schemas", () => {

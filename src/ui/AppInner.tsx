@@ -90,7 +90,7 @@ import {
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { Header } from "./Header"
-import { showToast } from "./Toast"
+import { showToast, takeToastMessage } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 import type { FinderItem } from "./requestFinder"
@@ -1690,11 +1690,10 @@ export function AppInner({
           if (values.destination === "current") {
             await onEnvListChanged().catch(() => {})
             overlays.setImportCollectionVisible(false)
-            onReloadCollection()
-            showToast(
-              importMessage,
-              result.warnings?.length ? "warning" : "success",
-            )
+            setCollectionReloadToken((current) => current + 1)
+            if (result.warnings?.length)
+              overlays.setNotificationMessage(takeToastMessage(importMessage))
+            else showToast(importMessage, "success")
             return
           }
 
@@ -1710,7 +1709,7 @@ export function AppInner({
           }
           overlays.setImportCollectionVisible(false)
           if (result.warnings?.length)
-            overlays.setNotificationMessage(importMessage)
+            overlays.setNotificationMessage(takeToastMessage(importMessage))
           overlays.setImportOpenPending({
             path: result.path,
             name: result.name,
@@ -1728,7 +1727,6 @@ export function AppInner({
       hasUnsavedChanges,
       onCollectionImported,
       onEnvListChanged,
-      onReloadCollection,
       overlays.setImportCollectionPending,
       overlays.setImportCollectionVisible,
       overlays.setImportOpenPending,

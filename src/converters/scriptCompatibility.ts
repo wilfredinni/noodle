@@ -5,7 +5,7 @@ import {
   validateScriptSyntax,
   type ScriptPhase,
 } from "../preRequestScript"
-import type { ImportWarning } from "./index"
+import type { ScriptImportWarning } from "./index"
 
 // Deliberately narrower than QuickJS: no indirect global access or dynamic code.
 export const SCRIPT_IMPORT_GLOBALS = Object.freeze([
@@ -304,11 +304,11 @@ function analyzeScriptCompatibility(
 }
 
 export function unconvertedScriptWarning(
-  format: ImportWarning["format"],
+  format: ScriptImportWarning["format"],
   itemPath: string[],
   phase: string,
   analysis?: ScriptCompatibility,
-): ImportWarning {
+): ScriptImportWarning {
   return {
     code: "foreign-script-not-converted",
     format,

@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path"
 import type { ImportOptions } from "../app/import"
 import { expandUserPath } from "../userPath"
 import { truncateToWidth } from "./format"
+import { formatImportWarning } from "../converters"
 
 export type CollectionImportDestination = "new" | "current"
 
@@ -25,19 +26,27 @@ export function formatCollectionImportMessage(
   warnings: CollectionImportResult["warnings"],
 ): string {
   if (!warnings?.length) return "Collection imported"
+  if (
+    !warnings.every(
+      (warning) => warning.code === "foreign-script-not-converted",
+    )
+  )
+    return [
+      `Imported with ${warnings.length} warning(s).`,
+      ...warnings.map(formatImportWarning),
+    ].join("\n")
   const label = (value: string, width: number) =>
     truncateToWidth(JSON.stringify(value).slice(1, -1), width)
   return [
     `Imported with ${warnings.length} unconverted script(s).`,
-    ...warnings
-      .slice(0, 3)
-      .map(({ itemPath, phase, unsupportedGlobals, reason }) => {
-        const header = `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`
-        if (unsupportedGlobals?.length)
-          return `${header}\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}`
-        if (reason) return `${header}\n  ${label(reason, 60)}`
-        return header
-      }),
+    ...warnings.slice(0, 3).map((warning) => {
+      const { itemPath, phase, unsupportedGlobals, reason } = warning
+      const header = `${label(itemPath.join(" / "), 40)} (${label(phase, 20)})`
+      if (unsupportedGlobals?.length)
+        return `${header}\n  Unsupported: ${label(unsupportedGlobals.join(", "), 46)}`
+      if (reason) return `${header}\n  ${label(reason, 60)}`
+      return header
+    }),
     ...(warnings.length > 3 ? [`and ${warnings.length - 3} more`] : []),
     "Unconverted scripts were omitted. Review before sending.",
   ].join("\n")

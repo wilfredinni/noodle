@@ -8,7 +8,7 @@ import type {
   Request,
   ScriptFields,
 } from "../../schema"
-import type { ImportResult, ImportWarning } from "../index"
+import type { ImportResult, ScriptImportWarning } from "../index"
 import {
   scriptCompatibility,
   unconvertedScriptWarning,
@@ -330,7 +330,9 @@ function mapEnvironments(
   return envs
 }
 
-export async function mapExport(root: RawResource): Promise<ImportResult> {
+export async function mapExport(
+  root: RawResource,
+): Promise<ImportResult<ScriptImportWarning>> {
   const rawResources = root.resources
   if (
     !Array.isArray(rawResources) ||
@@ -341,7 +343,7 @@ export async function mapExport(root: RawResource): Promise<ImportResult> {
     )
   }
   const resources = rawResources as RawResource[]
-  const warnings: ImportWarning[] = []
+  const warnings: ScriptImportWarning[] = []
   const scriptFields = new Map<RawResource, ScriptFields>()
   const resourcesById = new Map(
     resources.map((resource) => [stringValue(resource._id), resource]),

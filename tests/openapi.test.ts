@@ -88,15 +88,22 @@ describe("parseSpec — string/object dispatch + validation", () => {
 
   it("throws on openapi 2.0", () => {
     expect(() => parseSpec({ openapi: "2.0", paths: {} } as object)).toThrow(
-      'converters.openapi.import: unsupported openapi version "2.0", expected 3.0.x',
+      'converters.openapi.import: unsupported openapi version "2.0", expected 3.0.x or 3.1.x',
     )
   })
 
-  it("throws on openapi 3.1.0", () => {
-    expect(() => parseSpec({ openapi: "3.1.0", paths: {} } as object)).toThrow(
-      'converters.openapi.import: unsupported openapi version "3.1.0", expected 3.0.x',
-    )
+  it.each(["3.1.0", "3.1.1", "3.1.12"])("accepts OpenAPI %s", (openapi) => {
+    expect(parseSpec({ openapi, paths: {} }).openapi).toBe(openapi)
   })
+
+  it.each(["3.10.0", "3.1foo", "3.1", "3.0oops", "3.2.0"])(
+    "rejects unsupported version %s",
+    (openapi) => {
+      expect(() => parseSpec({ openapi, paths: {} })).toThrow(
+        "unsupported openapi version",
+      )
+    },
+  )
 
   it("throws when paths is missing", () => {
     expect(() => parseSpec({ openapi: "3.0.0" } as object)).toThrow(

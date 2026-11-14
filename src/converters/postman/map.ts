@@ -20,7 +20,7 @@ import type {
   Request,
   ScriptFields,
 } from "../../schema"
-import type { ImportResult, ImportWarning } from "../index"
+import type { ImportResult, ScriptImportWarning } from "../index"
 import {
   scriptCompatibility,
   unconvertedScriptWarning,
@@ -466,7 +466,7 @@ async function mapEvents(
   item: Record<string, unknown>,
   path: string[],
   request: boolean,
-  warnings: ImportWarning[],
+  warnings: ScriptImportWarning[],
 ): Promise<ScriptFields> {
   const fields: ScriptFields = {}
   const events = Array.isArray(item.event) ? item.event : []
@@ -530,7 +530,7 @@ async function mapItems(
   parentPath: string,
   usedIds: Set<string>,
   parentNames: string[],
-  warnings: ImportWarning[],
+  warnings: ScriptImportWarning[],
 ): Promise<CollectionItem[]> {
   if (!items) return []
   const result: CollectionItem[] = []
@@ -588,10 +588,12 @@ async function mapItems(
   return result
 }
 
-export async function mapCollection(col: Collection): Promise<ImportResult> {
+export async function mapCollection(
+  col: Collection,
+): Promise<ImportResult<ScriptImportWarning>> {
   const name = col.name || "postman-import"
   const collectionId = slugify(name)
-  const warnings: ImportWarning[] = []
+  const warnings: ScriptImportWarning[] = []
   const fields = await mapEvents(col.toJSON(), [name], false, warnings)
   const rootItems = await mapItems(
     col.items,

@@ -1,6 +1,6 @@
 import type { Collection, Environment } from "../schema"
 
-export interface ImportWarning {
+export interface ScriptImportWarning {
   code: "foreign-script-not-converted"
   format: "postman" | "insomnia"
   itemPath: string[]
@@ -14,10 +14,36 @@ export interface ImportWarning {
     | "unsupported-placement"
 }
 
-export interface ImportResult {
+export interface OpenApiImportWarning {
+  code: "openapi-field-not-converted"
+  format: "openapi"
+  itemPath: string[]
+  field: string
+  message: string
+}
+
+export interface ImportCleanupWarning {
+  code: "import-cleanup-failed"
+  format: "import"
+  itemPath: string[]
+  field: "cleanup"
+  message: string
+}
+
+export type ImportWarning =
+  | ScriptImportWarning
+  | OpenApiImportWarning
+  | ImportCleanupWarning
+
+export function formatImportWarning(warning: ImportWarning): string {
+  const field = "phase" in warning ? warning.phase : warning.field
+  return `${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(field)}): ${warning.message}`
+}
+
+export interface ImportResult<W extends ImportWarning = ImportWarning> {
   collection: Collection
   environments: Environment[]
-  warnings?: ImportWarning[]
+  warnings?: W[]
 }
 
 export interface Importer {

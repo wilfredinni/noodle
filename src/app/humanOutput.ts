@@ -1,3 +1,4 @@
+import { formatImportWarning } from "../converters"
 import type {
   AuditIssue,
   CollectionInspectResult,
@@ -428,12 +429,15 @@ export function formatImport(data: {
     `  ${data.path}`,
     ...(data.warnings?.length
       ? [
-          `  ${data.warnings.length} script warning(s); unconverted scripts were omitted`,
+          data.warnings.some(
+            (warning) => warning.code !== "foreign-script-not-converted",
+          )
+            ? `  ${data.warnings.length} import warning(s)`
+            : `  ${data.warnings.length} script warning(s); unconverted scripts were omitted`,
         ]
       : []),
     ...(data.warnings ?? []).map(
-      (warning) =>
-        `  Warning: ${JSON.stringify(warning.itemPath.join(" / "))} (${JSON.stringify(warning.phase)}): ${warning.message}`,
+      (warning) => `  Warning: ${formatImportWarning(warning)}`,
     ),
     ...(data.formattedJsonBodies === undefined
       ? []

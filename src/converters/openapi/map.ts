@@ -9,7 +9,15 @@ import type {
   ParamEntry,
   Request,
 } from "../../schema"
-import type { ImportResult } from "../index"
+import type { ImportResult, OpenApiImportWarning } from "../index"
+import { isMapping } from "./refs"
+import {
+  explicitExample,
+  jsonBody31,
+  literalText,
+  type ResolveRef,
+  type Warn,
+} from "./schemaExample"
 import { slugify, METHOD_UPPER, setOwn } from "../shared"
 import {
   openApiPathTemplateToColon,
@@ -27,6 +35,8 @@ export interface Normalized {
   paths: Record<string, unknown>
   security?: unknown
   components?: { securitySchemes?: unknown }
+  resolveRef?: ResolveRef
+  webhooks?: unknown
 }
 
 const FALLBACK_ID = "openapi-import"
@@ -46,10 +56,6 @@ const METHOD_KEYS = [
   "head",
   "options",
 ] as const
-
-function isMapping(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v)
-}
 
 const SUPPORTED_MEDIA = [
   "application/json",
@@ -83,26 +89,54 @@ function pickMediaType(content: Record<string, unknown>): string | null {
   return null
 }
 
-function collectBody(op: Record<string, unknown>): {
+function collectBody(
+  op: Record<string, unknown>,
+  resolve?: ResolveRef,
+  warn?: Warn,
+): {
   body?: string
   bodyType?: Extract<BodyType, "json" | "xml" | "multipart" | "urlencoded">
   formData?: FormEntry[]
   contentType?: string
 } {
-  const rb = op.requestBody
-  if (!isMapping(rb)) return {}
+  const rb = resolve ? resolve(op.requestBody) : op.requestBody
+  if (!isMapping(rb)) {
+    if (op.requestBody !== undefined)
+      warn?.("requestBody", "The request body could not be resolved locally.")
+    return {}
+  }
 
   const content = rb.content
   if (!isMapping(content)) return {}
 
-  const mt = pickMediaType(content)
-  if (mt === null) return {}
+  const mt =
+    pickMediaType(content) ??
+    (resolve
+      ? Object.keys(content).find((key) => baseMediaType(key).endsWith("+json"))
+      : undefined)
+  if (!mt) {
+    warn?.("requestBody", "Unsupported media type. Add the body manually.")
+    return {}
+  }
 
   const mediaObj = content[mt]
   if (!isMapping(mediaObj)) return {}
 
-  const schema = mediaObj.schema
+  const schema = resolve ? resolve(mediaObj.schema, true) : mediaObj.schema
   const mediaType = baseMediaType(mt)
+  if (
+    resolve &&
+    warn &&
+    (mediaType === "application/json" || mediaType.endsWith("+json"))
+  ) {
+    return {
+      bodyType: "json",
+      body: jsonBody31(mediaObj, resolve, warn),
+      ...(mt !== "application/json" ? { contentType: mt } : {}),
+    }
+  }
+  if (resolve && schema === undefined && mediaObj.schema !== undefined)
+    warn?.("requestBody", "The body schema could not be resolved locally.")
   if (
     mediaObj[NOODLE_BODY_TYPE_EXTENSION] === "xml" ||
     mediaType === "application/xml" ||
@@ -114,8 +148,19 @@ function collectBody(op: Record<string, unknown>): {
           (entry) => isMapping(entry) && typeof entry.value === "string",
         )
       : undefined
-    const example =
-      typeof mediaObj.example === "string"
+    const example = resolve
+      ? (explicitExample(mediaObj, resolve, () =>
+          warn?.(
+            "requestBody",
+            "A body example could not be resolved locally.",
+          ),
+        ) ??
+        (isMapping(schema)
+          ? Array.isArray(schema.examples)
+            ? schema.examples[0]
+            : schema.example
+          : undefined))
+      : typeof mediaObj.example === "string"
         ? mediaObj.example
         : isMapping(exampleFromMap)
           ? exampleFromMap.value
@@ -123,7 +168,12 @@ function collectBody(op: Record<string, unknown>): {
             ? schema.example
             : undefined
     return {
-      body: typeof example === "string" ? example : "",
+      body:
+        typeof example === "string"
+          ? resolve
+            ? literalText(example)
+            : example
+          : "",
       bodyType: "xml",
       contentType: mt,
     }
@@ -151,6 +201,11 @@ function collectBody(op: Record<string, unknown>): {
     return { body: "{}", bodyType: "json" }
   }
 
+  if (resolve && schema.allOf) {
+    warn?.("requestBody", "Composed form schema requires manual configuration.")
+    return {}
+  }
+
   if (mediaType === "multipart/form-data") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
@@ -162,7 +217,13 @@ function collectBody(op: Record<string, unknown>): {
         fileFields.add(key)
       }
     }
-    for (const [key, prop] of Object.entries(props)) {
+    for (const [key, raw] of Object.entries(props)) {
+      const prop = resolve ? resolve(raw, true) : raw
+      if (resolve && prop === undefined)
+        warn?.(
+          "requestBody",
+          "A form field reference could not be resolved locally.",
+        )
       if (
         isMapping(prop) &&
         typeof prop.format === "string" &&
@@ -219,17 +280,61 @@ export function paramDefault(p: Record<string, unknown>): string | undefined {
 function collectParams(
   pathItemParams: unknown,
   opParams: unknown,
+  resolve?: ResolveRef,
+  warn?: Warn,
 ): { name: string; in: string; default?: string }[] {
   const list: { name: string; in: string; default?: string }[] = []
   const allowedIn = new Set(["path", "query", "header"])
-  const consider = (p: unknown) => {
-    if (!isMapping(p)) return
+  const consider = (raw: unknown) => {
+    const p = resolve ? resolve(raw) : raw
+    if (!isMapping(p)) {
+      warn?.("parameters", "A parameter could not be resolved locally.")
+      return
+    }
     const pName = p.name
     const inV = p.in
     if (typeof pName !== "string" || pName === "") return
     if (typeof inV !== "string") return
-    if (!allowedIn.has(inV)) return
-    list.push({ name: pName, in: inV, default: paramDefault(p) })
+    if (!allowedIn.has(inV)) {
+      warn?.(
+        "parameters",
+        "The parameter location is unsupported and was omitted.",
+      )
+      return
+    }
+    if (resolve) {
+      const schema = resolve(p.schema, true)
+      if (schema === undefined && p.schema !== undefined)
+        warn?.(
+          "parameters",
+          "A parameter schema could not be resolved locally.",
+        )
+      let value = explicitExample(p, resolve, () =>
+        warn?.(
+          "parameters",
+          "A parameter example could not be resolved locally.",
+        ),
+      )
+      if (value === undefined && isMapping(schema))
+        value =
+          Array.isArray(schema.examples) && schema.examples.length
+            ? schema.examples[0]
+            : Object.hasOwn(schema, "example")
+              ? schema.example
+              : schema.default
+      if (isMapping(value) || Array.isArray(value) || p.content !== undefined) {
+        warn?.(
+          "parameters",
+          "A structured parameter requires manual serialization.",
+        )
+        value = undefined
+      }
+      list.push({
+        name: pName,
+        in: inV,
+        default: value === undefined ? undefined : literalText(String(value)),
+      })
+    } else list.push({ name: pName, in: inV, default: paramDefault(p) })
   }
   if (Array.isArray(pathItemParams)) {
     for (const p of pathItemParams) consider(p)
@@ -248,7 +353,8 @@ function lookupScheme(
   if (!isMapping(comp)) return null
   const schemes = comp.securitySchemes
   if (!isMapping(schemes)) return null
-  const s = schemes[name]
+  if (!Object.hasOwn(schemes, name)) return null
+  const s = n.resolveRef ? n.resolveRef(schemes[name]) : schemes[name]
   return isMapping(s) ? s : null
 }
 
@@ -342,7 +448,7 @@ function schemeToAuth(
       scope: scopes.join(" "),
     }
   }
-  if (type === "apiKey") {
+  if (type === "apiKey" && scheme.in !== "cookie") {
     const name = typeof scheme.name === "string" ? scheme.name : "X-API-Key"
     const inV = scheme.in
     const placement = inV === "query" ? "query" : "header"
@@ -351,23 +457,55 @@ function schemeToAuth(
   return null
 }
 
-function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
+function resolveAuth(
+  op: Record<string, unknown>,
+  n: Normalized,
+  warn?: Warn,
+): Auth {
   const opSec = op.security
   const security = Array.isArray(opSec)
     ? opSec
     : Array.isArray(n.security)
       ? n.security
       : []
+  const problems = new Set<string>()
   for (const req of security) {
     if (!isMapping(req)) continue
     const entries = Object.entries(req)
+    if (warn && !entries.length) return { type: "none" }
+    if (warn && entries.length > 1) {
+      problems.add(
+        "Multiple simultaneous security schemes require manual configuration.",
+      )
+      continue
+    }
     for (const [schemeName, requiredScopes] of entries) {
       const scheme = lookupScheme(n, schemeName)
-      if (!scheme) continue
+      if (!scheme) {
+        problems.add("The security scheme could not be resolved locally.")
+        continue
+      }
+      if (
+        warn &&
+        scheme.type === "apiKey" &&
+        scheme.in !== "header" &&
+        scheme.in !== "query"
+      ) {
+        problems.add(
+          "API key location is unsupported. Configure cookie authentication manually.",
+        )
+        continue
+      }
       const auth = schemeToAuth(scheme, requiredScopes)
       if (auth !== null) return auth
+      problems.add(
+        scheme.type === "mutualTLS"
+          ? "Configure a client certificate for mutual TLS."
+          : "Configure this security scheme manually.",
+      )
     }
   }
+  for (const message of problems) warn?.("security", message)
   return { type: "none" }
 }
 
@@ -406,7 +544,8 @@ function splitPathQuery(pathTemplate: string): {
 
 export function baseUrl(n: Normalized): string {
   const servers = n.servers
-  if (!Array.isArray(servers) || servers.length === 0) return "/"
+  if (!Array.isArray(servers) || servers.length === 0)
+    return n.resolveRef ? "$base_url" : "/"
   const first = servers[0] as { url?: unknown } | null | undefined
   if (typeof first?.url !== "string" || first.url === "") return "/"
   const raw = first.url
@@ -445,12 +584,50 @@ export function mapCollection(n: Normalized): ImportResult {
   const name = collectionName(n)
   const id = slugify(name) || FALLBACK_ID
   const base = baseUrl(n)
+  const resolve = n.resolveRef
+  const warnings: OpenApiImportWarning[] = []
+  function warningsFor(item: string): Warn | undefined {
+    if (!resolve) return undefined
+    const seen = new Set<string>()
+    return (field, message) => {
+      const key = field + ":" + message
+      if (seen.has(key)) return
+      seen.add(key)
+      warnings.push({
+        code: "openapi-field-not-converted",
+        format: "openapi",
+        itemPath: [item],
+        field,
+        message,
+      })
+    }
+  }
+  if (isMapping(n.webhooks) && Object.keys(n.webhooks).length)
+    warningsFor("document")?.(
+      "webhooks",
+      "Webhooks describe incoming calls and were omitted.",
+    )
 
   const requests: Request[] = []
   const seenIds = new Map<string, number>()
   const tagsByRequest = new Map<Request, string[]>()
 
-  for (const [pathTemplate, pathItem] of Object.entries(n.paths)) {
+  for (const [pathTemplate, rawItem] of Object.entries(n.paths)) {
+    const pathLabel = pathTemplate.split("?", 1)[0]!
+    if (resolve && !pathTemplate.startsWith("/")) {
+      if (!pathTemplate.startsWith("x-"))
+        warningsFor(pathLabel)?.(
+          "path",
+          "Path key must start with '/' and was omitted.",
+        )
+      continue
+    }
+    const pathItem = resolve ? resolve(rawItem) : rawItem
+    if (resolve && !isMapping(pathItem))
+      warningsFor(pathLabel)?.(
+        "path",
+        "Path item could not be resolved locally.",
+      )
     if (
       typeof pathItem !== "object" ||
       pathItem === null ||
@@ -458,6 +635,11 @@ export function mapCollection(n: Normalized): ImportResult {
     )
       continue
     const pi = pathItem as Record<string, unknown>
+    if (Object.hasOwn(pi, "trace"))
+      warningsFor(`TRACE ${pathLabel}`)?.(
+        "method",
+        "TRACE is unsupported and was omitted.",
+      )
     for (const methodKey of METHOD_KEYS) {
       if (!(methodKey in pi)) continue
       const opVal = pi[methodKey]
@@ -466,6 +648,17 @@ export function mapCollection(n: Normalized): ImportResult {
       const op = opVal as Record<string, unknown>
 
       const method = METHOD_UPPER[methodKey]
+      const warn = warningsFor(`${method} ${pathLabel}`)
+      if (op.servers !== undefined || pi.servers !== undefined)
+        warn?.(
+          "servers",
+          "Server override was omitted. Review this request's base URL.",
+        )
+      if (isMapping(op.callbacks) && Object.keys(op.callbacks).length)
+        warn?.(
+          "callbacks",
+          "Callbacks describe incoming calls and were omitted.",
+        )
       const { path, params: inlineParams } = splitPathQuery(pathTemplate)
       const url = joinUrl(base, pathTemplateToColon(path))
       const reqName = makeName(op, methodKey, pathTemplate)
@@ -475,8 +668,13 @@ export function mapCollection(n: Normalized): ImportResult {
       seenIds.set(rawId, count + 1)
       const reqId = count === 0 ? rawId : `${rawId}-${count + 1}`
 
-      const collected = collectParams(pi.parameters, op.parameters)
-      const headers: Record<string, KvEntry> = {}
+      const collected = collectParams(
+        pi.parameters,
+        op.parameters,
+        resolve,
+        warn,
+      )
+      const headers: Record<string, KvEntry> = Object.create(null)
       const params = [...inlineParams]
       URL_PATH_TOKEN_RE.lastIndex = 0
       const pathTokenNames = Array.from(
@@ -515,7 +713,7 @@ export function mapCollection(n: Normalized): ImportResult {
         }
       }
 
-      const { contentType, ...body } = collectBody(op)
+      const { contentType, ...body } = collectBody(op, resolve, warn)
       if (
         contentType &&
         !Object.keys(headers).some(
@@ -535,7 +733,7 @@ export function mapCollection(n: Normalized): ImportResult {
         params,
         pathParams: pathParams.length > 0 ? pathParams : undefined,
         ...body,
-        auth: resolveAuth(op, n),
+        auth: resolveAuth(op, n, warn),
       }
       requests.push(req)
       tagsByRequest.set(req, tags)
@@ -644,6 +842,12 @@ export function mapCollection(n: Normalized): ImportResult {
 
   const environments: Environment[] = []
   const servers = n.servers
+  if (resolve && (!Array.isArray(servers) || !servers.length)) {
+    environments.push({
+      name: "default",
+      vars: Object.fromEntries([...envVarsFound].map((key) => [key, ""])),
+    })
+  }
   if (Array.isArray(servers) && servers.length > 0) {
     for (let i = 0; i < servers.length; i++) {
       const server = servers[i] as Record<string, unknown> | null | undefined
@@ -687,5 +891,6 @@ export function mapCollection(n: Normalized): ImportResult {
   return {
     collection: { id, name, items: rootItems },
     environments,
+    ...(warnings.length ? { warnings } : {}),
   }
 }
