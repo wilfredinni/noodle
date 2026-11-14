@@ -505,6 +505,42 @@ describe("OpenAPI 3.1 request bodies", () => {
 })
 
 describe("OpenAPI 3.1 operations", () => {
+  it("warns for invalid path keys while allowing specification extensions", () => {
+    const result = openApiImporter.import(
+      spec({
+        "orders?token=private-value": { get: {} },
+        "": { post: {} },
+        "x-metadata": { get: { description: "private-value" } },
+        "/orders": { get: {} },
+      }),
+    )
+    expect(result.collection.items).toMatchObject([
+      { type: "request", data: { url: "$base_url/orders" } },
+    ])
+    expect(result.collection.items).toHaveLength(1)
+    expect(result.warnings).toMatchObject([
+      {
+        field: "path",
+        itemPath: ["orders"],
+      },
+      {
+        field: "path",
+        itemPath: [""],
+      },
+    ])
+    expect(result.warnings).toHaveLength(2)
+    expect(JSON.stringify(result.warnings)).not.toContain("private-value")
+    for (const message of [
+      formatCollectionImportMessage(result.warnings),
+      formatImport({
+        path: "inventory",
+        name: "Inventory",
+        warnings: result.warnings,
+      }),
+    ])
+      expect(message).toContain("must start with '/'")
+  })
+
   it("resolves reusable path items, bodies and parameters in YAML without servers", () => {
     const result = openApiImporter.import(`openapi: 3.1.0
 paths:

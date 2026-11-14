@@ -613,9 +613,16 @@ export function mapCollection(n: Normalized): ImportResult {
   const tagsByRequest = new Map<Request, string[]>()
 
   for (const [pathTemplate, rawItem] of Object.entries(n.paths)) {
-    if (resolve && !pathTemplate.startsWith("/")) continue
-    const pathItem = resolve ? resolve(rawItem) : rawItem
     const pathLabel = pathTemplate.split("?", 1)[0]!
+    if (resolve && !pathTemplate.startsWith("/")) {
+      if (!pathTemplate.startsWith("x-"))
+        warningsFor(pathLabel)?.(
+          "path",
+          "Path key must start with '/' and was omitted.",
+        )
+      continue
+    }
+    const pathItem = resolve ? resolve(rawItem) : rawItem
     if (resolve && !isMapping(pathItem))
       warningsFor(pathLabel)?.(
         "path",
